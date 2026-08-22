@@ -1,0 +1,33 @@
+name: Frontend CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+    # Chỉ kích hoạt nếu có thay đổi trong thư mục frontend
+    paths:
+      - 'frontend/**' 
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    # Chỉ định chạy các lệnh trong thư mục frontend
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+    - name: Checkout mã nguồn
+      uses: actions/checkout@v3
+
+    - name: Cài đặt Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+
+    - name: Cài đặt Dependencies
+      run: npm install
+
+    # Với React, bước build rất quan trọng. Nếu code lỗi, bước build này sẽ báo đỏ.
+    - name: Kiểm tra Build dự án React
+      run: npm run build
