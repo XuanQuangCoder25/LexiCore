@@ -1,0 +1,3 @@
+Github tự động nhận diện CI/CD pipeline thông qua 2 file frontend-ci.yml và backend-ci.yml trong thư mục workflow trong thư mục .github. Chỉ khi nào backend có thay đổi thì mới chạy CI của backend, frontend cũng vậy
+    - CI: Mỗi khi push code lên github, github sẽ tự động Test. Nếu code chạy tốt (xanh), code được chấp nhận, nếu bị lỗi (đỏ) sẽ cảnh báo
+    - CD: Nếu CI ở màu xanh, CD sẽ tự động mang đoạn code đó đưa thẳng lên máy chủ (Server)
