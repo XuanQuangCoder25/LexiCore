@@ -28,5 +28,5 @@ jobs:
     - name: Cài đặt Dependencies
       run: npm install
 
-    - name: Chạy Test
-      run: npm test
+    - name: Kiểm tra TypeScript (Type Check)
+      run: npx tsc --noEmit

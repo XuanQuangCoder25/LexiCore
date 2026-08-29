@@ -12,3 +12,6 @@ Dự án áp dụng tự động hóa thông qua GitHub Actions. Hệ thống t�
 *   **CD (Continuous Deployment - Triển khai liên tục):** 
     *   Chỉ khi bước CI báo trạng thái xanh, quá trình CD mới được kích hoạt.
     *   CD sẽ tự động mang đoạn code đạt chuẩn đưa thẳng lên máy chủ (Server) thật.
+
+
+MySQL: 6 tables ban đầu (2 tables cho AUTH và 4 tables cho GAMIFICATION)
