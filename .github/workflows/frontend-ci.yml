@@ -25,9 +25,14 @@ jobs:
       with:
         node-version: '18.x'
 
+    - name: Cài đặt pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
     - name: Cài đặt Dependencies
-      run: npm install
+      run: pnpm install
 
     # Với React, bước build rất quan trọng. Nếu code lỗi, bước build này sẽ báo đỏ.
     - name: Kiểm tra Build dự án React
-      run: npm run build
+      run: pnpm run build
