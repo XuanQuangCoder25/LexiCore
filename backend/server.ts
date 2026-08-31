@@ -1,29 +1,28 @@
-import 'dotenv/config'; // Load biến môi trường ngay lập tức ở dòng đầu tiên
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { connectMongoDB } from './config/mongo';
 import { connectMySQL } from './config/mysql';
-
+import authRoute from './modules/auth/auth-route';
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Cấu hình Middleware
 app.use(cors());
-app.use(express.json()); // Để server hiểu được data định dạng JSON gửi lên
+app.use(express.json());
 
-// Hàm thiết lập kết nối đến tất cả Database
 const initializeDatabases = async () => {
     console.log('Đang thiết lập kết nối Databases...');
     await connectMongoDB();
     await connectMySQL();
 };
 
-// Hàm khởi động Server
 const startServer = async () => {
     try {
-        // Phải đợi kết nối DB thành công thì mới mở port cho server chạy
         await initializeDatabases();
+
+        // Gắn các Route
+        app.use('/api/auth', authRoute);
 
         // Route test thử
         app.get('/', (req, res) => {
@@ -35,9 +34,8 @@ const startServer = async () => {
         });
     } catch (error) {
         console.error('Không thể khởi động server do lỗi database:', error);
-        process.exit(1); // Dừng tiến trình nếu lỗi
+        process.exit(1);
     }
 };
 
-// Gọi hàm chạy server
 startServer();
