@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Progress } from "../ui/progress";
 import { Badge } from "../ui/badge";
@@ -13,16 +14,6 @@ import {
   Play,
   Brain,
 } from "lucide-react";
-
-const forgettingCurveData = [
-  { day: "Mon", retention: 100, withReview: 100 },
-  { day: "Tue", retention: 72, withReview: 94 },
-  { day: "Wed", retention: 53, withReview: 97 },
-  { day: "Thu", retention: 38, withReview: 91 },
-  { day: "Fri", retention: 28, withReview: 96 },
-  { day: "Sat", retention: 21, withReview: 93 },
-  { day: "Sun", retention: 15, withReview: 98 },
-];
 
 interface RetentionPoint { day: string; retention: number; withReview: number }
 
@@ -62,6 +53,38 @@ function RetentionChart({ data }: { data: RetentionPoint[] }) {
 }
 
 export function DashboardView() {
+  const [stats, setStats] = useState({
+    lessonsCompleted: 0,
+    durationHours: 0,
+    wordsLearned: 0,
+    level: "N/A"
+  });
+  
+  const [retentionData, setRetentionData] = useState<RetentionPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const statsRes = await fetch("http://localhost:5000/api/v1/dashboard/stats");
+        const statsData = await statsRes.json();
+        setStats(statsData);
+
+        const retRes = await fetch("http://localhost:5000/api/v1/dashboard/retention");
+        const retData = await retRes.json();
+        setRetentionData(retData);
+      } catch (error) {
+        console.error("Lỗi khi tải dữ liệu dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) return <div className="flex h-64 items-center justify-center">Đang tải dữ liệu...</div>;
+
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
@@ -80,7 +103,7 @@ export function DashboardView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Lessons Completed</p>
-                <p className="text-2xl font-bold">47</p>
+                <p className="text-2xl font-bold">{stats.lessonsCompleted}</p>
               </div>
               <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -92,7 +115,7 @@ export function DashboardView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Study Time</p>
-                <p className="text-2xl font-bold">12h</p>
+                <p className="text-2xl font-bold">{stats.durationHours}h</p>
               </div>
               <Clock className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -104,7 +127,7 @@ export function DashboardView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Words Learned</p>
-                <p className="text-2xl font-bold">1,247</p>
+                <p className="text-2xl font-bold">{stats.wordsLearned.toLocaleString()}</p>
               </div>
               <Target className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -116,7 +139,7 @@ export function DashboardView() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Current Level</p>
-                <p className="text-2xl font-bold">B2</p>
+                <p className="text-2xl font-bold">{stats.level}</p>
               </div>
               <TrendingUp className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -264,7 +287,7 @@ export function DashboardView() {
               <span className="text-muted-foreground">With SRS review (your retention)</span>
             </div>
           </div>
-          <RetentionChart data={forgettingCurveData} />
+          <RetentionChart data={retentionData} />
           <p className="text-xs text-muted-foreground mt-3 text-center">
             SRS reviews keep your retention above 90%. The dashed line shows natural forgetting without review. Next batch: <span className="font-medium text-foreground">50 cards due today</span>
           </p>

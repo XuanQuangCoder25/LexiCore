@@ -3,7 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import { connectMongoDB } from './config/mongo';
 import { connectMySQL } from './config/mysql';
-
+import dashboardRoutes from './modules/dashboard/dashboard.route';
+import srsRoutes from './modules/srs/srs.route';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -12,11 +13,16 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json()); // Để server hiểu được data định dạng JSON gửi lên
 
+// Đăng ký các Routes
+app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/srs', srsRoutes);
+
 // Hàm thiết lập kết nối đến tất cả Database
 const initializeDatabases = async () => {
     console.log('Đang thiết lập kết nối Databases...');
     await connectMongoDB();
-    await connectMySQL();
+    // Tạm tắt MySQL để test MongoDB (Sprint 2)
+    // await connectMySQL();
 };
 
 // Hàm khởi động Server
