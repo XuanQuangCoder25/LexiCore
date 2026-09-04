@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
-import { createUserWithWallet, findUserByEmail, saveOtp } from './auth-repository';
+import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, activateUser } from './auth-repository';
 import { AppError } from '../../errors/AppError';
 
 export const registerUser = async (userData: any) => {
@@ -23,8 +23,14 @@ export const registerUser = async (userData: any) => {
 
     await createUserWithWallet(newUserData);
 
+    // Sinh OTP và lưu vào Redis (TTL 15 phút)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await saveOtp(userData.email, otp, 'REGISTER');
+    // TODO: Gửi OTP qua email (sẽ tích hợp Mailer sau)
+    console.log(`[DEV MODE] OTP xác thực cho ${userData.email}: ${otp}`);
+
     return {
-        message: "Đăng ký thành công",
+        message: "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực.",
         userId: id
     };
 };
@@ -72,4 +78,19 @@ export const loginUser = async (userData: any) => {
             role: user.role
         }
     };
+};
+
+export const verifyEmail = async (data: any) => {
+    if (!data.email || !data.otp_code) {
+        throw new AppError('Vui lòng cung cấp email và mã OTP', 400);
+    }
+
+    const isValid = await verifyAndDeleteOtp(data.email, data.otp_code, 'REGISTER');
+    if (!isValid) {
+        throw new AppError('Mã OTP không hợp lệ hoặc đã hết hạn', 400);
+    }
+
+    await activateUser(data.email);
+
+    return { message: 'Xác thực email thành công! Tài khoản của bạn đã được kích hoạt.' };
 };
