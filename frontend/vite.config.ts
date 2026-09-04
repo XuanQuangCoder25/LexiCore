@@ -1,16 +1,17 @@
 import { defineConfig } from 'vite'
-import path from 'path'
+import { fileURLToPath } from 'url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 function figmaAssetResolver() {
   return {
     name: 'figma-asset-resolver',
-    resolveId(id) {
+    resolveId(id: string) {
       if (id.startsWith('figma:asset/')) {
         const filename = id.replace('figma:asset/', '')
-        return path.resolve(__dirname, 'src/assets', filename)
+        return `${__dirname}src/assets/${filename}`
       }
     },
   }
@@ -26,7 +27,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src/app'),
+      '@': `${__dirname}src/app`,
       // framer-motion đã đổi tên thành motion từ v11. Alias này giúp code cũ dùng
       // import từ 'framer-motion' vẫn hoạt động mà không cần sửa từng file
       'framer-motion': 'motion',
