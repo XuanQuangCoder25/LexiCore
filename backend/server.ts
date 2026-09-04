@@ -6,6 +6,8 @@ import { connectMySQL } from './config/mysql';
 import './config/redis';
 import authRoute from './modules/auth/auth-route';
 import { globalErrorHandler } from './middlewares/errorHandler';
+import dashboardRoutes from './modules/dashboard/dashboard.route';
+import srsRoutes from './modules/srs/srs.route';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -13,19 +15,26 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Đăng ký các Routes (từ đồng đội)
+app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/srs', srsRoutes);
+
+// Hàm thiết lập kết nối đến tất cả Database
 const initializeDatabases = async () => {
     console.log('Đang thiết lập kết nối Databases...');
     await connectMongoDB();
-    await connectMySQL();
+    // Tạm tắt MySQL để test MongoDB (Sprint 2)
+    // await connectMySQL();
 };
 
 const startServer = async () => {
     try {
         await initializeDatabases();
 
-        // Gắn các Route
+        // Gắn các Route Auth
         app.use('/api/auth', authRoute);
 
+        // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);
 
         // Route test thử
