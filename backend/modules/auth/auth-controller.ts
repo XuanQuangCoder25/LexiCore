@@ -1,15 +1,24 @@
-import { Request, Response } from 'express';
-import { registerUser } from './auth-service';
+import { Request, Response, NextFunction } from 'express';
+import { registerUser, loginUser } from './auth-service';
+import { AppError } from '../../errors/AppError';
 
-export const register = async (req: Request, res: Response): Promise<void> => {
+export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const result = await registerUser(req.body);
         res.status(201).json(result);
     } catch (error: any) {
         if (error.code === 'ER_DUP_ENTRY') {
-            res.status(400).json({ error: "Email này đã được sử dụng" });
-            return;
+            return next(new AppError('Email này đã được sử dụng', 400));
         }
-        res.status(500).json({ error: error.message || "Lỗi máy chủ nội bộ" });
+        next(error);
+    }
+};
+
+export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const result = await loginUser(req.body);
+        res.status(200).json(result);
+    } catch (error) {
+        next(error);
     }
 };

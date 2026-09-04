@@ -3,7 +3,9 @@ import express from 'express';
 import cors from 'cors';
 import { connectMongoDB } from './config/mongo';
 import { connectMySQL } from './config/mysql';
+import './config/redis';
 import authRoute from './modules/auth/auth-route';
+import { globalErrorHandler } from './middlewares/errorHandler';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -23,6 +25,8 @@ const startServer = async () => {
 
         // Gắn các Route
         app.use('/api/auth', authRoute);
+
+        app.use(globalErrorHandler);
 
         // Route test thử
         app.get('/', (req, res) => {

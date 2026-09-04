@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { register } from './auth-controller';
+import { register, login } from './auth-controller';
 
 const router = Router();
 
-// Định nghĩa API Endpoint: POST /api/auth/register
 router.post('/register', register);
+router.post('/login', login);
 
 export default router;
