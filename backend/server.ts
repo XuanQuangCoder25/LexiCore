@@ -15,7 +15,7 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Đăng ký các Routes (từ đồng đội)
+// Đăng ký các Routes
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/srs', srsRoutes);
 
@@ -23,8 +23,7 @@ app.use('/api/v1/srs', srsRoutes);
 const initializeDatabases = async () => {
     console.log('Đang thiết lập kết nối Databases...');
     await connectMongoDB();
-    // Tạm tắt MySQL để test MongoDB (Sprint 2)
-    // await connectMySQL();
+    await connectMySQL();
 };
 
 const startServer = async () => {

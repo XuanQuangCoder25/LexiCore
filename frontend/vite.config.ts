@@ -27,6 +27,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src/app'),
+      // framer-motion đã đổi tên thành motion từ v11. Alias này giúp code cũ dùng
+      // import từ 'framer-motion' vẫn hoạt động mà không cần sửa từng file
+      'framer-motion': 'motion',
     },
   },
 })
