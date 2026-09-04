@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
-import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, activateUser } from './auth-repository';
+import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, activateUser, findUserById, updatePassword } from './auth-repository';
 import { AppError } from '../../errors/AppError';
 
 export const registerUser = async (userData: any) => {
@@ -93,4 +93,45 @@ export const verifyEmail = async (data: any) => {
     await activateUser(data.email);
 
     return { message: 'Xác thực email thành công! Tài khoản của bạn đã được kích hoạt.' };
+};
+
+export const getMe = async (userId: string) => {
+    const user = await findUserById(userId);
+    if (!user) {
+        throw new AppError('Không tìm thấy người dùng', 404);
+    }
+    return user;
+};
+
+export const forgotPassword = async (data: any) => {
+    if (!data.email) {
+        throw new AppError('Vui lòng nhập email', 400);
+    }
+
+    const user = await findUserByEmail(data.email);
+    if (user) {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        await saveOtp(data.email, otp, 'FORGOT_PASSWORD');
+        // TODO: Gửi OTP qua email (sẽ tích hợp Mailer sau)
+        console.log(`[DEV MODE] OTP reset mật khẩu cho ${data.email}: ${otp}`);
+    }
+
+    return { message: 'Nếu email tồn tại trong hệ thống, mã OTP sẽ được gửi đến hộp thư của bạn.' };
+};
+
+export const resetPassword = async (data: any) => {
+    if (!data.email || !data.otp_code || !data.new_password) {
+        throw new AppError('Vui lòng cung cấp đầy đủ thông tin', 400);
+    }
+
+    const isValid = await verifyAndDeleteOtp(data.email, data.otp_code, 'FORGOT_PASSWORD');
+    if (!isValid) {
+        throw new AppError('Mã OTP không hợp lệ hoặc đã hết hạn', 400);
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(data.new_password, salt);
+    await updatePassword(data.email, password_hash);
+
+    return { message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.' };
 };
