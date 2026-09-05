@@ -14,7 +14,7 @@ createRoot(document.getElementById("root")!).render(
       {/* Route Dashboard */}
       <Route path="/" element={<App />} />
 
-      {/* Các Route dành cho Auth (Không cần đăng nhập) */}
+      {/* Các Route dành cho Auth */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
