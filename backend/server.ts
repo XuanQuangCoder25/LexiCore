@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { connectMongoDB } from './config/mongo';
 import { connectMySQL } from './config/mysql';
 import './config/redis';
@@ -12,7 +13,11 @@ import srsRoutes from './modules/srs/srs.route';
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true
+}));
+app.use(cookieParser());
 app.use(express.json());
 
 // Đăng ký các Routes

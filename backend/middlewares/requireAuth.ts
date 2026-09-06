@@ -11,11 +11,10 @@ declare global {
 }
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Lấy phần token từ "Bearer <token>"
+    const token = req.cookies?.token;
 
     if (!token) {
-        res.status(401).json({ error: 'Truy cập bị từ chối. Vui lòng đăng nhập.' });
+        res.status(401).json({ status: 'error', message: 'Truy cập bị từ chối. Vui lòng đăng nhập.' });
         return;
     }
 
@@ -24,6 +23,6 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
         req.user = decoded;
         next();
     } catch {
-        res.status(401).json({ error: 'Token không hợp lệ hoặc đã hết hạn.' });
+        res.status(401).json({ status: 'error', message: 'Token không hợp lệ hoặc đã hết hạn.' });
     }
 };

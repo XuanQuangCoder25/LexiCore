@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, activateUser, findUserById, updatePassword } from './auth-repository';
 import { AppError } from '../../errors/AppError';
+import { sendOtpEmail } from '../../utils/mailer';
 
 export const registerUser = async (userData: any) => {
     if (!userData.email || !userData.password || !userData.full_name) {
@@ -23,11 +24,10 @@ export const registerUser = async (userData: any) => {
 
     await createUserWithWallet(newUserData);
 
-    // Sinh OTP và lưu vào Redis (TTL 15 phút)
+    // Sinh OTP và lưu vào Redis (TTL 5 phút)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await saveOtp(userData.email, otp, 'REGISTER');
-    // TODO: Gửi OTP qua email (sẽ tích hợp Mailer sau)
-    console.log(`[DEV MODE] OTP xác thực cho ${userData.email}: ${otp}`);
+    await sendOtpEmail(userData.email, otp);
 
     return {
         message: "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực.",
@@ -57,8 +57,7 @@ export const loginUser = async (userData: any) => {
     if (user.status === 'PENDING') {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await saveOtp(user.email, otp, 'REGISTER');
-        // TODO: Gửi OTP qua email (sẽ tích hợp Mailer sau)
-        console.log(`[DEV MODE] OTP xác thực cho ${user.email}: ${otp}`);
+        await sendOtpEmail(user.email, otp);
         throw new AppError('Tài khoản chưa được xác thực. Mã OTP mới đã được gửi tới email của bạn.', 403);
     }
 
@@ -68,6 +67,7 @@ export const loginUser = async (userData: any) => {
         { expiresIn: '7d' }
     );
 
+    // Trả về token để controller set vào HttpOnly Cookie
     return {
         message: 'Đăng nhập thành công',
         token,
@@ -112,8 +112,7 @@ export const forgotPassword = async (data: any) => {
     if (user) {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await saveOtp(data.email, otp, 'FORGOT_PASSWORD');
-        // TODO: Gửi OTP qua email (sẽ tích hợp Mailer sau)
-        console.log(`[DEV MODE] OTP reset mật khẩu cho ${data.email}: ${otp}`);
+        await sendOtpEmail(data.email, otp);
     }
 
     return { message: 'Nếu email tồn tại trong hệ thống, mã OTP sẽ được gửi đến hộp thư của bạn.' };
@@ -134,4 +133,29 @@ export const resetPassword = async (data: any) => {
     await updatePassword(data.email, password_hash);
 
     return { message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.' };
+};
+
+export const resendOtp = async (data: { email: string; mode: 'REGISTER' | 'FORGOT_PASSWORD' }) => {
+    if (!data.email || !data.mode) {
+        throw new AppError('Vui lòng cung cấp email và mode', 400);
+    }
+
+    if (data.mode === 'REGISTER') {
+        const user = await findUserByEmail(data.email);
+        if (!user || user.status !== 'PENDING') {
+            return { message: 'Nếu tài khoản tồn tại và chưa xác thực, mã OTP mới đã được gửi.' };
+        }
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        await saveOtp(data.email, otp, 'REGISTER');
+        await sendOtpEmail(data.email, otp);
+    } else {
+        const user = await findUserByEmail(data.email);
+        if (user) {
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            await saveOtp(data.email, otp, 'FORGOT_PASSWORD');
+            await sendOtpEmail(data.email, otp);
+        }
+    }
+
+    return { message: 'Nếu thông tin hợp lệ, mã OTP mới đã được gửi đến email của bạn.' };
 };

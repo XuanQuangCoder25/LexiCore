@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser, verifyEmail, getMe, forgotPassword, resetPassword } from './auth-service';
+import { registerUser, loginUser, verifyEmail, getMe, forgotPassword, resetPassword, resendOtp } from './auth-service';
 import { AppError } from '../../errors/AppError';
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -17,7 +17,18 @@ export const register = async (req: Request, res: Response, next: NextFunction):
 export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const result = await loginUser(req.body);
-        res.status(200).json(result);
+
+        res.cookie('token', result.token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.status(200).json({
+            message: result.message,
+            user: result.user
+        });
     } catch (error) {
         next(error);
     }
@@ -54,6 +65,15 @@ export const forgotPasswordHandler = async (req: Request, res: Response, next: N
 export const resetPasswordHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const result = await resetPassword(req.body);
+        res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const resendOtpHandler = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const result = await resendOtp(req.body);
         res.status(200).json(result);
     } catch (error) {
         next(error);
