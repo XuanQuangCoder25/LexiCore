@@ -51,6 +51,12 @@ export const verifyAndDeleteOtp = async (email: string, otp: string, type: strin
     return true;
 };
 
+export const checkOtp = async (email: string, otp: string, type: string): Promise<boolean> => {
+    const key = `otp:${type}:${email}`;
+    const storedOtp = await redis.get(key);
+    return storedOtp === otp;
+};
+
 export const activateUser = async (email: string): Promise<void> => {
     await pool.execute(
         `UPDATE users SET status = 'ACTIVE' WHERE email = ?`,

@@ -1,7 +1,32 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Mail, ArrowLeft } from "lucide-react";
+import { authService } from "../../services/auth-service";
 
 export function ForgotPasswordPage() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!email) {
+      setError("Vui lòng nhập email.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await authService.forgotPassword({ email });
+      navigate("/verify-otp", { state: { email, mode: "FORGOT_PASSWORD" } });
+    } catch (err: any) {
+      setError(err.message || "Có lỗi xảy ra.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Back Button */}
@@ -23,6 +48,13 @@ export function ForgotPasswordPage() {
         </p>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Form */}
       <div className="space-y-5">
         {/* Email Field */}
@@ -34,6 +66,8 @@ export function ForgotPasswordPage() {
               id="email"
               type="email"
               placeholder="davinci@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
               style={{ background: "#1f2937", border: "1px solid #374151" }}
             />
@@ -43,12 +77,15 @@ export function ForgotPasswordPage() {
         {/* Submit Button */}
         <button
           type="button"
-          className="w-full py-3 rounded-lg font-semibold text-white text-sm transition hover:opacity-90 active:scale-95"
+          onClick={handleSubmit}
+          disabled={isLoading}
+          className="w-full py-3 rounded-lg font-semibold text-white text-sm transition hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
         >
-          Gửi mã OTP
+          {isLoading ? "Đang gửi..." : "Gửi mã OTP"}
         </button>
       </div>
     </div>
   );
 }
+

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
-import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, activateUser, findUserById, updatePassword } from './auth-repository';
+import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, checkOtp, activateUser, findUserById, updatePassword } from './auth-repository';
 import { AppError } from '../../errors/AppError';
 import { sendOtpEmail } from '../../utils/mailer';
 
@@ -67,7 +67,6 @@ export const loginUser = async (userData: any) => {
         { expiresIn: '7d' }
     );
 
-    // Trả về token để controller set vào HttpOnly Cookie
     return {
         message: 'Đăng nhập thành công',
         token,
@@ -158,4 +157,17 @@ export const resendOtp = async (data: { email: string; mode: 'REGISTER' | 'FORGO
     }
 
     return { message: 'Nếu thông tin hợp lệ, mã OTP mới đã được gửi đến email của bạn.' };
+};
+
+export const verifyOtpCode = async (data: { email: string; otp_code: string; mode: 'REGISTER' | 'FORGOT_PASSWORD' }) => {
+    if (!data.email || !data.otp_code || !data.mode) {
+        throw new AppError('Vui lòng cung cấp đầy đủ thông tin', 400);
+    }
+
+    const isValid = await checkOtp(data.email, data.otp_code, data.mode);
+    if (!isValid) {
+        throw new AppError('Mã OTP không hợp lệ hoặc đã hết hạn', 400);
+    }
+
+    return { message: 'Mã OTP hợp lệ' };
 };

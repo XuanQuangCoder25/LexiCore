@@ -1,45 +1,52 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
+import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
+import { Eye, EyeOff, Lock, ArrowLeft } from "lucide-react";
 import { authService } from "../../services/auth-service";
 
-export function RegisterPage() {
+export function ResetPasswordPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const email = location.state?.email as string;
+  const otpCode = location.state?.otp_code as string;
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  if (!email || !otpCode) {
+    return <Navigate to="/login" replace />;
+  }
+
   const handleSubmit = async () => {
     setError("");
 
-    if (!fullName || !email || !password || !confirmPassword) {
+    if (!newPassword || !confirmPassword) {
       setError("Vui lòng điền đầy đủ thông tin.");
       return;
     }
-    if (fullName.length < 2) {
-      setError("Tên hiển thị phải có ít nhất 2 ký tự.");
-      return;
-    }
-    if (password.length < 6) {
+    if (newPassword.length < 6) {
       setError("Mật khẩu phải có ít nhất 6 ký tự.");
       return;
     }
-    if (password !== confirmPassword) {
+    if (newPassword !== confirmPassword) {
       setError("Mật khẩu xác nhận không khớp.");
       return;
     }
 
     setIsLoading(true);
     try {
-      await authService.register({ full_name: fullName, email, password });
-      navigate("/verify-otp", { state: { email, mode: "REGISTER" } });
+      await authService.resetPassword({
+        email,
+        otp_code: otpCode,
+        new_password: newPassword,
+      });
+      navigate("/login", { state: { resetSuccess: true } });
     } catch (err: any) {
-      setError(err.message || "Đăng ký thất bại.");
+      setError(err.message || "Đặt lại mật khẩu thất bại.");
     } finally {
       setIsLoading(false);
     }
@@ -47,10 +54,24 @@ export function RegisterPage() {
 
   return (
     <div className="space-y-8">
+      {/* Back Button */}
+      <div>
+        <Link
+          to="/login"
+          className="inline-flex items-center text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2 text-indigo-400 hover:text-indigo-300" />
+          Quay lại đăng nhập
+        </Link>
+      </div>
+
       {/* Heading */}
       <div className="space-y-2">
-        <h2 className="text-4xl font-bold text-white">Đăng ký</h2>
-        <p className="text-slate-400">Tạo tài khoản để bắt đầu hành trình học tập.</p>
+        <h2 className="text-4xl font-bold text-white">Đặt lại mật khẩu</h2>
+        <p className="text-slate-400">
+          Nhập mật khẩu mới cho tài khoản{" "}
+          <span className="text-indigo-400 font-medium">{email}</span>.
+        </p>
       </div>
 
       {/* Error Message */}
@@ -62,52 +83,17 @@ export function RegisterPage() {
 
       {/* Form */}
       <div className="space-y-5">
-
-        {/* Username Field */}
+        {/* New Password Field */}
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300">Tên hiển thị</label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-            <input
-              id="username"
-              type="text"
-              placeholder="Davinci Albert"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              style={{ background: "#1f2937", border: "1px solid #374151" }}
-            />
-          </div>
-        </div>
-
-        {/* Email Field */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300">Email</label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-            <input
-              id="email"
-              type="email"
-              placeholder="davinci@gmail.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              style={{ background: "#1f2937", border: "1px solid #374151" }}
-            />
-          </div>
-        </div>
-
-        {/* Password Field */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300">Mật khẩu</label>
+          <label className="text-sm font-medium text-slate-300">Mật khẩu mới</label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <input
-              id="password"
+              id="newPassword"
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               className="w-full pl-10 pr-10 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
               style={{ background: "#1f2937", border: "1px solid #374151" }}
             />
@@ -150,21 +136,12 @@ export function RegisterPage() {
           type="button"
           onClick={handleSubmit}
           disabled={isLoading}
-          className="w-full py-3 mt-4 rounded-lg font-semibold text-white text-sm transition hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 rounded-lg font-semibold text-white text-sm transition hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
         >
-          {isLoading ? "Đang xử lý..." : "Đăng ký"}
+          {isLoading ? "Đang xử lý..." : "Đặt lại mật khẩu"}
         </button>
       </div>
-
-      {/* Login Link */}
-      <p className="text-center text-sm text-slate-400">
-        Đã có tài khoản?{" "}
-        <Link to="/login" className="text-indigo-400 font-semibold hover:text-indigo-300 transition">
-          Đăng nhập
-        </Link>
-      </p>
     </div>
   );
 }
-

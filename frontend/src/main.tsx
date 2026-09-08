@@ -6,13 +6,17 @@ import { LoginPage } from "./app/features/auth/LoginPage";
 import { RegisterPage } from "./app/features/auth/RegisterPage";
 import { ForgotPasswordPage } from "./app/features/auth/ForgotPasswordPage";
 import { VerifyOtpPage } from "./app/features/auth/VerifyOtpPage";
+import { ResetPasswordPage } from "./app/features/auth/ResetPasswordPage";
+import ProtectedRoute from "./app/components/ProtectedRoute";
 import "./styles/index.css";
 
 createRoot(document.getElementById("root")!).render(
   <BrowserRouter>
     <Routes>
-      {/* Route Dashboard */}
-      <Route path="/" element={<App />} />
+      {/* Route Dashboard - Bảo vệ bởi ProtectedRoute */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<App />} />
+      </Route>
 
       {/* Các Route dành cho Auth */}
       <Route element={<AuthLayout />}>
@@ -20,6 +24,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/verify-otp" element={<VerifyOtpPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Route>
     </Routes>
   </BrowserRouter>
