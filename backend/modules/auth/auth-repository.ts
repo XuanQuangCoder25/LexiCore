@@ -57,6 +57,13 @@ export const checkOtp = async (email: string, otp: string, type: string): Promis
     return storedOtp === otp;
 };
 
+export const updatePendingUser = async (id: string, password_hash: string, full_name: string): Promise<void> => {
+    await pool.execute(
+        `UPDATE users SET password_hash = ?, full_name = ? WHERE id = ? AND status = 'PENDING'`,
+        [password_hash, full_name, id]
+    );
+};
+
 export const activateUser = async (email: string): Promise<void> => {
     await pool.execute(
         `UPDATE users SET status = 'ACTIVE' WHERE email = ?`,

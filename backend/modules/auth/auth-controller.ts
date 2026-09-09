@@ -1,15 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { registerUser, loginUser, verifyEmail, getMe, forgotPassword, resetPassword, resendOtp, verifyOtpCode } from './auth-service';
-import { AppError } from '../../errors/AppError';
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const result = await registerUser(req.body);
         res.status(201).json(result);
-    } catch (error: any) {
-        if (error.code === 'ER_DUP_ENTRY') {
-            return next(new AppError('Email này đã được sử dụng', 400));
-        }
+    } catch (error) {
         next(error);
     }
 };

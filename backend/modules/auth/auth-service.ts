@@ -1,36 +1,46 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
-import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, checkOtp, activateUser, findUserById, updatePassword } from './auth-repository';
+import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, checkOtp, activateUser, findUserById, updatePassword, updatePendingUser } from './auth-repository';
 import { AppError } from '../../errors/AppError';
 import { sendOtpEmail } from '../../utils/mailer';
 
 export const registerUser = async (userData: any) => {
     if (!userData.email || !userData.password || !userData.full_name) {
-        throw new Error("Vui lòng điền đầy đủ thông tin");
+        throw new AppError('Vui lòng điền đầy đủ thông tin', 400);
     }
+
+    const existingUser = await findUserByEmail(userData.email);
 
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(userData.password, salt);
 
+    if (existingUser && existingUser.status !== 'PENDING') {
+        throw new AppError('Email này đã được sử dụng, vui lòng đăng nhập.', 400);
+    }
+
+    if (existingUser && existingUser.status === 'PENDING') {
+        await updatePendingUser(existingUser.id, password_hash, userData.full_name);
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        await saveOtp(userData.email, otp, 'REGISTER');
+        await sendOtpEmail(userData.email, otp);
+
+        return {
+            message: "Email chưa xác thực. Một mã OTP mới đã được gửi, vui lòng kiểm tra email.",
+            userId: existingUser.id
+        };
+    }
+
     const id = uuidv4();
+    await createUserWithWallet({ id, email: userData.email, password_hash, full_name: userData.full_name });
 
-    const newUserData = {
-        id,
-        email: userData.email,
-        password_hash,
-        full_name: userData.full_name
-    };
-
-    await createUserWithWallet(newUserData);
-
-    // Sinh OTP và lưu vào Redis (TTL 5 phút)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await saveOtp(userData.email, otp, 'REGISTER');
     await sendOtpEmail(userData.email, otp);
 
     return {
-        message: "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực.",
+        message: 'Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực.',
         userId: id
     };
 };
