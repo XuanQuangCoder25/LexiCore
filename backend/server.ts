@@ -6,6 +6,7 @@ import { connectMongoDB } from './config/mongo';
 import { connectMySQL } from './config/mysql';
 import './config/redis';
 import authRoute from './modules/auth/auth-route';
+import economyRoute from './modules/economy/economy-route';
 import { globalErrorHandler } from './middlewares/errorHandler';
 import dashboardRoutes from './modules/dashboard/dashboard.route';
 import srsRoutes from './modules/srs/srs.route';
@@ -35,8 +36,9 @@ const startServer = async () => {
     try {
         await initializeDatabases();
 
-        // Gắn các Route Auth
+        // Gắn các Route
         app.use('/api/auth', authRoute);
+        app.use('/api/store', economyRoute);
 
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);

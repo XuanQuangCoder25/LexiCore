@@ -61,7 +61,9 @@ CREATE TABLE items (
         'AVATAR_FRAME'
     ) NOT NULL,
     price INT NOT NULL,
-    description TEXT
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 4. Bảng Túi đồ của User (Inventory)
@@ -70,6 +72,7 @@ CREATE TABLE user_items (
     user_id VARCHAR(36) NOT NULL,
     item_id VARCHAR(36) NOT NULL,
     quantity INT DEFAULT 1,
+    UNIQUE KEY uq_user_item (user_id, item_id),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE
 );
