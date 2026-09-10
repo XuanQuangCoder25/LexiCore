@@ -25,6 +25,7 @@ import {
   ClipboardList,
   Crown,
   Coins,
+  LayoutDashboard,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { PremiumModal } from "./global/PremiumModal";
@@ -33,6 +34,7 @@ interface AppSidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   coins: number;
+  isAdmin: boolean;
 }
 
 const navigationItems = [
@@ -49,7 +51,7 @@ const navigationItems = [
   { id: "achievements", title: "Achievements", icon: Trophy, description: "Goals & Rewards" },
 ];
 
-export function AppSidebar({ activeTab, onTabChange, coins }: AppSidebarProps) {
+export function AppSidebar({ activeTab, onTabChange, coins, isAdmin }: AppSidebarProps) {
   const [premiumOpen, setPremiumOpen] = useState(false);
 
   return (
@@ -96,6 +98,34 @@ export function AppSidebar({ activeTab, onTabChange, coins }: AppSidebarProps) {
               );
             })}
           </SidebarMenu>
+
+          {/* Admin Section — chỉ hiện khi là ADMIN */}
+          {isAdmin && (
+            <>
+              <SidebarSeparator className="my-2" />
+              <div className="px-2 py-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Admin</p>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => onTabChange("admin")}
+                      className={`w-full justify-start p-3 h-auto ${
+                        activeTab === "admin"
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "hover:bg-sidebar-accent/50"
+                      }`}
+                    >
+                      <LayoutDashboard className="h-4 w-4 mr-3 shrink-0" />
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="font-medium text-sm">Admin Panel</span>
+                        <span className="text-xs text-muted-foreground">Quản lý hệ thống</span>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </div>
+            </>
+          )}
 
           <SidebarSeparator className="my-3" />
 

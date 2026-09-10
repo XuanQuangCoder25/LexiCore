@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
 import { DashboardView } from "./components/dashboard/DashboardView";
@@ -11,6 +11,7 @@ import { AchievementsView } from "./components/dashboard/AchievementsView";
 import { ArenaView } from "./components/dashboard/ArenaView";
 import { CreatorStudioView } from "./components/dashboard/CreatorStudioView";
 import { StoreView } from "./components/dashboard/StoreView";
+import { AdminView } from "./components/dashboard/AdminView";
 import { ExamView } from "./components/dashboard/ExamView";
 import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
@@ -30,12 +31,24 @@ const TAB_LABELS: Record<string, string> = {
   creator: "Creator Studio",
   store: "Store",
   achievements: "Achievements",
+  admin: "Admin Panel",
 };
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [friendsOpen, setFriendsOpen] = useState(false);
-  const [coins] = useState(1250);
+  const [coins, setCoins] = useState(0);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/auth/me", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.coin_balance !== undefined) setCoins(data.coin_balance);
+        if (data?.role) setUserRole(data.role);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleChallenge = () => {
     setFriendsOpen(false);
@@ -55,6 +68,7 @@ export default function App() {
       case "creator": return <CreatorStudioView />;
       case "store": return <StoreView />;
       case "achievements": return <AchievementsView />;
+      case "admin": return <AdminView />;
       default: return <DashboardView />;
     }
   };
@@ -63,7 +77,7 @@ export default function App() {
     <SidebarProvider>
       {/* MARKER-MAKE-KIT-INVOKED */}
       <div className="flex h-screen w-full overflow-hidden">
-        <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} coins={coins} />
+        <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} coins={coins} isAdmin={userRole === "ADMIN"} />
         <SidebarInset className="flex-1 overflow-hidden flex flex-col">
           {/* Top Header */}
           <header className="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">

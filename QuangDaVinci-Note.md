@@ -28,18 +28,20 @@ Dự án áp dụng tự động hóa thông qua GitHub Actions. Hệ thống t�
 
 ## ⚙️ Giai đoạn 2: API Quản lý Cửa hàng (Admin CRUD)
 *Lưu ý: Các API này bắt buộc phải đi qua middleware `requireAdmin` để bảo mật.*
-*   `POST /api/store/items` (Thêm vật phẩm mới)
-*   `PUT /api/store/items/:id` (Sửa giá, sửa tên)
-*   `DELETE /api/store/items/:id` (Xóa vật phẩm - Thực chất là Update `is_active = false`)
+*   `GET    /api/store/admin/items` (Xem tất cả items, kể cả đã ngưng bán)
+*   `POST   /api/store/admin/items` (Thêm vật phẩm mới)
+*   `PUT    /api/store/admin/items/:id` (Sửa thông tin vật phẩm)
+*   `DELETE /api/store/admin/items/:id` (Ngưng bán - Soft Delete, `is_active = false`)
+*   `PATCH  /api/store/admin/items/:id/activate` (Kích hoạt lại vật phẩm đã ngưng bán)
 
 ## 💳 Giai đoạn 3: API Trải nghiệm Mua sắm (User Flow)
-*   `GET /api/store/items` (Cửa hàng): Trả về danh sách các vật phẩm đang được bán (`is_active = true`).
-*   `GET /api/inventory` (Túi đồ): Trả về danh sách vật phẩm user đang có.
+*   `GET  /api/store/items` (Cửa hàng): Trả về danh sách các vật phẩm đang được bán (`is_active = true`).
+*   `GET  /api/store/inventory` (Túi đồ): Trả về danh sách vật phẩm user đang có.
 *   `POST /api/store/buy/:itemId`: Nút thắt cổ chai của hệ thống. Bắt buộc dùng **Database Transaction** (`BEGIN`, `COMMIT`, `ROLLBACK`) để thực hiện nguyên tử 3 bước:
     1. Kiểm tra ví (`wallets`) có đủ tiền không? Nếu đủ thì trừ tiền.
     2. Ghi log hóa đơn vào `billing_transactions`.
     3. Thêm vật phẩm vào `user_items` (Hoặc tăng `quantity` lên +1 nếu đã có).
-    *(Bảo mật bổ sung: Cần khóa dòng (Row-locking) bằng `SELECT ... FOR UPDATE` khi đọc số dư ví để chống bug Spam click mua hàng 2 lần cùng lúc).*
+    *(Bảo mật bổ sung: Dùng `SELECT ... FOR UPDATE` (Row-locking) để chống spam click mua hàng 2 lần cùng lúc).*
 
 ## 🖥 Giai đoạn 4: Frontend UI (Cửa hàng & Túi đồ)
 *   **Store UI (`StoreView.tsx`):** Hiển thị dạng Grid các thẻ (Card) vật phẩm kèm giá xu. Khi bấm "Mua", bật `Modal` xác nhận: *"Bạn có chắc muốn mua vật phẩm này với giá 50 xu không?"* để chống bấm nhầm.
