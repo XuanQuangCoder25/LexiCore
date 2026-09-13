@@ -1,298 +1,112 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Progress } from "../ui/progress";
-import { Badge } from "../ui/badge";
+import { DashboardHeader } from "./DashboardHeader";
+import { QuickStats } from "./QuickStats";
+import { CourseProgress } from "./CourseProgress";
+import { ActivitySidebar } from "./ActivitySidebar";
+import { RetentionChartCard } from "./RetentionChartCard";
+import { useDashboardData } from "./hooks/useDashboardData";
+import { Skeleton } from "../ui/skeleton";
 import { Button } from "../ui/button";
-import {
-  BookOpen,
-  Clock,
-  Target,
-  TrendingUp,
-  Calendar,
-  Award,
-  ArrowRight,
-  Play,
-  Brain,
-} from "lucide-react";
-
-interface RetentionPoint { day: string; retention: number; withReview: number }
-
-function RetentionChart({ data }: { data: RetentionPoint[] }) {
-  const W = 560;
-  const H = 180;
-  const pl = 36; const pr = 8; const pt = 8; const pb = 24;
-  const cw = W - pl - pr;
-  const ch = H - pt - pb;
-
-  const x = (i: number) => (i / (data.length - 1)) * cw;
-  const y = (v: number) => ch - (v / 100) * ch;
-
-  const retPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.retention).toFixed(1)}`).join(" ");
-  const revPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.withReview).toFixed(1)}`).join(" ");
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 200 }} aria-label="Memory retention chart">
-      <g transform={`translate(${pl},${pt})`}>
-        {[0, 25, 50, 75, 100].map((v) => (
-          <g key={v}>
-            <line x1={0} y1={y(v)} x2={cw} y2={y(v)} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-            <text x={-4} y={y(v) + 4} textAnchor="end" fontSize={10} fill="hsl(var(--muted-foreground))">{v}%</text>
-          </g>
-        ))}
-        {data.map((d, i) => (
-          <text key={d.day} x={x(i)} y={ch + 16} textAnchor="middle" fontSize={11} fill="hsl(var(--muted-foreground))">{d.day}</text>
-        ))}
-        <path d={retPath} fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="5 5" strokeOpacity={0.5} />
-        <path d={revPath} fill="none" stroke="hsl(var(--foreground))" strokeWidth={2.5} />
-        {data.map((d, i) => (
-          <circle key={`dot-${d.day}`} cx={x(i)} cy={y(d.withReview)} r={3.5} fill="hsl(var(--foreground))" />
-        ))}
-      </g>
-    </svg>
-  );
-}
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 export function DashboardView() {
-  const [stats, setStats] = useState({
-    lessonsCompleted: 0,
-    durationHours: 0,
-    wordsLearned: 0,
-    level: "N/A"
-  });
-  
-  const [retentionData, setRetentionData] = useState<RetentionPoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, refetch } = useDashboardData();
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const statsRes = await fetch("http://localhost:5000/api/v1/dashboard/stats");
-        const statsData = await statsRes.json();
-        setStats(statsData);
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-[250px] sm:w-[300px]" />
+            <Skeleton className="h-5 w-[200px] sm:w-[250px]" />
+          </div>
+          <Skeleton className="h-8 w-[100px] sm:w-[120px] rounded-full" />
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-[120px] w-full rounded-xl" />
+          ))}
+        </div>
+        
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-[250px] w-full rounded-xl" />
+            <Skeleton className="h-[200px] w-full rounded-xl" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-[300px] w-full rounded-xl" />
+            <Skeleton className="h-[200px] w-full rounded-xl" />
+            <Skeleton className="h-[150px] w-full rounded-xl" />
+          </div>
+        </div>
+        
+        <Skeleton className="h-[350px] w-full rounded-xl" />
+      </div>
+    );
+  }
 
-        const retRes = await fetch("http://localhost:5000/api/v1/dashboard/retention");
-        const retData = await retRes.json();
-        setRetentionData(retData);
-      } catch (error) {
-        console.error("Lỗi khi tải dữ liệu dashboard:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4 text-center">
+        <div className="bg-destructive/10 p-4 rounded-full">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+        </div>
+        <h2 className="text-xl font-bold">Failed to load dashboard</h2>
+        <p className="text-muted-foreground max-w-md">{error}</p>
+        <Button onClick={refetch} variant="outline" className="mt-4">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
-    fetchDashboardData();
-  }, []);
+  if (!data || !data.stats) {
+    return null;
+  }
 
-  if (loading) return <div className="flex h-64 items-center justify-center">Đang tải dữ liệu...</div>;
+  // Global Empty State for completely new users
+  const isCompletelyNewUser = data.stats.lessonsCompleted === 0 && data.courses.length === 0;
+
+  if (isCompletelyNewUser) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[70vh] text-center space-y-6 max-w-md mx-auto px-4">
+        <div className="bg-primary/10 p-6 rounded-full mb-2">
+          <span className="text-6xl block">🚀</span>
+        </div>
+        <h2 className="text-2xl font-bold">Welcome to LexiCore!</h2>
+        <p className="text-muted-foreground text-base">
+          Trang Dashboard của bạn hiện chưa có dữ liệu học tập. Hãy bắt đầu khóa học đầu tiên để theo dõi tiến độ, thành tựu và biểu đồ ghi nhớ của bạn tại đây nhé.
+        </p>
+        <Button size="lg" className="w-full sm:w-auto rounded-full mt-4 shadow-md">
+          Khám phá Khóa học ngay
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Welcome back, Sarah! 👋</h1>
-          <p className="text-muted-foreground">Let's continue your English learning journey</p>
-        </div>
-        <Badge variant="secondary">7 day streak 🔥</Badge>
-      </div>
+    <div className="space-y-6 pb-10">
+      <DashboardHeader 
+        userName="Sarah" 
+        streak={data.stats.streak} 
+      />
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Lessons Completed</p>
-                <p className="text-2xl font-bold">{stats.lessonsCompleted}</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Study Time</p>
-                <p className="text-2xl font-bold">{stats.durationHours}h</p>
-              </div>
-              <Clock className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Words Learned</p>
-                <p className="text-2xl font-bold">{stats.wordsLearned.toLocaleString()}</p>
-              </div>
-              <Target className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Current Level</p>
-                <p className="text-2xl font-bold">{stats.level}</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <QuickStats stats={data.stats} />
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Current Progress */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Courses</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Business English Mastery</span>
-                    <span className="font-medium">75%</span>
-                  </div>
-                  <Progress value={75} className="h-2" />
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Advanced Grammar</span>
-                    <span className="font-medium">92%</span>
-                  </div>
-                  <Progress value={92} className="h-2" />
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>IELTS Speaking Prep</span>
-                    <span className="font-medium">45%</span>
-                  </div>
-                  <Progress value={45} className="h-2" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <CourseProgress 
+          courses={data.courses} 
+          nextLessons={data.nextLessons} 
+        />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Next Lessons
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div>
-                  <h4 className="font-medium">Conditional Sentences</h4>
-                  <p className="text-sm text-muted-foreground">Advanced Grammar • 25 min</p>
-                </div>
-                <Button size="sm">
-                  <Play className="h-4 w-4 mr-2" />
-                  Start
-                </Button>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div>
-                  <h4 className="font-medium">Business Presentations</h4>
-                  <p className="text-sm text-muted-foreground">Business English • 30 min</p>
-                </div>
-                <Button size="sm" variant="outline">
-                  Preview
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar Stats */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Learning Streak
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <div className="text-4xl font-bold mb-2">7</div>
-              <div className="text-muted-foreground mb-4">Days in a row</div>
-              <div className="w-full bg-muted rounded-full h-2 mb-4">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '70%' }}></div>
-              </div>
-              <p className="text-sm text-muted-foreground">3 more days to reach your goal!</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Achievements</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Award className="h-8 w-8 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Grammar Master</p>
-                  <p className="text-xs text-muted-foreground">Completed advanced grammar</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Award className="h-8 w-8 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Vocabulary Wizard</p>
-                  <p className="text-xs text-muted-foreground">Learned 1000+ words</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-accent border">
-            <CardContent className="p-6 text-center">
-              <h3 className="font-semibold mb-2">Keep it up! 🎉</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                You're 85% more active than average learners this week
-              </p>
-              <Button variant="default" size="sm">
-                View Full Report
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <ActivitySidebar 
+          streak={data.stats.streak} 
+          activities={data.activities!} 
+        />
       </div>
 
-      {/* Forgetting Curve / Retention Rate */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5" />
-            Memory Retention Rate — This Week
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 mb-4 text-sm">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-5 rounded-full bg-muted-foreground/40" />
-              <span className="text-muted-foreground">Without review (forgetting curve)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-5 rounded-full bg-foreground" />
-              <span className="text-muted-foreground">With SRS review (your retention)</span>
-            </div>
-          </div>
-          <RetentionChart data={retentionData} />
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            SRS reviews keep your retention above 90%. The dashed line shows natural forgetting without review. Next batch: <span className="font-medium text-foreground">50 cards due today</span>
-          </p>
-        </CardContent>
-      </Card>
+      <RetentionChartCard data={data.retentionData} />
     </div>
   );
 }
