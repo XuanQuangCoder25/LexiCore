@@ -207,36 +207,68 @@ export function AdminView() {
   };
 
   // ── RENDER ─────────────────────────────────────────────────
-  const C = {
+  /* ── Design tokens ─────────────────────────────────────────
+     Light: Soft Blue Mist  |  Dark: cb37607 "Deep Space"
+  ────────────────────────────────────────────────────────── */
+  const isDark = document.documentElement.classList.contains("dark");
+
+  // Light Mode — Soft Blue Mist
+  const L = {
+    pageBg: "linear-gradient(135deg, #f3f7ff 0%, #eef3ff 50%, #f7f3ff 100%)",
+    card: "rgba(255,255,255,0.88)",
+    border: "rgba(37,99,235,0.12)",
+    title: "#0f172a",
+    sub: "#2563eb",
+    muted: "#64748b",
+    badge: "rgba(37,99,235,0.08)",
+    divider: "rgba(0,0,0,0.06)",
+    btnGrad: "linear-gradient(90deg, #0b5cff 0%, #1f58ff 60%, #7c3aed 100%)",
+  };
+
+  // Dark Mode — Deep Space (from AdminView2 / commit cb37607)
+  const D = {
     pageBg: "#080714",
-    cardBg: "#100e24",
-    cardBg2: "#0d0c1e",
+    card: "#100e24",
+    cardAlt: "#0d0c1e",
+    headerGrad: "linear-gradient(135deg, #1a1040 0%, #0f0c2e 50%, #0a1628 100%)",
     border: "rgba(167,139,250,0.18)",
     borderHard: "rgba(167,139,250,0.35)",
-    lavender: "#c4b5fd",
+    title: "#f8fafc",
+    sub: "#c4b5fd",       // lavender
     violet: "#a78bfa",
     blue: "#93c5fd",
-    lavBg: "rgba(196,181,253,0.1)",
-    lavBgHover: "rgba(196,181,253,0.18)",
-    blueBg: "rgba(147,197,253,0.1)",
-    inputBg: "#12102a",
-    white: "#f8fafc",
     muted: "#94a3b8",
     dimmed: "#4b5563",
+    badge: "rgba(196,181,253,0.1)",
+    badgeHover: "rgba(196,181,253,0.18)",
+    blueBg: "rgba(147,197,253,0.1)",
+    divider: "rgba(167,139,250,0.18)",
+    btnGrad: "linear-gradient(135deg, #7c3aed, #4f46e5)",
+    inputBg: "#12102a",
     redBg: "rgba(239,68,68,0.12)",
     redBorder: "rgba(239,68,68,0.3)",
     red: "#f87171",
-    btnGrad: "linear-gradient(135deg, #7c3aed, #4f46e5)",
-    headerGrad: "linear-gradient(135deg, #1a1040 0%, #0f0c2e 50%, #0a1628 100%)",
-  } as const;
+  };
+
+  // Derived tokens — switch by theme
+  const pg      = isDark ? D.pageBg     : L.pageBg;
+  const card    = isDark ? D.card       : L.card;
+  const cb      = isDark ? D.border     : L.border;
+  const tt      = isDark ? D.title      : L.title;
+  const sub     = isDark ? D.sub        : L.sub;
+  const muted   = isDark ? D.muted      : L.muted;
+  const badge   = isDark ? D.badge      : L.badge;
+  const div     = isDark ? D.divider    : L.divider;
+  const btnGrad = isDark ? D.btnGrad    : L.btnGrad;
+  const shadow  = isDark ? "none"       : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(37,99,235,0.06)";
 
   if (loading) {
     return (
       <div
         className="min-h-full -m-6 flex items-center justify-center"
-        style={{ background: C.pageBg }}
+        style={{ background: pg }}
       >
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: C.lavender }} />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: sub }} />
       </div>
     );
   }
@@ -247,33 +279,40 @@ export function AdminView() {
   return (
     <div
       className="min-h-full -m-6 p-6 space-y-5"
-      style={{ background: C.pageBg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+      style={{ background: pg }}
     >
-
       {/* ── Hero Header ── */}
       <div
         className="rounded-2xl p-6 flex items-center justify-between relative overflow-hidden"
-        style={{ background: C.headerGrad, border: `1px solid ${C.border}` }}
+        style={{
+          background: isDark ? D.headerGrad : card,
+          border: `1px solid ${cb}`,
+          boxShadow: shadow,
+        }}
       >
-        {/* decorative glow blobs */}
-        <div className="absolute -top-12 -left-12 w-48 h-48 rounded-full blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(124,58,237,0.35), transparent)" }} />
-        <div className="absolute -bottom-10 right-20 w-40 h-40 rounded-full blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(79,70,229,0.25), transparent)" }} />
+        {/* decorative glow blobs — dark only */}
+        {isDark && (
+          <>
+            <div className="absolute -top-12 -left-12 w-48 h-48 rounded-full blur-3xl pointer-events-none"
+              style={{ background: "radial-gradient(circle, rgba(124,58,237,0.35), transparent)" }} />
+            <div className="absolute -bottom-10 right-20 w-40 h-40 rounded-full blur-3xl pointer-events-none"
+              style={{ background: "radial-gradient(circle, rgba(79,70,229,0.25), transparent)" }} />
+          </>
+        )}
 
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-semibold tracking-widest uppercase px-2 py-0.5 rounded-full"
-              style={{ background: C.lavBg, color: C.lavender, border: `1px solid ${C.border}` }}>
+              style={{ background: badge, color: sub, border: `1px solid ${cb}` }}>
               Admin
             </span>
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: C.white }}>Quản lý Cửa hàng</h1>
-          <p className="text-sm mt-1" style={{ color: C.muted }}>
+          <h1 className="text-2xl font-bold" style={{ color: tt }}>Quản lý Cửa hàng</h1>
+          <p className="text-sm mt-1" style={{ color: muted }}>
             {items.length} vật phẩm tổng cộng ·{" "}
-            <span style={{ color: C.lavender, fontWeight: 600 }}>{activeItems.length} đang bán</span>
+            <span style={{ color: sub, fontWeight: 600 }}>{activeItems.length} đang bán</span>
             {inactiveItems.length > 0 && (
-              <span style={{ color: C.dimmed }}> · {inactiveItems.length} đã ngưng</span>
+              <span style={{ color: isDark ? D.dimmed : muted }}> · {inactiveItems.length} đã ngưng</span>
             )}
           </p>
         </div>
@@ -281,7 +320,11 @@ export function AdminView() {
         <button
           onClick={openAddDialog}
           className="relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110 active:scale-95"
-          style={{ background: C.btnGrad, color: C.white, boxShadow: "0 0 20px rgba(124,58,237,0.4)" }}
+          style={{
+            background: btnGrad,
+            color: isDark ? D.title : "#fff",
+            boxShadow: isDark ? "0 0 20px rgba(124,58,237,0.4)" : "0 4px 12px rgba(37,99,235,0.25)",
+          }}
         >
           <Plus className="h-4 w-4" />
           Thêm vật phẩm
@@ -291,39 +334,47 @@ export function AdminView() {
       {/* ── Thông báo ── */}
       {successMsg && (
         <div className="px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2"
-          style={{ background: C.lavBg, border: `1px solid ${C.borderHard}`, color: C.lavender }}>
+          style={{
+            background: isDark ? D.badge : "rgba(16,185,129,0.08)",
+            border: `1px solid ${isDark ? D.borderHard : "rgba(16,185,129,0.2)"}`,
+            color: isDark ? D.sub : "#059669",
+          }}>
           <span>✓</span> {successMsg}
         </div>
       )}
-      {errorMsg && (
+      {errorMsg && !dialogMode && (
         <div className="px-4 py-3 rounded-xl text-sm font-medium"
-          style={{ background: C.redBg, border: `1px solid ${C.redBorder}`, color: C.red }}>
+          style={{
+            background: isDark ? D.redBg : "rgba(239,68,68,0.08)",
+            border: `1px solid ${isDark ? D.redBorder : "rgba(239,68,68,0.2)"}`,
+            color: isDark ? D.red : "#dc2626",
+          }}>
           {errorMsg}
         </div>
       )}
 
       {/* ── Bảng đang bán ── */}
       <div className="rounded-2xl overflow-hidden"
-        style={{ background: C.cardBg, border: `1px solid ${C.border}` }}>
+        style={{ background: card, border: `1px solid ${cb}`, boxShadow: shadow }}>
 
         {/* Section header */}
         <div className="px-6 py-4 flex items-center gap-3"
-          style={{ borderBottom: `1px solid ${C.border}` }}>
+          style={{ borderBottom: `1px solid ${div}` }}>
           <div className="h-8 w-8 rounded-lg flex items-center justify-center"
-            style={{ background: C.lavBg }}>
-            <ShoppingBag className="h-4 w-4" style={{ color: C.lavender }} />
+            style={{ background: badge }}>
+            <ShoppingBag className="h-4 w-4" style={{ color: sub }} />
           </div>
-          <span className="font-semibold text-sm" style={{ color: C.white }}>
+          <span className="font-semibold text-sm" style={{ color: tt }}>
             Đang bán
           </span>
           <span className="px-2 py-0.5 rounded-full text-xs font-bold"
-            style={{ background: C.lavBg, color: C.lavender }}>
+            style={{ background: badge, color: sub }}>
             {activeItems.length}
           </span>
         </div>
 
         {activeItems.length === 0 && (
-          <p className="text-center py-12 text-sm" style={{ color: C.dimmed }}>
+          <p className="text-center py-12 text-sm" style={{ color: isDark ? D.dimmed : muted }}>
             Chưa có vật phẩm nào đang bán.
           </p>
         )}
@@ -335,32 +386,36 @@ export function AdminView() {
               <div
                 key={item.id}
                 className="flex items-center gap-4 px-6 py-4 transition-colors cursor-default"
-                style={{ borderTop: idx > 0 ? `1px solid ${C.border}` : "none" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(167,139,250,0.05)")}
+                style={{ borderTop: idx > 0 ? `1px solid ${div}` : "none" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? "rgba(167,139,250,0.05)" : "rgba(37,99,235,0.03)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 {/* Icon */}
                 <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: C.lavBg, border: `1px solid ${C.border}` }}>
-                  <Icon className="h-5 w-5" style={{ color: C.lavender }} />
+                  style={{ background: badge, border: isDark ? `1px solid ${cb}` : "none" }}>
+                  <Icon className="h-5 w-5" style={{ color: sub }} />
                 </div>
 
                 {/* Name */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm" style={{ color: C.white }}>{item.name}</p>
-                  <p className="text-xs truncate mt-0.5" style={{ color: C.dimmed }}>
-                    {item.description || "—"}
+                  <p className="font-semibold text-sm" style={{ color: tt }}>{item.name}</p>
+                  <p className="text-xs truncate mt-0.5" style={{ color: isDark ? D.dimmed : muted }}>
+                    {item.description || "\u2014"}
                   </p>
                 </div>
 
                 {/* Type badge */}
                 <span className="text-xs px-2.5 py-1 rounded-full font-medium shrink-0 tracking-wide"
-                  style={{ background: "rgba(147,197,253,0.1)", color: C.blue, border: "1px solid rgba(147,197,253,0.2)" }}>
+                  style={{
+                    background: isDark ? D.blueBg : badge,
+                    color: isDark ? D.blue : sub,
+                    border: isDark ? "1px solid rgba(147,197,253,0.2)" : "none",
+                  }}>
                   {item.type.replace("_", " ")}
                 </span>
 
                 {/* Price */}
-                <span className="text-sm font-bold shrink-0 w-20 text-right" style={{ color: C.lavender }}>
+                <span className="text-sm font-bold shrink-0 w-20 text-right" style={{ color: sub }}>
                   {item.price.toLocaleString()} xu
                 </span>
 
@@ -368,17 +423,20 @@ export function AdminView() {
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => openEditDialog(item)}
                     className="h-8 w-8 rounded-lg flex items-center justify-center transition-all"
-                    style={{ background: C.lavBg, color: C.violet }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = C.lavBgHover; e.currentTarget.style.boxShadow = `0 0 10px rgba(167,139,250,0.3)`; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = C.lavBg; e.currentTarget.style.boxShadow = "none"; }}
+                    style={{ background: badge, color: isDark ? D.violet : sub }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? D.badgeHover : "rgba(37,99,235,0.15)"; if (isDark) e.currentTarget.style.boxShadow = "0 0 10px rgba(167,139,250,0.3)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = badge; e.currentTarget.style.boxShadow = "none"; }}
                     title="Sửa">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button onClick={() => setDeleteTarget(item)}
                     className="h-8 w-8 rounded-lg flex items-center justify-center transition-all"
-                    style={{ background: C.redBg, color: C.red }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.2)"; e.currentTarget.style.boxShadow = "0 0 10px rgba(239,68,68,0.25)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = C.redBg; e.currentTarget.style.boxShadow = "none"; }}
+                    style={{
+                      background: isDark ? D.redBg : "rgba(239,68,68,0.08)",
+                      color: isDark ? D.red : "#dc2626",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(239,68,68,0.2)" : "rgba(239,68,68,0.15)"; if (isDark) e.currentTarget.style.boxShadow = "0 0 10px rgba(239,68,68,0.25)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = isDark ? D.redBg : "rgba(239,68,68,0.08)"; e.currentTarget.style.boxShadow = "none"; }}
                     title="Ngưng bán">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -392,18 +450,21 @@ export function AdminView() {
       {/* ── Bảng đã ngưng bán ── */}
       {inactiveItems.length > 0 && (
         <div className="rounded-2xl overflow-hidden"
-          style={{ background: C.cardBg2, border: `1px solid rgba(167,139,250,0.08)` }}>
+          style={{
+            background: isDark ? D.cardAlt : "rgba(255,255,255,0.55)",
+            border: `1px solid ${isDark ? "rgba(167,139,250,0.08)" : div}`,
+          }}>
           <div className="px-6 py-4 flex items-center gap-3"
-            style={{ borderBottom: `1px solid rgba(167,139,250,0.08)` }}>
+            style={{ borderBottom: `1px solid ${isDark ? "rgba(167,139,250,0.08)" : div}` }}>
             <div className="h-8 w-8 rounded-lg flex items-center justify-center"
-              style={{ background: "rgba(75,85,99,0.2)" }}>
-              <PackageX className="h-4 w-4" style={{ color: C.dimmed }} />
+              style={{ background: isDark ? "rgba(75,85,99,0.2)" : div }}>
+              <PackageX className="h-4 w-4" style={{ color: isDark ? D.dimmed : muted }} />
             </div>
-            <span className="font-semibold text-sm" style={{ color: C.dimmed }}>
+            <span className="font-semibold text-sm" style={{ color: isDark ? D.dimmed : muted }}>
               Đã ngưng bán
             </span>
             <span className="px-2 py-0.5 rounded-full text-xs"
-              style={{ background: "rgba(75,85,99,0.2)", color: C.dimmed }}>
+              style={{ background: isDark ? "rgba(75,85,99,0.2)" : div, color: isDark ? D.dimmed : muted }}>
               {inactiveItems.length}
             </span>
           </div>
@@ -414,27 +475,27 @@ export function AdminView() {
               return (
                 <div key={item.id}
                   className="flex items-center gap-4 px-6 py-4 opacity-50 hover:opacity-75 transition-opacity"
-                  style={{ borderTop: idx > 0 ? `1px solid rgba(167,139,250,0.06)` : "none" }}>
+                  style={{ borderTop: idx > 0 ? `1px solid ${isDark ? "rgba(167,139,250,0.06)" : div}` : "none" }}>
                   <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: "rgba(75,85,99,0.15)" }}>
-                    <Icon className="h-5 w-5" style={{ color: C.dimmed }} />
+                    style={{ background: isDark ? "rgba(75,85,99,0.15)" : div }}>
+                    <Icon className="h-5 w-5" style={{ color: isDark ? D.dimmed : muted }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm line-through" style={{ color: C.dimmed }}>{item.name}</p>
-                    <p className="text-xs truncate mt-0.5" style={{ color: "#374151" }}>{item.description || "—"}</p>
+                    <p className="text-sm line-through" style={{ color: isDark ? D.dimmed : muted }}>{item.name}</p>
+                    <p className="text-xs truncate mt-0.5" style={{ color: isDark ? "#374151" : muted }}>{item.description || "\u2014"}</p>
                   </div>
                   <span className="text-xs px-2.5 py-1 rounded-full shrink-0"
-                    style={{ background: "rgba(75,85,99,0.15)", color: C.dimmed }}>
+                    style={{ background: isDark ? "rgba(75,85,99,0.15)" : div, color: isDark ? D.dimmed : muted }}>
                     {item.type.replace("_", " ")}
                   </span>
-                  <span className="text-sm shrink-0 w-20 text-right" style={{ color: C.dimmed }}>
+                  <span className="text-sm shrink-0 w-20 text-right" style={{ color: isDark ? D.dimmed : muted }}>
                     {item.price.toLocaleString()} xu
                   </span>
                   <button onClick={() => handleActivate(item)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-all"
-                    style={{ background: C.lavBg, color: C.violet }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = C.lavBgHover)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = C.lavBg)}>
+                    style={{ background: badge, color: isDark ? D.violet : sub }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? D.badgeHover : "rgba(37,99,235,0.15)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = badge)}>
                     <RotateCcw className="h-3 w-3" />
                     Mở lại
                   </button>
@@ -453,10 +514,13 @@ export function AdminView() {
         <DialogContent
           className="max-w-md"
           aria-describedby={undefined}
-          style={{ background: "#0d0c1e", border: `1px solid ${C.borderHard}` }}
+          style={{
+            background: isDark ? D.cardAlt : card,
+            border: `1px solid ${isDark ? D.borderHard : cb}`,
+          }}
         >
           <DialogHeader>
-            <DialogTitle style={{ color: C.white }}>
+            <DialogTitle style={{ color: tt }}>
               {dialogMode === "add" ? "Thêm vật phẩm mới" : `Sửa: ${editingItem?.name}`}
             </DialogTitle>
           </DialogHeader>
@@ -464,7 +528,11 @@ export function AdminView() {
           <div className="space-y-4 py-2">
             {errorMsg && (
               <p className="text-sm px-3 py-2 rounded-lg"
-                style={{ background: C.redBg, color: C.red, border: `1px solid ${C.redBorder}` }}>
+                style={{
+                  background: isDark ? D.redBg : "rgba(239,68,68,0.08)",
+                  color: isDark ? D.red : "#dc2626",
+                  border: `1px solid ${isDark ? D.redBorder : "rgba(239,68,68,0.2)"}`,
+                }}>
                 {errorMsg}
               </p>
             )}
@@ -475,7 +543,7 @@ export function AdminView() {
               { id: "item-desc", label: "Mô tả", placeholder: "Mô tả ngắn về vật phẩm...", field: "description" as const },
             ].map(({ id, label, placeholder, field, type }) => (
               <div key={id} className="space-y-1.5">
-                <label htmlFor={id} className="text-sm font-medium" style={{ color: C.muted }}>{label}</label>
+                <label htmlFor={id} className="text-sm font-medium" style={{ color: muted }}>{label}</label>
                 <input
                   id={id}
                   type={type ?? "text"}
@@ -484,24 +552,32 @@ export function AdminView() {
                   value={form[field]}
                   onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
                   className="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-all"
-                  style={{ background: C.inputBg, border: `1px solid ${C.border}`, color: C.white }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = C.lavender)}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
+                  style={{
+                    background: isDark ? D.inputBg : "rgba(37,99,235,0.04)",
+                    border: `1px solid ${cb}`,
+                    color: tt,
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = sub)}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = isDark ? D.border : L.border)}
                 />
               </div>
             ))}
 
             <div className="space-y-1.5">
-              <label htmlFor="item-type" className="text-sm font-medium" style={{ color: C.muted }}>Loại</label>
+              <label htmlFor="item-type" className="text-sm font-medium" style={{ color: muted }}>Loại</label>
               <select
                 id="item-type"
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as ItemFormData["type"] }))}
                 className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ background: C.inputBg, border: `1px solid ${C.border}`, color: C.white }}
+                style={{
+                  background: isDark ? D.inputBg : "rgba(37,99,235,0.04)",
+                  border: `1px solid ${cb}`,
+                  color: tt,
+                }}
               >
-                <option value="STREAK_FREEZE" style={{ background: "#0d0c1e" }}>Streak Freeze</option>
-                <option value="AVATAR_FRAME" style={{ background: "#0d0c1e" }}>Avatar Frame</option>
+                <option value="STREAK_FREEZE" style={{ background: isDark ? D.cardAlt : "#fff" }}>Streak Freeze</option>
+                <option value="AVATAR_FRAME" style={{ background: isDark ? D.cardAlt : "#fff" }}>Avatar Frame</option>
               </select>
             </div>
           </div>
@@ -511,7 +587,11 @@ export function AdminView() {
               onClick={() => { setDialogMode(null); setErrorMsg(null); }}
               disabled={saving}
               className="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-              style={{ background: "rgba(255,255,255,0.05)", color: C.muted, border: `1px solid ${C.border}` }}
+              style={{
+                background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                color: muted,
+                border: `1px solid ${cb}`,
+              }}
             >
               Huỷ
             </button>
@@ -519,7 +599,11 @@ export function AdminView() {
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:brightness-110"
-              style={{ background: C.btnGrad, color: C.white, boxShadow: "0 0 16px rgba(124,58,237,0.35)" }}
+              style={{
+                background: btnGrad,
+                color: isDark ? D.title : "#fff",
+                boxShadow: isDark ? "0 0 16px rgba(124,58,237,0.35)" : "0 4px 12px rgba(37,99,235,0.25)",
+              }}
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {dialogMode === "add" ? "Thêm vật phẩm" : "Lưu thay đổi"}
@@ -536,28 +620,35 @@ export function AdminView() {
         <DialogContent
           className="max-w-sm"
           aria-describedby={undefined}
-          style={{ background: "#0d0c1e", border: `1px solid ${C.redBorder}` }}
+          style={{
+            background: isDark ? D.cardAlt : card,
+            border: `1px solid ${isDark ? D.redBorder : "rgba(239,68,68,0.2)"}`,
+          }}
         >
           <DialogHeader>
-            <DialogTitle style={{ color: C.white }}>Ngưng bán vật phẩm?</DialogTitle>
+            <DialogTitle style={{ color: tt }}>Ngưng bán vật phẩm?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm" style={{ color: C.muted }}>
+          <p className="text-sm" style={{ color: muted }}>
             Vật phẩm{" "}
-            <span style={{ color: C.lavender, fontWeight: 600 }}>"{deleteTarget?.name}"</span>{" "}
+            <span style={{ color: sub, fontWeight: 600 }}>"{deleteTarget?.name}"</span>{" "}
             sẽ bị ẩn khỏi cửa hàng. Bạn có thể mở bán lại bất cứ lúc nào.
           </p>
           <DialogFooter>
             <button
               onClick={() => setDeleteTarget(null)}
               className="px-4 py-2 rounded-xl text-sm font-medium"
-              style={{ background: "rgba(255,255,255,0.05)", color: C.muted, border: `1px solid ${C.border}` }}
+              style={{
+                background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                color: muted,
+                border: `1px solid ${cb}`,
+              }}
             >
               Huỷ
             </button>
             <button
               onClick={() => deleteTarget && handleDeactivate(deleteTarget)}
               className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-              style={{ background: "linear-gradient(135deg, #b91c1c, #dc2626)", color: C.white }}
+              style={{ background: "linear-gradient(135deg, #b91c1c, #dc2626)", color: "#fff" }}
             >
               Ngưng bán
             </button>
