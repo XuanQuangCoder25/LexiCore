@@ -72,3 +72,34 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 - **Chữ nhấn/Sub-text:** Lavender `#c4b5fd`
 - **Màu phụ (Muted):** Xám nhạt `#94a3b8`
 - **Nút bấm (Button):** Gradient `#7c3aed → #4f46e5`
+
+---
+
+# 🎙️ MODULE: AI VOICE ANALYSIS (SHADOWING)
+
+**Shadowing là gì?** 
+Shadowing (cái bóng) là một phương pháp luyện nói rất nổi tiếng trong việc học ngoại ngữ. Quy trình của nó rất đơn giản:
+1. Bạn **nghe** một đoạn video/audio của người bản xứ.
+2. Bạn đọc phụ đề (transcript) và lập tức **nhại lại** (đọc theo) càng giống ngữ điệu, phát âm của họ càng tốt.
+3. Trong dự án của chúng ta, khi người dùng nhại lại, trình duyệt sẽ dùng **WebRTC (MediaRecorder API)** để ghi âm giọng nói của họ.
+4. Đoạn ghi âm này sẽ được gửi lên Backend. Backend sẽ gọi các API Trí tuệ nhân tạo (AI Speech-to-Text như Google Cloud Speech-to-Text, OpenAI Whisper, hoặc Azure Pronunciation Assessment).
+5. AI sẽ nghe, phân tích và trả về kết quả: bạn phát âm sai từ nào, thiếu âm đuôi (ending sound) nào, và phiên âm IPA đúng của từ đó là gì.
+6. Frontend nhận kết quả và bôi đỏ những từ sai (như thiết kế `ShadowingView.tsx` đồng đội đã làm).
+
+## 🛠 Lộ trình triển khai (Roadmap)
+
+### Giai đoạn 1: Khởi tạo Database Schema & WebRTC (Frontend)
+1. **Database:** Cần bảng `shadowing_videos` (Lưu thông tin video YouTube, ID, tiêu đề), `shadowing_segments` (Lưu phụ đề và mốc thời gian start/end), và `user_shadowing_history` (Lưu lịch sử luyện tập, điểm số của user).
+2. **WebRTC:** Ở Frontend (`ShadowingView.tsx`), cấu hình nút Record để xin quyền truy cập Microphone của trình duyệt (`navigator.mediaDevices.getUserMedia`).
+3. Viết hàm thu âm thanh và xuất ra định dạng `.webm` hoặc `.wav` để chuẩn bị gửi lên Backend.
+
+### Giai đoạn 2: Tích hợp AI (Backend)
+1. Tạo module `shadowing-controller.ts` để nhận file ghi âm từ Frontend (Sử dụng thư viện `multer` để parse file).
+2. Tích hợp AI API. *Lưu ý: Azure Pronunciation Assessment là lựa chọn tốt nhất hiện nay cho việc đánh giá phát âm vì nó trả về điểm số từng âm tiết (syllable) và IPA, rất khớp với thiết kế của đồng đội.*
+3. Xử lý kết quả AI trả về và format lại thành mảng JSON để Frontend dễ dàng map vào giao diện.
+
+### Giai đoạn 3: Ráp nối UI & Hoàn thiện luồng học
+1. Ghép nối API vào giao diện `ShadowingView.tsx`.
+2. Thay thế dữ liệu giả (mock data) bằng dữ liệu thật từ Backend.
+3. Xử lý logic video YouTube (đồng bộ thời gian chạy của video với phụ đề đang sáng lên).
+4. Tính toán điểm Accuracy, lưu lịch sử, và cập nhật Streak (chuỗi ngày học) cho user.

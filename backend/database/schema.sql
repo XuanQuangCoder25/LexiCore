@@ -76,3 +76,41 @@ CREATE TABLE user_items (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE
 );
+
+-- C. AI VOICE ANALYSIS (SHADOWING)
+
+-- 1. Bảng lưu trữ Video YouTube
+CREATE TABLE shadowing_videos (
+    id VARCHAR(36) PRIMARY KEY,
+    youtube_id VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    channel VARCHAR(100),
+    duration INT,
+    difficulty ENUM('Beginner', 'Intermediate', 'Advanced') DEFAULT 'Intermediate',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Bảng lưu trữ Phụ đề (Transcripts/Segments) của Video
+CREATE TABLE shadowing_segments (
+    id VARCHAR(36) PRIMARY KEY,
+    video_id VARCHAR(36) NOT NULL,
+    start_time FLOAT NOT NULL,
+    end_time FLOAT NOT NULL,
+    transcript TEXT NOT NULL,
+    order_index INT NOT NULL,
+    FOREIGN KEY (video_id) REFERENCES shadowing_videos (id) ON DELETE CASCADE
+);
+
+-- 3. Bảng lưu trữ Lịch sử luyện tập Shadowing của User
+CREATE TABLE user_shadowing_history (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    video_id VARCHAR(36) NOT NULL,
+    segment_id VARCHAR(36) NOT NULL,
+    accuracy_score INT NOT NULL,
+    audio_url VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (video_id) REFERENCES shadowing_videos (id) ON DELETE CASCADE,
+    FOREIGN KEY (segment_id) REFERENCES shadowing_segments (id) ON DELETE CASCADE
+);

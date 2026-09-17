@@ -7,6 +7,7 @@ import { connectMySQL } from './config/mysql';
 import './config/redis';
 import authRoute from './modules/auth/auth-route';
 import economyRoute from './modules/economy/economy-route';
+import shadowingRoute from './modules/shadowing/shadowing-route';
 import { globalErrorHandler } from './middlewares/errorHandler';
 import dashboardRoutes from './modules/dashboard/dashboard.route';
 import srsRoutes from './modules/srs/srs.route';
@@ -39,6 +40,7 @@ const startServer = async () => {
         // Gắn các Route
         app.use('/api/auth', authRoute);
         app.use('/api/store', economyRoute);
+        app.use('/api/shadowing', shadowingRoute);
 
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);
