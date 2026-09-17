@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
@@ -98,8 +98,28 @@ export function FlashcardsView() {
   const [currentView, setCurrentView] = useState<"overview" | "study">("overview");
   const [showAnswer, setShowAnswer] = useState(false);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [dueCards, setDueCards] = useState<any[]>([]);
+  const [totalDue, setTotalDue] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const fetchDueCards = async (deckId?: number) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/srs/due${deckId ? `?deckId=${deckId}` : ''}`);
+      const json = await res.json();
+      if (json.success) {
+        setDueCards(json.data.cards);
+        setTotalDue(json.data.totalDue);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleStudyDeck = (deckId: number) => {
+    fetchDueCards(deckId);
     setCurrentView("study");
     setShowAnswer(false);
     setCurrentCardIndex(0);
@@ -109,22 +129,52 @@ export function FlashcardsView() {
     setShowAnswer(!showAnswer);
   };
 
-  const handleNext = async (quality: number) => {
+  const handleNext = useCallback(async (quality: number) => {
+    if (!dueCards[currentCardIndex]) return;
     try {
       await fetch("http://localhost:5000/api/v1/srs/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cardId: "609d20194a5c543f88f11111", // Valid ObjectId format
-          quality: quality
+          cardId: dueCards[currentCardIndex].cardId || "mock_card_id", 
+          deckId: dueCards[currentCardIndex].deckId,
+          quality: quality,
+          responseTimeMs: 1200 // Thêm tính toán time thực tế sau
         })
       });
       setShowAnswer(false);
-      setCurrentCardIndex(prev => prev + 1);
+      if (currentCardIndex + 1 < dueCards.length) {
+        setCurrentCardIndex(prev => prev + 1);
+      } else {
+        alert("Bạn đã hoàn thành phiên học!");
+        setCurrentView("overview");
+      }
     } catch (error) {
       console.error("Lỗi khi update Flashcard:", error);
     }
-  };
+  }, [dueCards, currentCardIndex]);
+
+  // Bắt sự kiện bàn phím
+  useEffect(() => {
+    if (currentView !== "study") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!showAnswer && e.code === "Space") {
+        e.preventDefault();
+        setShowAnswer(true);
+      } else if (showAnswer) {
+        switch (e.key) {
+          case "1": handleNext(0); break;
+          case "2": handleNext(2); break;
+          case "3": handleNext(4); break;
+          case "4": handleNext(5); break;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentView, showAnswer, handleNext]);
 
   const handleBackToOverview = () => {
     setCurrentView("overview");
@@ -132,6 +182,13 @@ export function FlashcardsView() {
   };
 
   if (currentView === "study") {
+    const activeCard = dueCards.length > 0 ? dueCards[currentCardIndex] : studySession.currentCard;
+    const progress = totalDue > 0 ? ((currentCardIndex + 1) / totalDue) * 100 : 0;
+    
+    // Tính toán thời gian dự kiến (giả sử 1 thẻ tốn trung bình 15s)
+    const cardsLeft = Math.max(0, totalDue - currentCardIndex);
+    const estimatedMinutes = Math.ceil((cardsLeft * 15) / 60);
+
     return (
       <div className="space-y-6">
         {/* Study Header */}
@@ -142,14 +199,14 @@ export function FlashcardsView() {
             </Button>
             <h1 className="text-3xl font-bold">{studySession.deckName}</h1>
             <p className="text-muted-foreground">
-              Card {studySession.cardNumber} of {studySession.totalCards}
+              Card {currentCardIndex + 1} of {totalDue > 0 ? totalDue : studySession.totalCards} • <span className="text-blue-500 font-medium">Estimated time: ~{estimatedMinutes} mins</span>
             </p>
           </div>
           <div className="text-right">
-            <Badge className="mb-2">{studySession.currentCard.difficulty}</Badge>
+            <Badge className="mb-2">{activeCard.status || "Review"}</Badge>
             <div className="w-32">
               <Progress 
-                value={(studySession.cardNumber / studySession.totalCards) * 100} 
+                value={progress} 
                 className="h-2" 
               />
             </div>
@@ -171,13 +228,13 @@ export function FlashcardsView() {
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <h2 className="text-4xl font-bold">
-                        {studySession.currentCard.word}
+                        {activeCard.word}
                       </h2>
                       <p className="text-lg text-muted-foreground">
-                        {studySession.currentCard.phonetic}
+                        {activeCard.phonetic || "/ˌser.ənˈdɪp.ə.ti/"}
                       </p>
                       <Badge variant="outline" className="text-sm">
-                        {studySession.currentCard.partOfSpeech}
+                        {activeCard.partOfSpeech || "noun"}
                       </Badge>
                     </div>
                     
@@ -203,28 +260,28 @@ export function FlashcardsView() {
                   <div className="space-y-6 w-full max-w-md">
                     <div className="space-y-4">
                       <h3 className="text-2xl font-bold">
-                        {studySession.currentCard.word}
+                        {activeCard.word}
                       </h3>
                       
                       <div className="text-left space-y-3">
                         <div>
                           <h4 className="font-semibold mb-1">Definition:</h4>
                           <p className="text-muted-foreground">
-                            {studySession.currentCard.definition}
+                            {activeCard.definition}
                           </p>
                         </div>
                         
                         <div>
                           <h4 className="font-semibold mb-1">Example:</h4>
                           <p className="text-muted-foreground italic">
-                            "{studySession.currentCard.example}"
+                            "{activeCard.example || "A fortunate stroke of serendipity brought the two old friends together at the airport."}"
                           </p>
                         </div>
                         
                         <div>
                           <h4 className="font-semibold mb-1">Synonyms:</h4>
                           <div className="flex gap-2">
-                            {studySession.currentCard.synonyms.map((synonym, index) => (
+                            {(activeCard.synonyms || ["chance", "fortune", "luck"]).map((synonym: string, index: number) => (
                               <Badge key={index} variant="secondary">
                                 {synonym}
                               </Badge>
@@ -253,7 +310,7 @@ export function FlashcardsView() {
                 onClick={() => handleNext(0)}
               >
                 <XCircle className="h-4 w-4 mr-2 text-red-500" />
-                Again (0)
+                Again (1)
               </Button>
               <Button 
                 variant="outline" 
@@ -267,14 +324,14 @@ export function FlashcardsView() {
                 onClick={() => handleNext(4)}
               >
                 <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
-                Good (4)
+                Good (3)
               </Button>
               <Button 
                 variant="outline" 
                 onClick={() => handleNext(5)}
               >
                 <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                Easy (5)
+                Easy (4)
               </Button>
             </div>
           </div>
