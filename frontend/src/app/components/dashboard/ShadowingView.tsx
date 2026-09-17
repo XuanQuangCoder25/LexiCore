@@ -4,14 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
-import { Progress } from "../ui/progress";
-import { Slider } from "../ui/slider";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { Progress } from "../ui/progress";
 import {
-  Play, Pause, RotateCcw, Volume2, VolumeX, Mic, MicOff, Settings,
-  Download, ExternalLink, Clock, Repeat, SkipBack, SkipForward,
-  BookOpen, Target, TrendingUp, Youtube, CheckCircle2, AlertCircle, ChevronRight, Loader2
+  Play, Mic, MicOff, Settings, BookOpen, Youtube, Loader2, PlusCircle
 } from "lucide-react";
 
 interface Video {
@@ -43,6 +39,10 @@ export function ShadowingView() {
   // Library State
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [addVideoUrl, setAddVideoUrl] = useState("");
+  const [addVideoDifficulty, setAddVideoDifficulty] = useState("Intermediate");
+  const [isAddingVideo, setIsAddingVideo] = useState(false);
+  const [addVideoError, setAddVideoError] = useState("");
 
   // Practice State
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
@@ -98,6 +98,31 @@ export function ShadowingView() {
       console.error(e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddVideo = async () => {
+    if (!addVideoUrl.trim()) return;
+    setIsAddingVideo(true);
+    setAddVideoError("");
+    try {
+      const res = await fetch('http://localhost:5000/api/shadowing/videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ url: addVideoUrl, difficulty: addVideoDifficulty }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setAddVideoUrl("");
+        await fetchVideos(); // Reload library
+      } else {
+        setAddVideoError(data.message || 'Đã có lỗi xảy ra.');
+      }
+    } catch (e) {
+      setAddVideoError('Không thể kết nối server.');
+    } finally {
+      setIsAddingVideo(false);
     }
   };
 
@@ -368,6 +393,46 @@ export function ShadowingView() {
         <h1 className="text-3xl font-bold">YouTube Shadowing</h1>
         <p className="text-muted-foreground">Practice pronunciation and rhythm with real videos and AI feedback</p>
       </div>
+
+      {/* Add Video Card */}
+      <Card className="border-dashed border-2">
+        <CardContent className="p-5">
+          <p className="text-sm font-medium mb-3 flex items-center gap-2">
+            <PlusCircle className="h-4 w-4 text-primary" />
+            Thêm video YouTube để luyện tập
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Dán URL YouTube vào đây (ví dụ: https://youtu.be/...)"
+              value={addVideoUrl}
+              onChange={(e) => setAddVideoUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddVideo()}
+              disabled={isAddingVideo}
+              className="flex-1"
+            />
+            <select
+              value={addVideoDifficulty}
+              onChange={(e) => setAddVideoDifficulty(e.target.value)}
+              disabled={isAddingVideo}
+              className="border rounded-md px-3 text-sm bg-background"
+            >
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Advanced">Advanced</option>
+            </select>
+            <Button onClick={handleAddVideo} disabled={isAddingVideo || !addVideoUrl.trim()}>
+              {isAddingVideo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+              {isAddingVideo ? 'Đang tải phụ đề...' : 'Thêm Video'}
+            </Button>
+          </div>
+          {addVideoError && (
+            <p className="text-sm text-destructive mt-2">{addVideoError}</p>
+          )}
+          <p className="text-xs text-muted-foreground mt-2">
+            AI sẽ tự động tải phụ đề từ YouTube và tạo bài luyện tập cho bạn.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {isLoading ? (

@@ -77,29 +77,51 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 
 # 🎙️ MODULE: AI VOICE ANALYSIS (SHADOWING)
 
-**Shadowing là gì?** 
-Shadowing (cái bóng) là một phương pháp luyện nói rất nổi tiếng trong việc học ngoại ngữ. Quy trình của nó rất đơn giản:
-1. Bạn **nghe** một đoạn video/audio của người bản xứ.
-2. Bạn đọc phụ đề (transcript) và lập tức **nhại lại** (đọc theo) càng giống ngữ điệu, phát âm của họ càng tốt.
-3. Trong dự án của chúng ta, khi người dùng nhại lại, trình duyệt sẽ dùng **WebRTC (MediaRecorder API)** để ghi âm giọng nói của họ.
-4. Đoạn ghi âm này sẽ được gửi lên Backend. Backend sẽ gọi các API Trí tuệ nhân tạo (AI Speech-to-Text như Google Cloud Speech-to-Text, OpenAI Whisper, hoặc Azure Pronunciation Assessment).
-5. AI sẽ nghe, phân tích và trả về kết quả: bạn phát âm sai từ nào, thiếu âm đuôi (ending sound) nào, và phiên âm IPA đúng của từ đó là gì.
-6. Frontend nhận kết quả và bôi đỏ những từ sai (như thiết kế `ShadowingView.tsx` đồng đội đã làm).
+## Giai đoạn 1: Database & Auto-fetch Transcript ✅
 
-## 🛠 Lộ trình triển khai (Roadmap)
+- Tạo 3 bảng MySQL: `shadowing_videos`, `shadowing_segments`, `user_shadowing_history`.
+- API `POST /api/shadowing/videos`: nhận URL YouTube → gọi `youtube-transcript` kéo phụ đề tự động, gọi YouTube oEmbed API lấy title & channel thật → lưu vào DB.
+- API `GET /api/shadowing/videos` và `GET /api/shadowing/videos/:id`.
+- Frontend: card "Thêm video" với ô nhập URL, chọn độ khó, loading state, thông báo lỗi rõ ràng.
 
-### Giai đoạn 1: Khởi tạo Database Schema & WebRTC (Frontend)
-1. **Database:** Cần bảng `shadowing_videos` (Lưu thông tin video YouTube, ID, tiêu đề), `shadowing_segments` (Lưu phụ đề và mốc thời gian start/end), và `user_shadowing_history` (Lưu lịch sử luyện tập, điểm số của user).
-2. **WebRTC:** Ở Frontend (`ShadowingView.tsx`), cấu hình nút Record để xin quyền truy cập Microphone của trình duyệt (`navigator.mediaDevices.getUserMedia`).
-3. Viết hàm thu âm thanh và xuất ra định dạng `.webm` hoặc `.wav` để chuẩn bị gửi lên Backend.
+## Giai đoạn 2: Tích hợp AI (Whisper + So sánh text) ✅
 
-### Giai đoạn 2: Tích hợp AI (Backend)
-1. Tạo module `shadowing-controller.ts` để nhận file ghi âm từ Frontend (Sử dụng thư viện `multer` để parse file).
-2. Tích hợp AI API. *Lưu ý: Azure Pronunciation Assessment là lựa chọn tốt nhất hiện nay cho việc đánh giá phát âm vì nó trả về điểm số từng âm tiết (syllable) và IPA, rất khớp với thiết kế của đồng đội.*
-3. Xử lý kết quả AI trả về và format lại thành mảng JSON để Frontend dễ dàng map vào giao diện.
+- Backend nhận file ghi âm qua `multer` (memory buffer).
+- Gọi **OpenAI Whisper API** (`whisper-1`) để chuyển giọng nói thành text.
+- Hàm `compareWords(reference, spoken)` trong `shadowing-service.ts`: normalize (lowercase, bỏ dấu câu), so sánh word-by-word, trả về `{ text, status }`.
+- Trả về `{ accuracy, spokenText, referenceText, feedback }` cho Frontend.
+- *Nâng cấp sau:* Thay bằng **Azure Pronunciation Assessment** để có IPA từng âm tiết.
 
-### Giai đoạn 3: Ráp nối UI & Hoàn thiện luồng học
-1. Ghép nối API vào giao diện `ShadowingView.tsx`.
-2. Thay thế dữ liệu giả (mock data) bằng dữ liệu thật từ Backend.
-3. Xử lý logic video YouTube (đồng bộ thời gian chạy của video với phụ đề đang sáng lên).
-4. Tính toán điểm Accuracy, lưu lịch sử, và cập nhật Streak (chuỗi ngày học) cho user.
+## Giai đoạn 3: Frontend WebRTC & Hoàn thiện ✅
+
+- Tích hợp `react-youtube`: phát video, bắt sự kiện `onReady`, `onStateChange`.
+- Phụ đề đồng bộ: `setInterval` 500ms → `getCurrentTime()` → so sánh `start_time`/`end_time` → highlight câu đang phát.
+- WebRTC: `getUserMedia` xin quyền mic, `MediaRecorder` ghi âm, tổng hợp `Blob`, gửi qua `FormData`.
+- Từ sai bôi đỏ dạng gạch chân lượn sóng, hover thấy gợi ý.
+- Lưu lịch sử vào `user_shadowing_history` sau mỗi lần phân tích.
+- Cập nhật Streak dùng hàm chung `updateStreak(userId)` (`backend/utils/streak.ts`).
+
+---
+
+## Streak Logic — Dùng chung (`backend/utils/streak.ts`)
+
+Cập nhật `wallets`: `current_streak`, `longest_streak`, `last_study_date` sau mỗi lần học:
+- **Chưa học hôm nay, ngày cuối là hôm qua:** `streak += 1` → chuỗi tiếp tục.
+- **Đã học hôm nay rồi:** Không thay đổi (idempotent — tránh tăng 2 lần).
+- **Bỏ học ≥ 1 ngày** (học ngày 1, bỏ ngày 2, học lại ngày 3): `streak = 1` (reset về đầu).
+- `longest_streak` luôn được cập nhật nếu `current_streak` vượt kỷ lục.
+
+---
+
+## Luồng hoạt động
+
+Shadowing là phương pháp luyện phát âm: người dùng nghe người bản xứ nói rồi nhại lại ngay lập tức. Hệ thống hoạt động theo luồng sau:
+
+1. **Thêm video:** Người dùng dán URL YouTube → Backend gọi `youtube-transcript` kéo phụ đề, gọi YouTube oEmbed API lấy title & channel thật → lưu vào MySQL (`shadowing_videos`, `shadowing_segments`).
+2. **Luyện tập:** Người dùng chọn video, trình phát YouTube nhúng vào trang. Phụ đề tự sáng lên theo mốc thời gian của video (`setInterval` + `player.getCurrentTime()`). Bấm vào câu phụ đề để tua video đến đúng đoạn đó.
+3. **Ghi âm (WebRTC):** Người dùng bấm "Start Shadowing" → trình duyệt xin quyền Microphone → `MediaRecorder API` ghi âm. Video tự tạm dừng khi ghi âm.
+4. **Phân tích AI:** Bấm "Stop & Analyze" → file `.webm` gửi lên Backend qua `FormData`. Backend gọi **OpenAI Whisper** (`whisper-1`) chuyển giọng nói thành text (truyền transcript gốc làm `prompt` để tăng độ chính xác).
+5. **Chấm điểm:** Hàm `compareWords()` so sánh text Whisper với transcript gốc word-by-word (có normalize). Tính `accuracy`, trả về mảng token `{ text, status: 'correct' | 'wrong' }`.
+6. **Lưu kết quả:** Lưu điểm vào `user_shadowing_history`. Gọi `updateStreak(userId)` cập nhật chuỗi ngày học.
+7. **Hiển thị:** Từ sai bôi đỏ gạch chân lượn sóng. *Nâng cấp tương lai: dùng Azure Pronunciation Assessment để có phiên âm IPA từng âm tiết.*
+

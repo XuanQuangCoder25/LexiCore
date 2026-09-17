@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { requireAuth } from '../../middlewares/requireAuth';
-import { getLibraryHandler, getVideoDetailHandler, analyzeAudioHandler } from './shadowing-controller';
+import { getLibraryHandler, getVideoDetailHandler, addVideoHandler, analyzeAudioHandler } from './shadowing-controller';
 
 const router = Router();
 
@@ -10,6 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.get('/videos', requireAuth, getLibraryHandler);
 router.get('/videos/:id', requireAuth, getVideoDetailHandler);
+router.post('/videos', requireAuth, addVideoHandler);
 router.post('/analyze/:segmentId', requireAuth, upload.single('audio'), analyzeAudioHandler);
 
 export default router;
