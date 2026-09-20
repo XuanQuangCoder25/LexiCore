@@ -391,9 +391,8 @@ export function ShadowingView() {
   const handleSaveSegmentToNotebook = () => {
     if (!contextMenu || !segments[contextMenu.segmentIndex]) return;
     const line = segments[contextMenu.segmentIndex].transcript;
-    const newContent = noteContent ? `${noteContent}\n- ${line}` : `- ${line}`;
+    const newContent = noteContent ? `${noteContent}\n${line}` : line;
     handleNoteChange(newContent);
-    setActiveTab('notebook');
     setContextMenu(null);
   };
 

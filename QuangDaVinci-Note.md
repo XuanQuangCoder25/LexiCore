@@ -77,14 +77,14 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 
 # 🎙️ MODULE: AI VOICE ANALYSIS (SHADOWING)
 
-## Giai đoạn 1: Database & Auto-fetch Transcript ✅
+## Giai đoạn 1: Database & Auto-fetch Transcript
 
 - Tạo 3 bảng MySQL: `shadowing_videos`, `shadowing_segments`, `user_shadowing_history`.
 - API `POST /api/shadowing/videos`: nhận URL YouTube → gọi `youtube-transcript` kéo phụ đề tự động, gọi YouTube oEmbed API lấy title & channel thật → lưu vào DB.
 - API `GET /api/shadowing/videos` và `GET /api/shadowing/videos/:id`.
 - Frontend: card "Thêm video" với ô nhập URL, chọn độ khó, loading state, thông báo lỗi rõ ràng.
 
-## Giai đoạn 2: Tích hợp AI (Whisper + So sánh text) ✅
+## Giai đoạn 2: Tích hợp AI (Whisper + So sánh text)
 
 - Backend nhận file ghi âm qua `multer` (memory buffer).
 - Gọi **OpenAI Whisper API** (`whisper-1`) để chuyển giọng nói thành text.
@@ -92,7 +92,7 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 - Trả về `{ accuracy, spokenText, referenceText, feedback }` cho Frontend.
 - *Nâng cấp sau:* Thay bằng **Azure Pronunciation Assessment** để có IPA từng âm tiết.
 
-## Giai đoạn 3: Frontend WebRTC & Hoàn thiện ✅
+## Giai đoạn 3: Frontend WebRTC & Hoàn thiện
 
 - Tích hợp `react-youtube`: phát video, bắt sự kiện `onReady`, `onStateChange`.
 - Phụ đề đồng bộ: `setInterval` 500ms → `getCurrentTime()` → so sánh `start_time`/`end_time` → highlight câu đang phát.
@@ -100,6 +100,29 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 - Từ sai bôi đỏ dạng gạch chân lượn sóng, hover thấy gợi ý.
 - Lưu lịch sử vào `user_shadowing_history` sau mỗi lần phân tích.
 - Cập nhật Streak dùng hàm chung `updateStreak(userId)` (`backend/utils/streak.ts`).
+
+## Giai đoạn 4: Custom Video Player & Giao diện học tập
+
+- **Bố cục (Layout):** Chia layout 60/40. Bên trái là khu vực thực hành (Video, Control Bar, Voice Analysis). Bên phải là hệ thống tab dữ liệu (Transcript, Gemini Vocab, Notebook).
+- **Thanh điều khiển tuỳ chỉnh (Control Bar):** 
+  - Thay thế các control mặc định của YouTube bằng các nút custom (Play/Pause, Tua lùi 5s, Tốc độ).
+  - Thuật toán `Auto-Pause`: Tự động dừng video khi người dùng nghe xong một câu (dựa trên mốc `end_time` của segment hiện tại).
+  - Thuật toán `Loop`: Liên tục lặp lại một câu (kết hợp `seekTo` và `start_time`, `end_time`).
+- **Context Menu & Sổ tay:** 
+  - Bắt sự kiện chuột phải (`onContextMenu`) trên từng câu phụ đề ở Tab Transcript.
+  - Các chức năng: Lưu câu vào thẻ Notebook, Kích hoạt Loop câu đó, hoặc Copy text vào clipboard. Mọi thao tác lưu diễn ra âm thầm để không gián đoạn luồng học.
+
+## Giai đoạn 5: Interactive Subtitles & AI Dictionary
+
+- **Tokenization:** Phụ đề không còn là văn bản tĩnh mà được chẻ (split) thành từng từ vựng riêng biệt và render thông qua các thẻ `<span>` có sự kiện `onClick`.
+- **Làm sạch chuỗi (String Cleaning):** Áp dụng Regex để lọc các ký tự đặc biệt, dấu câu dính vào từ, ép kiểu `toLowerCase()` trước khi gửi lên API để tránh lỗi 400/404.
+- **Tích hợp API Tra từ:**
+  - Chuyển sang sử dụng **Wiktionary REST API** (`en.wiktionary.org`) để đảm bảo tính ổn định, tốc độ phản hồi nhanh và không bị lỗi CORS/Rate Limit. Dữ liệu HTML trả về được lọc (strip tags) trước khi hiển thị.
+  - Sử dụng Web Speech API tích hợp sẵn của trình duyệt (`window.speechSynthesis`) để đọc từ vựng thay vì tải file MP3, giúp đảm bảo 100% từ nào cũng có thể phát âm được mà không bị trễ.
+- **Tích hợp Gemini AI Contextual Explanation:**
+  - Gửi cả từ vựng và toàn bộ câu chứa từ đó lên Backend. 
+  - Backend gọi **Gemini API** với prompt được tối ưu (yêu cầu trả về dạng text thuần dưới 40 chữ) để giải thích chính xác ý nghĩa của từ đó trong ngữ cảnh của câu.
+- **UI/UX Popup:** Khung từ điển nổi (Dictionary Popup) áp dụng kỹ thuật Drag & Drop thuần React (sử dụng `useRef` và `pointer events`), cho phép người dùng thoải mái nắm kéo thả khung từ điển khắp màn hình để không bị che khuất video hay transcript.
 
 ---
 
@@ -110,68 +133,8 @@ Cập nhật `wallets`: `current_streak`, `longest_streak`, `last_study_date` sa
 - **Đã học hôm nay rồi:** Không thay đổi (idempotent — tránh tăng 2 lần).
 - **Bỏ học ≥ 1 ngày** (học ngày 1, bỏ ngày 2, học lại ngày 3): `streak = 1` (reset về đầu).
 - `longest_streak` luôn được cập nhật nếu `current_streak` vượt kỷ lục.
+*Nâng cấp tương lai: dùng Azure Pronunciation Assessment để có phiên âm IPA từng âm tiết.*
 
 ---
 
-## Luồng hoạt động
 
-Shadowing là phương pháp luyện phát âm: người dùng nghe người bản xứ nói rồi nhại lại ngay lập tức. Hệ thống hoạt động theo luồng sau:
-
-1. **Thêm video:** Người dùng dán URL YouTube → Backend gọi `youtube-transcript` kéo phụ đề, gọi YouTube oEmbed API lấy title & channel thật → lưu vào MySQL (`shadowing_videos`, `shadowing_segments`).
-2. **Luyện tập:** Người dùng chọn video, trình phát YouTube nhúng vào trang. Phụ đề tự sáng lên theo mốc thời gian của video (`setInterval` + `player.getCurrentTime()`). Bấm vào câu phụ đề để tua video đến đúng đoạn đó.
-3. **Ghi âm (WebRTC):** Người dùng bấm "Start Shadowing" → trình duyệt xin quyền Microphone → `MediaRecorder API` ghi âm. Video tự tạm dừng khi ghi âm.
-4. **Phân tích AI:** Bấm "Stop & Analyze" → file `.webm` gửi lên Backend qua `FormData`. Backend gọi **OpenAI Whisper** (`whisper-1`) chuyển giọng nói thành text (truyền transcript gốc làm `prompt` để tăng độ chính xác).
-5. **Chấm điểm:** Hàm `compareWords()` so sánh text Whisper với transcript gốc word-by-word (có normalize). Tính `accuracy`, trả về mảng token `{ text, status: 'correct' | 'wrong' }`.
-6. **Lưu kết quả:** Lưu điểm vào `user_shadowing_history`. Gọi `updateStreak(userId)` cập nhật chuỗi ngày học.
-7. **Hiển thị:** Từ sai bôi đỏ gạch chân lượn sóng. *Nâng cấp tương lai: dùng Azure Pronunciation Assessment để có phiên âm IPA từng âm tiết.*
-
-
-Nháp:
-Custom Player:
-1. Thanh điều khiển (Control Bar)
-Thanh này sẽ nằm bên dưới video (hoặc đè lên mép dưới video). Thay vì các nút xem phim thông thường, ta cần:
-- Nút Play/Pause (Spacebar): Bắt buộc.
-- Nút Tua lùi 5 giây (Phím mũi tên trái): Cực kỳ quan trọng. Nghe không rõ là bấm lùi ngay lập tức.
-- Nút Tốc độ (Speed): Các mức 0.5x, 0.75x (rất cần cho người mới), 1x, 1.25x.
-- (Tính năng Độc quyền) Nút Auto-Pause: Một nút gạt (Toggle). Khi bật lên, video cứ chạy hết 1 câu phụ đề là tự động dừng lại, để chừa khoảng lặng cho user ghi âm nhại lại. Khi ghi âm xong, tự động chạy câu tiếp theo.
-- Nút Loop (Lặp câu): Bật lên thì video chỉ chạy đi chạy lại đúng cái câu (segment) hiện tại. Rất tốt để cày phát âm.
-2. Menu Chuột phải (Custom Context Menu)
-Ta phủ một thẻ div trong suốt lên video. Khi user click chuột phải, xổ ra 1 menu nhỏ gọn (Dark theme):
-- Lưu câu này vào sổ tay (Save sentence)
-- Lặp lại câu này (Loop)
-- Chép script câu này (Copy text)
-3. Phụ đề tương tác (Interactive Subtitles) & Popup Từ điển
-Phụ đề không phải là một dòng chữ dính chết vào video, mà ta sẽ render nó thành từng chữ (từng thẻ <span>). Thao tác: chỉ click 1 lần (Single Click)
-Quy trình chuẩn khi click vào 1 chữ (ví dụ chữ "Environment"): Video ngay lập tức bị Tạm dừng (Pause).Chữ "Environment" được bôi đậm (Highlight vàng).
-Một Popup Card nổi lên ngay bên cạnh chữ đó (dùng thư viện như Floating UI hoặc Radix UI để canh toạ độ).
-Popup Từ điển sẽ chứa những gì? Chúng ta sẽ kết hợp 2 công nghệ như đã chốt (Free API + AI) vào chung 1 cái Popup này:
-- Phần trên (Dùng Free Dictionary API): Nút loa để nghe cách người bản xứ đọc riêng từ đó. Phiên âm IPA: /ɪnˈvaɪ.rən.mənt/.
-- Phần giữa (Dùng Gemini - Context AI): Vì Frontend đã truyền nguyên cả câu đó cho Backend, nên Gemini sẽ trả về đúng 1 nghĩa ngắn gọn, khớp 100% với video. Ví dụ: Danh từ: Môi trường (sống, làm việc).
-- Phần dưới (Tôi tính làm gì đó liên quan tới Hệ thống Gamification như Nút Lưu vào Flashcard (Tốn 10 Xu) nhưng họ hoàn toàn có thể lách luật bằng cách thêm từ từ sổ tay rồi sau khi kết thúc bào học sẽ tự tổng hợp vào flashcard nên chắc gamification để tính sau đi haha)
-
-Tuy nhiên, hiện tại giao diện ta đang có 1 nhược điểm đó là video đang chiếm phần lớn bên trên, dưới là 2 khung start shadowing và khung chứa subtitles, điều này có nghĩa là user không thể vừa xem video vừa xem phụ đề, nếu họ muón xem phụ đề họ phải lướt xuống, và không nhìn thấy video. Nên tôi tính thay đổi, đẩy khung subtitles lên ngang hàng với video để người dùng có thể vừa xem video vừa đọc phụ đề. Và vì tôi muốn nhét thêm khá nhiều thứ (Gemini Vocab, Sổ tay), nếu chúng ta cứ xếp chồng chúng lên nhau thì cột sẽ dài lê thê. Nên tôi đề xuất Bản thiết kế UI Layout như sau:
-
-CỘT BÊN TRÁI (60% Chiều rộng): KHU VỰC THỰC HÀNH (Practice Zone)
-Cột này là nơi User tập trung cao độ nhất vào hình ảnh và âm thanh.
-
-1. Phía Trên: Custom Video Player
-- Video được thu gọn lại theo tỷ lệ 16:9 cho vừa tầm mắt.
-- Bên trong video là Phụ đề tương tác nổi lên trên (Click vào chữ thì hiện Popup Từ điển).
-2. Ở Giữa: Thanh Điều Khiển (Control Bar)
-- Các nút Play/Pause, Tua lùi 5s, Toggle Auto-Pause, Thanh tiến trình, Cài đặt tốc độ.
-3. Phía Dưới: Trạm Phân tích Giọng nói (Voice Analysis Station)
-- Nút Start Shadowing lớn nổi bật.
-- Khi đang thu âm: Hiện sóng âm thanh (Audio waveform) cho sinh động.
-- Khi thu âm xong: Khung này sẽ mở rộng ra để hiển thị kết quả từ Whisper (bôi đỏ/xanh từng chữ) và Điểm số Accuracy. (Không gian 60% chiều ngang cực kỳ lý tưởng để hiển thị 1 câu văn dài mà không bị rớt dòng).
-
-CỘT BÊN PHẢI (40% Chiều rộng): KHU VỰC DỮ LIỆU (Data & Tools)
-Để tránh việc cuộn chuột mỏi tay, cột bên phải sẽ được thiết kế dưới dạng Các Thẻ (TABS). User muốn xem cái gì thì bấm sang Tab đó. Khu vực này có chiều cao cố định bằng với toàn bộ cột trái và có thanh cuộn riêng (overflow-y-auto).
-
-1. Tab 1: Phụ đề (Transcript) - (Tab mặc định)
-- Danh sách toàn bộ phụ đề. Dòng nào đang đọc sẽ được highlight. Bấm vào dòng nào video tua tới đó.
-2. Tab 2: Từ Vựng (Vocabulary - Gemini)
-- Nơi hiển thị mảng JSON 20 từ vựng quan trọng do Gemini tóm tắt.
-- Mỗi từ có định nghĩa, phiên âm và 1 nút [+] Lưu vào sổ tay.
-3. Tab 3: Sổ Tay (My Notebook)
-- Nơi chứa những từ vựng và câu mà user đã bấm "Lưu" (từ Context Menu hoặc từ Tab Từ vựng).
-- Sau khi học xong video, user có thể vào Tab này để xem lại tổng kết những gì mình vừa lưu lại trước khi tắt máy.
