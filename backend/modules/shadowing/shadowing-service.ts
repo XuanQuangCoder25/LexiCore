@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { YoutubeTranscript } from 'youtube-transcript';
 import { AppError } from '../../errors/AppError';
 import { updateStreak } from '../../utils/streak';
+import { callGeminiWithRetry } from '../../utils/gemini';
 import {
     getVideos,
     getVideoById,
@@ -11,6 +12,10 @@ import {
     getSegmentById,
     getSegmentsByVideoId,
     saveUserHistory,
+    getVideoAiSummary,
+    updateVideoAiSummary,
+    getNote,
+    upsertNote,
 } from './shadowing-repository';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -137,15 +142,24 @@ export const analyzeAudio = async (
 
     const referenceText: string = segment.transcript;
 
-    const audioFile = new File([new Uint8Array(audioBuffer)], 'recording.webm', { type: audioMimetype });
-    const whisperResponse = await openai.audio.transcriptions.create({
-        file: audioFile,
-        model: 'whisper-1',
-        language: 'en',
-        prompt: referenceText,
-    });
-
-    const spokenText = whisperResponse.text;
+    let spokenText: string;
+    try {
+        const audioFile = new File([new Uint8Array(audioBuffer)], 'recording.webm', { type: audioMimetype });
+        const whisperResponse = await openai.audio.transcriptions.create({
+            file: audioFile,
+            model: 'whisper-1',
+            language: 'en',
+            prompt: referenceText,
+        });
+        spokenText = whisperResponse.text;
+    } catch (err: any) {
+        console.error('[Whisper] OpenAI error:', err?.message);
+        const msg = err?.message || '';
+        if (msg.includes('credits') || msg.includes('quota') || msg.includes('billing') || err?.status === 429) {
+            throw new AppError('OpenAI hết credits. Vui lòng nạp thêm tại platform.openai.com/settings/organization/billing/overview', 402);
+        }
+        throw new AppError(`Lỗi Whisper API: ${msg || 'Không xác định'}`, 500);
+    }
 
     const tokens = compareWords(referenceText, spokenText);
     const correctCount = tokens.filter(t => t.status === 'correct').length;
@@ -162,4 +176,103 @@ export const analyzeAudio = async (
         accuracy,
         feedback: tokens,
     };
+};
+
+// ─── Gemini AI Summary ─────────────────────────────────────────────────────────────────
+
+export interface GeminiSummary {
+    summary: string;
+    vocabulary: Array<{
+        word: string;
+        ipa: string;
+        partOfSpeech: string;
+        definition: string;
+        exampleSentence: string;
+    }>;
+}
+
+export const getVideoSummary = async (videoId: string): Promise<GeminiSummary> => {
+    // 1. Kiểm tra cache trong DB trước
+    const cached = await getVideoAiSummary(videoId);
+    if (cached) return cached as GeminiSummary;
+
+    // 2. Chưa có cache → lấy phụ đề và gọi Gemini
+    const segments = await getSegmentsByVideoId(videoId);
+    if (!segments.length) throw new AppError('Video không có phụ đề để phân tích.', 422);
+
+    // Lấy tối đa 150 câu đầu để tiết kiệm token
+    const transcript = segments
+        .slice(0, 150)
+        .map((s: any) => s.transcript)
+        .join(' ');
+
+    const prompt = `
+You are an English learning assistant. Analyze the following transcript from a YouTube video.
+Return a JSON object with EXACTLY this structure (no markdown, no code blocks, raw JSON only):
+{
+  "summary": "A concise 2-3 sentence summary of the video content in Vietnamese",
+  "vocabulary": [
+    {
+      "word": "the English word",
+      "ipa": "/phên âm IPA/",
+      "partOfSpeech": "noun | verb | adjective | adverb | phrase",
+      "definition": "Giải nghĩa ngắn gọn bằng tiếng Việt, dựa đúng theo ngữ cảnh video này",
+      "exampleSentence": "A short example sentence from or inspired by the transcript"
+    }
+  ]
+}
+Rules:
+- The "vocabulary" array must contain exactly 20 entries.
+- Only include vocabulary that is truly important and appears meaningfully in this specific transcript.
+- Definitions MUST be context-aware (based on how the word is used in THIS video, not general meaning).
+- Sort vocabulary by importance (most important first).
+
+Transcript:
+${transcript}
+`;
+
+    let result: GeminiSummary;
+    try {
+        // callGeminiWithRetry tự động retry 3 lần khi bị 503 (quá tải)
+        const text = await callGeminiWithRetry(prompt);
+        console.log('[Gemini] Raw response:', text.substring(0, 50) + '...');
+        // Loại bỏ markdown code fences nếu Gemini vẫn thêm vào
+        const cleanJson = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+        result = JSON.parse(cleanJson) as GeminiSummary;
+    } catch (err: any) {
+        console.error('[Gemini] Error:', err?.message);
+        const status = err?.status;
+        if (status === 503 || status === 429) {
+            throw new AppError('Gemini đang quá tải. Vui lòng thử lại sau 10 giây.', 503);
+        }
+        throw new AppError(`Gemini lỗi: ${err?.message || 'Không xác định'}`, 500);
+    }
+
+    // 3. Lưu vào DB để dùng lại lần sau
+    await updateVideoAiSummary(videoId, result);
+
+    return result;
+};
+
+// ─── Notebook Service ─────────────────────────────────────────────────────────────────
+
+export const fetchNote = async (userId: string, videoId: string): Promise<string> => {
+    return getNote(userId, videoId);
+};
+
+export const saveNote = async (userId: string, videoId: string, content: string): Promise<void> => {
+    await upsertNote(userId, videoId, content);
+};
+
+// ─── Interactive Dictionary Service ──────────────────────────────────────────────────
+
+export const explainWordInContext = async (word: string, sentence: string): Promise<string> => {
+    const prompt = `Giải thích cực kỳ ngắn gọn nghĩa của từ "${word}" trong câu: "${sentence}".
+Yêu cầu:
+- Chỉ đưa ra nghĩa tiếng Việt của từ đó và nghĩa tiếng Việt của cả câu đó.
+- Tuyệt đối KHÔNG dùng ký tự markdown (như **, *, gạch đầu dòng, số thứ tự).
+- Viết thành 1 đoạn văn bản thuần tuý, trôi chảy, dưới 40 chữ.`;
+
+    const result = await callGeminiWithRetry(prompt);
+    return result;
 };

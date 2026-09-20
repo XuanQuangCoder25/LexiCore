@@ -125,3 +125,53 @@ Shadowing là phương pháp luyện phát âm: người dùng nghe người b�
 6. **Lưu kết quả:** Lưu điểm vào `user_shadowing_history`. Gọi `updateStreak(userId)` cập nhật chuỗi ngày học.
 7. **Hiển thị:** Từ sai bôi đỏ gạch chân lượn sóng. *Nâng cấp tương lai: dùng Azure Pronunciation Assessment để có phiên âm IPA từng âm tiết.*
 
+
+Nháp:
+Custom Player:
+1. Thanh điều khiển (Control Bar)
+Thanh này sẽ nằm bên dưới video (hoặc đè lên mép dưới video). Thay vì các nút xem phim thông thường, ta cần:
+- Nút Play/Pause (Spacebar): Bắt buộc.
+- Nút Tua lùi 5 giây (Phím mũi tên trái): Cực kỳ quan trọng. Nghe không rõ là bấm lùi ngay lập tức.
+- Nút Tốc độ (Speed): Các mức 0.5x, 0.75x (rất cần cho người mới), 1x, 1.25x.
+- (Tính năng Độc quyền) Nút Auto-Pause: Một nút gạt (Toggle). Khi bật lên, video cứ chạy hết 1 câu phụ đề là tự động dừng lại, để chừa khoảng lặng cho user ghi âm nhại lại. Khi ghi âm xong, tự động chạy câu tiếp theo.
+- Nút Loop (Lặp câu): Bật lên thì video chỉ chạy đi chạy lại đúng cái câu (segment) hiện tại. Rất tốt để cày phát âm.
+2. Menu Chuột phải (Custom Context Menu)
+Ta phủ một thẻ div trong suốt lên video. Khi user click chuột phải, xổ ra 1 menu nhỏ gọn (Dark theme):
+- Lưu câu này vào sổ tay (Save sentence)
+- Lặp lại câu này (Loop)
+- Chép script câu này (Copy text)
+3. Phụ đề tương tác (Interactive Subtitles) & Popup Từ điển
+Phụ đề không phải là một dòng chữ dính chết vào video, mà ta sẽ render nó thành từng chữ (từng thẻ <span>). Thao tác: chỉ click 1 lần (Single Click)
+Quy trình chuẩn khi click vào 1 chữ (ví dụ chữ "Environment"): Video ngay lập tức bị Tạm dừng (Pause).Chữ "Environment" được bôi đậm (Highlight vàng).
+Một Popup Card nổi lên ngay bên cạnh chữ đó (dùng thư viện như Floating UI hoặc Radix UI để canh toạ độ).
+Popup Từ điển sẽ chứa những gì? Chúng ta sẽ kết hợp 2 công nghệ như đã chốt (Free API + AI) vào chung 1 cái Popup này:
+- Phần trên (Dùng Free Dictionary API): Nút loa để nghe cách người bản xứ đọc riêng từ đó. Phiên âm IPA: /ɪnˈvaɪ.rən.mənt/.
+- Phần giữa (Dùng Gemini - Context AI): Vì Frontend đã truyền nguyên cả câu đó cho Backend, nên Gemini sẽ trả về đúng 1 nghĩa ngắn gọn, khớp 100% với video. Ví dụ: Danh từ: Môi trường (sống, làm việc).
+- Phần dưới (Tôi tính làm gì đó liên quan tới Hệ thống Gamification như Nút Lưu vào Flashcard (Tốn 10 Xu) nhưng họ hoàn toàn có thể lách luật bằng cách thêm từ từ sổ tay rồi sau khi kết thúc bào học sẽ tự tổng hợp vào flashcard nên chắc gamification để tính sau đi haha)
+
+Tuy nhiên, hiện tại giao diện ta đang có 1 nhược điểm đó là video đang chiếm phần lớn bên trên, dưới là 2 khung start shadowing và khung chứa subtitles, điều này có nghĩa là user không thể vừa xem video vừa xem phụ đề, nếu họ muón xem phụ đề họ phải lướt xuống, và không nhìn thấy video. Nên tôi tính thay đổi, đẩy khung subtitles lên ngang hàng với video để người dùng có thể vừa xem video vừa đọc phụ đề. Và vì tôi muốn nhét thêm khá nhiều thứ (Gemini Vocab, Sổ tay), nếu chúng ta cứ xếp chồng chúng lên nhau thì cột sẽ dài lê thê. Nên tôi đề xuất Bản thiết kế UI Layout như sau:
+
+CỘT BÊN TRÁI (60% Chiều rộng): KHU VỰC THỰC HÀNH (Practice Zone)
+Cột này là nơi User tập trung cao độ nhất vào hình ảnh và âm thanh.
+
+1. Phía Trên: Custom Video Player
+- Video được thu gọn lại theo tỷ lệ 16:9 cho vừa tầm mắt.
+- Bên trong video là Phụ đề tương tác nổi lên trên (Click vào chữ thì hiện Popup Từ điển).
+2. Ở Giữa: Thanh Điều Khiển (Control Bar)
+- Các nút Play/Pause, Tua lùi 5s, Toggle Auto-Pause, Thanh tiến trình, Cài đặt tốc độ.
+3. Phía Dưới: Trạm Phân tích Giọng nói (Voice Analysis Station)
+- Nút Start Shadowing lớn nổi bật.
+- Khi đang thu âm: Hiện sóng âm thanh (Audio waveform) cho sinh động.
+- Khi thu âm xong: Khung này sẽ mở rộng ra để hiển thị kết quả từ Whisper (bôi đỏ/xanh từng chữ) và Điểm số Accuracy. (Không gian 60% chiều ngang cực kỳ lý tưởng để hiển thị 1 câu văn dài mà không bị rớt dòng).
+
+CỘT BÊN PHẢI (40% Chiều rộng): KHU VỰC DỮ LIỆU (Data & Tools)
+Để tránh việc cuộn chuột mỏi tay, cột bên phải sẽ được thiết kế dưới dạng Các Thẻ (TABS). User muốn xem cái gì thì bấm sang Tab đó. Khu vực này có chiều cao cố định bằng với toàn bộ cột trái và có thanh cuộn riêng (overflow-y-auto).
+
+1. Tab 1: Phụ đề (Transcript) - (Tab mặc định)
+- Danh sách toàn bộ phụ đề. Dòng nào đang đọc sẽ được highlight. Bấm vào dòng nào video tua tới đó.
+2. Tab 2: Từ Vựng (Vocabulary - Gemini)
+- Nơi hiển thị mảng JSON 20 từ vựng quan trọng do Gemini tóm tắt.
+- Mỗi từ có định nghĩa, phiên âm và 1 nút [+] Lưu vào sổ tay.
+3. Tab 3: Sổ Tay (My Notebook)
+- Nơi chứa những từ vựng và câu mà user đã bấm "Lưu" (từ Context Menu hoặc từ Tab Từ vựng).
+- Sau khi học xong video, user có thể vào Tab này để xem lại tổng kết những gì mình vừa lưu lại trước khi tắt máy.

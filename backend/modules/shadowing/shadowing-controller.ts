@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getLibrary, getVideoDetail, addVideo, analyzeAudio } from './shadowing-service';
+import { getLibrary, getVideoDetail, addVideo, analyzeAudio, getVideoSummary, fetchNote, saveNote, explainWordInContext } from './shadowing-service';
 
 export const getLibraryHandler = async (req: Request, res: Response) => {
     try {
@@ -63,5 +63,56 @@ export const analyzeAudioHandler = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error(error);
         res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi phân tích AI' });
+    }
+};
+
+export const getVideoSummaryHandler = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        console.log(`[Gemini] Fetching summary for video ${id}...`);
+        const summary = await getVideoSummary(id as string);
+        res.json({ status: 'success', data: summary });
+    } catch (error: any) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi Gemini AI' });
+    }
+};
+
+export const getNoteHandler = async (req: Request, res: Response) => {
+    try {
+        const { videoId } = req.params;
+        const user = (req as any).user;
+        const content = await fetchNote(user.id, videoId as string);
+        res.json({ status: 'success', data: { content } });
+    } catch (error: any) {
+        console.error(error);
+        res.status(500).json({ status: 'error', message: 'Lỗi tải sổ tay.' });
+    }
+};
+
+export const saveNoteHandler = async (req: Request, res: Response) => {
+    try {
+        const { videoId } = req.params;
+        const user = (req as any).user;
+        const { content = '' } = req.body;
+        await saveNote(user.id, videoId as string, content);
+        res.json({ status: 'success', message: 'Sổ tay đã được lưu.' });
+    } catch (error: any) {
+        console.error(error);
+        res.status(500).json({ status: 'error', message: 'Lỗi lưu sổ tay.' });
+    }
+};
+
+export const explainWordHandler = async (req: Request, res: Response) => {
+    try {
+        const { word, sentence } = req.body;
+        if (!word || !sentence) {
+            return res.status(400).json({ status: 'error', message: 'Thiếu từ hoặc câu.' });
+        }
+        const explanation = await explainWordInContext(word, sentence);
+        res.json({ status: 'success', data: { explanation } });
+    } catch (error: any) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi Gemini AI' });
     }
 };

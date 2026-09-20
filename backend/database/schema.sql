@@ -86,7 +86,11 @@ CREATE TABLE shadowing_videos (
     title VARCHAR(255) NOT NULL,
     channel VARCHAR(100),
     duration INT,
-    difficulty ENUM('Beginner', 'Intermediate', 'Advanced') DEFAULT 'Intermediate',
+    difficulty ENUM(
+        'Beginner',
+        'Intermediate',
+        'Advanced'
+    ) DEFAULT 'Intermediate',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -113,4 +117,20 @@ CREATE TABLE user_shadowing_history (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     FOREIGN KEY (video_id) REFERENCES shadowing_videos (id) ON DELETE CASCADE,
     FOREIGN KEY (segment_id) REFERENCES shadowing_segments (id) ON DELETE CASCADE
+);
+
+-- 4. Cache tóm tắt & từ vựng từ Gemini AI (lazy-load, lưu 1 lần dùng mãi)
+ALTER TABLE shadowing_videos
+ADD COLUMN IF NOT EXISTS ai_summary JSON;
+
+-- 5. Sổ tay cá nhân của mỗi User cho từng Video
+CREATE TABLE shadowing_notes (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    video_id VARCHAR(36) NOT NULL,
+    content TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_user_video_note (user_id, video_id),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (video_id) REFERENCES shadowing_videos (id) ON DELETE CASCADE
 );

@@ -88,3 +88,43 @@ export const saveUserHistory = async (userId: string, videoId: string, segmentId
     );
     return id;
 };
+
+// ─── Gemini AI Summary Cache ────────────────────────────────────────────────────
+
+export const getVideoAiSummary = async (videoId: string): Promise<any | null> => {
+    const [rows] = await pool.execute(
+        `SELECT ai_summary FROM shadowing_videos WHERE id = ? LIMIT 1`,
+        [videoId]
+    );
+    const videos = rows as any[];
+    if (!videos.length || !videos[0].ai_summary) return null;
+    const raw = videos[0].ai_summary;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+};
+
+export const updateVideoAiSummary = async (videoId: string, summary: object): Promise<void> => {
+    await pool.execute(
+        `UPDATE shadowing_videos SET ai_summary = ? WHERE id = ?`,
+        [JSON.stringify(summary), videoId]
+    );
+};
+
+// ─── Shadowing Notes (Sổ tay) ───────────────────────────────────────────────────
+
+export const getNote = async (userId: string, videoId: string): Promise<string> => {
+    const [rows] = await pool.execute(
+        `SELECT content FROM shadowing_notes WHERE user_id = ? AND video_id = ? LIMIT 1`,
+        [userId, videoId]
+    );
+    const notes = rows as any[];
+    return notes.length > 0 ? (notes[0].content ?? '') : '';
+};
+
+export const upsertNote = async (userId: string, videoId: string, content: string): Promise<void> => {
+    await pool.execute(
+        `INSERT INTO shadowing_notes (id, user_id, video_id, content)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE content = VALUES(content), updated_at = CURRENT_TIMESTAMP`,
+        [uuidv4(), userId, videoId, content]
+    );
+};
