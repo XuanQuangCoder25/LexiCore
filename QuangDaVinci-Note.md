@@ -138,3 +138,60 @@ Cập nhật `wallets`: `current_streak`, `longest_streak`, `last_study_date` sa
 ---
 
 
+Nháp:
+Ý tưởng Gamification của tôi
+Mỗi ngày có 3 nhiệm vụ hàng ngày (ta sẽ thiết kế một bảng nhiệm vụ gồm 3 card, mỗi card miêu tả 1 nhiệm vụ, có thể là sẽ có một nút để người dùng ấn vô xem nhiệm vụ hàng ngày, thời gian còn lại để thực hiện, hoàn thành hay chưa), hoàn thành nhiệm vụ hàng ngày (có lẽ là goal mà bạn nói) thì sẽ được coin, exp. 
+Coin: dùng để mua avatar, đóng băng chuỗi,.. tôi không biết ta thiết kế cái vòng tròn avatar như nào và kiếm ảnh như nào để có thể thiết kế cái khung avatar, bạn có thể gợi ý không, nhưung khi ấn vào trang profile thì ngoài avatar ta sẽ có ảnh bìa (như facebook) và có thể mua ảnh bìa trong store luôn. và tôi sẽ kiếm ảnh sao cho nó có bộ đôi với nhau, như avatar cá heo thì có ảnh bìa biển, avatar lạc đà sẽ có ảnh bìa sa mạc,... và có thể sau này tôi thiết kế 1 trang giao diện gọi là bộ sưu tập để người dùng xem là mình đã sở hữu bao nhiêu bộ giao diện rồi
+Exp: có được khi hoàn thành nhiệm vụ hàng ngày, khi chơi thắng pvp arena. Trong profile mốt ta sẽ thiết kế 1 thanh level, tích exp để lên level như các trò chơi, và mỗi level sẽ có thưởng phần thưởng là 1 cặp avatar - ảnh bìa (thứ mà không mua được ở store), hoặc có thể là có những món trong store bị khoá, chỉ khi đạt level nào đó mới mua được. Lý do mà tôi có ý định tạo 1 trang bộ sưu tập thay vì là mục "My items" trong store là vì mục đó chứa những thứ mình đã mua, còn có những thứ mình được thưởng khi lên level thì không phải là đã mua, và bộ sưu tập chỉ riêng về sưu tập thôi, như ảnh avatar, ảnh bìa, trông đẹp và vip hơn ảnh mua trong của hàng
+Point: là điểm để xếo rank, chỉ có khi chiến thắng người khác ở đấu trường, và có hệ thống xếp hạng (tính sau) nhưng hiện tại thì chỉ cần xếp hạng theo top ví dụ top1, top2 toàn cầu thôi.
+Achievement thì như bạn nói, là mấy cái nhiệm vụ nhưng là nhiệm vụ dài kì, là hoàn thành 50 bài học,... à ta cũng nên xem xét tính chuỗi trận thắng cho người dùng nữa, nó cũng dùng làm thành tựu được, và vì cái này phải tốn công sức lâu dài để làm nên phần thường cũng phải xứng đáng hơn, ngoài nhiều tiền coin ra thì ta có thể đẻ thêm 1 loại tiền tệ nữa là kim cương chẳng hạn, để mua mấy thứ vip hơn haha. Ta phân loại thưởng như sau
+Thắng pvp: exp để lên level, point để lên hạng, coin
+Hoàn thành nhiệm vụ hàng ngày: coin, exp
+nhiệm vụ dài kỳ: coin, kim cương
+point là để xếp hạng nên chỉ có khi đấu tranh mới có point để lên hạng chứ làm nhiệm vụ thì không có point
+Rồi vậy là tôi đã lên ý tưởng về coin, kim cương, point, exp, thành tựu (achievement), còn thiếu gì nữa không nhỉ, bạn thấy ý tưởng này thế nào
+
+Trả lời câu hỏi của bạn
+1. PvP là nơi đấu tranh, cạnh tranh với nhau nên họ cần bảng xếp hạng để thi đua với nhau, ta nên tách biệt bxh này, không thể làm nhiêm vụ khác mà cũng được point lên rank, còn nếu không đấu pvp thì họ có thể thi đua với nhau ở level rồi, mà level thì ngoài kiếm exp từ pvp họ có thể kiếm exp từ nhiệm vụ hàng ngày và dài kỳ. Như bạn góp ý thì ta cũng có thể thêm cái streak leaderboard nữa, những nó không mang tính ganh đua ai học giỏi hơn, vì chỉ cần ai dùng web này trước thì sẽ có chuỗi dài hơn, và cũng sẽ có thành tựu dài kỳ là đạt chuỗi 30,60,...
+2. Haha tôi hơi "quê" rồi vì nhầm level và lever, tôi đã chỉnh lại các từ trong file md thành level hết rồi. Level sẽ là do người dùng học lâu, học nhiều thì sẽ được level cao, như chơi game vậy á, level cao chứng tỏ kì cựu, và có bộ sưu tập đồ sộ, cứ lên level mới thì có đồ mới. Còn hạng như đồng bạc bạn nói thì giống như nên để nó ở pvp hơn, ví dụ ta sẽ có bao nhiêu điểm đến bao nhiêu điểm là rank đồng, và trong mỗi bậc rank sẽ có thứ hạng top 1, top 2,.. nhưng cái đó để cải thiện sau, hiện tại thì chỉ có xếp hạng con số thôi
+3. Tôi quên mất vấn đề lưu ảnh, vì mỗi level đều có phần phưởng nên ta sẽ cần rất nhiều ảnh, mà lưu hết vào database của ta thì nó sẽ khổng lồ đúng không, thay vì ta chỉ cần lưu url ảnh nhưng nếu lưu url thì có nghĩa là ta dùng ảnh của nơi khác đúng không, nhưng đây là web riêng của ta nên tôi muốn dùng AI generate ảnh cho nó thuộc về chỉ web của ta thôi. Tôi cũng chưa biết sẽ dùng công cụ gì để generate ảnh nữa, gợi ý của bạn như nào
+Bonus: Giao diện "bộ sưu tập" mà tôi nói thì nó chỉ hiện những thứ mà người chơi được thưởng, thường đi theo cặp (avatar + ảnh bìa), có thể là level 2 ta được ảnh con cá, level 3 ta được ảnh bìa đại dương. Ta sẽ thưởng theo bộ đôi và chủ đề, Có thể 1 collection không chỉ chứa 1 avatar và 1 ảnh bìa, có thể là ví dụ Collection Sa Mạc sẽ có avatar con lạc đà, cây xương rồng, người du mục, ảnh bìa sẽ có bãi cát, kim tự tháp, ngôi đền, vậy là collention đó có tới 6 món. Và mốt ta cũng sẽ có thành tự là "mở khoá đầy đủ 3 bộ sưu tập",... Còn trong store thì avatar và ảnh bìa nó sẽ không cần theo chủ đề, nó thập cẩm. và đã setup ảnh bìa như vậy rồi thì có lẽ ta không cần cái vật phẩm "Khung avatar" nữa nhỉ, và tôi cũng không biết code nó sao haha. Khi ghép trận thành công trên pvp thì ta sẽ hiển thị người chơi với tên, level, hạng (có thể ẩn tuỳ vào người chơi chọn), avatar và ảnh bìa luôn để người chơi có cái "flex". Hai người chơi 2 bên với avatar và ảnh bìa, ở giữa sẽ là chữ "vs", sau đó bắt đầu vào trận đấu. Ta cũng thống nhất cách gọi tên bộ sưu tập là gì được nhỉ, có thể là collection hoặc album, hay bundles (ví dụ collection desert, albulm forest, bundles deep sea,..) bạn thấy thế nào ^^! 
+
+🏜️ Collection 1: Kẻ Du Mục Sa Mạc (Desert Nomads)
+Đây là vùng đất khởi đầu, khô cằn nhưng ẩn chứa sức sống mãnh liệt.
+
+Cặp 1 (Cơ bản): Lạc đà (Camel) — Ốc đảo xanh mát giữa biển cát (Desert Oasis).
+Cặp 2: Cáo Fennec tai to (Fennec Fox) — Đồi cát vàng ươm kéo dài bất tận dưới ánh hoàng hôn (Golden Dunes at Sunset).
+Cặp 3: Rắn đuôi chuông (Rattlesnake) — Hẻm núi đá đỏ khô cằn (Red Rock Canyon).
+Cặp 4 (Siêu hiếm): Đại bàng sa mạc (Desert Falcon) — Tàn tích đền thờ cổ đại bị bão cát vùi lấp một nửa (Sand-buried Ancient Ruins).
+🌊 Collection 2: Đại Dương Sâu Thẳm (Deep Ocean)
+Chủ đề khám phá từ mặt nước xuống tận đáy biển sâu.
+
+Cặp 1 (Cơ bản): Rùa biển (Sea Turtle) — Rạn san hô rực rỡ dưới ánh nắng (Coral Reef).
+Cặp 2: Cá voi xanh (Blue Whale) — Khung cảnh: Mặt biển mở (Open Sea) đang dậy sóng, xa xa là một bầu trời bão táp vĩ đại (Dramatic Stormy Sky). Cá voi thường ngoi lên mặt nước, nên khung cảnh mặt biển hùng vĩ sẽ cực kỳ hợp lý!
+Cặp 3: Cá heo (Dolphin) — Rừng tảo bẹ khổng lồ dưới đáy biển lấp lánh tia nắng mặt trời (Kelp Forest).
+Cặp 4 (Siêu hiếm): Sứa phát sáng (Bioluminescent Jellyfish) — Rãnh đại dương sâu thẳm, đen kịt nhưng được thắp sáng bởi hàng ngàn rặng san hô sinh học (Abyssal Trench).
+🌲 Collection 3: Thâm Sơn Cùng Cốc (Mystic Jungle) - MỚI
+Một khu rừng nhiệt đới đầy bí ẩn và hoang dã.
+
+Cặp 1 (Cơ bản): Vẹt Macaw (Macaw) — Vòm cây cổ thụ rậm rạp đâm xuyên tầng mây (Canopy of Ancient Trees).
+Cặp 2: Ếch phi tiêu độc (Poison Dart Frog) — Thảm thực vật nhiệt đới với những cây nấm khổng lồ, sặc sỡ (Giant Flora).
+Cặp 3: Hổ vằn Bengal (Bengal Tiger) — Một thác nước hùng vĩ giấu mình sâu trong rừng rậm (Hidden Jungle Waterfall).
+Cặp 4 (Siêu hiếm): Báo đen (Black Panther) — Ngôi đền cổ của người Maya/Inca bị rễ cây cổ thụ nuốt chửng (Overgrown Mayan Temple).
+❄️ Collection 4: Kỷ Băng Hà (Arctic Tundra) - MỚI
+Thế giới của tuyết trắng, băng giá và những hiện tượng kỳ ảo.
+
+Cặp 1 (Cơ bản): Chim Cánh Cụt (Penguin) — Vách băng khổng lồ sừng sững trên mặt biển (Giant Ice Cliffs).
+Cặp 2: Cú Tuyết (Snowy Owl) — Cánh đồng tuyết trắng xóa bất tận dưới bầu trời đêm (Endless White Tundra).
+Cặp 3: Chó Husky/Malamute — Rừng thông phủ đầy tuyết trắng xóa (Snowy Pine Forest).
+Cặp 4 (Siêu hiếm): Sói Tuyết (Arctic Wolf) — Đỉnh núi tuyết rực sáng dưới dải ánh sáng Cực quang (Aurora Borealis).
+🔮 Collection 5: Vương Quốc Pha Lê (Crystal Caverns) - Gợi ý viễn tưởng
+Để dành cho những Level siêu cao, mang hơi hướng Fantasy.
+
+Cặp 1 (Cơ bản): Kỳ Giông (Axolotl) — Sông ngầm thạch anh tím (Amethyst Underground River).
+Cặp 2: Dơi Bạch Tạng (Albino Bat) — Vòm hang động lấp lánh tinh thể lưu huỳnh vàng (Yellow Sulfur Cave Vault).
+Cặp 3: Cua Đá Mù (Blind Cave Crab) — Rừng cột thạch nhũ pha lê khổng lồ chĩa từ dưới lên (Crystal Stalagmite Forest).
+Cặp 4 (Siêu hiếm): Thằn Lằn Dung Nham (Lava Salamander) — Hồ dung nham xanh rực sáng dưới đáy hang (Glowing Blue Lava Lake).
+
+Collection 6: Bầu trời (chim ưng)
+Collection 7: Đầm lầy (Hà mã, trâu đầm lầy)

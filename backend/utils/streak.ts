@@ -16,19 +16,61 @@ export const updateStreak = async (userId: string): Promise<void> => {
 
     if (lastStudy && lastStudy.getTime() === today.getTime()) return;
 
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
+    let newStreak = 1;
+    let newPreviousStreak = null;
 
-    const newStreak = (lastStudy && lastStudy.getTime() === yesterday.getTime())
-        ? wallet.current_streak + 1
-        : 1;
+    if (lastStudy) {
+        const diffTime = today.getTime() - lastStudy.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+            newStreak = wallet.current_streak + 1;
+        } else if (diffDays > 1) {
+            const daysMissed = diffDays - 1;
+
+            const [itemRows] = await pool.execute(
+                `SELECT ui.id, ui.quantity 
+                 FROM user_items ui 
+                 JOIN items i ON ui.item_id = i.id 
+                 WHERE ui.user_id = ? AND i.type = 'STREAK_FREEZE' AND ui.is_active = true`,
+                [userId]
+            );
+            const freezeItem = (itemRows as any[])[0];
+
+            if (freezeItem && freezeItem.quantity >= daysMissed) {
+                const newQuantity = freezeItem.quantity - daysMissed;
+                if (newQuantity > 0) {
+                    await pool.execute(`UPDATE user_items SET quantity = ? WHERE id = ?`, [newQuantity, freezeItem.id]);
+                } else {
+                    await pool.execute(`DELETE FROM user_items WHERE id = ?`, [freezeItem.id]);
+                }
+                newStreak = wallet.current_streak + 1;
+            } else {
+                newStreak = 1;
+                newPreviousStreak = wallet.current_streak;
+            }
+        }
+    }
 
     const newLongest = Math.max(wallet.longest_streak, newStreak);
 
-    await pool.execute(
-        `UPDATE wallets 
-         SET current_streak = ?, longest_streak = ?, last_study_date = CURDATE()
-         WHERE user_id = ?`,
-        [newStreak, newLongest, userId]
-    );
+    // Cập nhật Database
+    if (newPreviousStreak !== null) {
+        await pool.execute(
+            `UPDATE wallets 
+             SET current_streak = ?, longest_streak = ?, last_study_date = CURDATE(), previous_streak = ?
+             WHERE user_id = ?`,
+            [newStreak, newLongest, newPreviousStreak, userId]
+        );
+    } else {
+        await pool.execute(
+            `UPDATE wallets 
+             SET current_streak = ?, longest_streak = ?, last_study_date = CURDATE()
+             WHERE user_id = ?`,
+            [newStreak, newLongest, userId]
+        );
+    }
+
+    // TODO: Kích hoạt Gamification Event để kiểm tra Achievement
+    // await gamificationService.updateAchievementProgress(userId, 'current_streak', newStreak);
 };
