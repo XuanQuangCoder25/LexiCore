@@ -24,7 +24,8 @@ import {
   CheckCircle,
   Gem,
   Crown,
-  Medal
+  Medal,
+  Lock
 } from "lucide-react";
 
 interface Quest {
@@ -63,6 +64,18 @@ interface LeaderboardUser {
   level: number;
 }
 
+interface Collection {
+  id: string;
+  name: string;
+  description: string;
+  unlock_level: number;
+  theme_color: string;
+  is_unlocked: number;
+  image_url?: string;
+  current_items: number;
+  total_items: number;
+}
+
 export function AchievementsView() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +86,9 @@ export function AchievementsView() {
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
+
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [loadingCollections, setLoadingCollections] = useState(true);
 
   const fetchQuests = async () => {
     try {
@@ -122,10 +138,27 @@ export function AchievementsView() {
     }
   };
 
+  const fetchCollections = async () => {
+    try {
+      const res = await fetch('/api/gamification/collections', {
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCollections(data.data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingCollections(false);
+    }
+  };
+
   useEffect(() => {
     fetchQuests();
     fetchAchievements();
     fetchLeaderboard();
+    fetchCollections();
   }, []);
 
   const handleClaim = async (goalId: string) => {
@@ -389,10 +422,87 @@ export function AchievementsView() {
 
         {/* Collections Tab */}
         <TabsContent value="collections" className="space-y-6">
-          <Card className="border-dashed">
-            <CardContent className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
-              <ImageIcon className="h-12 w-12 mb-4 opacity-50" />
-              <p>Collections Gallery will be built here in Step 5.5</p>
+          <Card className="shadow-sm border">
+            <CardContent className="p-6">
+              {loadingCollections ? (
+                <div className="text-center py-12 text-muted-foreground animate-pulse">Đang tải bộ sưu tập...</div>
+              ) : collections.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {collections.map(col => {
+                    const isUnlocked = col.is_unlocked === 1;
+                    const cssVars = { '--theme-color': col.theme_color || '#3b82f6' } as React.CSSProperties;
+                    
+                    const currentItems = col.current_items || 0;
+                    const totalItems = col.total_items || 1; // Tránh chia cho 0 nếu chưa có items trong db
+                    const progressPercent = (currentItems / totalItems) * 100;
+
+                    return (
+                      <div 
+                        key={col.id} 
+                        style={cssVars}
+                        className={`group relative overflow-hidden rounded-xl border-2 transition-all duration-300 flex flex-col ${
+                          isUnlocked 
+                            ? 'border-transparent hover:-translate-y-1 hover:[box-shadow:0_0_20px_var(--theme-color)] hover:border-[color:var(--theme-color)]' 
+                            : 'border-dashed border-muted grayscale opacity-60'
+                        }`}
+                      >
+                        {/* Background Cover (16:9) */}
+                        <div 
+                          className="aspect-video w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                          style={{
+                            backgroundColor: col.theme_color || '#e2e8f0',
+                            backgroundImage: col.image_url ? `url(${col.image_url})` : 'none'
+                          }}
+                        >
+                          {!col.image_url && (
+                             <div className="w-full h-full flex items-center justify-center bg-black/10">
+                               <ImageIcon className="w-16 h-16 text-white/50" />
+                             </div>
+                          )}
+                        </div>
+                        
+                        {/* Overlay Gradient cho phần Cover */}
+                        <div className="absolute top-0 left-0 right-0 aspect-video bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-5">
+                          <h4 className="font-bold text-xl text-white leading-tight drop-shadow-md">{col.name}</h4>
+                          
+                          {/* Badge Level */}
+                          <div className="absolute top-4 right-4">
+                            <Badge variant="secondary" className="bg-black/50 text-white hover:bg-black/70 border-none backdrop-blur-sm shadow-sm">
+                              Lv.{col.unlock_level}
+                            </Badge>
+                          </div>
+                          
+                          {/* Lock Icon nếu chưa mở */}
+                          {!isUnlocked && (
+                            <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[2px]">
+                               <div className="bg-background/80 p-4 rounded-full shadow-lg">
+                                 <Lock className="w-8 h-8 text-muted-foreground" />
+                               </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Progress Bar nằm gọn gàng cạnh dưới của Card */}
+                        <div className="bg-card p-4 border-t">
+                          <div className="flex justify-between items-center text-xs font-medium text-muted-foreground mb-2">
+                            <span>{col.description}</span>
+                            <span>Đã thu thập: {currentItems}/{totalItems}</span>
+                          </div>
+                          <Progress 
+                            value={progressPercent} 
+                            className="h-2" 
+                            indicatorClassName={isUnlocked ? "bg-[color:var(--theme-color)]" : ""} 
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-12 bg-secondary/20 rounded-xl border border-dashed">
+                  Chưa có bộ sưu tập nào. Vui lòng thêm dữ liệu vào DB.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -159,12 +159,19 @@ export const getLeaderboard = async () => {
 
 export const getCollections = async (userId: string) => {
     const [rows] = await pool.execute(
-        `SELECT c.id, c.name, c.description, c.unlock_level, c.theme_color,
-                (uc.user_id IS NOT NULL) as is_unlocked
+        `SELECT 
+            c.id, c.name, c.description, c.unlock_level, c.theme_color,
+            (uc.user_id IS NOT NULL) as is_unlocked,
+            (SELECT COUNT(*) FROM items WHERE collection_id = c.id) as total_items,
+            (SELECT COUNT(DISTINCT ui.item_id) 
+             FROM user_items ui 
+             JOIN items i ON ui.item_id = i.id 
+             WHERE i.collection_id = c.id AND ui.user_id = ?) as current_items,
+            (SELECT image_url FROM items WHERE collection_id = c.id AND item_type = 'COVER_PHOTO' LIMIT 1) as image_url
          FROM collections c
          LEFT JOIN user_collections uc ON c.id = uc.collection_id AND uc.user_id = ?
          ORDER BY c.unlock_level ASC`,
-        [userId]
+        [userId, userId]
     );
 
     return rows;
