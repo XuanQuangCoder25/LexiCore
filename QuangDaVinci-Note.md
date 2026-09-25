@@ -193,5 +193,39 @@ Cặp 2: Dơi Bạch Tạng (Albino Bat) — Vòm hang động lấp lánh tinh 
 Cặp 3: Cua Đá Mù (Blind Cave Crab) — Rừng cột thạch nhũ pha lê khổng lồ chĩa từ dưới lên (Crystal Stalagmite Forest).
 Cặp 4 (Siêu hiếm): Thằn Lằn Dung Nham (Lava Salamander) — Hồ dung nham xanh rực sáng dưới đáy hang (Glowing Blue Lava Lake).
 
+☁️ Collection 6: Bầu Trời (Sky Realm)
+Môi trường của mây trắng, các tầng không khí, bão tố và ánh sáng mặt trời.
+
+Cặp 1 (Tier 1): Chim Nhạn (Swallow) — Những đám mây trắng xốp bồng bềnh (Fluffy Cumulus Clouds).
+Cặp 2 (Tier 2): Bồ Nông (Pelican) — Quần đảo lơ lửng trên không trung (Floating Islands).
+Cặp 3 (Tier 3): Đại bàng hói (Bald Eagle) — Biển mây rực rỡ dưới ánh hoàng hôn (Sunset Sea of Clouds).
+Cặp 4 (Tier 4 - Siêu Hiếm): Chim Cắt Lớn (Peregrine Falcon - sinh vật nhanh nhất hành tinh) — Tâm bão sét với những đám mây đen cuồn cuộn cuộn xoáy (Eye of a Thunderstorm).
+
+🐊 Collection 7: Đầm Lầy (Misty Swamplands)
+Môi trường hoang dã, ẩm ướt, đầy sương mù, bí ẩn và rêu phong.
+
+Cặp 1 (Tier 1): Cò Trắng (Egret) — Cánh đồng cỏ lau bên bờ lạch (Reed Field).
+Cặp 2 (Tier 2): Rùa Cá Sấu (Snapping Turtle) — Rừng ngập mặn với hệ thống rễ cây đan chằng chịt (Mangrove Roots).
+Cặp 3 (Tier 3): Cóc Khổng Lồ (Goliath Frog) — Khu đầm lầy âm u phủ kín sương mù dày đặc (Misty Swamp).
+Cặp 4 (Tier 4 - Siêu Hiếm): Cá Sấu Mõm Ngắn (Alligator / Crocodile) — Tàn tích một chiếc thuyền hơi nước hoen gỉ bị bỏ hoang giữa đầm lầy rêu phong (Abandoned Sunken Steamboat).
+
 Collection 6: Bầu trời (chim ưng)
 Collection 7: Đầm lầy (Hà mã, trâu đầm lầy)
+
+* Ý tưởng thiết kế giao diện
+1. Màn hình Chính (Trang Achievement / Gallery)
+- Layout Lưới (Grid): Thay vì danh sách dài gồm thập cẩm các avatar, cover trong trang Achievement, chúng ta sẽ có một lưới các Card chữ nhật, mỗi card có hình của 1 tấm cover đại diện cho cái collection đó, 1 hàng có thể có 3,4 card tuỳ vào độ rộng của màn hình.
+- Visual Card: Background của Card dùng 1 tấm Cover đặc trưng của collection (ví dụ: bãi cát cho sa mạc) và để tên của collection đó vào chính giữa card. Ta phủ một lớp mờ màu đen (Linear Gradient overlay từ dưới lên) để phần Text (Collection 1: Desert Survival) nổi bật hẳn lên.
+- Tiến độ (Progress Bar): Nằm gọn gàng ở cạnh dưới của Card (vd: Thanh tiến trình lấp đầy 50%, ghi chú Đã thu thập: 4/8).
+- Hiệu ứng Hover: Khi người dùng di chuột (Hover) vào Card, tấm ảnh nền bên dưới sẽ hơi zoom nhẹ lên (Scale 1.05) và viền Card phát sáng (có lẽ đây là lúc ta dùng theme_color để gán màu cho hào quang ở viền phát sáng)
+
+2. Màn hình Chi Tiết (Khi bấm vào 1 Collection Card)
+- Giao diện sẽ chuyển cảnh (hoặc mở ra 1 Modal lớn) tập trung hoàn toàn vào Collection đó.
+- Bên trong này, chúng ta sẽ dùng lại thiết kế 4 Hàng (4 Cặp Avatar + Cover, cứ 1 avatar tương ứng với 1 cover như lạc đà - ốc đảo).
+=> Khung lưới này sau này có chứa đến 50 Collection thì cũng chỉ cuộn mất 2-3 trang màn hình là cùng, không phải là khi vào trang achievement là thấy 1 đống avatar và cover lộn xộn, lướt hoài không hết
+
+3. Xử lý phần Ảnh chưa mở khóa (The Tease)
+Chúng ta không cần phải lưu 2 phiên bản ảnh (1 rõ, 1 mờ) trong database đâu. Ta sẽ dùng thẳng sức mạnh của CSS Filters để xử lý trực tiếp trên frontend:
+- Hiệu ứng "Bóng Đêm Sương Mù": Ta sẽ mix 3 bộ lọc: grayscale(100%) (chuyển thành đen trắng) + brightness(40%) (làm tối đi) + blur(4px) (làm mờ). Kết quả là người dùng sẽ thấy một cái bóng đen mờ mờ ảo ảo của sinh vật, cực kỳ bí ẩn và nghệ thuật!
+4. Icon Ổ Khóa (The Lock)
+- Avatar và Cover nào chưa mở khoá thì ngoài làm mờ nó đi thì ta cũng chèn thêm 1 icon biểu thị là đang khoá, ta dùng icon của thư viện lucide-react

@@ -131,6 +131,7 @@ CREATE TABLE daily_goal_definitions (
     target_value INT NOT NULL, -- Ví dụ: 5 (câu shadowing)
     reward_coin INT DEFAULT 50,
     reward_exp INT DEFAULT 20,
+    type ENUM('DAILY', 'WEEKLY') DEFAULT 'DAILY',
     is_active BOOLEAN DEFAULT TRUE
 );
 

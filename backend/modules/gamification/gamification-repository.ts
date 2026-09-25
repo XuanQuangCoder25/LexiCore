@@ -3,47 +3,84 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const getDailyGoals = async (userId: string) => {
     const now = new Date();
+    // Ngày hôm nay (YYYY-MM-DD)
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    // Đầu tuần (Thứ 2) để scope weekly goals
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - daysSinceMonday);
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
 
-    let [rows] = await pool.execute(
-        `SELECT udg.id as user_goal_id, d.title, d.description, d.icon, d.target_value, d.reward_coin, d.reward_exp,
+    // === DAILY GOALS ===
+    let [dailyRows] = await pool.execute(
+        `SELECT udg.id as user_goal_id, d.title, d.description, d.icon, d.target_value, d.reward_coin, d.reward_exp, d.type,
                 udg.current_progress, udg.is_completed, udg.is_claimed
          FROM user_daily_goals udg
          JOIN daily_goal_definitions d ON udg.goal_id = d.id
-         WHERE udg.user_id = ? AND udg.date = ?`,
+         WHERE udg.user_id = ? AND udg.date = ? AND d.type = 'DAILY'`,
         [userId, today]
     );
+    let dailyGoals = dailyRows as any[];
 
-    let goals = rows as any[];
-
-    if (goals.length === 0) {
+    // Nếu hôm nay chưa có daily goals → auto-assign tất cả daily definitions
+    if (dailyGoals.length === 0) {
         const [defs] = await pool.execute(
-            `SELECT id FROM daily_goal_definitions WHERE is_active = TRUE ORDER BY RAND() LIMIT 3`,
+            `SELECT id FROM daily_goal_definitions WHERE is_active = TRUE AND type = 'DAILY'`,
             []
         );
-        const selectedGoals = defs as any[];
-
-        if (selectedGoals.length === 0) return [];
-
-        for (const def of selectedGoals) {
+        for (const def of (defs as any[])) {
             await pool.execute(
-                `INSERT INTO user_daily_goals (id, user_id, goal_id, date) VALUES (?, ?, ?, ?)`,
+                `INSERT IGNORE INTO user_daily_goals (id, user_id, goal_id, date) VALUES (?, ?, ?, ?)`,
                 [uuidv4(), userId, def.id, today]
             );
         }
-
         const [newRows] = await pool.execute(
-            `SELECT udg.id as user_goal_id, d.title, d.description, d.icon, d.target_value, d.reward_coin, d.reward_exp,
+            `SELECT udg.id as user_goal_id, d.title, d.description, d.icon, d.target_value, d.reward_coin, d.reward_exp, d.type,
                     udg.current_progress, udg.is_completed, udg.is_claimed
              FROM user_daily_goals udg
              JOIN daily_goal_definitions d ON udg.goal_id = d.id
-             WHERE udg.user_id = ? AND udg.date = ?`,
+             WHERE udg.user_id = ? AND udg.date = ? AND d.type = 'DAILY'`,
             [userId, today]
         );
-        goals = newRows as any[];
+        dailyGoals = newRows as any[];
     }
 
-    return goals;
+    // === WEEKLY GOALS ===
+    let [weeklyRows] = await pool.execute(
+        `SELECT udg.id as user_goal_id, d.title, d.description, d.icon, d.target_value, d.reward_coin, d.reward_exp, d.type,
+                udg.current_progress, udg.is_completed, udg.is_claimed
+         FROM user_daily_goals udg
+         JOIN daily_goal_definitions d ON udg.goal_id = d.id
+         WHERE udg.user_id = ? AND udg.date = ? AND d.type = 'WEEKLY'`,
+        [userId, weekStartStr]
+    );
+    let weeklyGoals = weeklyRows as any[];
+
+    // Nếu tuần này chưa có weekly goals → auto-assign tất cả weekly definitions
+    if (weeklyGoals.length === 0) {
+        const [defs] = await pool.execute(
+            `SELECT id FROM daily_goal_definitions WHERE is_active = TRUE AND type = 'WEEKLY'`,
+            []
+        );
+        for (const def of (defs as any[])) {
+            await pool.execute(
+                `INSERT IGNORE INTO user_daily_goals (id, user_id, goal_id, date) VALUES (?, ?, ?, ?)`,
+                [uuidv4(), userId, def.id, weekStartStr]
+            );
+        }
+        const [newRows] = await pool.execute(
+            `SELECT udg.id as user_goal_id, d.title, d.description, d.icon, d.target_value, d.reward_coin, d.reward_exp, d.type,
+                    udg.current_progress, udg.is_completed, udg.is_claimed
+             FROM user_daily_goals udg
+             JOIN daily_goal_definitions d ON udg.goal_id = d.id
+             WHERE udg.user_id = ? AND udg.date = ? AND d.type = 'WEEKLY'`,
+            [userId, weekStartStr]
+        );
+        weeklyGoals = newRows as any[];
+    }
+
+    return [...dailyGoals, ...weeklyGoals];
 };
 
 export const claimDailyGoal = async (userId: string, userGoalId: string) => {

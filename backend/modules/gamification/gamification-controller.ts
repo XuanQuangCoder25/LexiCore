@@ -3,7 +3,7 @@ import * as gamificationRepo from './gamification-repository';
 
 export const getDailyGoals = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user!.id;
         const goals = await gamificationRepo.getDailyGoals(userId);
         res.json({ success: true, data: goals });
     } catch (error: any) {
@@ -14,7 +14,7 @@ export const getDailyGoals = async (req: Request, res: Response) => {
 
 export const claimDailyGoal = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user!.id;
         const { goalId } = req.params;
         const result = await gamificationRepo.claimDailyGoal(userId, goalId as string);
         res.json({ success: true, ...result });
@@ -26,7 +26,7 @@ export const claimDailyGoal = async (req: Request, res: Response) => {
 
 export const getAchievements = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user!.id;
         const achievements = await gamificationRepo.getAchievements(userId);
         res.json({ success: true, data: achievements });
     } catch (error: any) {
@@ -47,7 +47,7 @@ export const getLeaderboard = async (req: Request, res: Response) => {
 
 export const getCollections = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
+        const userId = req.user!.id;
         const collections = await gamificationRepo.getCollections(userId);
         res.json({ success: true, data: collections });
     } catch (error: any) {
