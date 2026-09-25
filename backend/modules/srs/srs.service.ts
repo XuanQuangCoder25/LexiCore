@@ -30,24 +30,24 @@ export const calculateSM2Plus = (
   if (quality < 3) {
     // Trả lời Sai (Again / Hard) -> Đặt lại tiến độ
     newRepetitions = 0;
-    newInterval = 1; 
-    newStatus = (currentStatus === 'New' || currentStatus === 'Learning') ? 'Learning' : 'Relearning';
+    newInterval = 0; // Ôn lại ngay trong ngày
+    newStatus = 'Learning';
   } else {
     // Trả lời Đúng (Good / Easy)
-    if (repetitions === 0) {
+    newRepetitions++;
+    if (newRepetitions === 1) {
       newInterval = 1;
-      newStatus = 'Learning';
-    } else if (repetitions === 1) {
+      newStatus = 'Review';
+    } else if (newRepetitions === 2) {
       newInterval = 6;
       newStatus = 'Review';
     } else {
       // Tính interval kèm Overdue Bonus
       // Nếu user nhớ bài dù bị trễ (quality >= 3), thưởng một phần delayDays vào interval cũ
-      const effectiveInterval = interval + (quality === 5 ? delayDays : delayDays / 2);
+      const effectiveInterval = interval > 0 ? interval + (quality === 5 ? delayDays : delayDays / 2) : interval;
       newInterval = Math.round(effectiveInterval * newEaseFactor);
       newStatus = 'Review';
     }
-    newRepetitions++;
   }
 
   // 3. Tính toán Ngày ôn tập tiếp theo (Next Review Date)

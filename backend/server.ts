@@ -13,6 +13,7 @@ import dashboardRoutes from './modules/dashboard/dashboard.route';
 import srsRoutes from './modules/srs/srs.route';
 import gamificationRoutes from './modules/gamification/gamification-route';
 import uploadRoute from './modules/upload/upload.route';
+import creatorRoutes from './modules/creator/creator.route';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -45,6 +46,7 @@ const startServer = async () => {
         app.use('/api/shadowing', shadowingRoute);
         app.use('/api/gamification', gamificationRoutes);
         app.use('/api/upload', uploadRoute);
+        app.use('/api/v1/creator', creatorRoutes);
 
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);

@@ -35,6 +35,8 @@ interface AppSidebarProps {
   onTabChange: (tab: string) => void;
   coins: number;
   isAdmin: boolean;
+  userName?: string;
+  userRole?: string;
 }
 
 const navigationItems = [
@@ -51,7 +53,7 @@ const navigationItems = [
   { id: "achievements", title: "Achievements", icon: Trophy, description: "Goals & Rewards" },
 ];
 
-export function AppSidebar({ activeTab, onTabChange, coins, isAdmin }: AppSidebarProps) {
+export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = "Guest", userRole = "user" }: AppSidebarProps) {
   const [premiumOpen, setPremiumOpen] = useState(false);
 
   return (
@@ -175,8 +177,8 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin }: AppSideba
               <SidebarMenuButton className="w-full justify-start">
                 <User className="h-4 w-4 mr-3" />
                 <div className="flex flex-col items-start">
-                  <span className="text-sm font-medium">Sarah Johnson</span>
-                  <span className="text-xs text-muted-foreground">Intermediate · B2</span>
+                  <span className="text-sm font-medium">{userName}</span>
+                  <span className="text-xs text-muted-foreground capitalize">{userRole}</span>
                 </div>
               </SidebarMenuButton>
             </SidebarMenuItem>

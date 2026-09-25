@@ -2,36 +2,64 @@ import { Request, Response } from 'express';
 import CardReview from '../../database/models/CardReview';
 import { calculateSM2Plus } from './srs.service';
 import mongoose from 'mongoose';
+import Course from '../../database/models/Course';
+import Flashcard from '../../database/models/Flashcard';
 
 export const getDueCards = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || 'demo-user-id';
-    const { deckId, limit = '50', page = '1' } = req.query;
+    const userId = req.user!.id;
+    const { courseId, limit = '20' } = req.query;
 
     const limitNum = parseInt(limit as string, 10);
-    const pageNum = parseInt(page as string, 10);
-    const skip = (pageNum - 1) * limitNum;
 
-    // Filter query
+    // 1. Lấy thẻ due
     const query: any = {
       userId,
       nextReviewDate: { $lte: new Date() }
     };
-    
-    if (deckId) {
-      query.deckId = deckId;
+    if (courseId) {
+      query.courseId = courseId;
     }
 
-    const [dueCards, totalDue] = await Promise.all([
-      CardReview.find(query).skip(skip).limit(limitNum),
-      CardReview.countDocuments(query)
-    ]);
+    const dueReviews = await CardReview.find(query).limit(limitNum).lean();
+
+    const reviewCards = await Promise.all(dueReviews.map(async (rev) => {
+      const fc = await Flashcard.findById(rev.cardId);
+      return {
+        ...rev,
+        _id: rev.cardId,
+        front: fc?.front || 'Thẻ đã bị xóa',
+        back: fc?.back || 'Thẻ đã bị xóa'
+      };
+    }));
+
+    let resultCards = reviewCards;
+
+    // 2. Nếu thiếu thẻ, lấy thêm thẻ mới
+    if (resultCards.length < limitNum && courseId) {
+      const existingCardIds = await CardReview.find({ userId, courseId }).distinct('cardId');
+      const newFlashcards = await Flashcard.find({
+        courseId,
+        _id: { $nin: existingCardIds }
+      }).limit(limitNum - resultCards.length).lean();
+
+      const newCards = newFlashcards.map(fc => ({
+        _id: fc._id,
+        cardId: fc._id,
+        courseId: fc.courseId,
+        front: fc.front,
+        back: fc.back,
+        status: 'New'
+      }));
+
+      resultCards = [...resultCards, ...newCards];
+    }
 
     res.json({
       success: true,
       data: {
-        totalDue,
-        cards: dueCards
+        totalDue: resultCards.length,
+        cards: resultCards
       }
     });
   } catch (error) {
@@ -42,8 +70,8 @@ export const getDueCards = async (req: Request, res: Response) => {
 
 export const submitReview = async (req: Request, res: Response) => {
   try {
-    const { cardId, deckId, quality, responseTimeMs } = req.body;
-    const userId = (req as any).user?.id || 'demo-user-id';
+    const { cardId, courseId, quality, responseTimeMs } = req.body;
+    const userId = req.user!.id;
 
     let card = await CardReview.findOne({ userId, cardId });
     
@@ -52,7 +80,7 @@ export const submitReview = async (req: Request, res: Response) => {
       card = new CardReview({
         userId,
         cardId,
-        deckId: deckId ? new mongoose.Types.ObjectId(deckId) : new mongoose.Types.ObjectId(),
+        courseId: courseId ? new mongoose.Types.ObjectId(courseId) : new mongoose.Types.ObjectId(),
         easeFactor: 2.5,
         interval: 0,
         repetitions: 0,
@@ -101,7 +129,7 @@ export const submitReview = async (req: Request, res: Response) => {
 
 export const getSrsStats = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || 'demo-user-id';
+    const userId = req.user!.id;
     
     // 1. Lấy overview các thẻ
     const stats = await CardReview.aggregate([
@@ -126,13 +154,29 @@ export const getSrsStats = async (req: Request, res: Response) => {
       masteredCards: stats.find(s => s._id === 'Review')?.count || 0,
     };
 
-    // 2. Mock data Heatmap (Để hoàn thiện sau bằng Aggregation Date)
-    const today = new Date();
-    const heatmap = [
-      { date: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], reviewsCount: 45 },
-      { date: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], reviewsCount: 60 },
-      { date: today.toISOString().split('T')[0], reviewsCount: 12 }
-    ];
+    // 2. Heatmap từ dữ liệu thật
+    const heatmapData = await CardReview.aggregate([
+      { $match: { userId } },
+      { $unwind: "$reviewHistory" },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$reviewHistory.date" }
+          },
+          reviewsCount: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: -1 } },
+      { $limit: 30 },
+      {
+        $project: {
+          _id: 0,
+          date: "$_id",
+          reviewsCount: 1
+        }
+      }
+    ]);
+    const heatmap = heatmapData.reverse();
 
     res.json({
       success: true,
@@ -143,6 +187,57 @@ export const getSrsStats = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Lỗi khi get stats:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const getDecks = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    // Lấy danh sách khoá học đã xuất bản
+    const courses = await Course.find({ isPublished: true });
+    
+    const decks = await Promise.all(courses.map(async (course) => {
+      const totalCards = await Flashcard.countDocuments({ courseId: course._id });
+      
+      const stats = await CardReview.aggregate([
+        { $match: { userId, courseId: course._id } },
+        { 
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const learningCards = stats.find(s => s._id === 'Learning' || s._id === 'Relearning')?.count || 0;
+      const reviewCards = stats.find(s => s._id === 'Review')?.count || 0;
+      const studiedCards = learningCards + reviewCards;
+      
+      const dueCardsCount = await CardReview.countDocuments({
+        userId,
+        courseId: course._id,
+        nextReviewDate: { $lte: new Date() }
+      });
+
+      return {
+        _id: course._id,
+        title: course.title,
+        description: course.description,
+        thumbnail: course.thumbnail,
+        totalCards,
+        studiedCards,
+        masteredCards: reviewCards, // Thẻ đã vào trạng thái Review
+        newCards: Math.max(0, totalCards - studiedCards),
+        reviewCards: dueCardsCount, // Chính xác là số thẻ CẦN ÔN TẬP
+        category: 'Từ vựng',
+        difficulty: 'Cơ bản'
+      };
+    }));
+
+    res.json({ success: true, data: decks });
+  } catch (error) {
+    console.error('Lỗi khi get decks:', error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };

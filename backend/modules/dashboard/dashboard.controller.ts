@@ -15,7 +15,14 @@ export const getStats = async (req: Request, res: Response) => {
     // Lấy thông tin user (để lấy streak, level, wordsLearned)
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'Không tìm thấy user' });
+      // Fallback if MongoDB user doesn't exist yet (e.g. newly created via script)
+      return res.json({
+        durationHours: 0,
+        lessonsCompleted: 0,
+        level: 'A1 Beginner',
+        wordsLearned: 0,
+        streak: 0
+      });
     }
 
     // Lấy thông tin từ StudySession (tổng thời gian, số bài học)
