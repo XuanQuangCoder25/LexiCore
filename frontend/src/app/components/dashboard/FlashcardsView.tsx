@@ -6,6 +6,8 @@ import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
 import { Input } from "../ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { toast } from "sonner";
+import { srsService } from "../../services/srs-service";
 import { 
   Brain, 
   RotateCcw, 
@@ -23,77 +25,6 @@ import {
   Shuffle
 } from "lucide-react";
 
-const flashcardDecks = [
-  {
-    id: 1,
-    title: "IELTS Vocabulary",
-    description: "Essential words for IELTS preparation",
-    totalCards: 250,
-    studiedCards: 180,
-    masteredCards: 120,
-    newCards: 70,
-    reviewCards: 60,
-    difficulty: "Advanced",
-    category: "Test Prep",
-    color: "bg-blue-500"
-  },
-  {
-    id: 2,
-    title: "Business English",
-    description: "Professional vocabulary for workplace",
-    totalCards: 180,
-    studiedCards: 145,
-    masteredCards: 98,
-    newCards: 35,
-    reviewCards: 47,
-    difficulty: "Intermediate",
-    category: "Business",
-    color: "bg-green-500"
-  },
-  {
-    id: 3,
-    title: "Daily Conversations",
-    description: "Common phrases for everyday situations",
-    totalCards: 120,
-    studiedCards: 95,
-    masteredCards: 75,
-    newCards: 25,
-    reviewCards: 20,
-    difficulty: "Beginner",
-    category: "Speaking",
-    color: "bg-purple-500"
-  },
-  {
-    id: 4,
-    title: "Academic Writing",
-    description: "Advanced vocabulary for academic papers",
-    totalCards: 200,
-    studiedCards: 45,
-    masteredCards: 20,
-    newCards: 155,
-    reviewCards: 25,
-    difficulty: "Advanced",
-    category: "Writing",
-    color: "bg-orange-500"
-  }
-];
-
-const studySession = {
-  currentCard: {
-    word: "Serendipity",
-    phonetic: "/ˌser.ənˈdɪp.ə.ti/",
-    partOfSpeech: "noun",
-    definition: "The occurrence and development of events by chance in a happy or beneficial way",
-    example: "A fortunate stroke of serendipity brought the two old friends together at the airport.",
-    synonyms: ["chance", "fortune", "luck"],
-    difficulty: "Advanced"
-  },
-  deckName: "IELTS Vocabulary",
-  cardNumber: 15,
-  totalCards: 30,
-  showAnswer: false
-};
-
 export function FlashcardsView() {
   const [currentView, setCurrentView] = useState<"overview" | "study">("overview");
   const [showAnswer, setShowAnswer] = useState(false);
@@ -101,28 +32,49 @@ export function FlashcardsView() {
   const [dueCards, setDueCards] = useState<any[]>([]);
   const [totalDue, setTotalDue] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [decks, setDecks] = useState<any[]>([]);
+  const [activeDeck, setActiveDeck] = useState<any>(null);
+  
+  // Thời gian bắt đầu xem thẻ để tính responseTime
+  const [cardStartTime, setCardStartTime] = useState<number>(0);
 
-  const fetchDueCards = async (deckId?: number) => {
-    setLoading(true);
+  useEffect(() => {
+    fetchDecks();
+  }, []);
+
+  const fetchDecks = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/v1/srs/due${deckId ? `?deckId=${deckId}` : ''}`);
-      const json = await res.json();
-      if (json.success) {
-        setDueCards(json.data.cards);
-        setTotalDue(json.data.totalDue);
+      const res = await srsService.getDecks();
+      if (res.success) {
+        setDecks(res.data);
       }
     } catch (error) {
-      console.error(error);
+      toast.error("Không thể tải danh sách khóa học");
+    }
+  };
+
+  const fetchDueCards = async (deckId: string) => {
+    setLoading(true);
+    try {
+      const res = await srsService.getDueCards(deckId);
+      if (res.success) {
+        setDueCards(res.data.cards);
+        setTotalDue(res.data.totalDue);
+      }
+    } catch (error) {
+      toast.error("Lỗi khi tải thẻ học");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStudyDeck = (deckId: number) => {
-    fetchDueCards(deckId);
+  const handleStudyDeck = (deck: any) => {
+    setActiveDeck(deck);
+    fetchDueCards(deck._id);
     setCurrentView("study");
     setShowAnswer(false);
     setCurrentCardIndex(0);
+    setCardStartTime(Date.now());
   };
 
   const handleFlip = () => {
@@ -131,28 +83,32 @@ export function FlashcardsView() {
 
   const handleNext = useCallback(async (quality: number) => {
     if (!dueCards[currentCardIndex]) return;
+    
+    const responseTimeMs = Date.now() - cardStartTime;
+    const card = dueCards[currentCardIndex];
+    
     try {
-      await fetch("http://localhost:5000/api/v1/srs/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cardId: dueCards[currentCardIndex].cardId || "mock_card_id", 
-          deckId: dueCards[currentCardIndex].deckId,
-          quality: quality,
-          responseTimeMs: 1200 // Thêm tính toán time thực tế sau
-        })
+      await srsService.submitReview({
+        cardId: card._id, 
+        courseId: card.courseId,
+        quality: quality,
+        responseTimeMs
       });
+      
       setShowAnswer(false);
+      setCardStartTime(Date.now());
+      
       if (currentCardIndex + 1 < dueCards.length) {
         setCurrentCardIndex(prev => prev + 1);
       } else {
-        alert("Bạn đã hoàn thành phiên học!");
+        toast.success("Tuyệt vời! Bạn đã hoàn thành phiên học!");
+        fetchDecks(); // Cập nhật lại stat
         setCurrentView("overview");
       }
     } catch (error) {
-      console.error("Lỗi khi update Flashcard:", error);
+      toast.error("Lỗi khi đồng bộ kết quả");
     }
-  }, [dueCards, currentCardIndex]);
+  }, [dueCards, currentCardIndex, cardStartTime]);
 
   // Bắt sự kiện bàn phím
   useEffect(() => {
@@ -179,179 +135,120 @@ export function FlashcardsView() {
   const handleBackToOverview = () => {
     setCurrentView("overview");
     setShowAnswer(false);
+    fetchDecks();
   };
 
   if (currentView === "study") {
-    const activeCard = dueCards.length > 0 ? dueCards[currentCardIndex] : studySession.currentCard;
-    const progress = totalDue > 0 ? ((currentCardIndex + 1) / totalDue) * 100 : 0;
+    const activeCard = dueCards[currentCardIndex];
+    const progress = totalDue > 0 ? ((currentCardIndex) / totalDue) * 100 : 0;
     
-    // Tính toán thời gian dự kiến (giả sử 1 thẻ tốn trung bình 15s)
     const cardsLeft = Math.max(0, totalDue - currentCardIndex);
     const estimatedMinutes = Math.ceil((cardsLeft * 15) / 60);
 
     return (
       <div className="space-y-6">
-        {/* Study Header */}
         <div className="flex items-center justify-between">
           <div>
             <Button variant="ghost" onClick={handleBackToOverview} className="mb-2">
-              ← Back to Decks
+              ← Trở về
             </Button>
-            <h1 className="text-3xl font-bold">{studySession.deckName}</h1>
-            <p className="text-muted-foreground">
-              Card {currentCardIndex + 1} of {totalDue > 0 ? totalDue : studySession.totalCards} • <span className="text-blue-500 font-medium">Estimated time: ~{estimatedMinutes} mins</span>
-            </p>
+            <h1 className="text-3xl font-bold">{activeDeck?.title}</h1>
+            {totalDue > 0 && (
+              <p className="text-muted-foreground">
+                Thẻ {currentCardIndex + 1} / {totalDue} • <span className="text-blue-500 font-medium">Ước tính: ~{estimatedMinutes} phút</span>
+              </p>
+            )}
           </div>
           <div className="text-right">
-            <Badge className="mb-2">{activeCard.status || "Review"}</Badge>
+            <Badge className="mb-2">{activeCard?.status || "New"}</Badge>
             <div className="w-32">
-              <Progress 
-                value={progress} 
-                className="h-2" 
-              />
+              <Progress value={progress} className="h-2" />
             </div>
           </div>
         </div>
 
-        {/* Flashcard */}
-        <div className="flex justify-center perspective-1000">
-          <motion.div 
-            className="w-full max-w-2xl h-96 cursor-pointer relative"
-            onClick={handleFlip}
-            animate={{ rotateX: showAnswer ? 180 : 0 }}
-            transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
-            style={{ transformStyle: "preserve-3d" }}
-          >
-            {/* Front of card */}
-            <Card className="absolute w-full h-full" style={{ backfaceVisibility: "hidden" }}>
-              <CardContent className="p-8 h-full flex flex-col justify-center items-center text-center">
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <h2 className="text-4xl font-bold">
-                        {activeCard.word}
-                      </h2>
-                      <p className="text-lg text-muted-foreground">
-                        {activeCard.phonetic || "/ˌser.ənˈdɪp.ə.ti/"}
-                      </p>
-                      <Badge variant="outline" className="text-sm">
-                        {activeCard.partOfSpeech || "noun"}
-                      </Badge>
+        {loading ? (
+          <div className="flex justify-center p-12">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : dueCards.length === 0 ? (
+          <div className="text-center py-20">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold">Không có thẻ nào cần ôn tập!</h2>
+            <p className="text-muted-foreground">Bạn đã hoàn thành xong khoá học này hôm nay.</p>
+            <Button className="mt-4" onClick={handleBackToOverview}>Quay lại</Button>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-center perspective-1000">
+              <motion.div 
+                className="w-full max-w-2xl min-h-96 cursor-pointer relative"
+                onClick={handleFlip}
+                animate={{ rotateX: showAnswer ? 180 : 0 }}
+                transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                {/* Front of card */}
+                <Card className="absolute w-full h-full" style={{ backfaceVisibility: "hidden" }}>
+                  <CardContent className="p-8 h-full flex flex-col justify-center items-center text-center">
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <h2 className="text-4xl font-bold whitespace-pre-wrap leading-relaxed">
+                          {activeCard?.front}
+                        </h2>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground mt-8">
+                        <Eye className="h-4 w-4" />
+                        <span className="text-sm">Bấm để lật thẻ (Space)</span>
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <Eye className="h-4 w-4" />
-                      <span className="text-sm">Click to reveal definition</span>
-                    </div>
-                    
-                    <Button variant="ghost" size="sm">
-                      <Volume2 className="h-4 w-4 mr-2" />
-                      Pronounce
-                    </Button>
-                  </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            {/* Back of card */}
-            <Card 
-              className="absolute w-full h-full"
-              style={{ backfaceVisibility: "hidden", transform: "rotateX(180deg)" }}
-            >
-              <CardContent className="p-8 h-full flex flex-col justify-center items-center text-center">
-                  <div className="space-y-6 w-full max-w-md">
-                    <div className="space-y-4">
-                      <h3 className="text-2xl font-bold">
-                        {activeCard.word}
-                      </h3>
-                      
-                      <div className="text-left space-y-3">
-                        <div>
-                          <h4 className="font-semibold mb-1">Definition:</h4>
-                          <p className="text-muted-foreground">
-                            {activeCard.definition}
+                {/* Back of card */}
+                <Card 
+                  className="absolute w-full h-full"
+                  style={{ backfaceVisibility: "hidden", transform: "rotateX(180deg)" }}
+                >
+                  <CardContent className="p-8 h-full flex flex-col justify-center items-center text-center">
+                    <div className="space-y-6 w-full max-w-md">
+                      <div className="space-y-4">
+                        <h3 className="text-2xl font-bold text-primary">
+                          {activeCard?.front}
+                        </h3>
+                        <div className="text-left space-y-3 pt-4 border-t">
+                          <p className="text-lg whitespace-pre-wrap leading-relaxed">
+                            {activeCard?.back}
                           </p>
-                        </div>
-                        
-                        <div>
-                          <h4 className="font-semibold mb-1">Example:</h4>
-                          <p className="text-muted-foreground italic">
-                            "{activeCard.example || "A fortunate stroke of serendipity brought the two old friends together at the airport."}"
-                          </p>
-                        </div>
-                        
-                        <div>
-                          <h4 className="font-semibold mb-1">Synonyms:</h4>
-                          <div className="flex gap-2">
-                            {(activeCard.synonyms || ["chance", "fortune", "luck"]).map((synonym: string, index: number) => (
-                              <Badge key={index} variant="secondary">
-                                {synonym}
-                              </Badge>
-                            ))}
-                          </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                      <EyeOff className="h-4 w-4" />
-                      <span className="text-sm">Click to hide definition</span>
-                    </div>
-                  </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
-
-        {/* Study Controls */}
-        {showAnswer && (
-          <div className="flex justify-center">
-            <div className="flex gap-4">
-              <Button 
-                variant="outline" 
-                onClick={() => handleNext(0)}
-              >
-                <XCircle className="h-4 w-4 mr-2 text-red-500" />
-                Again (1)
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => handleNext(2)}
-              >
-                <Clock className="h-4 w-4 mr-2 text-orange-500" />
-                Hard (2)
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => handleNext(4)}
-              >
-                <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
-                Good (3)
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => handleNext(5)}
-              >
-                <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                Easy (4)
-              </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
             </div>
-          </div>
-        )}
 
-        {/* Quick Actions */}
-        <div className="flex justify-center gap-2">
-          <Button variant="ghost" size="sm">
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset Card
-          </Button>
-          <Button variant="ghost" size="sm">
-            <Shuffle className="h-4 w-4 mr-2" />
-            Shuffle Deck
-          </Button>
-          <Button variant="ghost" size="sm">
-            <Volume2 className="h-4 w-4 mr-2" />
-            Auto-play Audio
-          </Button>
-        </div>
+            {/* Study Controls */}
+            {showAnswer && (
+              <div className="flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-300 pt-6">
+                <div className="flex gap-4">
+                  <Button variant="outline" onClick={() => handleNext(0)} className="hover:bg-red-50 hover:text-red-600 hover:border-red-200">
+                    <XCircle className="h-4 w-4 mr-2 text-red-500" /> Sai (1)
+                  </Button>
+                  <Button variant="outline" onClick={() => handleNext(2)} className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200">
+                    <Clock className="h-4 w-4 mr-2 text-orange-500" /> Khó (2)
+                  </Button>
+                  <Button variant="outline" onClick={() => handleNext(4)} className="hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
+                    <CheckCircle className="h-4 w-4 mr-2 text-blue-500" /> Nhớ (3)
+                  </Button>
+                  <Button variant="outline" onClick={() => handleNext(5)} className="hover:bg-green-50 hover:text-green-600 hover:border-green-200">
+                    <CheckCircle className="h-4 w-4 mr-2 text-green-500" /> Dễ (4)
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     );
   }
@@ -360,8 +257,8 @@ export function FlashcardsView() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Flashcards</h1>
-        <p className="text-muted-foreground">Master vocabulary with spaced repetition</p>
+        <h1 className="text-3xl font-bold">Học Flashcards</h1>
+        <p className="text-muted-foreground">Luyện từ vựng với thuật toán lặp lại ngắt quãng (Spaced Repetition)</p>
       </div>
 
       {/* Quick Stats */}
@@ -370,192 +267,81 @@ export function FlashcardsView() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Cards to Review</p>
-                <p className="text-2xl font-bold">152</p>
+                <p className="text-sm text-muted-foreground">Khoá học</p>
+                <p className="text-2xl font-bold">{decks.length}</p>
               </div>
-              <Clock className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">New Cards</p>
-                <p className="text-2xl font-bold">285</p>
-              </div>
-              <Plus className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Mastered</p>
-                <p className="text-2xl font-bold">313</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Study Streak</p>
-                <p className="text-2xl font-bold">12 days</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-muted-foreground" />
+              <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input 
-            placeholder="Search flashcard decks..." 
-            className="pl-10"
-          />
-        </div>
-        <Button variant="outline">
-          <Plus className="h-4 w-4 mr-2" />
-          Create Deck
-        </Button>
-      </div>
-
-      {/* Flashcard Decks */}
       <Tabs defaultValue="my-decks" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="my-decks">My Decks</TabsTrigger>
-          <TabsTrigger value="discover">Discover</TabsTrigger>
-          <TabsTrigger value="statistics">Statistics</TabsTrigger>
+          <TabsTrigger value="my-decks">Khoá học của tôi</TabsTrigger>
         </TabsList>
 
         <TabsContent value="my-decks" className="space-y-6">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {flashcardDecks.map((deck) => (
-              <Card key={deck.id} className="hover:shadow-lg transition-all duration-300 group">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className={`p-2 rounded-lg ${deck.color} bg-opacity-10`}>
-                      <Brain className={`h-6 w-6 ${deck.color.replace('bg-', 'text-')}`} />
+            {decks.length === 0 ? (
+              <p className="text-muted-foreground">Chưa có khoá học nào được xuất bản. Vui lòng vào Creator Studio để tạo.</p>
+            ) : (
+              decks.map((deck) => (
+                <Card key={deck._id} className="hover:shadow-lg transition-all duration-300 group">
+                  <CardHeader>
+                    <div className="flex items-start justify-between mb-2">
+                      {deck.thumbnail ? (
+                        <img src={deck.thumbnail} alt={deck.title} className="w-12 h-12 rounded-lg object-cover" />
+                      ) : (
+                        <div className="p-2 rounded-lg bg-blue-500 bg-opacity-10">
+                          <Brain className="h-6 w-6 text-blue-500" />
+                        </div>
+                      )}
+                      <Badge variant="outline">{deck.category}</Badge>
                     </div>
-                    <Badge variant="outline">{deck.difficulty}</Badge>
-                  </div>
-                  <CardTitle className="group-hover:text-primary transition-colors">
-                    {deck.title}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">{deck.description}</p>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progress</span>
-                      <span>{Math.round((deck.masteredCards / deck.totalCards) * 100)}%</span>
-                    </div>
-                    <Progress 
-                      value={(deck.masteredCards / deck.totalCards) * 100} 
-                      className="h-2" 
-                    />
-                  </div>
+                    <CardTitle className="group-hover:text-primary transition-colors">
+                      {deck.title}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground truncate">{deck.description || "Không có mô tả"}</p>
+                  </CardHeader>
                   
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div>
-                      <p className="text-lg font-bold text-blue-600">{deck.newCards}</p>
-                      <p className="text-xs text-muted-foreground">New</p>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Tiến độ</span>
+                        <span>{deck.totalCards > 0 ? Math.round((deck.studiedCards / deck.totalCards) * 100) : 0}%</span>
+                      </div>
+                      <Progress 
+                        value={deck.totalCards > 0 ? (deck.studiedCards / deck.totalCards) * 100 : 0} 
+                        className="h-2" 
+                      />
                     </div>
-                    <div>
-                      <p className="text-lg font-bold text-orange-600">{deck.reviewCards}</p>
-                      <p className="text-xs text-muted-foreground">Review</p>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <p className="text-lg font-bold text-blue-600">{deck.newCards}</p>
+                        <p className="text-xs text-muted-foreground">Thẻ mới</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-orange-600">{deck.reviewCards}</p>
+                        <p className="text-xs text-muted-foreground">Cần ôn tập</p>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button 
-                      className="flex-1" 
-                      onClick={() => handleStudyDeck(deck.id)}
-                    >
-                      <BookOpen className="h-4 w-4 mr-2" />
-                      Study Now
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Target className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="discover" className="space-y-6">
-          <div className="text-center py-12">
-            <Brain className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="font-semibold mb-2">Discover New Decks</h3>
-            <p className="text-muted-foreground mb-4">
-              Browse thousands of flashcard decks created by the community
-            </p>
-            <Button>
-              <Search className="h-4 w-4 mr-2" />
-              Browse Public Decks
-            </Button>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="statistics" className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Study Time This Week</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm">Monday</span>
-                    <span className="text-sm font-medium">25 min</span>
-                  </div>
-                  <Progress value={75} className="h-2" />
-                  <div className="flex justify-between">
-                    <span className="text-sm">Tuesday</span>
-                    <span className="text-sm font-medium">18 min</span>
-                  </div>
-                  <Progress value={54} className="h-2" />
-                  <div className="flex justify-between">
-                    <span className="text-sm">Wednesday</span>
-                    <span className="text-sm font-medium">32 min</span>
-                  </div>
-                  <Progress value={96} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Learning Statistics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>Cards reviewed today</span>
-                  <Badge className="bg-green-100 text-green-800">47</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Average accuracy</span>
-                  <Badge className="bg-blue-100 text-blue-800">87%</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Words learned this month</span>
-                  <Badge className="bg-purple-100 text-purple-800">156</Badge>
-                </div>
-              </CardContent>
-            </Card>
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        className="flex-1" 
+                        onClick={() => handleStudyDeck(deck)}
+                        disabled={deck.totalCards === 0}
+                      >
+                        <BookOpen className="h-4 w-4 mr-2" />
+                        {deck.totalCards === 0 ? "Chưa có thẻ" : "Học ngay"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </TabsContent>
       </Tabs>

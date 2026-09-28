@@ -39,13 +39,15 @@ export default function App() {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [coins, setCoins] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("Guest");
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/auth/me", { credentials: "include" })
+    fetch("/api/auth/me", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
         if (data?.coin_balance !== undefined) setCoins(data.coin_balance);
         if (data?.role) setUserRole(data.role);
+        if (data?.full_name) setUserName(data.full_name);
       })
       .catch(() => {});
   }, []);
@@ -65,7 +67,16 @@ export default function App() {
       case "exam": return <ExamView />;
       case "arena": return <ArenaView />;
       case "community": return <CommunityView />;
-      case "creator": return <CreatorStudioView />;
+      case "creator": {
+        const normalizedRole = userRole?.toLowerCase().replace(/\s+/g, '_');
+        return normalizedRole === "admin" || normalizedRole === "content_creator" ? <CreatorStudioView /> : (
+        <div className="flex h-full items-center justify-center p-8">
+          <div className="text-center max-w-md bg-destructive/10 p-6 rounded-xl border border-destructive/20">
+            <h2 className="text-2xl font-bold mb-2 text-destructive">Truy cập bị từ chối</h2>
+            <p className="text-muted-foreground">Bạn cần có quyền Content Creator hoặc Admin để truy cập khu vực này.</p>
+          </div>
+        </div>
+      );}
       case "store": return <StoreView />;
       case "achievements": return <AchievementsView />;
       case "admin": return <AdminView />;
@@ -77,7 +88,7 @@ export default function App() {
     <SidebarProvider>
       {/* MARKER-MAKE-KIT-INVOKED */}
       <div className="flex h-screen w-full overflow-hidden">
-        <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} coins={coins} isAdmin={userRole === "ADMIN"} />
+        <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} coins={coins} isAdmin={userRole === "admin"} userName={userName} userRole={userRole || "user"} />
         <SidebarInset className="flex-1 overflow-hidden flex flex-col">
           {/* Top Header */}
           <header className="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">

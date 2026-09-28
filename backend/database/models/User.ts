@@ -5,6 +5,7 @@ export interface IUser extends Document {
   email: string;
   username: string;
   passwordHash: string;
+  role: 'user' | 'admin' | 'content_creator';
   
   // Dashboard Metrics
   level: string; // VD: 'B2 Upper Intermediate'
@@ -31,6 +32,7 @@ const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true },
   username: { type: String, required: true },
   passwordHash: { type: String, required: true },
+  role: { type: String, enum: ['user', 'admin', 'content_creator'], default: 'user' },
   
   level: { type: String, default: 'A1 Beginner' },
   streak: { type: Number, default: 0 },

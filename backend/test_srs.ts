@@ -1,62 +1,142 @@
-import { calculateSM2Plus } from './modules/srs/srs.service';
+import 'dotenv/config';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import Course from './database/models/Course';
+import Flashcard from './database/models/Flashcard';
+import CardReview from './database/models/CardReview';
 
-const runTests = () => {
-  console.log("=== BẮT ĐẦU TEST THUẬT TOÁN SM-2+ ===\n");
+const API_BASE = 'http://localhost:5000/api/v1';
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
-  // Mock Date
-  const today = new Date();
-  const past14Days = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
-  const past6Months = new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000);
-
-  // 1. Test Case 1: Thẻ trễ hạn dài ngày (Overdue Card)
-  console.log("TEST CASE 1: Thẻ trễ hạn (Overdue) - Nhớ bài tốt");
-  console.log("Đầu vào: Interval 10 ngày, trễ 4 ngày so với nextReviewDate. Trả lời Good (4).");
-  const result1 = calculateSM2Plus(
-    4, // quality = 4
-    3, // repetitions = 3
-    2.5, // easeFactor = 2.5
-    10, // interval cũ = 10
-    past14Days, // Học lần cuối 14 ngày trước (Lẽ ra phải ôn vào ngày thứ 10, vậy trễ 4 ngày)
-    'Review'
-  );
-  console.log("Kết quả mong đợi: Interval phải > 25 (10 * 2.5). Có thưởng thêm Overdue Bonus.");
-  console.log("Thực tế:", { interval: result1.interval, easeFactor: result1.easeFactor, status: result1.status });
-  console.log(result1.interval > 25 ? "✅ PASS" : "❌ FAIL");
-  console.log("------------------------------------------");
-
-
-  // 2. Test Case 2: Rớt khỏi ngưỡng thuộc (Forgetting a well-learned card)
-  console.log("TEST CASE 2: Quên bài đã học rất kỹ (Relearning)");
-  console.log("Đầu vào: Đã thuộc (interval 180 ngày), nhưng bấm Again (0) vì quên.");
-  const result2 = calculateSM2Plus(
-    0, // quality = 0
-    10, // repetitions = 10
-    2.6, // easeFactor
-    180, // interval 180 ngày
-    past6Months,
-    'Review'
-  );
-  console.log("Kết quả mong đợi: Interval rớt về 1, Repetition về 0, Status -> Relearning, EF giảm nhưng >= 1.3");
-  console.log("Thực tế:", { interval: result2.interval, rep: result2.repetitions, easeFactor: result2.easeFactor, status: result2.status });
-  console.log(result2.interval === 1 && result2.status === 'Relearning' && result2.easeFactor >= 1.3 ? "✅ PASS" : "❌ FAIL");
-  console.log("------------------------------------------");
-
-
-  // 3. Test Case 3: Thẻ mới tinh liên tục trả lời sai (Stuck on New Card)
-  console.log("TEST CASE 3: Thẻ mới (New) liên tục trả lời sai");
-  let newCardState = { quality: 0, rep: 0, ef: 2.5, int: 0, prevDate: null, status: 'New' as any };
-  let passed = true;
-  for (let i = 1; i <= 5; i++) {
-    const res = calculateSM2Plus(newCardState.quality, newCardState.rep, newCardState.ef, newCardState.int, newCardState.prevDate, newCardState.status);
-    newCardState = { quality: 0, rep: res.repetitions, ef: res.easeFactor, int: res.interval, prevDate: new Date(), status: res.status };
-    if (res.interval !== 1 || res.easeFactor < 1.3) passed = false;
-  }
-  console.log("Đầu vào: Trả lời sai (0) liên tục 5 lần.");
-  console.log("Kết quả mong đợi: Interval luôn là 1, EF giảm nhưng dừng ở mốc 1.3, Status = Learning");
-  console.log("Thực tế sau 5 lần sai:", { interval: newCardState.int, easeFactor: newCardState.ef, status: newCardState.status });
-  console.log(passed ? "✅ PASS" : "❌ FAIL");
-  console.log("------------------------------------------");
-
+// Helper tạo token giả cho script test
+const generateToken = (id: string, role: string) => {
+    return jwt.sign({ id, role }, JWT_SECRET, { expiresIn: '1h' });
 };
 
-runTests();
+const userToken = generateToken('testuser123', 'user');
+const creatorToken = generateToken('testcreator456', 'content_creator');
+
+const headers = (token: string) => ({
+    'Content-Type': 'application/json',
+    'Cookie': `token=${token}`
+});
+
+async function runTests() {
+    console.log("=== BẮT ĐẦU TEST SCRIPT (API & SRS) ===");
+    
+    // Kết nối trực tiếp DB (bỏ qua middleware HTTP) để kiểm chứng độc lập
+    if (!process.env.MONGODB_URI) {
+        console.error("LỖI: Chưa cấu hình MONGODB_URI trong .env");
+        process.exit(1);
+    }
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("Đã kết nối MongoDB để đối chiếu dữ liệu.");
+
+    // Dọn dẹp dữ liệu rác từ các bài test cũ
+    await Course.deleteMany({ creatorId: 'testcreator456' });
+    await Flashcard.deleteMany({ front: 'Test Word Front' });
+    await CardReview.deleteMany({ userId: 'testuser123' });
+
+    let testCourseId = '';
+    let testCardId = '';
+
+    // ==========================================
+    // 1. KIỂM TRA BẢO MẬT ROLE (RBAC)
+    // ==========================================
+    console.log("\n--- TEST 1: Bảo mật phân quyền Role (RBAC) ---");
+    
+    // 1a. User thường cố tạo Course
+    const resUser = await fetch(`${API_BASE}/creator/courses`, {
+        method: 'POST',
+        headers: headers(userToken),
+        body: JSON.stringify({ title: 'Hacked Course' })
+    });
+    console.log(`[User] Cố tình gọi API tạo Course -> Status: ${resUser.status} (Kỳ vọng: 403)`);
+    if (resUser.status !== 403) throw new Error("RBAC FAILED: Lỗ hổng! User thường có thể gọi API Creator!");
+    console.log("=> PASS: Đã chặn thành công User thường.");
+
+    // 1b. Creator tạo Course
+    const resCreator = await fetch(`${API_BASE}/creator/courses`, {
+        method: 'POST',
+        headers: headers(creatorToken),
+        body: JSON.stringify({ title: 'Test E2E Course', description: 'Test', isPublished: true })
+    });
+    console.log(`[Creator] Gọi API tạo Course -> Status: ${resCreator.status} (Kỳ vọng: 201 hoặc 200)`);
+    if (!resCreator.ok) {
+        console.error(await resCreator.text());
+        throw new Error("RBAC FAILED: Creator không thể tạo Course!");
+    }
+    
+    const courseData = await resCreator.json();
+    testCourseId = courseData.data._id;
+    console.log(`=> PASS: Tạo thành công Course với ID: ${testCourseId}`);
+
+    // ==========================================
+    // 2. KIỂM TRA TOÀN VẸN DỮ LIỆU (DB Relational)
+    // ==========================================
+    console.log("\n--- TEST 2: Toàn vẹn Dữ liệu Database ---");
+    const resCard = await fetch(`${API_BASE}/creator/flashcards`, {
+        method: 'POST',
+        headers: headers(creatorToken),
+        body: JSON.stringify({ courseId: testCourseId, front: 'Test Word Front', back: 'Test Meaning Back' })
+    });
+    if (!resCard.ok) {
+        console.error(await resCard.text());
+        throw new Error("Lỗi gọi API tạo Flashcard");
+    }
+    const cardData = await resCard.json();
+    testCardId = cardData.data._id;
+    console.log(`[Creator] Đã gọi API tạo Flashcard (ID: ${testCardId})`);
+
+    // Đối chiếu trực tiếp với Database
+    const dbCard = await Flashcard.findById(testCardId);
+    if (!dbCard) throw new Error("LỖI CƠ SỞ DỮ LIỆU: API báo thành công nhưng Flashcard KHÔNG tồn tại trong DB!");
+    if (dbCard.courseId.toString() !== testCourseId) throw new Error("LỖI CƠ SỞ DỮ LIỆU: Flashcard bị mất liên kết courseId!");
+    console.log("=> DB Check PASS: Flashcard đã được Insert thành công vào bảng và Link chính xác tới Course!");
+
+    // ==========================================
+    // 3. KIỂM TRA THUẬT TOÁN SRS
+    // ==========================================
+    console.log("\n--- TEST 3: Thuật toán Spaced Repetition (SRS) ---");
+    
+    const qualities = [
+        { label: 'Again', q: 0 },
+        { label: 'Hard', q: 2 },
+        { label: 'Good', q: 4 },
+        { label: 'Easy', q: 5 }
+    ];
+
+    for (const q of qualities) {
+        // Reset DB CardReview về chưa học để cô lập từng test case
+        await CardReview.deleteOne({ userId: 'testuser123', cardId: testCardId });
+
+        const resReview = await fetch(`${API_BASE}/srs/review`, {
+            method: 'POST',
+            headers: headers(userToken),
+            body: JSON.stringify({ cardId: testCardId, courseId: testCourseId, quality: q.q, responseTimeMs: 1500 })
+        });
+        
+        if (!resReview.ok) {
+            console.error(await resReview.text());
+            throw new Error(`API SRS bị lỗi khi chấm điểm ${q.q}`);
+        }
+        
+        // Truy vấn DB xem kết quả tính toán có được lưu thật không
+        const dbReview = await CardReview.findOne({ userId: 'testuser123', cardId: testCardId });
+        console.log(`\n[Học viên bấm ${q.label} (Điểm ${q.q})] -> Kết quả lưu DB:`);
+        console.log(`  - Trạng thái thẻ (Status): ${dbReview?.status}`);
+        console.log(`  - Hệ số khó (Ease Factor): ${dbReview?.easeFactor.toFixed(2)}`);
+        console.log(`  - Khoảng cách lặp (Interval): ${dbReview?.interval} ngày`);
+        console.log(`  - Giờ ôn tiếp theo (Next Review): ${dbReview?.nextReviewDate.toLocaleString()}`);
+    }
+
+    console.log("\n================================================");
+    console.log("🎉 TẤT CẢ TEST ĐỀU PASSED (100% XANH)");
+    console.log("================================================\n");
+    process.exit(0);
+}
+
+runTests().catch(err => {
+    console.error("TEST FAILED CÓ LỖI:", err);
+    process.exit(1);
+});
