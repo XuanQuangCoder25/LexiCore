@@ -49,32 +49,6 @@ Dự án áp dụng tự động hóa thông qua GitHub Actions. Hệ thống t�
 
 ---
 
-# 🎨 THIẾT KẾ & BẢNG MÀU (DESIGN SYSTEM)
-
-Hiện tại dự án sử dụng 2 bộ màu được gán trực tiếp (Inline Style) qua Object `L` (Light) và `D` (Dark) kết hợp với class `isDark` trên root để thay đổi thay vì dùng class chuẩn của Tailwind. Kiến trúc này giúp giữ nguyên thiết kế kính mờ (glassmorphism) đặc thù và không bị ảnh hưởng bởi layout bên ngoài.
-
-Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một cấu trúc `const L` và `const D` này để đồng bộ.
-
-## ☀️ Light Mode: "Soft Blue Mist"
-- **Nền trang:** Gradient xanh dương nhạt (`linear-gradient(135deg, #f3f7ff 0%, #eef3ff 50%, #f7f3ff 100%)`)
-- **Card/Panel:** Trắng trong mờ `rgba(255,255,255, 0.88)`
-- **Viền Card:** Xanh mờ `rgba(37,99,235, 0.12)`
-- **Tiêu đề (Title):** Đen xám `#0f172a`
-- **Chữ nhấn/Sub-text:** Xanh dương `#2563eb`
-- **Màu phụ (Muted):** Xám `#64748b`
-- **Nút bấm (Button):** Gradient `#0b5cff → #1f58ff → #7c3aed`
-
-## 🌙 Dark Mode: "Deep Space" (Dựa trên commit cb37607)
-- **Nền trang:** Đen tím sâu `#080714`
-- **Card/Panel:** Tím thẫm `#100e24` (hoặc `#0d0c1e` cho Modal)
-- **Viền Card:** Tím mờ `rgba(167,139,250, 0.18)`
-- **Tiêu đề (Title):** Trắng ngà `#f8fafc`
-- **Chữ nhấn/Sub-text:** Lavender `#c4b5fd`
-- **Màu phụ (Muted):** Xám nhạt `#94a3b8`
-- **Nút bấm (Button):** Gradient `#7c3aed → #4f46e5`
-
----
-
 # 🎙️ MODULE: AI VOICE ANALYSIS (SHADOWING)
 
 ## Giai đoạn 1: Database & Auto-fetch Transcript
@@ -137,95 +111,80 @@ Cập nhật `wallets`: `current_streak`, `longest_streak`, `last_study_date` sa
 
 ---
 
+# 🎨 THIẾT KẾ & BẢNG MÀU (DESIGN SYSTEM)
 
-Nháp:
-Ý tưởng Gamification của tôi
-Mỗi ngày có 3 nhiệm vụ hàng ngày (ta sẽ thiết kế một bảng nhiệm vụ gồm 3 card, mỗi card miêu tả 1 nhiệm vụ, có thể là sẽ có một nút để người dùng ấn vô xem nhiệm vụ hàng ngày, thời gian còn lại để thực hiện, hoàn thành hay chưa), hoàn thành nhiệm vụ hàng ngày (có lẽ là goal mà bạn nói) thì sẽ được coin, exp. 
-Coin: dùng để mua avatar, đóng băng chuỗi,.. tôi không biết ta thiết kế cái vòng tròn avatar như nào và kiếm ảnh như nào để có thể thiết kế cái khung avatar, bạn có thể gợi ý không, nhưung khi ấn vào trang profile thì ngoài avatar ta sẽ có ảnh bìa (như facebook) và có thể mua ảnh bìa trong store luôn. và tôi sẽ kiếm ảnh sao cho nó có bộ đôi với nhau, như avatar cá heo thì có ảnh bìa biển, avatar lạc đà sẽ có ảnh bìa sa mạc,... và có thể sau này tôi thiết kế 1 trang giao diện gọi là bộ sưu tập để người dùng xem là mình đã sở hữu bao nhiêu bộ giao diện rồi
-Exp: có được khi hoàn thành nhiệm vụ hàng ngày, khi chơi thắng pvp arena. Trong profile mốt ta sẽ thiết kế 1 thanh level, tích exp để lên level như các trò chơi, và mỗi level sẽ có thưởng phần thưởng là 1 cặp avatar - ảnh bìa (thứ mà không mua được ở store), hoặc có thể là có những món trong store bị khoá, chỉ khi đạt level nào đó mới mua được. Lý do mà tôi có ý định tạo 1 trang bộ sưu tập thay vì là mục "My items" trong store là vì mục đó chứa những thứ mình đã mua, còn có những thứ mình được thưởng khi lên level thì không phải là đã mua, và bộ sưu tập chỉ riêng về sưu tập thôi, như ảnh avatar, ảnh bìa, trông đẹp và vip hơn ảnh mua trong của hàng
-Point: là điểm để xếo rank, chỉ có khi chiến thắng người khác ở đấu trường, và có hệ thống xếp hạng (tính sau) nhưng hiện tại thì chỉ cần xếp hạng theo top ví dụ top1, top2 toàn cầu thôi.
-Achievement thì như bạn nói, là mấy cái nhiệm vụ nhưng là nhiệm vụ dài kì, là hoàn thành 50 bài học,... à ta cũng nên xem xét tính chuỗi trận thắng cho người dùng nữa, nó cũng dùng làm thành tựu được, và vì cái này phải tốn công sức lâu dài để làm nên phần thường cũng phải xứng đáng hơn, ngoài nhiều tiền coin ra thì ta có thể đẻ thêm 1 loại tiền tệ nữa là kim cương chẳng hạn, để mua mấy thứ vip hơn haha. Ta phân loại thưởng như sau
-Thắng pvp: exp để lên level, point để lên hạng, coin
-Hoàn thành nhiệm vụ hàng ngày: coin, exp
-nhiệm vụ dài kỳ: coin, kim cương
-point là để xếp hạng nên chỉ có khi đấu tranh mới có point để lên hạng chứ làm nhiệm vụ thì không có point
-Rồi vậy là tôi đã lên ý tưởng về coin, kim cương, point, exp, thành tựu (achievement), còn thiếu gì nữa không nhỉ, bạn thấy ý tưởng này thế nào
+Hiện tại dự án sử dụng 2 bộ màu được gán trực tiếp (Inline Style) qua Object `L` (Light) và `D` (Dark) kết hợp với class `isDark` trên root để thay đổi thay vì dùng class chuẩn của Tailwind. Kiến trúc này giúp giữ nguyên thiết kế kính mờ (glassmorphism) đặc thù và không bị ảnh hưởng bởi layout bên ngoài.
 
-Trả lời câu hỏi của bạn
-1. PvP là nơi đấu tranh, cạnh tranh với nhau nên họ cần bảng xếp hạng để thi đua với nhau, ta nên tách biệt bxh này, không thể làm nhiêm vụ khác mà cũng được point lên rank, còn nếu không đấu pvp thì họ có thể thi đua với nhau ở level rồi, mà level thì ngoài kiếm exp từ pvp họ có thể kiếm exp từ nhiệm vụ hàng ngày và dài kỳ. Như bạn góp ý thì ta cũng có thể thêm cái streak leaderboard nữa, những nó không mang tính ganh đua ai học giỏi hơn, vì chỉ cần ai dùng web này trước thì sẽ có chuỗi dài hơn, và cũng sẽ có thành tựu dài kỳ là đạt chuỗi 30,60,...
-2. Haha tôi hơi "quê" rồi vì nhầm level và lever, tôi đã chỉnh lại các từ trong file md thành level hết rồi. Level sẽ là do người dùng học lâu, học nhiều thì sẽ được level cao, như chơi game vậy á, level cao chứng tỏ kì cựu, và có bộ sưu tập đồ sộ, cứ lên level mới thì có đồ mới. Còn hạng như đồng bạc bạn nói thì giống như nên để nó ở pvp hơn, ví dụ ta sẽ có bao nhiêu điểm đến bao nhiêu điểm là rank đồng, và trong mỗi bậc rank sẽ có thứ hạng top 1, top 2,.. nhưng cái đó để cải thiện sau, hiện tại thì chỉ có xếp hạng con số thôi
-3. Tôi quên mất vấn đề lưu ảnh, vì mỗi level đều có phần phưởng nên ta sẽ cần rất nhiều ảnh, mà lưu hết vào database của ta thì nó sẽ khổng lồ đúng không, thay vì ta chỉ cần lưu url ảnh nhưng nếu lưu url thì có nghĩa là ta dùng ảnh của nơi khác đúng không, nhưng đây là web riêng của ta nên tôi muốn dùng AI generate ảnh cho nó thuộc về chỉ web của ta thôi. Tôi cũng chưa biết sẽ dùng công cụ gì để generate ảnh nữa, gợi ý của bạn như nào
-Bonus: Giao diện "bộ sưu tập" mà tôi nói thì nó chỉ hiện những thứ mà người chơi được thưởng, thường đi theo cặp (avatar + ảnh bìa), có thể là level 2 ta được ảnh con cá, level 3 ta được ảnh bìa đại dương. Ta sẽ thưởng theo bộ đôi và chủ đề, Có thể 1 collection không chỉ chứa 1 avatar và 1 ảnh bìa, có thể là ví dụ Collection Sa Mạc sẽ có avatar con lạc đà, cây xương rồng, người du mục, ảnh bìa sẽ có bãi cát, kim tự tháp, ngôi đền, vậy là collention đó có tới 6 món. Và mốt ta cũng sẽ có thành tự là "mở khoá đầy đủ 3 bộ sưu tập",... Còn trong store thì avatar và ảnh bìa nó sẽ không cần theo chủ đề, nó thập cẩm. và đã setup ảnh bìa như vậy rồi thì có lẽ ta không cần cái vật phẩm "Khung avatar" nữa nhỉ, và tôi cũng không biết code nó sao haha. Khi ghép trận thành công trên pvp thì ta sẽ hiển thị người chơi với tên, level, hạng (có thể ẩn tuỳ vào người chơi chọn), avatar và ảnh bìa luôn để người chơi có cái "flex". Hai người chơi 2 bên với avatar và ảnh bìa, ở giữa sẽ là chữ "vs", sau đó bắt đầu vào trận đấu. Ta cũng thống nhất cách gọi tên bộ sưu tập là gì được nhỉ, có thể là collection hoặc album, hay bundles (ví dụ collection desert, albulm forest, bundles deep sea,..) bạn thấy thế nào ^^! 
+Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một cấu trúc `const L` và `const D` này để đồng bộ.
 
-🏜️ Collection 1: Kẻ Du Mục Sa Mạc (Desert Nomads)
-Đây là vùng đất khởi đầu, khô cằn nhưng ẩn chứa sức sống mãnh liệt.
+## ☀️ Light Mode: "Soft Blue Mist"
+- **Nền trang:** Gradient xanh dương nhạt (`linear-gradient(135deg, #f3f7ff 0%, #eef3ff 50%, #f7f3ff 100%)`)
+- **Card/Panel:** Trắng trong mờ `rgba(255,255,255, 0.88)`
+- **Viền Card:** Xanh mờ `rgba(37,99,235, 0.12)`
+- **Tiêu đề (Title):** Đen xám `#0f172a`
+- **Chữ nhấn/Sub-text:** Xanh dương `#2563eb`
+- **Màu phụ (Muted):** Xám `#64748b`
+- **Nút bấm (Button):** Gradient `#0b5cff → #1f58ff → #7c3aed`
 
-Cặp 1 (Cơ bản): Lạc đà (Camel) — Ốc đảo xanh mát giữa biển cát (Desert Oasis).
-Cặp 2: Cáo Fennec tai to (Fennec Fox) — Đồi cát vàng ươm kéo dài bất tận dưới ánh hoàng hôn (Golden Dunes at Sunset).
-Cặp 3: Rắn đuôi chuông (Rattlesnake) — Hẻm núi đá đỏ khô cằn (Red Rock Canyon).
-Cặp 4 (Siêu hiếm): Đại bàng sa mạc (Desert Falcon) — Tàn tích đền thờ cổ đại bị bão cát vùi lấp một nửa (Sand-buried Ancient Ruins).
-🌊 Collection 2: Đại Dương Sâu Thẳm (Deep Ocean)
-Chủ đề khám phá từ mặt nước xuống tận đáy biển sâu.
+## 🌙 Dark Mode: "Deep Space" (Dựa trên commit cb37607)
+- **Nền trang:** Đen tím sâu `#080714`
+- **Card/Panel:** Tím thẫm `#100e24` (hoặc `#0d0c1e` cho Modal)
+- **Viền Card:** Tím mờ `rgba(167,139,250, 0.18)`
+- **Tiêu đề (Title):** Trắng ngà `#f8fafc`
+- **Chữ nhấn/Sub-text:** Lavender `#c4b5fd`
+- **Màu phụ (Muted):** Xám nhạt `#94a3b8`
+- **Nút bấm (Button):** Gradient `#7c3aed → #4f46e5`
 
-Cặp 1 (Cơ bản): Rùa biển (Sea Turtle) — Rạn san hô rực rỡ dưới ánh nắng (Coral Reef).
-Cặp 2: Cá voi xanh (Blue Whale) — Khung cảnh: Mặt biển mở (Open Sea) đang dậy sóng, xa xa là một bầu trời bão táp vĩ đại (Dramatic Stormy Sky). Cá voi thường ngoi lên mặt nước, nên khung cảnh mặt biển hùng vĩ sẽ cực kỳ hợp lý!
-Cặp 3: Cá heo (Dolphin) — Rừng tảo bẹ khổng lồ dưới đáy biển lấp lánh tia nắng mặt trời (Kelp Forest).
-Cặp 4 (Siêu hiếm): Sứa phát sáng (Bioluminescent Jellyfish) — Rãnh đại dương sâu thẳm, đen kịt nhưng được thắp sáng bởi hàng ngàn rặng san hô sinh học (Abyssal Trench).
-🌲 Collection 3: Thâm Sơn Cùng Cốc (Mystic Jungle) - MỚI
-Một khu rừng nhiệt đới đầy bí ẩn và hoang dã.
+---
 
-Cặp 1 (Cơ bản): Vẹt Macaw (Macaw) — Vòm cây cổ thụ rậm rạp đâm xuyên tầng mây (Canopy of Ancient Trees).
-Cặp 2: Ếch phi tiêu độc (Poison Dart Frog) — Thảm thực vật nhiệt đới với những cây nấm khổng lồ, sặc sỡ (Giant Flora).
-Cặp 3: Hổ vằn Bengal (Bengal Tiger) — Một thác nước hùng vĩ giấu mình sâu trong rừng rậm (Hidden Jungle Waterfall).
-Cặp 4 (Siêu hiếm): Báo đen (Black Panther) — Ngôi đền cổ của người Maya/Inca bị rễ cây cổ thụ nuốt chửng (Overgrown Mayan Temple).
-❄️ Collection 4: Kỷ Băng Hà (Arctic Tundra) - MỚI
-Thế giới của tuyết trắng, băng giá và những hiện tượng kỳ ảo.
 
-Cặp 1 (Cơ bản): Chim Cánh Cụt (Penguin) — Vách băng khổng lồ sừng sững trên mặt biển (Giant Ice Cliffs).
-Cặp 2: Cú Tuyết (Snowy Owl) — Cánh đồng tuyết trắng xóa bất tận dưới bầu trời đêm (Endless White Tundra).
-Cặp 3: Chó Husky/Malamute — Rừng thông phủ đầy tuyết trắng xóa (Snowy Pine Forest).
-Cặp 4 (Siêu hiếm): Sói Tuyết (Arctic Wolf) — Đỉnh núi tuyết rực sáng dưới dải ánh sáng Cực quang (Aurora Borealis).
-🔮 Collection 5: Vương Quốc Pha Lê (Crystal Caverns) - Gợi ý viễn tưởng
-Để dành cho những Level siêu cao, mang hơi hướng Fantasy.
+# 🏆 THU THẬP & DANH SÁCH BỘ SƯU TẬP (ACHIEVEMENTS & COLLECTIONS)
 
-Cặp 1 (Cơ bản): Kỳ Giông (Axolotl) — Sông ngầm thạch anh tím (Amethyst Underground River).
-Cặp 2: Dơi Bạch Tạng (Albino Bat) — Vòm hang động lấp lánh tinh thể lưu huỳnh vàng (Yellow Sulfur Cave Vault).
-Cặp 3: Cua Đá Mù (Blind Cave Crab) — Rừng cột thạch nhũ pha lê khổng lồ chĩa từ dưới lên (Crystal Stalagmite Forest).
-Cặp 4 (Siêu hiếm): Thằn Lằn Dung Nham (Lava Salamander) — Hồ dung nham xanh rực sáng dưới đáy hang (Glowing Blue Lava Lake).
+## 🏜️ Collection 1: Kẻ Du Mục Sa Mạc (Desert Nomads)
+*Đây là vùng đất khởi đầu, khô cằn nhưng ẩn chứa sức sống mãnh liệt.*
+- **Cặp 1 (Tier 1 - Cơ bản):** Lạc đà (Camel) — Ốc đảo xanh mát giữa biển cát (Desert Oasis).
+- **Cặp 2 (Tier 2 - Khá):** Cáo Fennec tai to (Fennec Fox) — Đồi cát vàng ươm kéo dài bất tận dưới ánh hoàng hôn (Golden Dunes at Sunset).
+- **Cặp 3 (Tier 3 - Hiếm):** Rắn đuôi chuông (Rattlesnake) — Hẻm núi đá đỏ khô cằn (Red Rock Canyon).
+- **Cặp 4 (Tier 4 - Siêu hiếm):** Đại bàng sa mạc (Desert Falcon) — Tàn tích đền thờ cổ đại bị bão cát vùi lấp một nửa (Sand-buried Ancient Ruins).
 
-☁️ Collection 6: Bầu Trời (Sky Realm)
-Môi trường của mây trắng, các tầng không khí, bão tố và ánh sáng mặt trời.
+## 🌊 Collection 2: Đại Dương Sâu Thẳm (Deep Ocean)
+*Chủ đề khám phá từ mặt nước xuống tận đáy biển sâu.*
+- **Cặp 1 (Tier 1 - Cơ bản):** Rùa biển (Sea Turtle) — Rạn san hô rực rỡ dưới ánh nắng (Coral Reef).
+- **Cặp 2 (Tier 2 - Khá):** Cá voi xanh (Blue Whale) — Khung cảnh: Mặt biển mở (Open Sea) đang dậy sóng, xa xa là một bầu trời bão táp vĩ đại (Dramatic Stormy Sky).
+- **Cặp 3 (Tier 3 - Hiếm):** Cá heo (Dolphin) — Rừng tảo bẹ khổng lồ dưới đáy biển lấp lánh tia nắng mặt trời (Kelp Forest).
+- **Cặp 4 (Tier 4 - Siêu hiếm):** Sứa phát sáng (Bioluminescent Jellyfish) — Rãnh đại dương sâu thẳm, đen kịt nhưng được thắp sáng bởi hàng ngàn rặng san hô sinh học (Abyssal Trench).
 
-Cặp 1 (Tier 1): Chim Nhạn (Swallow) — Những đám mây trắng xốp bồng bềnh (Fluffy Cumulus Clouds).
-Cặp 2 (Tier 2): Bồ Nông (Pelican) — Quần đảo lơ lửng trên không trung (Floating Islands).
-Cặp 3 (Tier 3): Đại bàng hói (Bald Eagle) — Biển mây rực rỡ dưới ánh hoàng hôn (Sunset Sea of Clouds).
-Cặp 4 (Tier 4 - Siêu Hiếm): Chim Cắt Lớn (Peregrine Falcon - sinh vật nhanh nhất hành tinh) — Tâm bão sét với những đám mây đen cuồn cuộn cuộn xoáy (Eye of a Thunderstorm).
+## 🌲 Collection 3: Thâm Sơn Cùng Cốc (Mystic Jungle)
+*Một khu rừng nhiệt đới đầy bí ẩn và hoang dã.*
+- **Cặp 1 (Tier 1 - Cơ bản):** Vẹt Macaw (Macaw) — Vòm cây cổ thụ rậm rạp đâm xuyên tầng mây (Canopy of Ancient Trees).
+- **Cặp 2 (Tier 2 - Khá):** Ếch phi tiêu độc (Poison Dart Frog) — Thảm thực vật nhiệt đới với những cây nấm khổng lồ, sặc sỡ (Giant Flora).
+- **Cặp 3 (Tier 3 - Hiếm):** Hổ vằn Bengal (Bengal Tiger) — Một thác nước hùng vĩ giấu mình sâu trong rừng rậm (Hidden Jungle Waterfall).
+- **Cặp 4 (Tier 4 - Siêu hiếm):** Báo đen (Black Panther) — Ngôi đền cổ của người Maya/Inca bị rễ cây cổ thụ nuốt chửng (Overgrown Mayan Temple).
 
-🐊 Collection 7: Đầm Lầy (Misty Swamplands)
-Môi trường hoang dã, ẩm ướt, đầy sương mù, bí ẩn và rêu phong.
+## ❄️ Collection 4: Kỷ Băng Hà (Arctic Tundra)
+*Thế giới của tuyết trắng, băng giá và những hiện tượng kỳ ảo.*
+- **Cặp 1 (Tier 1 - Cơ bản):** Chim Cánh Cụt (Penguin) — Vách băng khổng lồ sừng sững trên mặt biển (Giant Ice Cliffs).
+- **Cặp 2 (Tier 2 - Khá):** Cú Tuyết (Snowy Owl) — Cánh đồng tuyết trắng xóa bất tận dưới bầu trời đêm (Endless White Tundra).
+- **Cặp 3 (Tier 3 - Hiếm):** Chó Husky/Malamute — Rừng thông phủ đầy tuyết trắng xóa (Snowy Pine Forest).
+- **Cặp 4 (Tier 4 - Siêu hiếm):** Sói Tuyết (Arctic Wolf) — Đỉnh núi tuyết rực sáng dưới dải ánh sáng Cực quang (Aurora Borealis).
 
-Cặp 1 (Tier 1): Cò Trắng (Egret) — Cánh đồng cỏ lau bên bờ lạch (Reed Field).
-Cặp 2 (Tier 2): Rùa Cá Sấu (Snapping Turtle) — Rừng ngập mặn với hệ thống rễ cây đan chằng chịt (Mangrove Roots).
-Cặp 3 (Tier 3): Cóc Khổng Lồ (Goliath Frog) — Khu đầm lầy âm u phủ kín sương mù dày đặc (Misty Swamp).
-Cặp 4 (Tier 4 - Siêu Hiếm): Cá Sấu Mõm Ngắn (Alligator / Crocodile) — Tàn tích một chiếc thuyền hơi nước hoen gỉ bị bỏ hoang giữa đầm lầy rêu phong (Abandoned Sunken Steamboat).
+## 🔮 Collection 5: Vương Quốc Pha Lê (Crystal Caverns)
+*Để dành cho những Level siêu cao, mang hơi hướng Fantasy (Viễn tưởng).*
+- **Cặp 1 (Tier 1 - Cơ bản):** Kỳ Giông (Axolotl) — Sông ngầm thạch anh tím (Amethyst Underground River).
+- **Cặp 2 (Tier 2 - Khá):** Dơi Bạch Tạng (Albino Bat) — Vòm hang động lấp lánh tinh thể lưu huỳnh vàng (Yellow Sulfur Cave Vault).
+- **Cặp 3 (Tier 3 - Hiếm):** Cua Đá Mù (Blind Cave Crab) — Rừng cột thạch nhũ pha lê khổng lồ chĩa từ dưới lên (Crystal Stalagmite Forest).
+- **Cặp 4 (Tier 4 - Siêu hiếm):** Thằn Lằn Dung Nham (Lava Salamander) — Hồ dung nham xanh rực sáng dưới đáy hang (Glowing Blue Lava Lake).
 
-Collection 6: Bầu trời (chim ưng)
-Collection 7: Đầm lầy (Hà mã, trâu đầm lầy)
+## ☁️ Collection 6: Bầu Trời (Sky Realm)
+*Môi trường của mây trắng, các tầng không khí, bão tố và ánh sáng mặt trời.*
+- **Cặp 1 (Tier 1 - Cơ bản):** Chim Nhạn (Swallow) — Những đám mây trắng xốp bồng bềnh (Fluffy Cumulus Clouds).
+- **Cặp 2 (Tier 2 - Khá):** Bồ Nông (Pelican) — Quần đảo lơ lửng trên không trung (Floating Islands).
+- **Cặp 3 (Tier 3 - Hiếm):** Đại bàng hói (Bald Eagle) — Biển mây rực rỡ dưới ánh hoàng hôn (Sunset Sea of Clouds).
+- **Cặp 4 (Tier 4 - Siêu Hiếm):** Chim Cắt Lớn (Peregrine Falcon) — Tâm bão sét với những đám mây đen cuồn cuộn cuộn xoáy (Eye of a Thunderstorm).
 
-* Ý tưởng thiết kế giao diện
-1. Màn hình Chính (Trang Achievement / Gallery)
-- Layout Lưới (Grid): Thay vì danh sách dài gồm thập cẩm các avatar, cover trong trang Achievement, chúng ta sẽ có một lưới các Card chữ nhật, mỗi card có hình của 1 tấm cover đại diện cho cái collection đó, 1 hàng có thể có 3,4 card tuỳ vào độ rộng của màn hình.
-- Visual Card: Background của Card dùng 1 tấm Cover đặc trưng của collection (ví dụ: bãi cát cho sa mạc) và để tên của collection đó vào chính giữa card. Ta phủ một lớp mờ màu đen (Linear Gradient overlay từ dưới lên) để phần Text (Collection 1: Desert Survival) nổi bật hẳn lên.
-- Tiến độ (Progress Bar): Nằm gọn gàng ở cạnh dưới của Card (vd: Thanh tiến trình lấp đầy 50%, ghi chú Đã thu thập: 4/8).
-- Hiệu ứng Hover: Khi người dùng di chuột (Hover) vào Card, tấm ảnh nền bên dưới sẽ hơi zoom nhẹ lên (Scale 1.05) và viền Card phát sáng (có lẽ đây là lúc ta dùng theme_color để gán màu cho hào quang ở viền phát sáng)
-
-2. Màn hình Chi Tiết (Khi bấm vào 1 Collection Card)
-- Giao diện sẽ chuyển cảnh (hoặc mở ra 1 Modal lớn) tập trung hoàn toàn vào Collection đó.
-- Bên trong này, chúng ta sẽ dùng lại thiết kế 4 Hàng (4 Cặp Avatar + Cover, cứ 1 avatar tương ứng với 1 cover như lạc đà - ốc đảo).
-=> Khung lưới này sau này có chứa đến 50 Collection thì cũng chỉ cuộn mất 2-3 trang màn hình là cùng, không phải là khi vào trang achievement là thấy 1 đống avatar và cover lộn xộn, lướt hoài không hết
-
-3. Xử lý phần Ảnh chưa mở khóa (The Tease)
-Chúng ta không cần phải lưu 2 phiên bản ảnh (1 rõ, 1 mờ) trong database đâu. Ta sẽ dùng thẳng sức mạnh của CSS Filters để xử lý trực tiếp trên frontend:
-- Hiệu ứng "Bóng Đêm Sương Mù": Ta sẽ mix 3 bộ lọc: grayscale(100%) (chuyển thành đen trắng) + brightness(40%) (làm tối đi) + blur(4px) (làm mờ). Kết quả là người dùng sẽ thấy một cái bóng đen mờ mờ ảo ảo của sinh vật, cực kỳ bí ẩn và nghệ thuật!
-4. Icon Ổ Khóa (The Lock)
-- Avatar và Cover nào chưa mở khoá thì ngoài làm mờ nó đi thì ta cũng chèn thêm 1 icon biểu thị là đang khoá, ta dùng icon của thư viện lucide-react
+## 🐊 Collection 7: Đầm Lầy (Misty Swamplands)
+*Môi trường hoang dã, ẩm ướt, đầy sương mù, bí ẩn và rêu phong.*
+- **Cặp 1 (Tier 1 - Cơ bản):** Cò Trắng (Egret) — Cánh đồng cỏ lau bên bờ lạch (Reed Field).
+- **Cặp 2 (Tier 2 - Khá):** Rùa Cá Sấu (Snapping Turtle) — Rừng ngập mặn với hệ thống rễ cây đan chằng chịt (Mangrove Roots).
+- **Cặp 3 (Tier 3 - Hiếm):** Cóc Khổng Lồ (Goliath Frog) — Khu đầm lầy âm u phủ kín sương mù dày đặc (Misty Swamp).
+- **Cặp 4 (Tier 4 - Siêu Hiếm):** Cá Sấu Mõm Ngắn (Alligator / Crocodile) — Tàn tích một chiếc thuyền hơi nước hoen gỉ bị bỏ hoang giữa đầm lầy rêu phong (Abandoned Sunken Steamboat).
