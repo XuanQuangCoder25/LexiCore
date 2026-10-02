@@ -112,3 +112,102 @@ export const getFlashcards = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };
+
+// --- EXAMS (CREATOR) ---
+import Exam from '../../database/models/Exam';
+import Question from '../../database/models/Question';
+
+export const getCreatorExams = async (req: Request, res: Response) => {
+  try {
+    const exams = await Exam.find({ createdBy: req.user?.id }).sort({ createdAt: -1 });
+    res.json({ success: true, data: exams });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const getCreatorExamById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const exam = await Exam.findOne({ _id: id, createdBy: req.user?.id }).lean();
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+
+    const questions = await Question.find({ examId: id }).sort({ order: 1 }).lean();
+    res.json({ success: true, data: { ...exam, questions } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const createExam = async (req: Request, res: Response) => {
+  try {
+    const { title, description, thumbnail } = req.body;
+    const creatorId = req.user?.id;
+    if (!creatorId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const exam = new Exam({ 
+      title, 
+      description, 
+      thumbnail, 
+      status: 'Draft',
+      totalQuestions: 0,
+      createdBy: creatorId 
+    });
+    await exam.save();
+
+    res.status(201).json({ success: true, data: exam });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const updateExam = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { title, description, thumbnail, status } = req.body;
+    
+    const exam = await Exam.findOneAndUpdate(
+      { _id: id, createdBy: req.user?.id }, 
+      { title, description, thumbnail, status },
+      { new: true }
+    );
+
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found or unauthorized' });
+
+    res.json({ success: true, data: exam });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const saveExamQuestions = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { questions } = req.body; // Array of question objects
+    
+    const exam = await Exam.findOne({ _id: id, createdBy: req.user?.id });
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found or unauthorized' });
+
+    if (Array.isArray(questions)) {
+      await Question.deleteMany({ examId: exam._id });
+      const questionsToSave = questions.map((q: any, idx: number) => ({
+        examId: exam._id,
+        order: idx,
+        type: q.type,
+        content: q.content,
+        answerData: q.answerData
+      }));
+      
+      if (questionsToSave.length > 0) {
+        await Question.insertMany(questionsToSave);
+      }
+      
+      exam.totalQuestions = questionsToSave.length;
+      await exam.save();
+    }
+
+    res.json({ success: true, message: 'Questions saved successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};

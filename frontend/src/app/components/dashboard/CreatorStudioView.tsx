@@ -7,9 +7,12 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Separator } from "../ui/separator";
+import axios from "axios";
 import { toast } from "sonner";
 import { creatorService } from "../../services/creator-service";
+import { ExamBuilder } from "./creator/ExamBuilder";
 import {
   Plus,
   Edit,
@@ -26,6 +29,7 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 
 interface Course {
@@ -49,6 +53,9 @@ export function CreatorStudioView() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
+  const [exams, setExams] = useState<any[]>([]);
+  const [builderExamId, setBuilderExamId] = useState<string | null>(null);
+
   
   // Flashcard State
   const [showCardEditor, setShowCardEditor] = useState(false);
@@ -69,7 +76,20 @@ export function CreatorStudioView() {
 
   useEffect(() => {
     fetchCourses();
+    fetchExams();
   }, []);
+
+  const fetchExams = async () => {
+    try {
+      const res = await axios.get("/api/exams", { withCredentials: true });
+      if (res.data.success) {
+        setExams(res.data.data);
+      }
+    } catch (error) {
+      toast.error("Không thể tải danh sách bài kiểm tra");
+    }
+  };
+
 
   const fetchCourses = async () => {
     setIsLoading(true);
@@ -210,6 +230,22 @@ export function CreatorStudioView() {
     }
   };
 
+  const handleCreateNewExam = async () => {
+    try {
+      const res = await axios.post("/api/v1/creator/exams", {
+        title: "Bài kiểm tra mới",
+        description: "",
+        thumbnail: ""
+      }, { withCredentials: true });
+      if (res.data.success) {
+        setBuilderExamId(res.data.data._id);
+        fetchExams();
+      }
+    } catch (error) {
+      toast.error("Lỗi khi khởi tạo bài kiểm tra");
+    }
+  };
+
   // --- DECK EDITOR (Flashcards) ---
   if (view === "editor" && selectedCourse) {
     return (
@@ -308,18 +344,36 @@ export function CreatorStudioView() {
     );
   }
 
+  if (builderExamId) {
+    return <ExamBuilder examId={builderExamId} onBack={() => {
+      setBuilderExamId(null);
+      fetchExams();
+    }} />;
+  }
+
   // --- DECK LIST (Courses) ---
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Creator Studio</h1>
-          <p className="text-muted-foreground">Quản lý và tạo khóa học của bạn</p>
+          <p className="text-muted-foreground">Quản lý và tạo nội dung học tập của bạn</p>
         </div>
-        <Button onClick={() => setShowNewCourseDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Tạo khóa học
-        </Button>
       </div>
+
+      <Tabs defaultValue="courses" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="courses">Khóa Học</TabsTrigger>
+          <TabsTrigger value="exams">Bài Kiểm Tra</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="courses" className="space-y-6">
+          <div className="flex justify-end">
+            <Button onClick={() => setShowNewCourseDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Tạo khóa học
+            </Button>
+          </div>
+
 
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -457,6 +511,45 @@ export function CreatorStudioView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="exams" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Danh sách Bài Kiểm Tra</h2>
+            <Button onClick={handleCreateNewExam}>
+              <Plus className="h-4 w-4 mr-2" /> Tạo Bài Kiểm Tra Mới
+            </Button>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {exams.length === 0 ? (
+              <p className="text-muted-foreground">Chưa có bài kiểm tra nào.</p>
+            ) : (
+              exams.map((exam) => (
+                <Card key={exam._id} className="cursor-pointer hover:border-primary transition-colors" onClick={() => setBuilderExamId(exam._id)}>
+                  {exam.thumbnail ? (
+                    <img src={exam.thumbnail} alt={exam.title} className="w-full h-32 object-cover rounded-t-lg" />
+                  ) : (
+                    <div className="w-full h-32 bg-muted flex items-center justify-center rounded-t-lg">
+                      <FileText className="h-10 w-10 text-muted-foreground/50" />
+                    </div>
+                  )}
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold">{exam.title}</h3>
+                      <Badge variant={exam.status === 'Published' ? 'default' : 'secondary'} className="text-[10px]">
+                        {exam.status === 'Published' ? 'Published' : 'Draft'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{exam.description || "Chưa có mô tả"}</p>
+                    <p className="text-xs mt-2 text-muted-foreground">{exam.totalQuestions} Câu hỏi</p>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

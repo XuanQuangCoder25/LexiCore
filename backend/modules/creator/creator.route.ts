@@ -3,7 +3,8 @@ import { requireAuth } from '../../middlewares/requireAuth';
 import { requireRole } from '../../middlewares/requireRole';
 import {
   createCourse, updateCourse, deleteCourse, getCourses,
-  createFlashcard, updateFlashcard, deleteFlashcard, getFlashcards
+  createFlashcard, updateFlashcard, deleteFlashcard, getFlashcards,
+  createExam, updateExam, saveExamQuestions, getCreatorExams, getCreatorExamById
 } from './creator.controller';
 
 const router = Router();
@@ -23,5 +24,12 @@ router.get('/courses/:courseId/flashcards', getFlashcards);
 router.post('/flashcards', createFlashcard);
 router.put('/flashcards/:id', updateFlashcard);
 router.delete('/flashcards/:id', deleteFlashcard);
+
+// Exams routes (Creator)
+router.get('/exams', getCreatorExams);
+router.get('/exams/:id', getCreatorExamById);
+router.post('/exams', createExam);
+router.put('/exams/:id', updateExam);
+router.post('/exams/:id/questions', saveExamQuestions);
 
 export default router;

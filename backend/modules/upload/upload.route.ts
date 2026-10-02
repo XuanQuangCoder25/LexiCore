@@ -21,5 +21,16 @@ router.post('/image', upload.single('image'), (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: 'Lỗi server khi upload ảnh' });
     }
 });
+router.post('/media', upload.single('file'), (req: Request, res: Response) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Vui lòng chọn một file media để upload' });
+        }
+        res.json({ success: true, data: { url: req.file.path } });
+    } catch (error: any) {
+        console.error('Error uploading media:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi upload media' });
+    }
+});
 
 export default router;
