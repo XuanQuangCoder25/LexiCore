@@ -191,8 +191,16 @@ export const updateItem = async (req: Request, res: Response): Promise<void> => 
     res.json({ success: true, message: 'Đã cập nhật Item.' });
 };
 
-export const softDeleteItem = async (req: Request, res: Response): Promise<void> => {
+export const toggleItemActive = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    await db.execute(`UPDATE items SET is_active = FALSE WHERE id = ?`, [id]);
-    res.json({ success: true, message: 'Đã ẩn Item khỏi cửa hàng.' });
+    const [rows] = await db.execute(`SELECT is_active FROM items WHERE id = ?`, [id]);
+    const item = rows[0];
+
+    if (!item) {
+        res.status(404).json({ success: false, message: 'Không tìm thấy Item.' });
+        return;
+    }
+
+    await db.execute(`UPDATE items SET is_active = NOT is_active WHERE id = ?`, [id]);
+    res.json({ success: true, message: `Đã ${item.is_active ? 'ẩn' : 'hiện'} Item trong cửa hàng.` });
 };

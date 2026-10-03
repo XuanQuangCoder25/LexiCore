@@ -5,7 +5,7 @@ import {
     getAllGoals, toggleGoalActive,
     getAllAchievements, createAchievement, updateAchievement, deleteAchievement,
     getAllCollections, createCollection, updateCollection, deleteCollection,
-    getAllItems, createItem, updateItem, toggleItemActive,
+    getAllItems, createItem, updateItem, toggleItemActive
 } from './gamification-admin.controller';
 
 const router = Router();
