@@ -15,7 +15,8 @@ const storage = new CloudinaryStorage({
     params: async (req, file) => {
         return {
             folder: 'lexicore',
-            allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'mp3', 'mp4', 'wav'],
+            resource_type: 'auto',
             public_id: `${Date.now()}-${file.originalname.split('.')[0]}`
         };
     },
