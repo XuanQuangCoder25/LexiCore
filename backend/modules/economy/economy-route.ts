@@ -1,11 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middlewares/requireAuth';
 import {
-    getAllItemsHandler,
-    createItemHandler,
-    updateItemHandler,
-    deactivateItemHandler,
-    activateItemHandler,
     getStoreItemsHandler,
     getInventoryHandler,
     buyItemHandler,
@@ -22,14 +17,6 @@ const requireAdmin = (req: any, res: any, next: any) => {
     });
 };
 
-// ==================== ADMIN ROUTES ====================
-router.get('/admin/items', requireAdmin, getAllItemsHandler);
-router.post('/admin/items', requireAdmin, createItemHandler);
-router.put('/admin/items/:id', requireAdmin, updateItemHandler);
-router.delete('/admin/items/:id', requireAdmin, deactivateItemHandler);
-router.patch('/admin/items/:id/activate', requireAdmin, activateItemHandler);
-
-// ==================== USER ROUTES ====================
 router.get('/items', getStoreItemsHandler);
 router.get('/inventory', requireAuth, getInventoryHandler);
 router.post('/buy/:itemId', requireAuth, buyItemHandler);

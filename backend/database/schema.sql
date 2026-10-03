@@ -1,4 +1,5 @@
 -- A. AUTH
+-- 1. Bảng users
 CREATE TABLE users (
     id VARCHAR(36) PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -10,17 +11,25 @@ CREATE TABLE users (
         'CONTENT_CREATOR'
     ) DEFAULT 'USER',
     status ENUM('PENDING', 'ACTIVE', 'BANNED') DEFAULT 'PENDING',
+    creator_status ENUM('ACTIVE', 'SUSPENDED') NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE user_verifications (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL,
-    otp_code VARCHAR(6) NOT NULL,
-    type ENUM('REGISTER', 'FORGOT_PASSWORD') NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
+-- 2. Bảng đơn xin làm Creator
+CREATE TABLE creator_applications (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL UNIQUE,
+    reason TEXT NOT NULL,
+    qualifications TEXT,
+    status ENUM(
+        'PENDING',
+        'APPROVED',
+        'REJECTED'
+    ) DEFAULT 'PENDING',
+    admin_note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
@@ -72,7 +81,9 @@ CREATE TABLE items (
     ) NOT NULL,
     price INT NOT NULL,
     description TEXT,
-    price_type ENUM('COIN', 'DIAMOND') DEFAULT 'COIN', -- Để biết mua bằng Coin hay Diamond
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    price_type ENUM('COIN', 'DIAMOND') DEFAULT 'COIN',
     image_url VARCHAR(500),
     required_level INT DEFAULT 1
 );
@@ -105,7 +116,8 @@ CREATE TABLE achievement_definitions (
     metric_key VARCHAR(50) NOT NULL, -- Ví dụ: 'shadowing_count', 'current_streak'
     reward_coin INT DEFAULT 0,
     reward_diamond INT DEFAULT 0,
-    reward_exp INT DEFAULT 0
+    reward_exp INT DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 -- 6. Bảng tiến trình thành tựu của user
@@ -135,6 +147,41 @@ CREATE TABLE daily_goal_definitions (
     is_active BOOLEAN DEFAULT TRUE
 );
 
+INSERT INTO
+    daily_goal_definitions (
+        id,
+        title,
+        description,
+        icon,
+        metric_key,
+        target_value,
+        reward_coin,
+        reward_exp,
+        type
+    )
+VALUES (
+        'goal_1',
+        'PvP',
+        'Hoàn thành 1 trận PvP',
+        'Swords',
+        'pvp_match_played',
+        1,
+        50,
+        50,
+        'DAILY'
+    ),
+    (
+        'goal_4',
+        'PvP',
+        'Hoàn thành 10 trận PvP',
+        'Swords',
+        'pvp_match_played',
+        10,
+        600,
+        600,
+        'WEEKLY'
+    );
+
 -- 8. Bảng tiến trình nhiệm vụ hàng ngày của user
 CREATE TABLE user_daily_goals (
     id VARCHAR(36) PRIMARY KEY,
@@ -155,7 +202,8 @@ CREATE TABLE collections (
     name VARCHAR(100) NOT NULL,
     description TEXT,
     unlock_level INT NOT NULL,
-    theme_color VARCHAR(20)
+    theme_color VARCHAR(20),
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 -- Các vật phẩm thuộc Collection thì được gắn collection_id trong bảng items

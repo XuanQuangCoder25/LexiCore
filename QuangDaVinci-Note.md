@@ -188,3 +188,40 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 - **Cặp 2 (Tier 2 - Khá):** Rùa Cá Sấu (Snapping Turtle) — Rừng ngập mặn với hệ thống rễ cây đan chằng chịt (Mangrove Roots).
 - **Cặp 3 (Tier 3 - Hiếm):** Cóc Khổng Lồ (Goliath Frog) — Khu đầm lầy âm u phủ kín sương mù dày đặc (Misty Swamp).
 - **Cặp 4 (Tier 4 - Siêu Hiếm):** Cá Sấu Mõm Ngắn (Alligator / Crocodile) — Tàn tích một chiếc thuyền hơi nước hoen gỉ bị bỏ hoang giữa đầm lầy rêu phong (Abandoned Sunken Steamboat).
+
+# TASK OBJECTIVE
+Thực thi tính năng phân quyền Hybrid RBAC cho role `CONTENT_CREATOR` trong hệ thống LexiCore. Dự án sử dụng Node.js/TypeScript (Backend) và React/Vite (Frontend).
+
+# CONTEXT & BUSINESS LOGIC
+LexiCore áp dụng mô hình Lai (Hybrid) cho việc tạo nội dung:
+1. Mọi `USER` đều có thể tạo khóa học/bộ từ vựng riêng tư (Resource-level RBAC).
+2. Chỉ những người có role `CONTENT_CREATOR` (đã được duyệt) mới có quyền xuất bản nội dung ra Public (Cộng đồng).
+3. Admin có quyền phê duyệt/từ chối đơn xin làm Creator và có quyền Cấm (Suspend) Creator nếu vi phạm. Creator bị cấm sẽ rơi vào trạng thái "Shadow Ban": mất quyền tạo mới, nhưng nội dung cũ vẫn tồn tại cho học viên cũ tiếp tục học.
+
+# REQUIRED IMPLEMENTATION PLAN
+
+Vui lòng lập kế hoạch và thực hiện tuần tự theo các bước sau:
+
+## Phase 1: Database & Models Update (bạn chỉ cần viết file schema và tôi sẽ tự thực thi bên datagrip, bạn không cần tự thêm vào aiven như lần trước)
+1. Cập nhật file Schema/Models của User:
+   - Thêm cột `creator_status` (ENUM: 'ACTIVE', 'SUSPENDED', mặc định là NULL).
+2. Tạo bảng/model mới `creator_applications`:
+   - Các cột: `id`, `user_id`, `reason` (Text), `qualifications` (Text/URL), `status` (ENUM: 'PENDING', 'APPROVED', 'REJECTED'), `admin_note` (Text).
+
+## Phase 2: Backend APIs & Middleware
+1. Viết Middleware: Kiểm tra `req.user.role === 'CONTENT_CREATOR'` VÀ `req.user.creator_status === 'ACTIVE'` (hoặc role là ADMIN).
+2. Viết các API cho User:
+   - `POST /api/creator/apply`: Nộp đơn xin làm Creator.
+3. Viết các API cho Admin:
+   - `GET /api/admin/creator-applications`: Lấy danh sách đơn xin duyệt.
+   - `POST /api/admin/creator-applications/:id/approve`: Duyệt đơn (Update role = CONTENT_CREATOR, creator_status = ACTIVE).
+   - `POST /api/admin/creator-applications/:id/reject`: Từ chối đơn (kèm body `admin_note`).
+   - `POST /api/admin/creators/:userId/suspend`: Đình chỉ Creator (Update creator_status = SUSPENDED).
+
+## Phase 3: Frontend UI
+1. **User UI:** Chúng ta chưa làm phần profile này nên có lẽ bây giờ tạo giao diện đơn giản thôi, gồm chỗ để avatar cùng với ảnh nền, tên và tiểu sử, chỗ để xin làm creator, có một form/modal nhỏ để user điền lý do xin làm Creator. 
+2. **Admin UI (Admin Panel):**
+   - Tạo khu vực hộp thư để nhận thông báo về đơn xin duyệt làm creator và đơn report course từ user có kèm con số (Badge) báo hiệu số lượng đơn PENDING. (không biết có nên tách riêng ra 2 hộp thư 1 cái là creator request một cái là report không nhỉ)
+   - Bảng danh sách đơn: Cột thông tin, cột hành động (Nút Tích Xanh - Approve, Nút Dấu X - Reject). Khi bấm Reject phải có chỗ nhập lý do.
+   - Bảng Quản lý Creator đang hoạt động: Thêm nút "Đình chỉ" (Suspend) tài khoản.
+3. **Public UI:** Thêm nút 🚩 Report (Báo cáo lạm dụng) nhỏ ở góc các khóa học/video public.

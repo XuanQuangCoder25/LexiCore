@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middlewares/requireAuth';
-import { requireRole } from '../../middlewares/requireRole';
+import { requireCreator } from '../../middlewares/requireCreator';
 import {
   createCourse, updateCourse, deleteCourse, getCourses,
   createFlashcard, updateFlashcard, deleteFlashcard, getFlashcards
@@ -10,7 +10,7 @@ const router = Router();
 
 // Middleware áp dụng cho tất cả routes ở đây
 router.use(requireAuth);
-router.use(requireRole(['content_creator', 'admin']));
+router.use(requireCreator);
 
 // Courses routes
 router.get('/courses', getCourses);
