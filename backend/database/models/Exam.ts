@@ -6,7 +6,10 @@ export interface IExam extends Document {
   thumbnail: string;
   totalQuestions: number;
   createdBy: string;
-  status: 'Draft' | 'Published';
+  status: 'Draft' | 'Published' | 'Suspended';
+  password?: string;
+  totalRatings: number;
+  averageRating: number;
 }
 
 const ExamSchema = new Schema<IExam>({
@@ -15,7 +18,10 @@ const ExamSchema = new Schema<IExam>({
   thumbnail: { type: String, default: '' },
   totalQuestions: { type: Number, default: 0 },
   createdBy: { type: String, required: true },
-  status: { type: String, enum: ['Draft', 'Published'], default: 'Draft' }
+  status: { type: String, enum: ['Draft', 'Published', 'Suspended'], default: 'Draft' },
+  password: { type: String, default: '' }, // plaintext for internal sharing
+  totalRatings: { type: Number, default: 0 },
+  averageRating: { type: Number, default: 0 }
 }, { timestamps: true });
 
 export default mongoose.model<IExam>('Exam', ExamSchema);

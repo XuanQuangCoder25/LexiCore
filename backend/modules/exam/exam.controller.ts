@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Exam from '../../database/models/Exam';
 import Question from '../../database/models/Question';
 import ExamResult from '../../database/models/ExamResult';
+import ExamReport from '../../database/models/ExamReport';
+import ExamRating from '../../database/models/ExamRating';
 
 // --- API cho Creator Studio (Quản lý) ---
 
@@ -70,7 +73,18 @@ export const updateExam = async (req: Request, res: Response) => {
 export const getExams = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
-    const exams = await Exam.find({ status: 'Published' }).sort({ createdAt: -1 }).lean();
+    const { search, sort } = req.query;
+
+    const query: any = { status: 'Published' };
+    if (search) {
+      query.title = { $regex: search, $options: 'i' };
+    }
+
+    let sortObj: any = { createdAt: -1 };
+    if (sort === 'oldest') sortObj = { createdAt: 1 };
+    if (sort === 'highest_rated') sortObj = { averageRating: -1, createdAt: -1 };
+
+    const exams = await Exam.find(query).sort(sortObj).lean();
     
     // Lấy tiến độ của user
     const results = await ExamResult.find({ userId }).lean();
@@ -79,13 +93,18 @@ export const getExams = async (req: Request, res: Response) => {
       return acc;
     }, {});
 
-    const examsWithProgress = exams.map(exam => ({
-      ...exam,
-      progress: resultByExamId[exam._id.toString()] || null
-    }));
+    const examsWithProgress = exams.map(exam => {
+      const { password, ...rest } = exam;
+      return {
+        ...rest,
+        hasPassword: !!password,
+        progress: resultByExamId[exam._id.toString()] || null
+      };
+    });
 
     res.json({ success: true, data: examsWithProgress });
   } catch (error) {
+    console.error("Error in getExams:", error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };
@@ -96,15 +115,21 @@ export const getExamById = async (req: Request, res: Response) => {
     const exam = await Exam.findById(id).lean();
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
 
-    const questions = await Question.find({ examId: id }).lean();
+    console.log(`Fetching exam with id: ${id}`);
+    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(id) }).sort({ order: 1 }).lean();
+    console.log(`Found ${questions.length} questions for exam ${id}`);
+    
     // Ẩn đáp án đúng khỏi Client
     const sanitizedQuestions = questions.map((q: any) => {
       const { answerData, ...rest } = q;
       return rest;
     });
 
-    res.json({ success: true, data: { ...exam, questions: sanitizedQuestions } });
+    const { password, ...restExam } = exam;
+
+    res.json({ success: true, data: { ...restExam, hasPassword: !!password, questions: sanitizedQuestions } });
   } catch (error) {
+    console.error("Error in getExamById:", error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };
@@ -117,7 +142,7 @@ export const submitExam = async (req: Request, res: Response) => {
 
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const questions = await Question.find({ examId: id }).lean();
+    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(id) }).lean();
     if (!questions.length) return res.status(404).json({ success: false, message: 'No questions found for this exam' });
 
     let correctCount = 0;
@@ -176,6 +201,92 @@ export const submitExam = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const verifyPassword = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    const exam = await Exam.findById(id).lean();
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+
+    if (exam.password && exam.password !== password) {
+      return res.status(401).json({ success: false, message: 'Mật khẩu không chính xác' });
+    }
+
+    res.json({ success: true, message: 'Mật khẩu chính xác' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const reportExam = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const existingReport = await ExamReport.findOne({ examId: id, userId });
+    if (existingReport) {
+      return res.status(400).json({ success: false, message: 'Bạn đã báo cáo bài thi này rồi.' });
+    }
+
+    await ExamReport.create({ examId: id, userId, reason });
+
+    // Tự động Suspend nếu bị report >= 5 lần
+    const reportCount = await ExamReport.countDocuments({ examId: id });
+    if (reportCount >= 5) {
+      await Exam.findByIdAndUpdate(id, { status: 'Suspended' });
+    }
+
+    res.json({ success: true, message: 'Đã gửi báo cáo thành công.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const rateExam = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { rating, review } = req.body;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    // Verify user has completed the exam
+    const result = await ExamResult.findOne({ examId: id, userId, status: 'Completed' });
+    if (!result) {
+      return res.status(400).json({ success: false, message: 'Bạn phải hoàn thành bài thi mới được đánh giá.' });
+    }
+
+    const existingRating = await ExamRating.findOne({ examId: id, userId });
+    if (existingRating) {
+      return res.status(400).json({ success: false, message: 'Bạn đã đánh giá bài thi này rồi.' });
+    }
+
+    await ExamRating.create({ examId: id, userId, rating, review });
+
+    // Update average rating
+    const allRatings = await ExamRating.find({ examId: id });
+    const totalRatings = allRatings.length;
+    const averageRating = totalRatings > 0 ? allRatings.reduce((acc, curr) => acc + curr.rating, 0) / totalRatings : 0;
+
+    await Exam.findByIdAndUpdate(id, { totalRatings, averageRating });
+
+    res.json({ success: true, message: 'Cảm ơn bạn đã đánh giá!' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const getExamRatings = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const ratings = await ExamRating.find({ examId: id }).sort({ createdAt: -1 }).lean();
+    res.json({ success: true, data: ratings });
+  } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };

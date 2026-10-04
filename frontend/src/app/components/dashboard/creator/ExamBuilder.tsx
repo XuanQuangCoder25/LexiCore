@@ -55,7 +55,8 @@ export function ExamBuilder({ examId, onBack }: ExamBuilderProps) {
         title: exam.title,
         description: exam.description,
         thumbnail: exam.thumbnail,
-        status: exam.status
+        status: exam.status,
+        password: exam.password
       }, { withCredentials: true });
 
       // 2. Update questions
@@ -105,8 +106,8 @@ export function ExamBuilder({ examId, onBack }: ExamBuilderProps) {
       newQ.content = { text: "", options: ["", ""] };
       newQ.answerData = { correctOption: "" };
     } else if (type === 'DragDrop' || type === 'FillBlank') {
-      newQ.content = { text: "The research team [blank_1] that...", wordBank: [], distractors: [] };
-      newQ.answerData = { mapping: { "[blank_1]": "" } };
+      newQ.content = { text: "", wordBank: [], distractors: [] };
+      newQ.answerData = { mapping: {} };
     } else if (type === 'Audio' || type === 'Video') {
       newQ.content = { mediaUrl: "", subQuestions: [] };
       newQ.answerData = { mapping: {} }; // map subquestion id to answer
@@ -196,6 +197,17 @@ export function ExamBuilder({ examId, onBack }: ExamBuilderProps) {
               <div>
                 <Label>URL Ảnh bìa (Thumbnail)</Label>
                 <Input value={exam.thumbnail} onChange={e => setExam({...exam, thumbnail: e.target.value})} className="mt-1" />
+              </div>
+              <div>
+                <Label>Mật khẩu bài thi (Tùy chọn)</Label>
+                <Input 
+                  type="text" 
+                  value={exam.password || ''} 
+                  onChange={e => setExam({...exam, password: e.target.value})} 
+                  className="mt-1 font-mono" 
+                  placeholder="Bỏ trống nếu không cần mật khẩu" 
+                />
+                <p className="text-xs text-muted-foreground mt-1">Học viên cần nhập mật khẩu này để bắt đầu làm bài.</p>
               </div>
             </CardContent>
           </Card>
@@ -338,29 +350,37 @@ function FillBlankForm({ question, onChange }: { question: any, onChange: (q: an
     }
   }, [content.distractors]);
 
-  // Simple parser: automatically extract [word] -> to [blank_1] and map answer
-  const handleParseText = () => {
-    const text = content.text;
-    let newText = text;
+  // Auto parse when text changes
+  useEffect(() => {
+    const text = content.text || "";
     let mapping: Record<string, string> = {};
     let wordBank: string[] = [];
-
-    // Regex to match [word]
+    
     let counter = 1;
-    newText = newText.replace(/\[([^\]]+)\]/g, (match: string, p1: string) => {
-      const blankId = `[blank_${counter}]`;
-      mapping[blankId] = p1;
-      wordBank.push(p1);
-      counter++;
-      return blankId;
-    });
+    const matches = text.match(/\[([^\]]+)\]/g);
+    if (matches) {
+      matches.forEach((match: string) => {
+        const p1 = match.slice(1, -1);
+        const blankId = `[blank_${counter}]`;
+        // Preserve existing answers if they modified them
+        mapping[blankId] = answerData.mapping?.[blankId] !== undefined ? answerData.mapping[blankId] : p1;
+        wordBank.push(p1);
+        counter++;
+      });
+    }
 
-    onChange({
-      ...question,
-      content: { ...content, text: newText, wordBank },
-      answerData: { mapping }
-    });
-  };
+    // Only update if mapping/wordbank changed to avoid infinite loop
+    const mappingChanged = JSON.stringify(mapping) !== JSON.stringify(answerData.mapping);
+    const wordBankChanged = JSON.stringify(wordBank) !== JSON.stringify(content.wordBank);
+    
+    if (mappingChanged || wordBankChanged) {
+      onChange({
+        ...question,
+        content: { ...content, wordBank },
+        answerData: { ...answerData, mapping }
+      });
+    }
+  }, [content.text]);
 
   return (
     <div className="space-y-4">
@@ -373,9 +393,6 @@ function FillBlankForm({ question, onChange }: { question: any, onChange: (q: an
           className="mt-1 font-mono text-sm"
           rows={4}
         />
-        <Button variant="secondary" size="sm" onClick={handleParseText} className="mt-2">
-          Phân tích & Tạo ô trống
-        </Button>
       </div>
 
       {Object.keys(answerData.mapping).length > 0 && (

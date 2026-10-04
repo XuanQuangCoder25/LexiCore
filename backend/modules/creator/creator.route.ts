@@ -4,7 +4,7 @@ import { requireCreator } from '../../middlewares/requireCreator';
 import {
   createCourse, updateCourse, deleteCourse, getCourses,
   createFlashcard, updateFlashcard, deleteFlashcard, getFlashcards,
-  createExam, updateExam, saveExamQuestions, getCreatorExams, getCreatorExamById
+  createExam, updateExam, deleteExam, saveExamQuestions, getCreatorExams, getCreatorExamById, bulkActionExams, getExamRatings
 } from './creator.controller';
 
 const router = Router();
@@ -27,9 +27,12 @@ router.delete('/flashcards/:id', deleteFlashcard);
 
 // Exams routes (Creator)
 router.get('/exams', getCreatorExams);
+router.post('/exams/bulk-action', bulkActionExams);
 router.get('/exams/:id', getCreatorExamById);
+router.get('/exams/:id/ratings', getExamRatings);
 router.post('/exams', createExam);
 router.put('/exams/:id', updateExam);
+router.delete('/exams/:id', deleteExam);
 router.post('/exams/:id/questions', saveExamQuestions);
 
 export default router;

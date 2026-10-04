@@ -9,34 +9,47 @@ import { Flag } from "lucide-react";
 interface ReportIssueModalProps {
   open: boolean;
   onClose: () => void;
+  onSubmit?: (reason: string) => Promise<void>;
 }
 
 const issueTypes = [
-  { id: "wrong-meaning", label: "Wrong meaning or translation" },
-  { id: "audio-issue", label: "Audio issue (missing, distorted, wrong)" },
-  { id: "typo", label: "Typo or spelling error" },
-  { id: "wrong-answer", label: "Incorrect answer marked as correct" },
-  { id: "broken-media", label: "Broken image or video" },
-  { id: "other", label: "Other issue" },
+  { id: "wrong-meaning", label: "Sai ngữ nghĩa hoặc bản dịch" },
+  { id: "audio-issue", label: "Lỗi âm thanh (mất, rè, sai)" },
+  { id: "typo", label: "Lỗi chính tả" },
+  { id: "wrong-answer", label: "Đáp án không chính xác" },
+  { id: "broken-media", label: "Lỗi hình ảnh/video" },
+  { id: "other", label: "Lỗi khác" },
 ];
 
-export function ReportIssueModal({ open, onClose }: ReportIssueModalProps) {
+export function ReportIssueModal({ open, onClose, onSubmit }: ReportIssueModalProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const toggle = (id: string) => {
     setSelected((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
   };
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setSelected([]);
-      setNotes("");
-      onClose();
-    }, 1500);
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      if (onSubmit) {
+        const reason = `Issues: ${selected.join(", ")}. Notes: ${notes}`;
+        await onSubmit(reason);
+      }
+      setSubmitted(true);
+      setTimeout(() => {
+        setSubmitted(false);
+        setSelected([]);
+        setNotes("");
+        onClose();
+      }, 1500);
+    } catch (error) {
+      // Error handled by parent
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -82,9 +95,9 @@ export function ReportIssueModal({ open, onClose }: ReportIssueModalProps) {
 
         {!submitted && (
           <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={selected.length === 0}>
-              <Flag className="h-4 w-4 mr-2" /> Submit Report
+            <Button variant="outline" onClick={onClose} disabled={loading}>Hủy</Button>
+            <Button onClick={handleSubmit} disabled={selected.length === 0 || loading}>
+              <Flag className="h-4 w-4 mr-2" /> {loading ? "Đang gửi..." : "Gửi Báo Cáo"}
             </Button>
           </DialogFooter>
         )}

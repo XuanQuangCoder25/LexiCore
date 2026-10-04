@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
 import { Progress } from "../ui/progress";
 import {
   Play,
@@ -21,7 +23,10 @@ import {
   Flag,
   ArrowRight,
   Clock,
-  BookOpen
+  BookOpen,
+  Star,
+  Search,
+  Lock
 } from "lucide-react";
 import { ReportIssueModal } from "../global/ReportIssueModal";
 
@@ -33,6 +38,9 @@ interface Exam {
   thumbnail: string;
   totalQuestions: number;
   progress?: any;
+  hasPassword?: boolean;
+  totalRatings?: number;
+  averageRating?: number;
 }
 
 interface Question {
@@ -135,8 +143,13 @@ function DropSlot({
 function DragDropQuestion({ question, index, total, onAnswer, onReport, currentValue = {} }: any) {
   const content = question.content || { text: '', wordBank: [], distractors: [] };
   
-  const tokens = content.text.split(/(\[blank_\d+\])/).filter(Boolean);
-  const blankIds = tokens.filter((t: string) => t.startsWith("[blank_"));
+  let blankCounter = 1;
+  const tokens = (content.text || '').split(/(\[[^\]]+\])/).filter(Boolean).map((t: string) => {
+    if (t.startsWith("[") && t.endsWith("]")) {
+      return `[blank_${blankCounter++}]`;
+    }
+    return t;
+  });
   
   const allWords = [...(content.wordBank || []), ...(content.distractors || [])];
   const wordChips: WordChip[] = Array.from(new Set(allWords)).map((word: unknown, i: number) => ({ id: `w${i}`, word: String(word) }));
@@ -197,6 +210,68 @@ function DragDropQuestion({ question, index, total, onAnswer, onReport, currentV
               <DraggableWord key={chip.id} chip={chip} isUsed={usedWords.includes(chip.word)} />
             ))}
           </div>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={reset} size="sm">
+            <RotateCcw className="h-4 w-4 mr-2" /> Làm lại
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FillBlankQuestion({ question, index, total, onAnswer, onReport, currentValue = {} }: any) {
+  const content = question.content || { text: '' };
+  
+  let blankCounter = 1;
+  const tokens = (content.text || '').split(/(\[[^\]]+\])/).filter(Boolean).map((t: string) => {
+    if (t.startsWith("[") && t.endsWith("]")) {
+      return `[blank_${blankCounter++}]`;
+    }
+    return t;
+  });
+
+  const handleChange = (slotId: string, value: string) => {
+     onAnswer(question._id, { ...currentValue, [slotId]: value });
+  };
+
+  const reset = () => {
+    onAnswer(question._id, {});
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="h-4 w-4" /> Gõ từ điền khuyết
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">Câu hỏi {index + 1}/{total}</Badge>
+            <button onClick={onReport} className="text-muted-foreground hover:text-foreground transition-colors" title="Report issue">
+              <Flag className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="p-5 rounded-lg bg-muted/40 border leading-9 text-base">
+          {tokens.map((token: string, i: number) => {
+            if (token.startsWith("[blank_")) {
+              const wordStr = currentValue[token] || "";
+              return (
+                <Input
+                  key={i}
+                  value={wordStr}
+                  onChange={(e) => handleChange(token, e.target.value)}
+                  className="inline-flex items-center min-w-[90px] h-8 px-2 mx-1 border-b-2 text-center text-sm font-medium w-auto focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary"
+                  placeholder="điền vào đây..."
+                />
+              );
+            }
+            return <span key={i}>{token} </span>;
+          })}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={reset} size="sm">
@@ -303,9 +378,22 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("newest");
+  
+  const [showPasswordModal, setShowPasswordModal] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  
+  const [viewingRatingsId, setViewingRatingsId] = useState<string | null>(null);
+  const [ratingsData, setRatingsData] = useState<any[]>([]);
 
-  useEffect(() => {
-    axios.get("/api/exams", { withCredentials: true })
+  const fetchExams = () => {
+    setLoading(true);
+    axios.get("/api/exams", { 
+      params: { search, sort },
+      withCredentials: true 
+    })
       .then(res => {
         setExams(res.data?.data || []);
         setLoading(false);
@@ -315,7 +403,47 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
         setError("Không thể tải danh sách bài thi. Vui lòng thử lại sau.");
         setLoading(false);
       });
-  }, []);
+  };
+
+  useEffect(() => {
+    fetchExams();
+  }, [sort]);
+
+  const handleStartExam = (exam: Exam) => {
+    if (exam.hasPassword) {
+      setShowPasswordModal(exam._id);
+      setPasswordInput("");
+      setPasswordError("");
+    } else {
+      onSelectExam(exam._id);
+    }
+  };
+
+  const handleVerifyPassword = async () => {
+    if (!showPasswordModal) return;
+    try {
+      const res = await axios.post(`/api/exams/${showPasswordModal}/verify-password`, { password: passwordInput }, { withCredentials: true });
+      if (res.data.success) {
+        onSelectExam(showPasswordModal);
+        setShowPasswordModal(null);
+      }
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || "Mật khẩu không đúng");
+    }
+  };
+
+  const openRatingsModal = async (examId: string) => {
+    setViewingRatingsId(examId);
+    setRatingsData([]);
+    try {
+      const res = await axios.get(`/api/exams/${examId}/ratings`, { withCredentials: true });
+      if (res.data.success) {
+        setRatingsData(res.data.data);
+      }
+    } catch (error) {
+      toast.error("Không thể tải danh sách đánh giá");
+    }
+  };
 
   if (loading) {
     return (
@@ -335,9 +463,30 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Exam Center</h1>
-        <p className="text-muted-foreground">Test your knowledge and earn rewards</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Exam Center</h1>
+          <p className="text-muted-foreground">Test your knowledge and earn rewards</p>
+        </div>
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          <Input 
+            placeholder="Tìm kiếm bài thi..." 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            onKeyDown={(e) => e.key === 'Enter' && fetchExams()}
+            className="max-w-[200px]"
+          />
+          <Button variant="secondary" onClick={fetchExams}><Search className="h-4 w-4" /></Button>
+          <select 
+            value={sort} 
+            onChange={(e) => setSort(e.target.value)}
+            className="flex h-9 w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="newest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
+            <option value="highest_rated">Đánh giá cao</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -370,10 +519,21 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
                     <FileText className="w-3 h-3" />
                     <span>{exam.totalQuestions} Questions</span>
                   </div>
+                  {exam.hasPassword && <Lock className="w-4 h-4 text-muted-foreground" />}
                 </div>
+                
+                {exam.totalRatings && exam.totalRatings > 0 ? (
+                  <div 
+                    className="flex items-center gap-1 mt-3 cursor-pointer group bg-muted/50 px-2 py-1 rounded-md hover:bg-muted w-fit"
+                    onClick={(e) => { e.stopPropagation(); openRatingsModal(exam._id); }}
+                  >
+                    <span className="text-xs font-semibold text-yellow-500">★ {(exam.averageRating || 0).toFixed(1)}</span>
+                    <span className="text-xs text-muted-foreground">({exam.totalRatings} đánh giá)</span>
+                  </div>
+                ) : null}
               </CardContent>
               <CardFooter className="p-4 pt-0">
-                <Button className="w-full" onClick={() => onSelectExam(exam._id)}>
+                <Button className="w-full" onClick={() => handleStartExam(exam)}>
                   {exam.progress?.status === 'Completed' ? 'Retake Exam' : 'Start Exam'}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
@@ -382,6 +542,73 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
           ))
         )}
       </div>
+
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background border rounded-lg shadow-lg p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><Lock className="h-5 w-5" /> Bài thi có mật khẩu</h3>
+            <p className="text-sm text-muted-foreground mb-4">Vui lòng nhập mật khẩu để bắt đầu làm bài.</p>
+            <Input 
+              type="password" 
+              placeholder="Nhập mật khẩu" 
+              value={passwordInput} 
+              onChange={e => setPasswordInput(e.target.value)} 
+              onKeyDown={e => e.key === 'Enter' && handleVerifyPassword()}
+            />
+            {passwordError && <p className="text-xs text-destructive mt-2">{passwordError}</p>}
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={() => setShowPasswordModal(null)}>Hủy</Button>
+              <Button onClick={handleVerifyPassword}>Xác nhận</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingRatingsId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-background border rounded-lg shadow-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-bold mb-4">Thống kê & Đánh giá</h3>
+            
+            {/* Biểu đồ thống kê */}
+            <div className="bg-muted/30 p-4 rounded-lg mb-6 border">
+              <h4 className="text-sm font-semibold mb-3">Biểu đồ phân bổ sao</h4>
+              {[5,4,3,2,1].map(star => {
+                const count = ratingsData.filter(r => r.rating === star).length;
+                const pct = ratingsData.length > 0 ? (count / ratingsData.length) * 100 : 0;
+                return (
+                  <div key={star} className="flex items-center gap-3 text-sm mb-2">
+                    <span className="w-8 font-medium text-muted-foreground">{star} ★</span>
+                    <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-yellow-400 transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                    </div>
+                    <span className="w-8 text-right font-medium">{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <h4 className="text-sm font-semibold mb-3">Chi tiết nhận xét</h4>
+            <div className="space-y-4">
+              {ratingsData.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">Chưa có dữ liệu chi tiết.</p>
+              ) : (
+                ratingsData.map((rating, idx) => (
+                  <div key={idx} className="border-b pb-4 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="text-yellow-500 text-sm font-bold">★ {rating.rating}</div>
+                      <div className="text-xs text-muted-foreground">{new Date(rating.createdAt).toLocaleDateString('vi-VN')}</div>
+                    </div>
+                    <p className="text-sm">{rating.review || <span className="text-muted-foreground italic">Không có nhận xét</span>}</p>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex justify-end mt-6">
+              <Button onClick={() => setViewingRatingsId(null)}>Đóng</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -396,6 +623,10 @@ function ExamTakingView({ examId, onBack }: { examId: string; onBack: () => void
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  
+  const [rating, setRating] = useState(0);
+  const [review, setReview] = useState("");
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   useEffect(() => {
     axios.get(`/api/exams/${examId}`, { withCredentials: true })
@@ -429,6 +660,27 @@ function ExamTakingView({ examId, onBack }: { examId: string; onBack: () => void
     }
   };
 
+  const handleReport = async (reason: string) => {
+    try {
+      await axios.post(`/api/exams/${examId}/report`, { reason }, { withCredentials: true });
+      toast.success("Báo cáo đã được gửi thành công");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Lỗi khi gửi báo cáo");
+      throw err;
+    }
+  };
+
+  const handleRate = async () => {
+    if (rating === 0) return toast.error("Vui lòng chọn số sao");
+    try {
+      await axios.post(`/api/exams/${examId}/rate`, { rating, review }, { withCredentials: true });
+      setRatingSubmitted(true);
+      toast.success("Cảm ơn bạn đã đánh giá!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Lỗi khi gửi đánh giá");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center p-12">
@@ -457,7 +709,38 @@ function ExamTakingView({ examId, onBack }: { examId: string; onBack: () => void
             <p className="text-muted-foreground">You got {result.correctCount} out of {result.total} questions correct.</p>
           </CardContent>
         </Card>
-        <Button onClick={onBack} size="lg">Back to Exams</Button>
+
+        {!ratingSubmitted ? (
+          <Card className="mt-8 border-primary/20 bg-muted/10">
+            <CardHeader>
+              <CardTitle className="text-lg">Đánh giá bài thi này</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star 
+                    key={star} 
+                    className={`h-8 w-8 cursor-pointer transition-colors ${rating >= star ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
+                    onClick={() => setRating(star)} 
+                  />
+                ))}
+              </div>
+              <Textarea 
+                placeholder="Nhận xét của bạn về bài thi này (Tùy chọn)..." 
+                value={review} 
+                onChange={e => setReview(e.target.value)} 
+                rows={3} 
+              />
+              <Button onClick={handleRate} className="w-full">Gửi đánh giá</Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="p-4 bg-green-50 text-green-700 rounded-lg">
+            <p className="font-medium">Cảm ơn bạn đã đóng góp ý kiến!</p>
+          </div>
+        )}
+
+        <Button onClick={onBack} size="lg" variant="outline" className="mt-4">Back to Exams</Button>
       </div>
     );
   }
@@ -513,12 +796,23 @@ function ExamTakingView({ examId, onBack }: { examId: string; onBack: () => void
         })}
       </div>
 
-      {(currentQuestion.type === 'DragDrop' || currentQuestion.type === 'FillBlank') && (
+      {currentQuestion.type === 'DragDrop' && (
         <DragDropQuestion 
           question={currentQuestion} 
           index={currentIndex} 
           total={exam.questions.length} 
           onAnswer={handleAnswer} 
+          currentValue={answers[currentQuestion._id]}
+          onReport={() => setReportOpen(true)} 
+        />
+      )}
+      {currentQuestion.type === 'FillBlank' && (
+        <FillBlankQuestion 
+          question={currentQuestion} 
+          index={currentIndex} 
+          total={exam.questions.length} 
+          onAnswer={handleAnswer} 
+          currentValue={answers[currentQuestion._id]}
           onReport={() => setReportOpen(true)} 
         />
       )}
@@ -559,7 +853,7 @@ function ExamTakingView({ examId, onBack }: { examId: string; onBack: () => void
         )}
       </div>
 
-      <ReportIssueModal open={reportOpen} onClose={() => setReportOpen(false)} />
+      <ReportIssueModal open={reportOpen} onClose={() => setReportOpen(false)} onSubmit={handleReport} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Separator } from "../ui/separator";
+import { Checkbox } from "../ui/checkbox";
 import axios from "axios";
 import { toast } from "sonner";
 import { creatorService } from "../../services/creator-service";
@@ -53,10 +54,14 @@ export function CreatorStudioView() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
+  const [showDeleteExamDialog, setShowDeleteExamDialog] = useState<string | null>(null);
   const [exams, setExams] = useState<any[]>([]);
   const [builderExamId, setBuilderExamId] = useState<string | null>(null);
 
-  
+  const [selectedExams, setSelectedExams] = useState<string[]>([]);
+  const [viewingRatingsId, setViewingRatingsId] = useState<string | null>(null);
+  const [ratingsData, setRatingsData] = useState<any[]>([]);
+
   // Flashcard State
   const [showCardEditor, setShowCardEditor] = useState(false);
   const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
@@ -243,6 +248,46 @@ export function CreatorStudioView() {
       }
     } catch (error) {
       toast.error("Lỗi khi khởi tạo bài kiểm tra");
+    }
+  };
+
+  const handleDeleteExam = async (id: string) => {
+    try {
+      await axios.delete(`/api/v1/creator/exams/${id}`, { withCredentials: true });
+      setExams((prev) => prev.filter((e) => e._id !== id));
+      setSelectedExams((prev) => prev.filter(eid => eid !== id));
+      toast.success("Đã xóa bài kiểm tra");
+    } catch (error) {
+      toast.error("Lỗi khi xóa bài kiểm tra");
+    } finally {
+      setShowDeleteExamDialog(null);
+    }
+  };
+
+  const handleBulkAction = async (action: 'delete' | 'publish' | 'unpublish') => {
+    if (selectedExams.length === 0) return;
+    try {
+      const res = await axios.post("/api/v1/creator/exams/bulk-action", { ids: selectedExams, action }, { withCredentials: true });
+      if (res.data.success) {
+        toast.success(res.data.message);
+        setSelectedExams([]);
+        fetchExams();
+      }
+    } catch (error) {
+      toast.error("Thao tác thất bại");
+    }
+  };
+
+  const openRatingsModal = async (examId: string) => {
+    setViewingRatingsId(examId);
+    setRatingsData([]);
+    try {
+      const res = await axios.get(`/api/v1/creator/exams/${examId}/ratings`, { withCredentials: true });
+      if (res.data.success) {
+        setRatingsData(res.data.data);
+      }
+    } catch (error) {
+      toast.error("Không thể tải danh sách đánh giá");
     }
   };
 
@@ -514,11 +559,41 @@ export function CreatorStudioView() {
         </TabsContent>
 
         <TabsContent value="exams" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Danh sách Bài Kiểm Tra</h2>
-            <Button onClick={handleCreateNewExam}>
-              <Plus className="h-4 w-4 mr-2" /> Tạo Bài Kiểm Tra Mới
-            </Button>
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold">Danh sách Bài Kiểm Tra</h2>
+                {exams.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-4">
+                    <Checkbox 
+                      checked={selectedExams.length === exams.length && exams.length > 0} 
+                      onCheckedChange={(checked) => setSelectedExams(checked ? exams.map(e => e._id) : [])} 
+                    />
+                    Chọn tất cả
+                  </div>
+                )}
+              </div>
+              <Button onClick={handleCreateNewExam}>
+                <Plus className="h-4 w-4 mr-2" /> Tạo Bài Kiểm Tra Mới
+              </Button>
+            </div>
+
+            {selectedExams.length > 0 && (
+              <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg flex items-center justify-between">
+                <span className="font-medium text-sm">Đã chọn {selectedExams.length} bài thi</span>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleBulkAction('publish')}>
+                    <Globe className="h-4 w-4 mr-2" /> Xuất bản
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleBulkAction('unpublish')}>
+                    <Lock className="h-4 w-4 mr-2" /> Hủy xuất bản
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
+                    <Trash2 className="h-4 w-4 mr-2" /> Xóa
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -526,7 +601,16 @@ export function CreatorStudioView() {
               <p className="text-muted-foreground">Chưa có bài kiểm tra nào.</p>
             ) : (
               exams.map((exam) => (
-                <Card key={exam._id} className="cursor-pointer hover:border-primary transition-colors" onClick={() => setBuilderExamId(exam._id)}>
+                <Card key={exam._id} className="cursor-pointer hover:border-primary transition-colors relative" onClick={() => setBuilderExamId(exam._id)}>
+                  <div className="absolute top-3 left-3 z-10" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox 
+                      className="bg-background/80"
+                      checked={selectedExams.includes(exam._id)} 
+                      onCheckedChange={(checked) => {
+                        setSelectedExams(prev => checked ? [...prev, exam._id] : prev.filter(id => id !== exam._id));
+                      }} 
+                    />
+                  </div>
                   {exam.thumbnail ? (
                     <img src={exam.thumbnail} alt={exam.title} className="w-full h-32 object-cover rounded-t-lg" />
                   ) : (
@@ -537,12 +621,29 @@ export function CreatorStudioView() {
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-semibold">{exam.title}</h3>
-                      <Badge variant={exam.status === 'Published' ? 'default' : 'secondary'} className="text-[10px]">
-                        {exam.status === 'Published' ? 'Published' : 'Draft'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={exam.status === 'Published' ? 'default' : exam.status === 'Suspended' ? 'destructive' : 'secondary'} className="text-[10px]">
+                          {exam.status === 'Published' ? 'Published' : exam.status === 'Suspended' ? 'Suspended' : 'Draft'}
+                        </Badge>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:bg-destructive hover:text-white" onClick={(e) => { e.stopPropagation(); setShowDeleteExamDialog(exam._id); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">{exam.description || "Chưa có mô tả"}</p>
-                    <p className="text-xs mt-2 text-muted-foreground">{exam.totalQuestions} Câu hỏi</p>
+                    <div className="flex justify-between items-center mt-3">
+                      <p className="text-xs text-muted-foreground">{exam.totalQuestions} Câu hỏi</p>
+                      {exam.totalRatings && exam.totalRatings > 0 ? (
+                        <div 
+                          className="flex items-center gap-1 group relative bg-muted/50 px-2 py-1 rounded-md hover:bg-muted"
+                          onClick={(e) => { e.stopPropagation(); openRatingsModal(exam._id); }}
+                        >
+                          <span className="text-xs font-semibold text-yellow-500">★ {(exam.averageRating || 0).toFixed(1)}</span>
+                          <span className="text-xs text-muted-foreground">({exam.totalRatings})</span>
+                          
+                        </div>
+                      ) : null}
+                    </div>
                   </CardContent>
                 </Card>
               ))
@@ -550,6 +651,69 @@ export function CreatorStudioView() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Exam Confirmation */}
+      <Dialog open={showDeleteExamDialog !== null} onOpenChange={() => setShowDeleteExamDialog(null)}>
+        <DialogContent className="max-w-sm" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Xóa Bài Kiểm Tra</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Bạn có chắc chắn muốn xóa bài kiểm tra này? Mọi câu hỏi và kết quả của học viên sẽ bị xóa vĩnh viễn.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteExamDialog(null)}>Hủy</Button>
+            <Button variant="destructive" onClick={() => showDeleteExamDialog && handleDeleteExam(showDeleteExamDialog)}>
+              <Trash2 className="h-4 w-4 mr-2" /> Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ratings View Modal */}
+      <Dialog open={viewingRatingsId !== null} onOpenChange={() => setViewingRatingsId(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Thống kê & Đánh giá</DialogTitle>
+          </DialogHeader>
+
+          {/* Biểu đồ thống kê */}
+          <div className="bg-muted/30 p-4 rounded-lg mb-4 border">
+            <h4 className="text-sm font-semibold mb-3">Biểu đồ phân bổ sao</h4>
+            {[5,4,3,2,1].map(star => {
+              const count = ratingsData.filter(r => r.rating === star).length;
+              const pct = ratingsData.length > 0 ? (count / ratingsData.length) * 100 : 0;
+              return (
+                <div key={star} className="flex items-center gap-3 text-sm mb-2">
+                  <span className="w-8 font-medium text-muted-foreground">{star} ★</span>
+                  <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-yellow-400 transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                  </div>
+                  <span className="w-8 text-right font-medium">{count}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          <h4 className="text-sm font-semibold mt-2 mb-2">Chi tiết nhận xét</h4>
+          <div className="space-y-4">
+            {ratingsData.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Chưa có dữ liệu chi tiết.</p>
+            ) : (
+              ratingsData.map((rating, idx) => (
+                <div key={idx} className="border-b pb-4 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="text-yellow-500 text-sm font-bold">★ {rating.rating}</div>
+                    <div className="text-xs text-muted-foreground">{new Date(rating.createdAt).toLocaleDateString('vi-VN')}</div>
+                  </div>
+                  <p className="text-sm">{rating.review || <span className="text-muted-foreground italic">Không có nhận xét</span>}</p>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setViewingRatingsId(null)}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
