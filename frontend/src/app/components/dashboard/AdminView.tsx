@@ -30,7 +30,8 @@ import {
   PackageX,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:5000";
+// Dùng relative URL để tương thích với cả Docker và npm run dev (thông qua Vite proxy)
+const API_BASE = "";
 
 // ============================================================
 // TYPES
@@ -91,7 +92,7 @@ export function AdminView() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/api/store/admin/items`, {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/items`, {
         credentials: "include",
       });
       if (res.status === 403) {
@@ -99,7 +100,7 @@ export function AdminView() {
         return;
       }
       const data = await res.json();
-      setItems(Array.isArray(data) ? data : []);
+      setItems(Array.isArray(data.data) ? data.data : []);
     } catch {
       setErrorMsg("Không thể tải dữ liệu. Vui lòng thử lại.");
     } finally {
@@ -148,8 +149,8 @@ export function AdminView() {
 
       const url =
         dialogMode === "edit"
-          ? `${API_BASE}/api/store/admin/items/${editingItem!.id}`
-          : `${API_BASE}/api/store/admin/items`;
+          ? `${API_BASE}/api/admin/gamification/items/${editingItem!.id}`
+          : `${API_BASE}/api/admin/gamification/items`;
 
       const res = await fetch(url, {
         method: dialogMode === "edit" ? "PUT" : "POST",
@@ -177,11 +178,11 @@ export function AdminView() {
     }
   };
 
-  // ── DEACTIVATE (Soft Delete) ───────────────────────────────
+  // ── TOGGLE ACTIVE (Ẩn / Hiện) ────────────────────────────
   const handleDeactivate = async (item: AdminItem) => {
     try {
-      await fetch(`${API_BASE}/api/store/admin/items/${item.id}`, {
-        method: "DELETE",
+      await fetch(`${API_BASE}/api/admin/gamification/items/${item.id}/toggle`, {
+        method: "PUT",
         credentials: "include",
       });
       setDeleteTarget(null);
@@ -192,11 +193,11 @@ export function AdminView() {
     }
   };
 
-  // ── ACTIVATE (Mở bán lại) ──────────────────────────────────
+  // ── ACTIVATE (Mở bán lại) — dùng chung endpoint toggle ───
   const handleActivate = async (item: AdminItem) => {
     try {
-      await fetch(`${API_BASE}/api/store/admin/items/${item.id}/activate`, {
-        method: "PATCH",
+      await fetch(`${API_BASE}/api/admin/gamification/items/${item.id}/toggle`, {
+        method: "PUT",
         credentials: "include",
       });
       showSuccess(`Đã mở bán lại vật phẩm "${item.name}".`);

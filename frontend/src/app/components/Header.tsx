@@ -28,7 +28,7 @@ export function Header() {
             <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
               <Search className="h-4 w-4" />
             </Button>
-            
+
             <div className="hidden md:flex items-center space-x-2">
               <Button variant="ghost">Login</Button>
               <Button className="bg-orange-500 hover:bg-orange-600 text-white">Sign Up Free</Button>

@@ -212,7 +212,7 @@ export function ShadowingView() {
 
   const fetchVideos = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/shadowing/videos', { credentials: 'include' });
+      const res = await fetch('/api/shadowing/videos', { credentials: 'include' });
       const data = await res.json();
       if (data.status === 'success') {
         setVideos(data.data);
@@ -229,7 +229,7 @@ export function ShadowingView() {
     setIsAddingVideo(true);
     setAddVideoError("");
     try {
-      const res = await fetch('http://localhost:5000/api/shadowing/videos', {
+      const res = await fetch('/api/shadowing/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -257,7 +257,7 @@ export function ShadowingView() {
     setActiveTab("transcript");
     setAiError(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/shadowing/videos/${videoId}`, { credentials: 'include' });
+      const res = await fetch(`/api/shadowing/videos/${videoId}`, { credentials: 'include' });
       const data = await res.json();
       if (data.status === 'success') {
         setCurrentVideo(data.data);
@@ -277,7 +277,7 @@ export function ShadowingView() {
     setIsLoadingAi(true);
     setAiError(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/shadowing/videos/${videoId}/summary`, { credentials: 'include' });
+      const res = await fetch(`/api/shadowing/videos/${videoId}/summary`, { credentials: 'include' });
       const data = await res.json();
       if (data.status === 'success') {
         setAiSummary(data.data);
@@ -304,7 +304,7 @@ export function ShadowingView() {
 
   const fetchNotebook = async (videoId: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/shadowing/notes/${videoId}`, { credentials: 'include' });
+      const res = await fetch(`/api/shadowing/notes/${videoId}`, { credentials: 'include' });
       const data = await res.json();
       if (data.status === 'success') {
         setNoteContent(data.data.content);
@@ -331,7 +331,7 @@ export function ShadowingView() {
     if (!vidId) return;
     setIsSavingNote(true);
     try {
-      await fetch(`http://localhost:5000/api/shadowing/notes/${vidId}`, {
+      await fetch(`/api/shadowing/notes/${vidId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -441,7 +441,7 @@ export function ShadowingView() {
     setDictAiLoading(true);
     setDictAiExplanation(null);
     try {
-      const res = await fetch('http://localhost:5000/api/shadowing/dictionary/explain', {
+      const res = await fetch('/api/shadowing/dictionary/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -518,7 +518,7 @@ export function ShadowingView() {
     formData.append('videoId', currentVideo?.id || '');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/shadowing/analyze/${activeSegment.id}`, {
+      const res = await fetch(`/api/shadowing/analyze/${activeSegment.id}`, {
         method: 'POST',
         body: formData,
         credentials: 'include'

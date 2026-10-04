@@ -24,7 +24,7 @@ import {
   FileEdit,
   ClipboardList,
   Crown,
-  Coins,
+  CircleDollarSign,
   LayoutDashboard,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
@@ -81,11 +81,10 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     onClick={() => onTabChange(item.id)}
-                    className={`w-full justify-start p-3 h-auto ${
-                      isActive
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "hover:bg-sidebar-accent/50"
-                    }`}
+                    className={`w-full justify-start p-3 h-auto ${isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "hover:bg-sidebar-accent/50"
+                      }`}
                   >
                     <IconComponent className="h-4 w-4 mr-3 shrink-0" />
                     <div className="flex flex-col items-start min-w-0">
@@ -111,11 +110,10 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       onClick={() => onTabChange("admin")}
-                      className={`w-full justify-start p-3 h-auto ${
-                        activeTab === "admin"
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "hover:bg-sidebar-accent/50"
-                      }`}
+                      className={`w-full justify-start p-3 h-auto ${activeTab === "admin"
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "hover:bg-sidebar-accent/50"
+                        }`}
                     >
                       <LayoutDashboard className="h-4 w-4 mr-3 shrink-0" />
                       <div className="flex flex-col items-start min-w-0">
@@ -151,7 +149,7 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
           {/* Coins Display */}
           <div className="p-2">
             <div className="rounded-lg border p-3 flex items-center gap-2">
-              <Coins className="h-4 w-4 text-amber-500" />
+              <CircleDollarSign className="h-4 w-4 text-emerald-600" />
               <span className="text-sm font-bold">{coins.toLocaleString()}</span>
               <span className="text-xs text-muted-foreground">coins</span>
             </div>

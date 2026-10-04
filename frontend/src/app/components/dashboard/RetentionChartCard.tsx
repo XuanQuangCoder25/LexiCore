@@ -74,16 +74,16 @@ export function RetentionChartCard({ data }: RetentionChartProps) {
                 <span className="text-foreground font-medium">With SRS review (your retention)</span>
               </div>
             </div>
-            
+
             <div className="px-2 w-full mt-2">
-                <RetentionChartSVG data={data} />
+              <RetentionChartSVG data={data} />
             </div>
-            
+
             <div className="mt-6 p-4 bg-muted/40 rounded-xl text-center">
               <p className="text-sm text-muted-foreground">
-                SRS reviews keep your retention above 90%. The dashed line shows natural forgetting without review. 
+                SRS reviews keep your retention above 90%. The dashed line shows natural forgetting without review.
                 <br className="hidden sm:block mt-1" />
-                Next batch: <strong className="font-semibold text-foreground text-primary">50 cards due today</strong>
+                Next batch: <strong className="font-semibold text-primary">50 cards due today</strong>
               </p>
             </div>
           </>

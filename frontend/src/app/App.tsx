@@ -17,7 +17,7 @@ import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Coins, Users } from "lucide-react";
+import { CircleDollarSign, Users } from "lucide-react";
 
 const TAB_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -101,7 +101,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               {/* Coins Balance */}
               <div className="flex items-center gap-1.5 bg-muted rounded-lg px-3 py-1.5">
-                <Coins className="h-4 w-4 text-amber-500" />
+                <CircleDollarSign className="h-4 w-4 text-emerald-600" />
                 <span className="text-sm font-bold">{coins.toLocaleString()}</span>
               </div>
               {/* Friends Button */}
