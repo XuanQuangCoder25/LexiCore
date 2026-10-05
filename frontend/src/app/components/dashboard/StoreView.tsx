@@ -29,7 +29,6 @@ const typeConfig: Record<string, { icon: React.ComponentType<{ className?: strin
   AVATAR_FRAME: { icon: Frame, category: "frames" },
 };
 
-// Dùng relative URL để tương thích với cả Docker và npm run dev (thông qua Vite proxy)
 const API_BASE = "";
 
 // ============================================================

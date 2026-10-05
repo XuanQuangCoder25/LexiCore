@@ -68,8 +68,8 @@ export const rejectApplication = async (req: Request, res: Response): Promise<vo
     const { id } = req.params;
     const { admin_note } = req.body;
 
-    if (!admin_note || admin_note.trim().length < 10) {
-        res.status(400).json({ success: false, message: 'Vui lòng cung cấp lý do từ chối (tối thiểu 10 ký tự).' });
+    if (!admin_note || admin_note.trim().length < 5) {
+        res.status(400).json({ success: false, message: 'Vui lòng cung cấp lý do từ chối (tối thiểu 5 ký tự).' });
         return;
     }
 

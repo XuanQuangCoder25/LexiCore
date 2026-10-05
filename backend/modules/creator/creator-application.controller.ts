@@ -1,14 +1,13 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../../config/mysql';
-import { AppError } from '../../errors/AppError';
 
 export const applyForCreator = async (req: Request, res: Response): Promise<void> => {
     const userId = req.user!.id;
     const { reason, qualifications } = req.body;
 
-    if (!reason || reason.trim().length < 20) {
-        res.status(400).json({ success: false, message: 'Vui lòng cung cấp lý do chi tiết (tối thiểu 20 ký tự).' });
+    if (!reason || reason.trim().length < 5) {
+        res.status(400).json({ success: false, message: 'Vui lòng cung cấp lý do chi tiết (tối thiểu 5 ký tự).' });
         return;
     }
 
@@ -25,7 +24,7 @@ export const applyForCreator = async (req: Request, res: Response): Promise<void
 
     // Kiểm tra đơn đang tồn tại
     const [existingRows] = await pool.execute(
-        `SELECT id, status, updated_at FROM creator_applications WHERE user_id = ?`,
+        `SELECT id, status, updated_at, NOW() as current_db_time FROM creator_applications WHERE user_id = ?`,
         [userId]
     ) as any;
     const existing = (existingRows as any[])[0];
@@ -36,9 +35,10 @@ export const applyForCreator = async (req: Request, res: Response): Promise<void
             return;
         }
         if (existing.status === 'REJECTED') {
-            // Kiểm tra 24 giờ cooldown
+            // Kiểm tra 24 giờ cooldown sử dụng thời gian của DB để tránh lệch múi giờ (múi giờ VN +7)
             const rejectedAt = new Date(existing.updated_at).getTime();
-            const hoursSinceRejection = (Date.now() - rejectedAt) / (1000 * 60 * 60);
+            const dbNow = new Date(existing.current_db_time).getTime();
+            const hoursSinceRejection = (dbNow - rejectedAt) / (1000 * 60 * 60);
             if (hoursSinceRejection < 24) {
                 const hoursLeft = Math.ceil(24 - hoursSinceRejection);
                 res.status(400).json({

@@ -13,6 +13,7 @@ import { CreatorStudioView } from "./components/dashboard/CreatorStudioView";
 import { StoreView } from "./components/dashboard/StoreView";
 import { AdminView } from "./components/dashboard/AdminView";
 import { ExamView } from "./components/dashboard/ExamView";
+import { ProfileView } from "./components/dashboard/ProfileView";
 import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
 import { Button } from "./components/ui/button";
@@ -32,6 +33,7 @@ const TAB_LABELS: Record<string, string> = {
   store: "Store",
   achievements: "Achievements",
   admin: "Admin Panel",
+  profile: "Profile",
 };
 
 export default function App() {
@@ -81,6 +83,7 @@ export default function App() {
       case "store": return <StoreView />;
       case "achievements": return <AchievementsView />;
       case "admin": return <AdminView />;
+      case "profile": return <ProfileView />;
       default: return <DashboardView />;
     }
   };

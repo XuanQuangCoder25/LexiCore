@@ -30,7 +30,6 @@ import {
   PackageX,
 } from "lucide-react";
 
-// Dùng relative URL để tương thích với cả Docker và npm run dev (thông qua Vite proxy)
 const API_BASE = "";
 
 // ============================================================
@@ -208,9 +207,6 @@ export function AdminView() {
   };
 
   // ── RENDER ─────────────────────────────────────────────────
-  /* ── Design tokens ─────────────────────────────────────────
-     Light: Soft Blue Mist  |  Dark: cb37607 "Deep Space"
-  ────────────────────────────────────────────────────────── */
   const isDark = document.documentElement.classList.contains("dark");
 
   // Light Mode — Soft Blue Mist
@@ -252,16 +248,16 @@ export function AdminView() {
   };
 
   // Derived tokens — switch by theme
-  const pg      = isDark ? D.pageBg     : L.pageBg;
-  const card    = isDark ? D.card       : L.card;
-  const cb      = isDark ? D.border     : L.border;
-  const tt      = isDark ? D.title      : L.title;
-  const sub     = isDark ? D.sub        : L.sub;
-  const muted   = isDark ? D.muted      : L.muted;
-  const badge   = isDark ? D.badge      : L.badge;
-  const div     = isDark ? D.divider    : L.divider;
-  const btnGrad = isDark ? D.btnGrad    : L.btnGrad;
-  const shadow  = isDark ? "none"       : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(37,99,235,0.06)";
+  const pg = isDark ? D.pageBg : L.pageBg;
+  const card = isDark ? D.card : L.card;
+  const cb = isDark ? D.border : L.border;
+  const tt = isDark ? D.title : L.title;
+  const sub = isDark ? D.sub : L.sub;
+  const muted = isDark ? D.muted : L.muted;
+  const badge = isDark ? D.badge : L.badge;
+  const div = isDark ? D.divider : L.divider;
+  const btnGrad = isDark ? D.btnGrad : L.btnGrad;
+  const shadow = isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(37,99,235,0.06)";
 
   if (loading) {
     return (

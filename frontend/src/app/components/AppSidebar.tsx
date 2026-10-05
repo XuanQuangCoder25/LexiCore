@@ -172,7 +172,7 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
 
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton className="w-full justify-start">
+              <SidebarMenuButton className="w-full justify-start" onClick={() => onTabChange("profile")}>
                 <User className="h-4 w-4 mr-3" />
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-medium">{userName}</span>
