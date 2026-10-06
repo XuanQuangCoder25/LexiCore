@@ -26,3 +26,16 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
         res.status(401).json({ status: 'error', message: 'Token không hợp lệ hoặc đã hết hạn.' });
     }
 };
+
+export const optionalAuth = (req: Request, res: Response, next: NextFunction): void => {
+    const token = req.cookies?.token;
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string; role: string };
+            req.user = decoded;
+        } catch {
+            // ignore invalid token for optional auth
+        }
+    }
+    next();
+};

@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { requireAuth } from '../../middlewares/requireAuth';
+import { requireAuth, optionalAuth } from '../../middlewares/requireAuth';
 import * as studentCourseController from './student-course.controller';
 
 const router = Router();
 
 // Public routes (Khám phá) - Không cần requireAuth để ai cũng có thể xem
 router.get('/', studentCourseController.getPublishedCourses);
-router.get('/:id', studentCourseController.getCourseDetails);
+router.get('/:id', optionalAuth, studentCourseController.getCourseDetails);
 
 // Protected routes (Học viên) - Phải đăng nhập
 router.use(requireAuth);

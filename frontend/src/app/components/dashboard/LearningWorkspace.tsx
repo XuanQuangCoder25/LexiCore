@@ -7,6 +7,123 @@ import { studentCourseService } from "../../services/student-course-service";
 import { toast } from "sonner";
 import { ScrollArea } from "../ui/scroll-area";
 
+
+const InteractiveBlock = ({ block }: { block: any }) => {
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [showResult, setShowResult] = useState(false);
+  const [availableWords, setAvailableWords] = useState<string[]>([]);
+  const [draggedWord, setDraggedWord] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (block.type === 'drag_drop') {
+      const parts = block.content.split(/(\[.*?\])/g);
+      const words = parts.filter(p => p.startsWith('[') && p.endsWith(']')).map(p => p.slice(1, -1));
+      setAvailableWords(words.sort(() => Math.random() - 0.5));
+    }
+  }, [block]);
+
+  const checkAnswers = () => {
+    setShowResult(true);
+  };
+
+  const isCorrect = (index: number, answer: string) => {
+    let count = 0;
+    const parts = block.content.split(/(\[.*?\])/g);
+    for (let i = 0; i <= index; i++) {
+      if (parts[i].startsWith('[') && parts[i].endsWith(']')) {
+        if (i === index) return parts[i].slice(1, -1).toLowerCase().trim() === answer.toLowerCase().trim();
+        count++;
+      }
+    }
+    return false;
+  };
+
+  if (block.type === 'fill_in_the_blank') {
+    return (
+      <div className="flex flex-col gap-3">
+        <span className="text-sm font-semibold text-primary uppercase tracking-wider">Bài tập: Điền từ</span>
+        <div className="p-4 bg-background rounded-lg border border-border leading-relaxed text-lg">
+          {block.content.split(/(\[.*?\])/g).map((part: string, i: number) => {
+            if (part.startsWith('[') && part.endsWith(']')) {
+              return (
+                <input
+                  key={i}
+                  type="text"
+                  className={`inline-block mx-1 px-2 py-1 w-24 bg-muted font-mono text-sm rounded border-b-2 outline-none focus:border-primary transition-colors ${showResult ? (isCorrect(i, answers[i] || '') ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600') : 'border-primary/50'}`}
+                  value={answers[i] || ''}
+                  onChange={(e) => { setAnswers({ ...answers, [i]: e.target.value }); setShowResult(false); }}
+                />
+              );
+            }
+            return <span key={i}>{part}</span>;
+          })}
+        </div>
+        <Button variant="outline" className="self-end" onClick={checkAnswers}>Kiểm tra</Button>
+      </div>
+    );
+  }
+
+  if (block.type === 'drag_drop') {
+    return (
+      <div className="flex flex-col gap-3">
+        <span className="text-sm font-semibold text-primary uppercase tracking-wider">Bài tập: Kéo thả từ</span>
+        
+        <div className="flex flex-wrap gap-2 mb-4 p-4 bg-muted/30 rounded-lg min-h-[60px]">
+          {availableWords.map((word, i) => (
+            <div 
+              key={i} 
+              draggable 
+              onDragStart={(e) => { e.dataTransfer.setData('text/plain', word); setDraggedWord(word); }}
+              onDragEnd={() => setDraggedWord(null)}
+              className="px-3 py-1 bg-white border shadow-sm rounded cursor-grab active:cursor-grabbing hover:border-primary select-none font-medium text-primary"
+            >
+              {word}
+            </div>
+          ))}
+          {availableWords.length === 0 && <span className="text-muted-foreground italic text-sm">Tuyệt vời! Bạn đã ghép xong.</span>}
+        </div>
+
+        <div className="p-4 bg-background rounded-lg border border-border leading-relaxed text-lg">
+          {block.content.split(/(\[.*?\])/g).map((part: string, i: number) => {
+            if (part.startsWith('[') && part.endsWith(']')) {
+              const answered = answers[i];
+              return (
+                <span 
+                  key={i} 
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const word = e.dataTransfer.getData('text/plain');
+                    if (word) {
+                      setAnswers({ ...answers, [i]: word });
+                      setAvailableWords(prev => prev.filter(w => w !== word));
+                      if (answered) setAvailableWords(prev => [...prev, answered]);
+                      setShowResult(false);
+                    }
+                  }}
+                  onClick={() => {
+                    if (answered) {
+                      setAnswers(prev => { const n = {...prev}; delete n[i]; return n; });
+                      setAvailableWords(prev => [...prev, answered]);
+                    }
+                  }}
+                  className={`inline-flex items-center justify-center mx-1 min-w-[80px] h-8 px-2 bg-muted font-mono text-sm rounded border-b-2 transition-colors cursor-pointer ${answered ? 'bg-primary/10 text-primary border-primary' : 'border-dashed border-muted-foreground/50 text-transparent'} ${showResult ? (isCorrect(i, answers[i] || '') ? 'border-green-500 text-green-600 bg-green-50' : 'border-red-500 text-red-600 bg-red-50') : ''}`}
+                >
+                  {answered || part.slice(1,-1)}
+                </span>
+              );
+            }
+            return <span key={i}>{part}</span>;
+          })}
+        </div>
+        <Button variant="outline" className="self-end" onClick={checkAnswers}>Kiểm tra</Button>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBack: () => void }) => {
   const [data, setData] = useState<any>(null);
   const [activeLesson, setActiveLesson] = useState<any>(null);
@@ -16,7 +133,7 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
   const fetchCourseData = async () => {
     try {
       const res = await studentCourseService.getCourseDetails(courseId);
-      if (res.success) {
+      if (res.status === 'success') {
         setData(res.data);
         // Tự động chọn bài học đầu tiên nếu chưa chọn
         if (res.data.syllabus.length > 0 && res.data.syllabus[0].lessons.length > 0 && !activeLesson) {
@@ -39,7 +156,7 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
     setLessonContent(null);
     try {
       const res = await studentCourseService.getLessonContent(courseId, lesson._id);
-      if (res.success) {
+      if (res.status === 'success') {
         setLessonContent(res.data);
       }
     } catch (error) {
@@ -51,7 +168,7 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
     if (!activeLesson) return;
     try {
       const res = await studentCourseService.completeLesson(courseId, activeLesson._id);
-      if (res.success) {
+      if (res.status === 'success') {
         toast.success(res.message);
         fetchCourseData(); // Reload progress
       }
@@ -106,6 +223,57 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                       <video src={lessonContent.videoUrl} controls className="w-full h-full" />
                     </div>
                   )}
+                </div>
+              )}
+
+              
+              {lessonContent.blocks && lessonContent.blocks.length > 0 && (
+                <div className="space-y-6 my-6">
+                  {lessonContent.blocks.map((block: any) => (
+                    <Card key={block.id} className="border-none shadow-sm bg-muted/10 overflow-hidden">
+                      <CardContent className="p-6">
+                        {block.type === 'text' && (
+                          <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">{block.content}</div>
+                        )}
+                        {block.type === 'audio' && (
+                          <div className="flex flex-col gap-2">
+                            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Audio</span>
+                            <audio controls src={block.content} className="w-full" />
+                          </div>
+                        )}
+                        {block.type === 'video' && (
+                          <div className="flex flex-col gap-2">
+                            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Video</span>
+                            <div className="aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                              {block.content.includes('youtube.com') || block.content.includes('youtu.be') ? (
+                                <iframe 
+                                  className="w-full h-full" 
+                                  src={block.content.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')} 
+                                  allowFullScreen 
+                                />
+                              ) : (
+                                <video controls src={block.content} className="w-full h-full" />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {(block.type === 'fill_in_the_blank' || block.type === 'drag_drop') && (
+                          <InteractiveBlock block={block} />
+                        )}
+                        {block.type === 'speech_recognition' && (
+                          <div className="flex flex-col gap-3">
+                            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Luyện nói</span>
+                            <div className="p-4 bg-background rounded-lg border border-border text-xl text-center italic">
+                              "{block.content}"
+                            </div>
+                            <Button variant="outline" className="w-full max-w-sm mx-auto rounded-full gap-2 border-primary text-primary hover:bg-primary/10">
+                              <Mic className="w-4 h-4" /> Bấm để thu âm
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
 

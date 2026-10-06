@@ -1,3 +1,4 @@
+import { Toaster } from "./app/components/ui/sonner";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./app/App.tsx";
@@ -27,5 +28,6 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Route>
     </Routes>
+    <Toaster position="top-right" />
   </BrowserRouter>
 );

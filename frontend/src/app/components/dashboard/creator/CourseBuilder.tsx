@@ -22,6 +22,7 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
   const [showChapterModal, setShowChapterModal] = useState(false);
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
 
   // Form states
   const [chapterTitle, setChapterTitle] = useState("");
@@ -80,23 +81,42 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
     }
   };
 
+  
+  const handleEditLesson = (chapterId: string, lesson: any) => {
+    setActiveChapterId(chapterId);
+    setActiveLessonId(lesson._id);
+    setLessonTitle(lesson.title);
+    setLessonDuration(lesson.durationMinutes.toString());
+    setLessonContent(lesson.content || "");
+    setLessonBlocks(lesson.blocks || []);
+    setLessonVideo(lesson.videoUrl || "");
+    setAttachedFlashcardId(lesson.attachedFlashcardId || "none");
+    setAttachedExamId(lesson.attachedExamId || "none");
+    setShowLessonModal(true);
+  };
+
   const handleAddLesson = async () => {
     if (!activeChapterId) return;
     try {
       const activeChapter = courseData.chapters.find((c: any) => c._id === activeChapterId);
       const order = activeChapter.lessons.length + 1;
-      const res = await courseBuilderService.createLesson(courseId, activeChapterId, {
+      const payload = {
         title: lessonTitle,
-        durationMinutes: parseInt(lessonDuration) || 5,
+        durationMinutes: Math.max(1, parseInt(lessonDuration) || 5),
         order,
         content: lessonContent,
         blocks: lessonBlocks,
         videoUrl: lessonVideo,
         attachedFlashcardId: attachedFlashcardId !== "none" ? attachedFlashcardId : undefined,
         attachedExamId: attachedExamId !== "none" ? attachedExamId : undefined,
-      });
+      };
+      
+      const res = activeLessonId 
+        ? await courseBuilderService.updateLesson(courseId, activeChapterId, activeLessonId, payload)
+        : await courseBuilderService.createLesson(courseId, activeChapterId, payload);
+      
       if (res.status === 'success') {
-        toast.success("Thêm bài học thành công!");
+        toast.success(activeLessonId ? "Cập nhật bài học thành công!" : "Thêm bài học thành công!");
         setShowLessonModal(false);
         setLessonTitle("");
         setLessonDuration("");
@@ -145,6 +165,14 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => {
                     setActiveChapterId(chapter._id);
+                    setActiveLessonId(null);
+                    setLessonTitle("");
+                    setLessonDuration("");
+                    setLessonContent("");
+                    setLessonBlocks([]);
+                    setLessonVideo("");
+                    setAttachedFlashcardId("none");
+                    setAttachedExamId("none");
                     setShowLessonModal(true);
                   }}>
                     <Plus className="w-4 h-4 mr-1" /> Thêm bài học
@@ -164,7 +192,7 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
                       <Badge variant="outline" className="text-xs">{lesson.durationMinutes} phút</Badge>
                     </div>
                     <div className="flex gap-2">
-                       <Button variant="ghost" size="icon"><Edit className="w-4 h-4" /></Button>
+                       <Button variant="ghost" size="icon" onClick={() => handleEditLesson(chapter._id, lesson)}><Edit className="w-4 h-4" /></Button>
                     </div>
                   </div>
                 ))
@@ -191,7 +219,7 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
       {/* Lesson Modal */}
       <Dialog open={showLessonModal} onOpenChange={setShowLessonModal}>
         <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader><DialogTitle>Thêm Bài Học Mới</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{activeLessonId ? "Sửa Bài Học" : "Thêm Bài Học Mới"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto px-2">
             <div className="space-y-2">
               <Label>Tên bài học</Label>
@@ -234,7 +262,7 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleAddLesson} className="w-full">Lưu Bài Học</Button>
+            <Button onClick={handleAddLesson} className="w-full">{activeLessonId ? "Cập nhật Bài Học" : "Lưu Bài Học"}</Button>
           </div>
         </DialogContent>
       </Dialog>

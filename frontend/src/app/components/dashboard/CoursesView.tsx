@@ -29,7 +29,7 @@ export const CoursesView = () => {
   const fetchCourses = async () => {
     try {
       const res = await studentCourseService.getPublishedCourses({ search });
-      if (res.success) {
+      if (res.status === 'success') {
         setCourses(res.data);
       }
     } catch (error) {
@@ -44,7 +44,7 @@ export const CoursesView = () => {
     setDetailsLoading(true);
     try {
       const res = await studentCourseService.getCourseDetails(id);
-      if (res.success) {
+      if (res.status === 'success') {
         setCourseDetails(res.data);
       }
     } catch (error) {
@@ -58,7 +58,7 @@ export const CoursesView = () => {
     if (!selectedCourseId) return;
     try {
       const res = await studentCourseService.enrollCourse(selectedCourseId);
-      if (res.success) {
+      if (res.status === 'success') {
         toast.success("Đăng ký thành công! Bắt đầu học ngay.");
         // Refresh details to get isEnrolled = true
         handleOpenDetails(selectedCourseId);

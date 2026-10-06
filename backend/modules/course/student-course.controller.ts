@@ -4,6 +4,7 @@ import Chapter from '../../database/models/Chapter';
 import Lesson from '../../database/models/Lesson';
 import User from '../../database/models/User';
 import mongoose from 'mongoose';
+import { findUserById } from '../auth/auth-repository';
 
 // 1. Khám phá khóa học (Marketplace)
 export const getPublishedCourses = async (req: Request, res: Response): Promise<void> => {
@@ -94,10 +95,21 @@ export const enrollCourse = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
-        const user = await User.findById(userId);
-        if (!user) {
-            res.status(404).json({ status: 'error', message: 'Người dùng không tồn tại.' });
-            return;
+        let user = await User.findById(userId);
+        if (!user && userId) {
+            const mysqlUser = await findUserById(userId);
+            if (mysqlUser) {
+                user = await User.create({
+                    _id: mysqlUser.id,
+                    email: mysqlUser.email,
+                    username: mysqlUser.full_name,
+                    passwordHash: 'synced_from_mysql',
+                    role: mysqlUser.role ? mysqlUser.role.toLowerCase() : 'user'
+                });
+            } else {
+                res.status(404).json({ status: 'error', message: 'Người dùng không tồn tại.' });
+                return;
+            }
         }
 
         // Kiểm tra đã đăng ký chưa
