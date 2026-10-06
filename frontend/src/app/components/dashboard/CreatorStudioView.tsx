@@ -550,8 +550,8 @@ const handleOpenEditor = (course: Course) => {
                       <p className="text-xs text-muted-foreground truncate">{course.description || "Không có mô tả"}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Button size="sm" variant="default" onClick={() => { setSelectedCourse(course); setView("course_builder"); }}>
-                        <LayoutList className="h-4 w-4 mr-2" /> Xây dựng Khóa học
+                      <Button size="sm" variant="outline" onClick={() => { setSelectedCourse(course); setView("course_builder"); }}>
+                        <Edit className="h-4 w-4 mr-2" /> Xây dựng Khóa học
                       </Button>
                       
                       <DropdownMenu>

@@ -201,10 +201,7 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
               <Label>Thời lượng ước tính (phút)</Label>
               <Input type="number" value={lessonDuration} onChange={(e) => setLessonDuration(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label>URL Video (Tùy chọn)</Label>
-              <Input placeholder="https://youtube.com/..." value={lessonVideo} onChange={(e) => setLessonVideo(e.target.value)} />
-            </div>
+            
             <div className="space-y-2">
               <Label>Nội dung bài học dạng khối (Notion-like)</Label>
               <LessonBlockEditor blocks={lessonBlocks} setBlocks={setLessonBlocks} />
