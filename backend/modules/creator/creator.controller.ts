@@ -10,7 +10,7 @@ export const createCourse = async (req: Request, res: Response) => {
     const creatorId = req.user?.id;
     if (!creatorId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const course = new Course({ title, description, thumbnail, isPublished, creatorId });
+    const course = new Course({ title, description, thumbnail, isPublished, creatorId, type: 'flashcard' });
     await course.save();
     res.status(201).json({ success: true, data: course });
   } catch (error) {
@@ -32,8 +32,8 @@ export const updateCourse = async (req: Request, res: Response) => {
 export const deleteCourse = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const course = await Course.findOneAndDelete({ _id: id, creatorId: req.user?.id });
-    if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+    const course = await Course.findOneAndDelete({ _id: id, creatorId: req.user?.id, type: 'flashcard' });
+    if (!course) return res.status(404).json({ success: false, message: 'Flashcard deck not found' });
     
     // Delete associated flashcards
     await Flashcard.deleteMany({ courseId: id });
@@ -45,7 +45,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
 
 export const getCourses = async (req: Request, res: Response) => {
   try {
-    const courses = await Course.find({ creatorId: req.user?.id }).sort({ createdAt: -1 });
+    const courses = await Course.find({ creatorId: req.user?.id, type: 'flashcard' }).sort({ createdAt: -1 });
     res.json({ success: true, data: courses });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi server' });

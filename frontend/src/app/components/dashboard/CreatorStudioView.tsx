@@ -12,9 +12,11 @@ import { Separator } from "../ui/separator";
 import { Checkbox } from "../ui/checkbox";
 import axios from "axios";
 import { toast } from "sonner";
-import { creatorService } from "../../services/creator-service";
+import { creatorService } from '../../services/creator-service';
+import { courseBuilderService } from '../../services/course-builder-service';
 import { ExamBuilder } from "./creator/ExamBuilder";
-import {
+import { CourseBuilder } from "./creator/CourseBuilder";
+import { LayoutList, 
   Plus,
   Edit,
   Trash2,
@@ -72,11 +74,17 @@ export function CreatorStudioView() {
 
   // Course State
   const [courses, setCourses] = useState<Course[]>([]);
+  const [actualCourses, setActualCourses] = useState<any[]>([]);
   const [showNewCourseDialog, setShowNewCourseDialog] = useState(false);
+  const [showNewActualCourseDialog, setShowNewActualCourseDialog] = useState(false);
   const [newCourseTitle, setNewCourseTitle] = useState("");
+  const [newActualCourseTitle, setNewActualCourseTitle] = useState("");
   const [newCourseDesc, setNewCourseDesc] = useState("");
+  const [newActualCourseDesc, setNewActualCourseDesc] = useState("");
   const [newCourseThumb, setNewCourseThumb] = useState("");
+  const [newActualCourseThumb, setNewActualCourseThumb] = useState("");
   const [isSavingCourse, setIsSavingCourse] = useState(false);
+  const [isSavingActualCourse, setIsSavingActualCourse] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -100,6 +108,8 @@ export function CreatorStudioView() {
     setIsLoading(true);
     try {
       const res = await creatorService.getCourses();
+      const resCourses = await courseBuilderService.getMyCourses();
+      if (resCourses.status === 'success') setActualCourses(resCourses.data);
       if (res.success) {
         setCourses(res.data);
       }
@@ -122,6 +132,16 @@ export function CreatorStudioView() {
   };
 
   const filtered = courses.filter((c) => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const handleDeleteActualCourse = async (id: string) => {
+    try {
+      await courseBuilderService.deleteCourse(id);
+      setActualCourses(actualCourses.filter(c => c._id !== id));
+      setShowDeleteDialog(null);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -152,7 +172,20 @@ export function CreatorStudioView() {
     }
   };
 
-  const handleOpenEditor = (course: Course) => {
+  const handlePublishActualCourse = async (course: any) => {
+    try {
+      const res = await courseBuilderService.updateCourse(course._id, { isPublished: !course.isPublished });
+      if (res.status === 'success') {
+        setActualCourses((prev) =>
+          prev.map((c) => c._id === course._id ? { ...c, isPublished: !course.isPublished } : c)
+        );
+        toast.success(course.isPublished ? "Đã chuyển về bản nháp" : "Đã xuất bản khóa học thành công");
+      }
+    } catch (error) {
+      toast.error("Lỗi cập nhật trạng thái khóa học");
+    }
+  };
+const handleOpenEditor = (course: Course) => {
     setSelectedCourse(course);
     fetchFlashcards(course._id);
     setView("editor");
@@ -203,6 +236,37 @@ export function CreatorStudioView() {
       toast.success("Đã xóa thẻ");
     } catch (error) {
       toast.error("Lỗi khi xóa thẻ");
+    }
+  };
+
+  const handleCreateActualCourse = async () => {
+    if (!newActualCourseTitle.trim()) {
+      toast.error("Tiêu đề khóa học là bắt buộc");
+      return;
+    }
+    
+    setIsSavingActualCourse(true);
+    try {
+      const res = await courseBuilderService.createCourse({
+        title: newActualCourseTitle,
+        description: newActualCourseDesc,
+        thumbnail: newActualCourseThumb,
+        level: 'All Levels',
+        tags: [],
+        price: 0
+      });
+      if (res.status === 'success') {
+        setActualCourses((prev) => [res.data, ...prev]);
+        setNewActualCourseTitle("");
+        setNewActualCourseDesc("");
+        setNewActualCourseThumb("");
+        setShowNewActualCourseDialog(false);
+        toast.success("Đã tạo khóa học mới");
+      }
+    } catch (error) {
+      toast.error("Lỗi khi tạo khóa học");
+    } finally {
+      setIsSavingActualCourse(false);
     }
   };
 
@@ -389,6 +453,10 @@ export function CreatorStudioView() {
     );
   }
 
+  if (view === "course_builder" && selectedCourse) {
+    return <CourseBuilder courseId={selectedCourse._id} onBack={() => setView("list")} />;
+  }
+
   if (builderExamId) {
     return <ExamBuilder examId={builderExamId} onBack={() => {
       setBuilderExamId(null);
@@ -406,15 +474,16 @@ export function CreatorStudioView() {
         </div>
       </div>
 
-      <Tabs defaultValue="courses" className="space-y-6">
+      <Tabs defaultValue="flashcards" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="flashcards">Flashcards</TabsTrigger>
           <TabsTrigger value="courses">Khóa Học</TabsTrigger>
           <TabsTrigger value="exams">Bài Kiểm Tra</TabsTrigger>
         </TabsList>
 
         <TabsContent value="courses" className="space-y-6">
           <div className="flex justify-end">
-            <Button onClick={() => setShowNewCourseDialog(true)}>
+            <Button onClick={() => setShowNewActualCourseDialog(true)}>
               <Plus className="h-4 w-4 mr-2" /> Tạo khóa học
             </Button>
           </div>
@@ -425,13 +494,13 @@ export function CreatorStudioView() {
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Tổng số khóa học</p>
-            <p className="text-2xl font-bold">{courses.length}</p>
+            <p className="text-2xl font-bold">{actualCourses.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Đã xuất bản</p>
-            <p className="text-2xl font-bold">{courses.filter((c) => c.isPublished).length}</p>
+            <p className="text-2xl font-bold">{actualCourses.filter((c) => c.isPublished).length}</p>
           </CardContent>
         </Card>
       </div>
@@ -458,8 +527,155 @@ export function CreatorStudioView() {
         <Card>
           <CardContent className="p-0">
             <div className="divide-y">
-              {filtered.length === 0 ? (
+              {actualCourses.length === 0 ? (
                 <p className="text-center p-8 text-muted-foreground">Chưa có khóa học nào.</p>
+              ) : (
+                actualCourses.map((course) => (
+                  <div key={course._id} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
+                    {course.thumbnail ? (
+                       <img src={course.thumbnail} alt={course.title} className="h-12 w-12 rounded-lg object-cover bg-muted shrink-0" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <BookOpen className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{course.title}</p>
+                        <Badge variant={course.isPublished ? "default" : "secondary"} className="shrink-0 text-xs">
+                          {course.isPublished ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <AlertCircle className="h-3 w-3 mr-1" />}
+                          {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{course.description || "Không có mô tả"}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button size="sm" variant="default" onClick={() => { setSelectedCourse(course); setView("course_builder"); }}>
+                        <LayoutList className="h-4 w-4 mr-2" /> Xây dựng Khóa học
+                      </Button>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handlePublishActualCourse(course)}>
+                            {course.isPublished ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
+                            {course.isPublished ? "Hủy xuất bản" : "Xuất bản"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setShowDeleteDialog(course._id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Confirmation */}
+      <Dialog open={showDeleteDialog !== null} onOpenChange={() => setShowDeleteDialog(null)}>
+        <DialogContent className="max-w-sm" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Xóa Khóa Học</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Bạn có chắc chắn muốn xóa khóa học này và toàn bộ thẻ bên trong? Hành động này không thể hoàn tác.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(null)}>Hủy</Button>
+            <Button variant="destructive" onClick={() => showDeleteDialog && handleDeleteActualCourse(showDeleteDialog)}>
+              <Trash2 className="h-4 w-4 mr-2" /> Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Course Dialog */}
+      <Dialog open={showNewActualCourseDialog} onOpenChange={setShowNewActualCourseDialog}>
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Tạo Khóa Học Mới</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Tiêu đề *</Label>
+              <Input value={newActualCourseTitle} onChange={(e) => setNewActualCourseTitle(e.target.value)} placeholder="Ví dụ: IELTS Vocabulary 7.0+" className="mt-1" />
+            </div>
+            <div>
+              <Label>Mô tả</Label>
+              <Textarea value={newActualCourseDesc} onChange={(e) => setNewActualCourseDesc(e.target.value)} placeholder="Mô tả ngắn gọn về khóa học..." className="mt-1" rows={2} />
+            </div>
+            <div>
+              <Label>Link Ảnh Bìa (Tùy chọn)</Label>
+              <Input value={newActualCourseThumb} onChange={(e) => setNewActualCourseThumb(e.target.value)} placeholder="https://..." className="mt-1" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewActualCourseDialog(false)} disabled={isSavingActualCourse}>Hủy</Button>
+            <Button onClick={handleCreateActualCourse} disabled={!newActualCourseTitle.trim() || isSavingActualCourse}>
+              {isSavingActualCourse ? "Đang tạo..." : "Tạo khóa học"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+        </TabsContent>
+
+        <TabsContent value="flashcards" className="space-y-6">
+          <div className="flex justify-end">
+            <Button onClick={() => setShowNewCourseDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Tạo bộ thẻ
+            </Button>
+          </div>
+
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Tổng số bộ thẻ</p>
+            <p className="text-2xl font-bold">{courses.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">Đã xuất bản</p>
+            <p className="text-2xl font-bold">{courses.filter((c) => c.isPublished).length}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search */}
+      <div className="flex gap-2 items-center flex-wrap">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Tìm kiếm bộ thẻ..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Courses Table */}
+      {isLoading ? (
+        <div className="flex justify-center p-12">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {filtered.length === 0 ? (
+                <p className="text-center p-8 text-muted-foreground">Chưa có bộ thẻ nào.</p>
               ) : (
                 filtered.map((course) => (
                   <div key={course._id} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
@@ -480,7 +696,8 @@ export function CreatorStudioView() {
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{course.description || "Không có mô tả"}</p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
+                      
                       <Button size="sm" variant="outline" onClick={() => handleOpenEditor(course)}>
                         <Edit className="h-4 w-4 mr-2" /> Quản lý thẻ
                       </Button>
@@ -516,9 +733,9 @@ export function CreatorStudioView() {
       <Dialog open={showDeleteDialog !== null} onOpenChange={() => setShowDeleteDialog(null)}>
         <DialogContent className="max-w-sm" aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Xóa Khóa Học</DialogTitle>
+            <DialogTitle>Xóa Bộ Thẻ</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Bạn có chắc chắn muốn xóa khóa học này và toàn bộ thẻ bên trong? Hành động này không thể hoàn tác.</p>
+          <p className="text-sm text-muted-foreground">Bạn có chắc chắn muốn xóa bộ thẻ này và toàn bộ thẻ bên trong? Hành động này không thể hoàn tác.</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteDialog(null)}>Hủy</Button>
             <Button variant="destructive" onClick={() => showDeleteDialog && handleDelete(showDeleteDialog)}>
@@ -532,7 +749,7 @@ export function CreatorStudioView() {
       <Dialog open={showNewCourseDialog} onOpenChange={setShowNewCourseDialog}>
         <DialogContent className="max-w-md" aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Tạo Khóa Học Mới</DialogTitle>
+            <DialogTitle>Tạo Bộ Thẻ Mới</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -551,7 +768,7 @@ export function CreatorStudioView() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewCourseDialog(false)} disabled={isSavingCourse}>Hủy</Button>
             <Button onClick={handleCreateCourse} disabled={!newCourseTitle.trim() || isSavingCourse}>
-              {isSavingCourse ? "Đang tạo..." : "Tạo khóa học"}
+              {isSavingCourse ? "Đang tạo..." : "Tạo bộ thẻ"}
             </Button>
           </DialogFooter>
         </DialogContent>
