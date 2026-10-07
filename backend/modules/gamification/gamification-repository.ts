@@ -202,3 +202,32 @@ export const updateAchievementProgress = async (userId: string, metricKey: strin
         );
     }
 };
+
+/**
+ * Đặt giá trị tuyệt đối cho một metric (chỉ tăng, không giảm).
+ * Dùng cho các chỉ số như current_streak (giá trị thực tế không phải tổng cộng dồn).
+ */
+export const setAchievementProgress = async (userId: string, metricKey: string, absoluteValue: number) => {
+    const [achievements] = await pool.execute(
+        `SELECT id, target_value FROM achievement_definitions WHERE metric_key = ?`,
+        [metricKey]
+    );
+    const defs = achievements as any[];
+    if (defs.length === 0) return;
+
+    for (const def of defs) {
+        // Dùng GREATEST để chỉ cập nhật nếu giá trị mới LỚN HƠN giá trị cũ (tránh bị giảm)
+        await pool.execute(
+            `INSERT INTO user_achievements (id, user_id, achievement_id, current_progress)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE current_progress = GREATEST(current_progress, ?)`,
+            [uuidv4(), userId, def.id, absoluteValue, absoluteValue]
+        );
+        await pool.execute(
+            `UPDATE user_achievements 
+             SET is_unlocked = TRUE, unlocked_at = CURRENT_TIMESTAMP
+             WHERE user_id = ? AND achievement_id = ? AND current_progress >= ? AND is_unlocked = FALSE`,
+            [userId, def.id, def.target_value]
+        );
+    }
+};

@@ -1,4 +1,5 @@
 import { pool } from '../config/mysql';
+import { updateAchievementProgress, setAchievementProgress } from '../modules/gamification/gamification-repository';
 
 export const updateStreak = async (userId: string): Promise<void> => {
     const [rows] = await pool.execute(
@@ -71,6 +72,9 @@ export const updateStreak = async (userId: string): Promise<void> => {
         );
     }
 
-    // TODO: Kích hoạt Gamification Event để kiểm tra Achievement
-    // await gamificationService.updateAchievementProgress(userId, 'current_streak', newStreak);
+    // Kích hoạt Gamification Events
+    // current_streak dùng SET (giá trị tuyệt đối), không phải cộng dồn
+    await setAchievementProgress(userId, 'current_streak', newStreak);
+    // total_active_days cộng dồn 1 mỗi ngày học
+    await updateAchievementProgress(userId, 'total_active_days', 1);
 };

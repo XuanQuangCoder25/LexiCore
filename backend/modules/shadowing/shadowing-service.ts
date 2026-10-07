@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { YoutubeTranscript } from 'youtube-transcript';
 import { AppError } from '../../errors/AppError';
 import { updateStreak } from '../../utils/streak';
+import { updateAchievementProgress } from '../gamification/gamification-repository';
 import { callGeminiWithRetry } from '../../utils/gemini';
 import {
     getVideos,
@@ -168,6 +169,15 @@ export const analyzeAudio = async (
     if (userId) {
         await saveUserHistory(userId, segment.video_id, segmentId, accuracy);
         await updateStreak(userId);
+        // Tính thời lượng câu (giây) từ segment, quy đổi sang phần trăm phút để cộng dồn
+        const durationSeconds = segment.end_time && segment.start_time
+            ? (segment.end_time - segment.start_time)
+            : 10; // fallback 10 giây nếu không có metadata
+        const minuteFraction = Math.round((durationSeconds / 60) * 100) / 100;
+        // Lưu bằng đơn vị 0.01 phút (tránh số thập phân, DB dùng INT)
+        // Quy ước: target_value trong achievement_definitions tính bằng "1/100 phút" = giây * (100/60)
+        const secondsToStore = Math.round(durationSeconds);
+        await updateAchievementProgress(userId, 'shadowing_minutes_studied', secondsToStore);
     }
 
     return {
