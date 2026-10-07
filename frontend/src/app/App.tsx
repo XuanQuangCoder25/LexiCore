@@ -11,7 +11,11 @@ import { AchievementsView } from "./components/dashboard/AchievementsView";
 import { ArenaView } from "./components/dashboard/ArenaView";
 import { CreatorStudioView } from "./components/dashboard/CreatorStudioView";
 import { StoreView } from "./components/dashboard/StoreView";
-import { AdminView } from "./components/dashboard/AdminView";
+import { AdminView } from "./components/dashboard/AdminEconomyView";
+import { AdminDashboardView } from "./components/dashboard/AdminDashboardView";
+import { AdminHRView } from "./components/dashboard/AdminHRView";
+import { AdminModerationView } from "./components/dashboard/AdminModerationView";
+import { AdminMarketingView } from "./components/dashboard/AdminMarketingView";
 import { ExamView } from "./components/dashboard/ExamView";
 import { ProfileView } from "./components/dashboard/ProfileView";
 import { NotificationPopover } from "./components/global/NotificationPopover";
@@ -33,6 +37,11 @@ const TAB_LABELS: Record<string, string> = {
   store: "Store",
   achievements: "Achievements",
   admin: "Admin Panel",
+  "admin-dashboard": "Admin Dashboard",
+  "admin-hr": "Admin - Human Resources",
+  "admin-economy": "Admin - Economy",
+  "admin-moderation": "Admin - Moderation",
+  "admin-marketing": "Admin - Marketing & Campaigns",
   profile: "Profile",
 };
 
@@ -82,7 +91,12 @@ export default function App() {
       }
       case "store": return <StoreView />;
       case "achievements": return <AchievementsView />;
-      case "admin": return <AdminView />;
+      case "admin":
+      case "admin-economy": return <AdminView />;
+      case "admin-dashboard": return <AdminDashboardView />;
+      case "admin-hr": return <AdminHRView />;
+      case "admin-moderation": return <AdminModerationView />;
+      case "admin-marketing": return <AdminMarketingView />;
       case "profile": return <ProfileView />;
       default: return <DashboardView />;
     }

@@ -25,7 +25,8 @@ import {
   Gem,
   Crown,
   Medal,
-  Lock
+  Lock,
+  BookImage
 } from "lucide-react";
 
 interface Quest {
@@ -79,7 +80,7 @@ interface Collection {
 export function AchievementsView() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loadingAchievements, setLoadingAchievements] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
@@ -185,7 +186,12 @@ export function AchievementsView() {
       case 'Mic': return <Mic className="w-5 h-5" />;
       case 'BookOpen': return <BookOpen className="w-5 h-5" />;
       case 'PenTool': return <PenTool className="w-5 h-5" />;
-      case 'Swords': return <Swords className='w-5 h-5' />
+      case 'Swords': return <Swords className='w-5 h-5' />;
+      case 'Trophy': return <Trophy className="w-5 h-5" />;
+      case 'Award': return <Award className="w-5 h-5" />;
+      case 'Medal': return <Medal className="w-5 h-5" />;
+      case 'Crown': return <Crown className="w-5 h-5" />;
+      case 'BookImage': return <BookImage className="w-5 h-5" />;
       case 'Flame': return <Flame className="w-5 h-5" />;
       case 'Users': return <Users className="w-5 h-5" />;
       default: return <Target className="w-5 h-5" />;
@@ -248,8 +254,8 @@ export function AchievementsView() {
   const dailyQuests = quests.filter(q => q.type === 'DAILY');
   const weeklyQuests = quests.filter(q => q.type === 'WEEKLY');
 
-  const filteredAchievements = activeCategory === 'ALL' 
-    ? achievements 
+  const filteredAchievements = activeCategory === 'ALL'
+    ? achievements
     : achievements.filter(a => a.category === activeCategory);
 
   const categories = [
@@ -329,8 +335,8 @@ export function AchievementsView() {
         <TabsContent value="achievements" className="space-y-6">
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
             {categories.map(cat => (
-              <Badge 
-                key={cat.id} 
+              <Badge
+                key={cat.id}
                 variant={activeCategory === cat.id ? "default" : "outline"}
                 className="cursor-pointer hover:bg-primary/80"
                 onClick={() => setActiveCategory(cat.id)}
@@ -347,16 +353,14 @@ export function AchievementsView() {
               {filteredAchievements.map(ach => {
                 const isUnlocked = ach.is_unlocked === 1;
                 const progressPercent = Math.min(100, (ach.current_progress / ach.target_value) * 100);
-                
+
                 return (
-                  <Card key={ach.achievement_id} className={`hover:shadow-lg transition-all duration-300 ${
-                    isUnlocked ? 'border-green-200 bg-green-50/30 dark:bg-green-950/20' : 'opacity-80 grayscale-[20%]'
-                  }`}>
+                  <Card key={ach.achievement_id} className={`hover:shadow-lg transition-all duration-300 ${isUnlocked ? 'border-green-200 bg-green-50/30 dark:bg-green-950/20' : 'opacity-80 grayscale-[20%]'
+                    }`}>
                     <CardContent className="p-5 flex flex-col h-full justify-between">
                       <div className="flex items-start justify-between mb-4">
-                        <div className={`inline-flex items-center justify-center p-3 rounded-xl ${
-                          isUnlocked ? 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400' : 'bg-secondary text-muted-foreground'
-                        }`}>
+                        <div className={`inline-flex items-center justify-center p-3 rounded-xl ${isUnlocked ? 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400' : 'bg-secondary text-muted-foreground'
+                          }`}>
                           {getIcon(ach.icon)}
                         </div>
                         {isUnlocked && (
@@ -365,7 +369,7 @@ export function AchievementsView() {
                           </Badge>
                         )}
                       </div>
-                      
+
                       <div>
                         <h3 className={`font-semibold mb-1 leading-tight ${isUnlocked ? 'text-green-700 dark:text-green-400' : 'text-foreground'}`}>
                           {ach.title}
@@ -374,30 +378,30 @@ export function AchievementsView() {
                           {ach.description}
                         </p>
                       </div>
-                      
+
                       {isUnlocked ? (
                         <div className="space-y-3 mt-auto">
-                           <div className="flex items-center text-xs text-muted-foreground gap-1">
-                             <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                             <span>Đạt được ngày {new Date(ach.unlocked_at || '').toLocaleDateString('vi-VN')}</span>
-                           </div>
-                           <div className="flex gap-1.5 text-xs font-bold mt-2 border-t pt-3">
-                              {ach.reward_coin > 0 && (
-                                <span className="flex items-center text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded">
-                                  <Coins className="w-3.5 h-3.5 mr-1" /> {ach.reward_coin}
-                                </span>
-                              )}
-                              {ach.reward_diamond > 0 && (
-                                <span className="flex items-center text-cyan-600 bg-cyan-100 dark:bg-cyan-900/30 px-2 py-1 rounded">
-                                  <Gem className="w-3.5 h-3.5 mr-1" /> {ach.reward_diamond}
-                                </span>
-                              )}
-                              {ach.reward_exp > 0 && (
-                                <span className="flex items-center text-blue-600 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
-                                  <Zap className="w-3.5 h-3.5 mr-1" /> {ach.reward_exp}
-                                </span>
-                              )}
-                           </div>
+                          <div className="flex items-center text-xs text-muted-foreground gap-1">
+                            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                            <span>Đạt được ngày {new Date(ach.unlocked_at || '').toLocaleDateString('vi-VN')}</span>
+                          </div>
+                          <div className="flex gap-1.5 text-xs font-bold mt-2 border-t pt-3">
+                            {ach.reward_coin > 0 && (
+                              <span className="flex items-center text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded">
+                                <Coins className="w-3.5 h-3.5 mr-1" /> {ach.reward_coin}
+                              </span>
+                            )}
+                            {ach.reward_diamond > 0 && (
+                              <span className="flex items-center text-cyan-600 bg-cyan-100 dark:bg-cyan-900/30 px-2 py-1 rounded">
+                                <Gem className="w-3.5 h-3.5 mr-1" /> {ach.reward_diamond}
+                              </span>
+                            )}
+                            {ach.reward_exp > 0 && (
+                              <span className="flex items-center text-blue-600 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                                <Zap className="w-3.5 h-3.5 mr-1" /> {ach.reward_exp}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-2 mt-auto">
@@ -431,68 +435,69 @@ export function AchievementsView() {
                   {collections.map(col => {
                     const isUnlocked = col.is_unlocked === 1;
                     const cssVars = { '--theme-color': col.theme_color || '#3b82f6' } as React.CSSProperties;
-                    
+
                     const currentItems = col.current_items || 0;
                     const totalItems = col.total_items || 1; // Tránh chia cho 0 nếu chưa có items trong db
                     const progressPercent = (currentItems / totalItems) * 100;
 
                     return (
-                      <div 
-                        key={col.id} 
+                      <div
+                        key={col.id}
                         style={cssVars}
-                        className={`group relative overflow-hidden rounded-xl border-2 transition-all duration-300 flex flex-col ${
-                          isUnlocked 
-                            ? 'border-transparent hover:-translate-y-1 hover:[box-shadow:0_0_20px_var(--theme-color)] hover:border-[color:var(--theme-color)]' 
-                            : 'border-dashed border-muted grayscale opacity-60'
-                        }`}
+                        className="group relative overflow-hidden rounded-xl border-2 border-border transition-all duration-300 flex flex-col hover:-translate-y-1 hover:[box-shadow:0_0_20px_var(--theme-color)] hover:border-[color:var(--theme-color)] bg-card"
                       >
-                        {/* Background Cover (16:9) */}
-                        <div 
-                          className="aspect-video w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                          style={{
-                            backgroundColor: col.theme_color || '#e2e8f0',
-                            backgroundImage: col.image_url ? `url(${col.image_url})` : 'none'
-                          }}
-                        >
-                          {!col.image_url && (
-                             <div className="w-full h-full flex items-center justify-center bg-black/10">
-                               <ImageIcon className="w-16 h-16 text-white/50" />
-                             </div>
-                          )}
-                        </div>
-                        
-                        {/* Overlay Gradient cho phần Cover */}
-                        <div className="absolute top-0 left-0 right-0 aspect-video bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-5">
-                          <h4 className="font-bold text-xl text-white leading-tight drop-shadow-md">{col.name}</h4>
-                          
-                          {/* Badge Level */}
-                          <div className="absolute top-4 right-4">
-                            <Badge variant="secondary" className="bg-black/50 text-white hover:bg-black/70 border-none backdrop-blur-sm shadow-sm">
-                              Lv.{col.unlock_level}
-                            </Badge>
+                        {/* Wrapper ảnh tỉ lệ 16:9 */}
+                        <div className="relative aspect-video w-full overflow-hidden">
+                          {/* Ảnh nền */}
+                          <div
+                            className={`w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105 ${!isUnlocked ? 'grayscale opacity-80' : ''}`}
+                            style={{
+                              backgroundColor: col.theme_color || '#e2e8f0',
+                              backgroundImage: col.image_url ? `url(${col.image_url})` : 'none'
+                            }}
+                          >
+                            {!col.image_url && (
+                              <div className="w-full h-full flex items-center justify-center bg-black/10">
+                                <ImageIcon className="w-16 h-16 text-white/50" />
+                              </div>
+                            )}
                           </div>
-                          
-                          {/* Lock Icon nếu chưa mở */}
+
+                          {/* Overlay Gradient hiển thị chữ */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-5">
+                            <h4 className={`font-bold text-xl text-white leading-tight drop-shadow-md ${!isUnlocked ? 'opacity-80' : ''}`}>{col.name}</h4>
+
+                            {/* Badge Level */}
+                            <div className="absolute top-4 right-4 z-20">
+                              <Badge variant="secondary" className="bg-black/50 text-white hover:bg-black/70 border-none backdrop-blur-sm shadow-sm">
+                                Lv.{col.unlock_level}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {/* Lớp phủ mờ + Ổ khoá nếu chưa mở */}
                           {!isUnlocked && (
-                            <div className="absolute inset-0 flex items-center justify-center backdrop-blur-[2px]">
-                               <div className="bg-background/80 p-4 rounded-full shadow-lg">
-                                 <Lock className="w-8 h-8 text-muted-foreground" />
-                               </div>
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] z-10">
+                              <div className="bg-background/95 p-4 rounded-full shadow-2xl">
+                                <Lock className="w-8 h-8 text-muted-foreground" />
+                              </div>
                             </div>
                           )}
                         </div>
 
                         {/* Progress Bar nằm gọn gàng cạnh dưới của Card */}
-                        <div className="bg-card p-4 border-t">
-                          <div className="flex justify-between items-center text-xs font-medium text-muted-foreground mb-2">
+                        <div className={`p-4 border-t ${!isUnlocked ? 'grayscale opacity-70' : ''}`}>
+                          <div className="flex items-center text-xs font-medium text-muted-foreground mb-2">
                             <span>{col.description}</span>
+                          </div>
+                          <Progress
+                            value={progressPercent}
+                            className="h-2"
+                            indicatorClassName={isUnlocked ? "bg-[color:var(--theme-color)]" : "bg-muted-foreground"}
+                          />
+                          <div className="flex justify-center items-center text-xs font-medium text-muted-foreground mb-2">
                             <span>Đã thu thập: {currentItems}/{totalItems}</span>
                           </div>
-                          <Progress 
-                            value={progressPercent} 
-                            className="h-2" 
-                            indicatorClassName={isUnlocked ? "bg-[color:var(--theme-color)]" : ""} 
-                          />
                         </div>
                       </div>
                     );
@@ -519,8 +524,8 @@ export function AchievementsView() {
                     <TableRow className="bg-primary/5 hover:bg-primary/5">
                       <TableHead className="w-20 text-center font-bold">Hạng</TableHead>
                       <TableHead className="font-bold">Học viên</TableHead>
-                      <TableHead className="text-center font-bold">Cấp độ</TableHead>
-                      <TableHead className="text-right pr-8 font-bold">Điểm Rank</TableHead>
+                      <TableHead className="text-center font-bold">Level</TableHead>
+                      <TableHead className="text-right pr-8 font-bold">Điểm xếp hạng</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -545,8 +550,8 @@ export function AchievementsView() {
                               <span className="font-medium text-foreground">{user.full_name}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="secondary" className="font-mono">{user.level}</Badge>
+                          <TableCell className="text-center font-bold text-primary">
+                            {user.level}
                           </TableCell>
                           <TableCell className="text-right pr-8 font-bold text-primary">
                             {user.rank_point.toLocaleString()}

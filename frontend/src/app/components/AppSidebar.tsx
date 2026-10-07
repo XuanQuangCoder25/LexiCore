@@ -26,6 +26,9 @@ import {
   Crown,
   CircleDollarSign,
   LayoutDashboard,
+  PieChart,
+  ShieldAlert,
+  Megaphone,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { PremiumModal } from "./global/PremiumModal";
@@ -107,18 +110,72 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
               <div className="px-2 py-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Admin</p>
                 <SidebarMenu>
+                  {/* Dashboard */}
                   <SidebarMenuItem>
                     <SidebarMenuButton
-                      onClick={() => onTabChange("admin")}
-                      className={`w-full justify-start p-3 h-auto ${activeTab === "admin"
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "hover:bg-sidebar-accent/50"
-                        }`}
+                      onClick={() => onTabChange("admin-dashboard")}
+                      className={`w-full justify-start p-3 h-auto mb-1 ${activeTab === "admin-dashboard" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
                     >
-                      <LayoutDashboard className="h-4 w-4 mr-3 shrink-0" />
+                      <PieChart className="h-4 w-4 mr-3 shrink-0" />
                       <div className="flex flex-col items-start min-w-0">
-                        <span className="font-medium text-sm">Admin Panel</span>
-                        <span className="text-xs text-muted-foreground">Quản lý hệ thống</span>
+                        <span className="font-medium text-sm">Dashboard</span>
+                        <span className="text-xs text-muted-foreground">Tổng quan & Số liệu</span>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  {/* Human Resources */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => onTabChange("admin-hr")}
+                      className={`w-full justify-start p-3 h-auto mb-1 ${activeTab === "admin-hr" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
+                    >
+                      <Users className="h-4 w-4 mr-3 shrink-0" />
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="font-medium text-sm">Human Resources</span>
+                        <span className="text-xs text-muted-foreground">Quản lý User & Creator</span>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  {/* Economy */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => onTabChange("admin-economy")}
+                      className={`w-full justify-start p-3 h-auto mb-1 ${activeTab === "admin-economy" || activeTab === "admin" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
+                    >
+                      <CircleDollarSign className="h-4 w-4 mr-3 shrink-0" />
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="font-medium text-sm">Economy</span>
+                        <span className="text-xs text-muted-foreground">Cửa hàng & Gamification</span>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  {/* Moderation */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => onTabChange("admin-moderation")}
+                      className={`w-full justify-start p-3 h-auto mb-1 ${activeTab === "admin-moderation" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
+                    >
+                      <ShieldAlert className="h-4 w-4 mr-3 shrink-0" />
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="font-medium text-sm">Moderation</span>
+                        <span className="text-xs text-muted-foreground">Kiểm duyệt & Report</span>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  {/* Marketing & Campaigns */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => onTabChange("admin-marketing")}
+                      className={`w-full justify-start p-3 h-auto ${activeTab === "admin-marketing" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
+                    >
+                      <Megaphone className="h-4 w-4 mr-3 shrink-0" />
+                      <div className="flex flex-col items-start min-w-0">
+                        <span className="font-medium text-sm">Marketing</span>
+                        <span className="text-xs text-muted-foreground">Sự kiện & Chiến dịch</span>
                       </div>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

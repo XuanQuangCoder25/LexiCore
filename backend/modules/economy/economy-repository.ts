@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const getActiveItems = async () => {
     const [rows] = await pool.execute(
-        `SELECT id, name, type, price, description FROM items WHERE is_active = TRUE ORDER BY price ASC`
+        `SELECT id, name, type, price, description, image_url FROM items WHERE is_active = TRUE ORDER BY price ASC`
     );
     return rows as any[];
 };
@@ -22,7 +22,7 @@ export const findItemById = async (id: string) => {
 
 export const getUserInventory = async (userId: string) => {
     const [rows] = await pool.execute(
-        `SELECT ui.id, ui.quantity, i.name, i.type, i.description
+        `SELECT ui.id, ui.quantity, i.name, i.type, i.description, i.image_url
          FROM user_items ui
          JOIN items i ON i.id = ui.item_id
          WHERE ui.user_id = ?`,

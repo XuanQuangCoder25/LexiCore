@@ -62,7 +62,6 @@ export function ProfileView() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        // Gắn URL trả về vào text input
         const newQual = qualifications ? `${qualifications}\n${data.data.url}` : data.data.url;
         setQualifications(newQual);
         setSuccessMsg("Tải file lên thành công!");
@@ -76,7 +75,7 @@ export function ProfileView() {
     }
   };
 
-  const handleSubmitApplication = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmitApplication = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!reason.trim() || !qualifications.trim()) {
       setErrorMsg("Vui lòng điền đầy đủ lý do và chứng chỉ/kinh nghiệm.");
@@ -102,7 +101,7 @@ export function ProfileView() {
         setSuccessMsg("Đã gửi đơn đăng ký thành công!");
         setReason("");
         setQualifications("");
-        await fetchData(); // Refresh application status
+        await fetchData();
       }
     } catch (err) {
       setErrorMsg("Lỗi kết nối đến máy chủ.");

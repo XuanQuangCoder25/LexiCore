@@ -152,7 +152,7 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 - **Cặp 1 (Tier 1 - Cơ bản):** Rùa biển (Sea Turtle) — Rạn san hô rực rỡ dưới ánh nắng (Coral Reef).
 - **Cặp 2 (Tier 2 - Khá):** Cá voi xanh (Blue Whale) — Khung cảnh: Mặt biển mở (Open Sea) đang dậy sóng, xa xa là một bầu trời bão táp vĩ đại (Dramatic Stormy Sky).
 - **Cặp 3 (Tier 3 - Hiếm):** Cá heo (Dolphin) — Rừng tảo bẹ khổng lồ dưới đáy biển lấp lánh tia nắng mặt trời (Kelp Forest).
-- **Cặp 4 (Tier 4 - Siêu hiếm):** Sứa phát sáng (Bioluminescent Jellyfish) — Rãnh đại dương sâu thẳm, đen kịt nhưng được thắp sáng bởi hàng ngàn rặng san hô sinh học (Abyssal Trench).
+- **Cặp 4 (Tier 4 - Siêu hiếm):** Cá voi sát thủ (Orca) — Rãnh đại dương sâu thẳm, đen kịt nhưng được thắp sáng bởi hàng ngàn rặng san hô sinh học (Abyssal Trench).
 
 ## 🌲 Collection 3: Thâm Sơn Cùng Cốc (Mystic Jungle)
 *Một khu rừng nhiệt đới đầy bí ẩn và hoang dã.*

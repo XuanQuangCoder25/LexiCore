@@ -5,14 +5,15 @@ import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Separator } from "../ui/separator";
-import { Coins, ShoppingBag, Shield, Flame, Star, Frame, CheckCircle2, Lock, Gift, Loader2 } from "lucide-react";
+import { CircleDollarSign, ShoppingBag, Shield, Flame, Star, Frame, CheckCircle2, Lock, Gift, Loader2 } from "lucide-react";
 
 interface StoreItem {
   id: string;
   name: string;
   description: string;
   price: number;
-  type: "STREAK_FREEZE" | "AVATAR_FRAME";
+  type: string;
+  image_url?: string;
 }
 
 interface InventoryItem {
@@ -21,12 +22,14 @@ interface InventoryItem {
   description: string;
   type: string;
   quantity: number;
+  image_url?: string;
 }
 
 // Map type từ DB sang icon và category để render UI
 const typeConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; category: string }> = {
-  STREAK_FREEZE: { icon: Shield, category: "protection" },
-  AVATAR_FRAME: { icon: Frame, category: "frames" },
+  AVATAR: { icon: Shield, category: "avatar" },
+  COVER_PHOTO: { icon: Shield, category: "cover" },
+  STREAK_FREEZE: { icon: Shield, category: "protection" }
 };
 
 const API_BASE = "";
@@ -47,7 +50,8 @@ export function StoreView() {
 
   const categories = [
     { value: "all", label: "All Items" },
-    { value: "frames", label: "Profile Frames" },
+    { value: "avatar", label: "Avatar" },
+    { value: "cover", label: "Cover" },
     { value: "protection", label: "Protection" },
   ];
 
@@ -122,7 +126,7 @@ export function StoreView() {
           <p className="text-muted-foreground">Spend your earned coins on exclusive items</p>
         </div>
         <div className="flex items-center gap-3 bg-muted rounded-lg px-4 py-2">
-          <Coins className="h-5 w-5 text-amber-500" />
+          <CircleDollarSign className="h-5 w-5 text-emerald-600" />
           <span className="text-xl font-bold">{balance.toLocaleString()}</span>
           <span className="text-sm text-muted-foreground">coins</span>
         </div>
@@ -172,37 +176,47 @@ export function StoreView() {
                 const canAfford = balance >= item.price;
 
                 return (
-                  <Card key={item.id} className="relative">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center mx-auto">
-                        <Icon className="h-8 w-8 text-muted-foreground" />
+                  <Card key={item.id} className="relative hover:shadow-md transition-all duration-300">
+                    <CardContent className="p-4 flex flex-col h-full">
+                      {/* Image container */}
+                      <div className={`rounded-2xl bg-secondary/30 border flex items-center justify-center overflow-hidden shrink-0 mb-3 group mx-auto ${
+                        item.type === 'AVATAR' ? 'aspect-square w-40 max-w-[85%]' : 'w-full aspect-video'
+                      }`}>
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        ) : (
+                          <Icon className="h-10 w-10 text-muted-foreground/30" />
+                        )}
                       </div>
-                      <div className="text-center">
+
+                      {/* Text details */}
+                      <div className="text-center flex-1">
                         <p className="font-semibold">{item.name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline" className="text-xs">{item.type.replace("_", " ")}</Badge>
-                        <div className="flex items-center gap-1">
-                          <Coins className="h-4 w-4 text-amber-500" />
-                          <span className="text-sm font-bold">{item.price}</span>
+
+                      {/* Footer: Price & Action */}
+                      <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                        <div className="flex items-center gap-1.5 pl-1">
+                          <CircleDollarSign className="h-4 w-4 text-emerald-600" />
+                          <span className="text-sm font-bold text-foreground">{item.price}</span>
                         </div>
+                        {owned ? (
+                          <Button variant="secondary" size="sm" disabled className="h-8 rounded-full px-4 text-xs">
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Đã sở hữu
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-8 rounded-full px-5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-sm"
+                            disabled={!canAfford}
+                            onClick={() => { setErrorMsg(null); setConfirmItem(item); }}
+                          >
+                            {!canAfford && <Lock className="h-3 w-3 mr-1" />}
+                            {canAfford ? "Buy Now" : "Thiếu xu"}
+                          </Button>
+                        )}
                       </div>
-                      {owned ? (
-                        <Button variant="outline" size="sm" className="w-full" disabled>
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Đã sở hữu
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          disabled={!canAfford}
-                          onClick={() => { setErrorMsg(null); setConfirmItem(item); }}
-                        >
-                          {!canAfford && <Lock className="h-3 w-3 mr-1" />}
-                          {canAfford ? "Buy Now" : "Not enough coins"}
-                        </Button>
-                      )}
                     </CardContent>
                   </Card>
                 );
@@ -218,10 +232,16 @@ export function StoreView() {
               const cfg = typeConfig[item.type] ?? { icon: Star, category: "other" };
               const Icon = cfg.icon;
               return (
-                <Card key={item.id}>
+                <Card key={item.id} className="hover:shadow-sm transition-all">
                   <CardContent className="p-4 flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                      <Icon className="h-6 w-6 text-muted-foreground" />
+                    <div className={`rounded-lg bg-secondary/30 border flex items-center justify-center shrink-0 overflow-hidden ${
+                      item.type === 'AVATAR' ? 'aspect-square h-14' : 'aspect-video h-14'
+                    }`}>
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Icon className="h-6 w-6 text-muted-foreground/50" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium">{item.name}</p>
@@ -263,21 +283,21 @@ export function StoreView() {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Your balance</span>
                 <div className="flex items-center gap-1">
-                  <Coins className="h-4 w-4 text-amber-500" />
+                  <CircleDollarSign className="h-4 w-4 text-emerald-600" />
                   <span className="font-medium">{balance}</span>
                 </div>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Item price</span>
                 <div className="flex items-center gap-1">
-                  <Coins className="h-4 w-4 text-amber-500" />
+                  <CircleDollarSign className="h-4 w-4 text-emerald-600" />
                   <span className="font-medium text-destructive">-{confirmItem.price}</span>
                 </div>
               </div>
               <div className="flex justify-between font-bold">
                 <span>After purchase</span>
                 <div className="flex items-center gap-1">
-                  <Coins className="h-4 w-4 text-amber-500" />
+                  <CircleDollarSign className="h-4 w-4 text-emerald-600" />
                   <span>{balance - confirmItem.price}</span>
                 </div>
               </div>

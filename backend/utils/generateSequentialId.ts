@@ -1,13 +1,10 @@
 import { pool } from '../config/mysql';
 
-/**
- * Tự động sinh ID tăng dần theo pattern: prefix_XX
- * Ví dụ: 'achievement_01', 'achievement_02', 'collection_03'
- *
- * @param prefix - Ví dụ: 'achievement', 'collection', 'item'
- * @param tableName - Tên bảng DB cần query
- * @param idColumn - Tên cột ID (default: 'id')
- */
+// Tự động sinh ID tăng dần theo pattern: prefix_XX
+// @param prefix - Ví dụ: 'achievement', 'collection', 'item'
+// @param tableName - Tên bảng DB cần query
+// @param idColumn - Tên cột ID (default: 'id')
+
 export const generateSequentialId = async (
     prefix: string,
     tableName: string,
