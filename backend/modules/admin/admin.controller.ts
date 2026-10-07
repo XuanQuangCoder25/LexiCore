@@ -140,3 +140,28 @@ export const getPendingCounts = async (req: Request, res: Response): Promise<voi
     );
     res.json({ success: true, data: rows[0] });
 };
+
+// USER MANAGEMENT (HR)
+
+export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
+    const [rows] = await db.execute(
+        `SELECT u.id, u.full_name, u.email, u.role, u.status, u.creator_status, u.created_at,
+                w.coin_balance, w.diamond_balance, w.level, w.rank_point
+         FROM users u
+         LEFT JOIN wallets w ON u.id = w.user_id
+         ORDER BY u.created_at DESC`
+    );
+    res.json({ success: true, data: rows });
+};
+
+export const banUser = async (req: Request, res: Response): Promise<void> => {
+    const { userId } = req.params;
+    await db.execute(`UPDATE users SET status = 'BANNED' WHERE id = ?`, [userId]);
+    res.json({ success: true, message: 'Đã khóa tài khoản người dùng.' });
+};
+
+export const unbanUser = async (req: Request, res: Response): Promise<void> => {
+    const { userId } = req.params;
+    await db.execute(`UPDATE users SET status = 'ACTIVE' WHERE id = ?`, [userId]);
+    res.json({ success: true, message: 'Đã mở khóa tài khoản người dùng.' });
+};

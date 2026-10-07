@@ -9,6 +9,9 @@ import {
     suspendCreator,
     reactivateCreator,
     getPendingCounts,
+    getAllUsers,
+    banUser,
+    unbanUser
 } from './admin.controller';
 
 const router = Router();
@@ -29,5 +32,10 @@ router.post('/creator-applications/:id/reject', rejectApplication);
 router.get('/creators', getCreators);
 router.post('/creators/:userId/suspend', suspendCreator);
 router.post('/creators/:userId/reactivate', reactivateCreator);
+
+// HR / User Management
+router.get('/users', getAllUsers);
+router.post('/users/:userId/ban', banUser);
+router.post('/users/:userId/unban', unbanUser);
 
 export default router;
