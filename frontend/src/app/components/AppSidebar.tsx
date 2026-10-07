@@ -20,7 +20,7 @@ import {
   Youtube,
   Zap,
   Swords,
-  ShoppingBag,
+  Store,
   FileEdit,
   ClipboardList,
   Crown,
@@ -52,7 +52,7 @@ const navigationItems = [
   { id: "arena", title: "PvP Arena", icon: Swords, description: "Battle Opponents" },
   { id: "community", title: "Community", icon: Users, description: "Connect & Share" },
   { id: "creator", title: "Creator Studio", icon: FileEdit, description: "Build Decks" },
-  { id: "store", title: "Store", icon: ShoppingBag, description: "Spend Coins" },
+  { id: "store", title: "Store", icon: Store, description: "Spend Coins" },
   { id: "achievements", title: "Achievements", icon: Trophy, description: "Goals & Rewards" },
 ];
 

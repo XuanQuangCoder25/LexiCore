@@ -5,7 +5,7 @@ import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Separator } from "../ui/separator";
-import { CircleDollarSign, ShoppingBag, Shield, Flame, Star, Frame, CheckCircle2, Lock, Gift, Loader2 } from "lucide-react";
+import { CircleDollarSign, ShoppingBag, Shield, Flame, Star, Frame, CheckCircle2, Lock, Store, Loader2 } from "lucide-react";
 
 interface StoreItem {
   id: string;
@@ -146,8 +146,8 @@ export function StoreView() {
 
       <Tabs defaultValue="store">
         <TabsList>
-          <TabsTrigger value="store"><ShoppingBag className="h-4 w-4 mr-2" />Store</TabsTrigger>
-          <TabsTrigger value="inventory"><Gift className="h-4 w-4 mr-2" />My Items</TabsTrigger>
+          <TabsTrigger value="store"><Store className="h-4 w-4 mr-2" />Store</TabsTrigger>
+          <TabsTrigger value="inventory"><ShoppingBag className="h-4 w-4 mr-2" />My Items</TabsTrigger>
         </TabsList>
 
         {/* STORE TAB */}
@@ -179,9 +179,8 @@ export function StoreView() {
                   <Card key={item.id} className="relative hover:shadow-md transition-all duration-300">
                     <CardContent className="p-4 flex flex-col h-full">
                       {/* Image container */}
-                      <div className={`rounded-2xl bg-secondary/30 border flex items-center justify-center overflow-hidden shrink-0 mb-3 group mx-auto ${
-                        item.type === 'AVATAR' ? 'aspect-square w-40 max-w-[85%]' : 'w-full aspect-video'
-                      }`}>
+                      <div className={`rounded-2xl bg-secondary/30 border flex items-center justify-center overflow-hidden shrink-0 mb-3 group mx-auto ${item.type === 'AVATAR' ? 'aspect-square w-40 max-w-[85%]' : 'w-full aspect-video'
+                        }`}>
                         {item.image_url ? (
                           <img src={item.image_url} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                         ) : (
@@ -234,9 +233,8 @@ export function StoreView() {
               return (
                 <Card key={item.id} className="hover:shadow-sm transition-all">
                   <CardContent className="p-4 flex items-center gap-4">
-                    <div className={`rounded-lg bg-secondary/30 border flex items-center justify-center shrink-0 overflow-hidden ${
-                      item.type === 'AVATAR' ? 'aspect-square h-14' : 'aspect-video h-14'
-                    }`}>
+                    <div className={`rounded-lg bg-secondary/30 border flex items-center justify-center shrink-0 overflow-hidden ${item.type === 'AVATAR' ? 'aspect-square h-14' : 'aspect-video h-14'
+                      }`}>
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
@@ -253,7 +251,7 @@ export function StoreView() {
             })}
             {inventory.length === 0 && (
               <div className="col-span-full text-center py-12">
-                <ShoppingBag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <Store className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="font-medium">No items yet</p>
                 <p className="text-sm text-muted-foreground">Purchase items from the store to see them here</p>
               </div>

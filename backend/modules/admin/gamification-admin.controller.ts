@@ -94,7 +94,8 @@ export const deleteAchievement = async (req: Request, res: Response): Promise<vo
 export const getAllCollections = async (req: Request, res: Response): Promise<void> => {
     const [rows] = await db.execute(
         `SELECT c.id, c.name, c.description, c.unlock_level, c.theme_color, c.is_deleted,
-                COUNT(i.id) as total_items
+                COUNT(i.id) as total_items,
+                (SELECT image_url FROM items WHERE collection_id = c.id AND image_url IS NOT NULL LIMIT 1) as image_url
          FROM collections c
          LEFT JOIN items i ON i.collection_id = c.id
          GROUP BY c.id
@@ -121,12 +122,20 @@ export const createCollection = async (req: Request, res: Response): Promise<voi
 
 export const updateCollection = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const { name, description, unlock_level, theme_color } = req.body;
+    const { name, description, unlock_level, theme_color, is_deleted } = req.body;
 
-    await db.execute(
-        `UPDATE collections SET name=?, description=?, unlock_level=?, theme_color=? WHERE id=? AND is_deleted = FALSE`,
-        [name, description, unlock_level, theme_color, id]
-    );
+    let query = `UPDATE collections SET name=?, description=?, unlock_level=?, theme_color=?`;
+    const params: any[] = [name, description, unlock_level, theme_color];
+    
+    if (is_deleted !== undefined) {
+        query += `, is_deleted=?`;
+        params.push(is_deleted);
+    }
+    
+    query += ` WHERE id=?`;
+    params.push(id);
+
+    await db.execute(query, params);
     res.json({ success: true, message: 'Đã cập nhật Collection.' });
 };
 
@@ -134,6 +143,12 @@ export const deleteCollection = async (req: Request, res: Response): Promise<voi
     const { id } = req.params;
     await db.execute(`UPDATE collections SET is_deleted = TRUE WHERE id = ?`, [id]);
     res.json({ success: true, message: 'Đã xóa mềm Collection.' });
+};
+
+export const toggleCollectionActive = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    await db.execute(`UPDATE collections SET is_deleted = NOT is_deleted WHERE id = ?`, [id]);
+    res.json({ success: true, message: 'Đã thay đổi trạng thái Collection.' });
 };
 
 // ITEMS CRUD

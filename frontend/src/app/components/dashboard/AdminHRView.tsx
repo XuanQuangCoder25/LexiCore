@@ -118,7 +118,7 @@ export function AdminHRView() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 p-6 rounded-2xl border bg-card shadow-sm flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Human Resources</h1>
           <p className="text-muted-foreground mt-1">Quản lý toàn bộ Người dùng và Content Creators trong hệ thống.</p>
@@ -132,7 +132,7 @@ export function AdminHRView() {
           <TabsTrigger value="creators">Creators</TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="bg-card border rounded-xl shadow-sm">
+        <TabsContent value={activeTab} className="bg-card border rounded-xl shadow-sm overflow-hidden">
           {filteredUsers.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -142,17 +142,17 @@ export function AdminHRView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Người dùng</TableHead>
+                  <TableHead className="pl-6">Người dùng</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Vai trò</TableHead>
                   <TableHead>Trạng thái</TableHead>
-                  <TableHead className="text-right">Hành động</TableHead>
+                  <TableHead className="text-right pr-6">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium pl-6">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                           {user.full_name.charAt(0).toUpperCase()}
@@ -163,7 +163,7 @@ export function AdminHRView() {
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>{getStatusBadge(user)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right pr-6">
                       <Button variant="secondary" size="sm" onClick={() => setSelectedUser(user)}>
                         Chi tiết
                       </Button>

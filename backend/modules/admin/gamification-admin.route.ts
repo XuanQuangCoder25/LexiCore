@@ -4,7 +4,7 @@ import { requireRole } from '../../middlewares/requireRole';
 import {
     getAllGoals, toggleGoalActive,
     getAllAchievements, createAchievement, updateAchievement, deleteAchievement,
-    getAllCollections, createCollection, updateCollection, deleteCollection,
+    getAllCollections, createCollection, updateCollection, deleteCollection, toggleCollectionActive,
     getAllItems, createItem, updateItem, toggleItemActive
 } from './gamification-admin.controller';
 
@@ -28,6 +28,7 @@ router.get('/collections', getAllCollections);
 router.post('/collections', createCollection);
 router.put('/collections/:id', updateCollection);
 router.delete('/collections/:id', deleteCollection);
+router.put('/collections/:id/toggle', toggleCollectionActive);
 
 // Items
 router.get('/items', getAllItems);

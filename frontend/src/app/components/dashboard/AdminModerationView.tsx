@@ -111,7 +111,7 @@ export function AdminModerationView() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 p-6 rounded-2xl border bg-card shadow-sm flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Moderation</h1>
           <p className="text-muted-foreground mt-1">Quản lý kiểm duyệt ứng viên Creator và nội dung vi phạm.</p>
@@ -132,7 +132,7 @@ export function AdminModerationView() {
           <TabsTrigger value="reports">Báo cáo vi phạm</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pending" className="bg-card border rounded-xl shadow-sm">
+        <TabsContent value="pending" className="bg-card border rounded-xl shadow-sm overflow-hidden">
           {pendingApps.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <ShieldAlert className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -142,17 +142,17 @@ export function AdminModerationView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ứng viên</TableHead>
+                  <TableHead className="pl-6">Ứng viên</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Ngày nộp</TableHead>
                   <TableHead>Lý do (Tóm tắt)</TableHead>
-                  <TableHead className="text-right">Hành động</TableHead>
+                  <TableHead className="text-right pr-6">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pendingApps.map((app) => (
                   <TableRow key={app.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium pl-6">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                           {app.full_name.charAt(0).toUpperCase()}
@@ -163,7 +163,7 @@ export function AdminModerationView() {
                     <TableCell className="text-muted-foreground">{app.email}</TableCell>
                     <TableCell>{new Date(app.created_at).toLocaleDateString("vi-VN")}</TableCell>
                     <TableCell className="max-w-[200px] truncate text-muted-foreground">{app.reason}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right pr-6">
                       <Button variant="secondary" size="sm" onClick={() => setSelectedApp(app)}>
                         <Eye className="w-4 h-4 mr-1.5" /> Xem chi tiết
                       </Button>
@@ -175,7 +175,7 @@ export function AdminModerationView() {
           )}
         </TabsContent>
 
-        <TabsContent value="processed" className="bg-card border rounded-xl shadow-sm">
+        <TabsContent value="processed" className="bg-card border rounded-xl shadow-sm overflow-hidden">
           {processedApps.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <p>Chưa có lịch sử xử lý đơn nào.</p>
@@ -184,21 +184,21 @@ export function AdminModerationView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Ứng viên</TableHead>
+                  <TableHead className="pl-6">Ứng viên</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Ngày nộp</TableHead>
                   <TableHead>Trạng thái</TableHead>
-                  <TableHead className="text-right">Hành động</TableHead>
+                  <TableHead className="text-right pr-6">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {processedApps.map((app) => (
                   <TableRow key={app.id}>
-                    <TableCell className="font-medium">{app.full_name}</TableCell>
+                    <TableCell className="font-medium pl-6">{app.full_name}</TableCell>
                     <TableCell className="text-muted-foreground">{app.email}</TableCell>
                     <TableCell>{new Date(app.created_at).toLocaleDateString("vi-VN")}</TableCell>
                     <TableCell>{getStatusBadge(app.status)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right pr-6">
                       <Button variant="ghost" size="sm" onClick={() => setSelectedApp(app)}>
                         Chi tiết
                       </Button>

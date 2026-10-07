@@ -1,655 +1,699 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Switch } from "../ui/switch";
 import {
   Shield,
-  Frame,
-  Plus,
+  Image as ImageIcon,
+  Store,
+  Eye,
   Pencil,
-  Trash2,
-  RotateCcw,
   Loader2,
-  ShoppingBag,
-  PackageX,
+  Package,
+  Trophy,
+  Target,
+  BookImage,
 } from "lucide-react";
 
 const API_BASE = "";
 
-// ============================================================
-// TYPES
-// ============================================================
 interface AdminItem {
   id: string;
   name: string;
   description: string;
   price: number;
-  type: "STREAK_FREEZE" | "AVATAR_FRAME";
+  price_type: "COIN" | "DIAMOND";
+  type: string;
   is_active: boolean | number;
-  created_at: string;
+  image_url?: string;
+  collection_id?: string;
+  collection_name?: string;
+  required_level?: number;
 }
 
-interface ItemFormData {
+interface AdminCollection {
+  id: string;
   name: string;
-  type: "STREAK_FREEZE" | "AVATAR_FRAME";
-  price: string;
   description: string;
+  unlock_level: number;
+  theme_color: string;
+  is_deleted: boolean | number;
+  total_items: number;
+  image_url?: string;
 }
 
-const EMPTY_FORM: ItemFormData = {
-  name: "",
-  type: "STREAK_FREEZE",
-  price: "",
-  description: "",
+const TYPE_LABELS: Record<string, string> = {
+  STREAK_FREEZE: "Streak Freeze",
+  AVATAR: "Avatar",
+  COVER_PHOTO: "Ảnh bìa",
 };
 
-const typeConfig: Record<string, { icon: React.ComponentType<React.SVGProps<SVGSVGElement>> }> = {
-  STREAK_FREEZE: { icon: Shield },
-  AVATAR_FRAME: { icon: Frame },
+const TYPE_ICONS: Record<string, React.ComponentType<any>> = {
+  STREAK_FREEZE: Shield,
+  AVATAR: ImageIcon,
+  COVER_PHOTO: ImageIcon,
 };
 
-// ============================================================
-// COMPONENT
-// ============================================================
 export function AdminView() {
+  const [activeTab, setActiveTab] = useState("items");
   const [items, setItems] = useState<AdminItem[]>([]);
+  const [collections, setCollections] = useState<AdminCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Dialog state
-  const [dialogMode, setDialogMode] = useState<"add" | "edit" | null>(null);
-  const [editingItem, setEditingItem] = useState<AdminItem | null>(null);
-  const [form, setForm] = useState<ItemFormData>(EMPTY_FORM);
+  // Item state
+  const [selectedItem, setSelectedItem] = useState<AdminItem | null>(null);
+  const [editFields, setEditFields] = useState<Partial<AdminItem>>({});
+  const [isEditing, setIsEditing] = useState<Record<string, boolean>>({});
+  const [imgAspect, setImgAspect] = useState<'landscape' | 'square' | null>(null);
 
-  // Confirm delete dialog
-  const [deleteTarget, setDeleteTarget] = useState<AdminItem | null>(null);
+  // Collection state
+  const [selectedCollection, setSelectedCollection] = useState<AdminCollection | null>(null);
+  const [editCollectionFields, setEditCollectionFields] = useState<Partial<AdminCollection>>({});
+  const [isEditingCollection, setIsEditingCollection] = useState<Record<string, boolean>>({});
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
-  const fetchItems = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    setErrorMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/gamification/items`, {
-        credentials: "include",
-      });
-      if (res.status === 403) {
-        setErrorMsg("Bạn không có quyền truy cập trang này.");
-        return;
-      }
-      const data = await res.json();
-      setItems(Array.isArray(data.data) ? data.data : []);
+      const [resItems, resColls] = await Promise.all([
+        fetch(`${API_BASE}/api/admin/gamification/items`, { credentials: "include" }),
+        fetch(`${API_BASE}/api/admin/gamification/collections`, { credentials: "include" })
+      ]);
+      const dataItems = await resItems.json();
+      const dataColls = await resColls.json();
+      setItems(Array.isArray(dataItems.data) ? dataItems.data : []);
+      setCollections(Array.isArray(dataColls.data) ? dataColls.data : []);
     } catch {
-      setErrorMsg("Không thể tải dữ liệu. Vui lòng thử lại.");
+      // silent
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── ADD ────────────────────────────────────────────────────
-  const openAddDialog = () => {
-    setForm(EMPTY_FORM);
-    setEditingItem(null);
-    setDialogMode("add");
+  const openDetail = (item: AdminItem) => {
+    setSelectedItem(item);
+    setEditFields({ ...item });
+    setIsEditing({});
+    setImgAspect(null);
   };
 
-  // ── EDIT ───────────────────────────────────────────────────
-  const openEditDialog = (item: AdminItem) => {
-    setEditingItem(item);
-    setForm({
-      name: item.name,
-      type: item.type,
-      price: String(item.price),
-      description: item.description,
-    });
-    setDialogMode("edit");
+  const closeDetail = () => {
+    setSelectedItem(null);
+    setEditFields({});
+    setIsEditing({});
   };
 
-  // ── SAVE (Add hoặc Edit) ───────────────────────────────────
-  const handleSave = async () => {
-    if (!form.name || !form.type || !form.price) {
-      setErrorMsg("Vui lòng điền đầy đủ tên, loại và giá.");
-      return;
-    }
-    setSaving(true);
-    setErrorMsg(null);
+  const openCollectionDetail = (coll: AdminCollection) => {
+    setSelectedCollection(coll);
+    setEditCollectionFields({ ...coll });
+    setIsEditingCollection({});
+  };
+
+  const closeCollectionDetail = () => {
+    setSelectedCollection(null);
+    setEditCollectionFields({});
+    setIsEditingCollection({});
+  };
+
+  const handleToggleActive = async (item: AdminItem) => {
     try {
-      const body = {
-        name: form.name,
-        type: form.type,
-        price: Number(form.price),
-        description: form.description,
-      };
+      await fetch(`${API_BASE}/api/admin/gamification/items/${item.id}/toggle`, {
+        method: "PUT",
+        credentials: "include",
+      });
+      const newActive = !(item.is_active == 1 || item.is_active === true);
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_active: newActive } : i));
+      if (selectedItem?.id === item.id) {
+        const updated = { ...selectedItem, is_active: newActive };
+        setSelectedItem(updated);
+        setEditFields(f => ({ ...f, is_active: newActive }));
+      }
+      showSuccess(newActive ? `Đã mở bán "${item.name}".` : `Đã ngưng bán "${item.name}".`);
+    } catch {
+      alert("Lỗi kết nối.");
+    }
+  };
 
-      const url =
-        dialogMode === "edit"
-          ? `${API_BASE}/api/admin/gamification/items/${editingItem!.id}`
-          : `${API_BASE}/api/admin/gamification/items`;
-
-      const res = await fetch(url, {
-        method: dialogMode === "edit" ? "PUT" : "POST",
+  const handleSaveField = async () => {
+    if (!selectedItem) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/items/${selectedItem.id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          name: editFields.name,
+          type: editFields.type,
+          price: editFields.price,
+          price_type: editFields.price_type,
+          description: editFields.description,
+          image_url: editFields.image_url,
+          required_level: editFields.required_level,
+          collection_id: editFields.collection_id,
+          is_active: editFields.is_active !== undefined ? editFields.is_active : selectedItem.is_active,
+        }),
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.message || "Thao tác thất bại.");
+      if (res.ok) {
+        await fetchData();
+        setIsEditing({});
+        const merged = { ...selectedItem, ...editFields } as AdminItem;
+        setSelectedItem(merged);
+        showSuccess("Đã lưu thay đổi.");
+        closeDetail();
       } else {
-        setDialogMode(null);
-        showSuccess(
-          dialogMode === "edit"
-            ? `Đã cập nhật vật phẩm "${form.name}".`
-            : `Đã thêm vật phẩm "${form.name}" thành công.`
-        );
-        await fetchItems();
+        const d = await res.json();
+        alert(d.message || "Lỗi lưu.");
       }
     } catch {
-      setErrorMsg("Lỗi kết nối, vui lòng thử lại.");
+      alert("Lỗi kết nối.");
     } finally {
       setSaving(false);
     }
   };
 
-  // ── TOGGLE ACTIVE (Ẩn / Hiện) ────────────────────────────
-  const handleDeactivate = async (item: AdminItem) => {
+  const handleSaveCollectionField = async () => {
+    if (!selectedCollection) return;
+    setSaving(true);
     try {
-      await fetch(`${API_BASE}/api/admin/gamification/items/${item.id}/toggle`, {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/collections/${selectedCollection.id}`, {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({
+          name: editCollectionFields.name,
+          description: editCollectionFields.description,
+          unlock_level: editCollectionFields.unlock_level,
+          theme_color: editCollectionFields.theme_color,
+          is_deleted: editCollectionFields.is_deleted !== undefined ? editCollectionFields.is_deleted : selectedCollection.is_deleted,
+        }),
       });
-      setDeleteTarget(null);
-      showSuccess(`Đã ngưng bán vật phẩm "${item.name}".`);
-      await fetchItems();
+      if (res.ok) {
+        await fetchData();
+        setIsEditingCollection({});
+        const merged = { ...selectedCollection, ...editCollectionFields } as AdminCollection;
+        setSelectedCollection(merged);
+        showSuccess("Đã lưu bộ sưu tập.");
+        closeCollectionDetail();
+      } else {
+        const d = await res.json();
+        alert(d.message || "Lỗi lưu.");
+      }
     } catch {
-      setErrorMsg("Lỗi kết nối, vui lòng thử lại.");
+      alert("Lỗi kết nối.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const handleCreateCollectionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/collections`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: editCollectionFields.name,
+          description: editCollectionFields.description,
+          unlock_level: editCollectionFields.unlock_level || 1,
+          theme_color: editCollectionFields.theme_color || "#3b82f6",
+        }),
+      });
+      if (res.ok) {
+        showSuccess("Đã thêm bộ sưu tập.");
+        setIsCreatingCollection(false);
+        setEditCollectionFields({});
+        fetchData();
+      } else {
+        const d = await res.json();
+        alert(d.message || "Lỗi tạo.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  // ── ACTIVATE (Mở bán lại) — dùng chung endpoint toggle ───
-  const handleActivate = async (item: AdminItem) => {
-    try {
-      await fetch(`${API_BASE}/api/admin/gamification/items/${item.id}/toggle`, {
-        method: "PUT",
-        credentials: "include",
-      });
-      showSuccess(`Đã mở bán lại vật phẩm "${item.name}".`);
-      await fetchItems();
-    } catch {
-      setErrorMsg("Lỗi kết nối, vui lòng thử lại.");
-    }
+  const isActive = (item: AdminItem) => item.is_active == 1 || item.is_active === true;
+
+  const getStatusBadge = (item: AdminItem) => isActive(item)
+    ? <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang bán</Badge>
+    : <Badge variant="outline" className="text-muted-foreground border-muted-foreground/40 bg-muted/30">Ngưng bán</Badge>;
+
+  const getTypeIcon = (type: string) => {
+    const Icon = TYPE_ICONS[type] ?? Store;
+    return <Icon className="w-4 h-4" />;
   };
-
-  // ── RENDER ─────────────────────────────────────────────────
-  const isDark = document.documentElement.classList.contains("dark");
-
-  // Light Mode — Soft Blue Mist
-  const L = {
-    pageBg: "linear-gradient(135deg, #f3f7ff 0%, #eef3ff 50%, #f7f3ff 100%)",
-    card: "rgba(255,255,255,0.88)",
-    border: "rgba(37,99,235,0.12)",
-    title: "#0f172a",
-    sub: "#2563eb",
-    muted: "#64748b",
-    badge: "rgba(37,99,235,0.08)",
-    divider: "rgba(0,0,0,0.06)",
-    btnGrad: "linear-gradient(90deg, #0b5cff 0%, #1f58ff 60%, #7c3aed 100%)",
-  };
-
-  // Dark Mode — Deep Space (from AdminView2 / commit cb37607)
-  const D = {
-    pageBg: "#080714",
-    card: "#100e24",
-    cardAlt: "#0d0c1e",
-    headerGrad: "linear-gradient(135deg, #1a1040 0%, #0f0c2e 50%, #0a1628 100%)",
-    border: "rgba(167,139,250,0.18)",
-    borderHard: "rgba(167,139,250,0.35)",
-    title: "#f8fafc",
-    sub: "#c4b5fd",       // lavender
-    violet: "#a78bfa",
-    blue: "#93c5fd",
-    muted: "#94a3b8",
-    dimmed: "#4b5563",
-    badge: "rgba(196,181,253,0.1)",
-    badgeHover: "rgba(196,181,253,0.18)",
-    blueBg: "rgba(147,197,253,0.1)",
-    divider: "rgba(167,139,250,0.18)",
-    btnGrad: "linear-gradient(135deg, #7c3aed, #4f46e5)",
-    inputBg: "#12102a",
-    redBg: "rgba(239,68,68,0.12)",
-    redBorder: "rgba(239,68,68,0.3)",
-    red: "#f87171",
-  };
-
-  // Derived tokens — switch by theme
-  const pg = isDark ? D.pageBg : L.pageBg;
-  const card = isDark ? D.card : L.card;
-  const cb = isDark ? D.border : L.border;
-  const tt = isDark ? D.title : L.title;
-  const sub = isDark ? D.sub : L.sub;
-  const muted = isDark ? D.muted : L.muted;
-  const badge = isDark ? D.badge : L.badge;
-  const div = isDark ? D.divider : L.divider;
-  const btnGrad = isDark ? D.btnGrad : L.btnGrad;
-  const shadow = isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(37,99,235,0.06)";
 
   if (loading) {
     return (
-      <div
-        className="min-h-full -m-6 flex items-center justify-center"
-        style={{ background: pg }}
-      >
-        <Loader2 className="h-8 w-8 animate-spin" style={{ color: sub }} />
+      <div className="p-8 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  const activeItems = items.filter((i) => i.is_active == 1 || i.is_active === true);
-  const inactiveItems = items.filter((i) => i.is_active == 0 || i.is_active === false);
-
   return (
-    <div
-      className="min-h-full -m-6 p-6 space-y-5"
-      style={{ background: pg }}
-    >
-      {/* ── Hero Header ── */}
-      <div
-        className="rounded-2xl p-6 flex items-center justify-between relative overflow-hidden"
-        style={{
-          background: isDark ? D.headerGrad : card,
-          border: `1px solid ${cb}`,
-          boxShadow: shadow,
-        }}
-      >
-        {/* decorative glow blobs — dark only */}
-        {isDark && (
-          <>
-            <div className="absolute -top-12 -left-12 w-48 h-48 rounded-full blur-3xl pointer-events-none"
-              style={{ background: "radial-gradient(circle, rgba(124,58,237,0.35), transparent)" }} />
-            <div className="absolute -bottom-10 right-20 w-40 h-40 rounded-full blur-3xl pointer-events-none"
-              style={{ background: "radial-gradient(circle, rgba(79,70,229,0.25), transparent)" }} />
-          </>
-        )}
-
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold tracking-widest uppercase px-2 py-0.5 rounded-full"
-              style={{ background: badge, color: sub, border: `1px solid ${cb}` }}>
-              Admin
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold" style={{ color: tt }}>Quản lý Cửa hàng</h1>
-          <p className="text-sm mt-1" style={{ color: muted }}>
-            {items.length} vật phẩm tổng cộng ·{" "}
-            <span style={{ color: sub, fontWeight: 600 }}>{activeItems.length} đang bán</span>
-            {inactiveItems.length > 0 && (
-              <span style={{ color: isDark ? D.dimmed : muted }}> · {inactiveItems.length} đã ngưng</span>
-            )}
-          </p>
-        </div>
-
-        <button
-          onClick={openAddDialog}
-          className="relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110 active:scale-95"
-          style={{
-            background: btnGrad,
-            color: isDark ? D.title : "#fff",
-            boxShadow: isDark ? "0 0 20px rgba(124,58,237,0.4)" : "0 4px 12px rgba(37,99,235,0.25)",
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          Thêm vật phẩm
-        </button>
-      </div>
-
-      {/* ── Thông báo ── */}
-      {successMsg && (
-        <div className="px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2"
-          style={{
-            background: isDark ? D.badge : "rgba(16,185,129,0.08)",
-            border: `1px solid ${isDark ? D.borderHard : "rgba(16,185,129,0.2)"}`,
-            color: isDark ? D.sub : "#059669",
-          }}>
-          <span>✓</span> {successMsg}
-        </div>
-      )}
-      {errorMsg && !dialogMode && (
-        <div className="px-4 py-3 rounded-xl text-sm font-medium"
-          style={{
-            background: isDark ? D.redBg : "rgba(239,68,68,0.08)",
-            border: `1px solid ${isDark ? D.redBorder : "rgba(239,68,68,0.2)"}`,
-            color: isDark ? D.red : "#dc2626",
-          }}>
-          {errorMsg}
-        </div>
-      )}
-
-      {/* ── Bảng đang bán ── */}
-      <div className="rounded-2xl overflow-hidden"
-        style={{ background: card, border: `1px solid ${cb}`, boxShadow: shadow }}>
-
-        {/* Section header */}
-        <div className="px-6 py-4 flex items-center gap-3"
-          style={{ borderBottom: `1px solid ${div}` }}>
-          <div className="h-8 w-8 rounded-lg flex items-center justify-center"
-            style={{ background: badge }}>
-            <ShoppingBag className="h-4 w-4" style={{ color: sub }} />
-          </div>
-          <span className="font-semibold text-sm" style={{ color: tt }}>
-            Đang bán
-          </span>
-          <span className="px-2 py-0.5 rounded-full text-xs font-bold"
-            style={{ background: badge, color: sub }}>
-            {activeItems.length}
-          </span>
-        </div>
-
-        {activeItems.length === 0 && (
-          <p className="text-center py-12 text-sm" style={{ color: isDark ? D.dimmed : muted }}>
-            Chưa có vật phẩm nào đang bán.
-          </p>
-        )}
-
+    <div className="p-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-6 p-6 rounded-2xl border bg-card shadow-sm flex items-center justify-between">
         <div>
-          {activeItems.map((item, idx) => {
-            const Icon = typeConfig[item.type]?.icon ?? ShoppingBag;
-            return (
-              <div
-                key={item.id}
-                className="flex items-center gap-4 px-6 py-4 transition-colors cursor-default"
-                style={{ borderTop: idx > 0 ? `1px solid ${div}` : "none" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? "rgba(167,139,250,0.05)" : "rgba(37,99,235,0.03)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                {/* Icon */}
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: badge, border: isDark ? `1px solid ${cb}` : "none" }}>
-                  <Icon className="h-5 w-5" style={{ color: sub }} />
-                </div>
-
-                {/* Name */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm" style={{ color: tt }}>{item.name}</p>
-                  <p className="text-xs truncate mt-0.5" style={{ color: isDark ? D.dimmed : muted }}>
-                    {item.description || "\u2014"}
-                  </p>
-                </div>
-
-                {/* Type badge */}
-                <span className="text-xs px-2.5 py-1 rounded-full font-medium shrink-0 tracking-wide"
-                  style={{
-                    background: isDark ? D.blueBg : badge,
-                    color: isDark ? D.blue : sub,
-                    border: isDark ? "1px solid rgba(147,197,253,0.2)" : "none",
-                  }}>
-                  {item.type.replace("_", " ")}
-                </span>
-
-                {/* Price */}
-                <span className="text-sm font-bold shrink-0 w-20 text-right" style={{ color: sub }}>
-                  {item.price.toLocaleString()} xu
-                </span>
-
-                {/* Actions */}
-                <div className="flex gap-2 shrink-0">
-                  <button onClick={() => openEditDialog(item)}
-                    className="h-8 w-8 rounded-lg flex items-center justify-center transition-all"
-                    style={{ background: badge, color: isDark ? D.violet : sub }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? D.badgeHover : "rgba(37,99,235,0.15)"; if (isDark) e.currentTarget.style.boxShadow = "0 0 10px rgba(167,139,250,0.3)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = badge; e.currentTarget.style.boxShadow = "none"; }}
-                    title="Sửa">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => setDeleteTarget(item)}
-                    className="h-8 w-8 rounded-lg flex items-center justify-center transition-all"
-                    style={{
-                      background: isDark ? D.redBg : "rgba(239,68,68,0.08)",
-                      color: isDark ? D.red : "#dc2626",
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(239,68,68,0.2)" : "rgba(239,68,68,0.15)"; if (isDark) e.currentTarget.style.boxShadow = "0 0 10px rgba(239,68,68,0.25)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = isDark ? D.redBg : "rgba(239,68,68,0.08)"; e.currentTarget.style.boxShadow = "none"; }}
-                    title="Ngưng bán">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          <h1 className="text-3xl font-bold tracking-tight">Gamification & Economy</h1>
+          <p className="text-muted-foreground mt-1">Quản lý cửa hàng, bộ sưu tập, nhiệm vụ và thành tựu trong hệ thống.</p>
+        </div>
+        <div className="flex gap-3">
+          {activeTab === "collections" && (
+            <Button onClick={() => setIsCreatingCollection(true)}>Thêm Bộ Sưu Tập</Button>
+          )}
+          {activeTab === "items" && (
+            <Button>Thêm Vật Phẩm</Button>
+          )}
         </div>
       </div>
 
-      {/* ── Bảng đã ngưng bán ── */}
-      {inactiveItems.length > 0 && (
-        <div className="rounded-2xl overflow-hidden"
-          style={{
-            background: isDark ? D.cardAlt : "rgba(255,255,255,0.55)",
-            border: `1px solid ${isDark ? "rgba(167,139,250,0.08)" : div}`,
-          }}>
-          <div className="px-6 py-4 flex items-center gap-3"
-            style={{ borderBottom: `1px solid ${isDark ? "rgba(167,139,250,0.08)" : div}` }}>
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center"
-              style={{ background: isDark ? "rgba(75,85,99,0.2)" : div }}>
-              <PackageX className="h-4 w-4" style={{ color: isDark ? D.dimmed : muted }} />
-            </div>
-            <span className="font-semibold text-sm" style={{ color: isDark ? D.dimmed : muted }}>
-              Đã ngưng bán
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-xs"
-              style={{ background: isDark ? "rgba(75,85,99,0.2)" : div, color: isDark ? D.dimmed : muted }}>
-              {inactiveItems.length}
-            </span>
-          </div>
-
-          <div>
-            {inactiveItems.map((item, idx) => {
-              const Icon = typeConfig[item.type]?.icon ?? ShoppingBag;
-              return (
-                <div key={item.id}
-                  className="flex items-center gap-4 px-6 py-4 opacity-50 hover:opacity-75 transition-opacity"
-                  style={{ borderTop: idx > 0 ? `1px solid ${isDark ? "rgba(167,139,250,0.06)" : div}` : "none" }}>
-                  <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: isDark ? "rgba(75,85,99,0.15)" : div }}>
-                    <Icon className="h-5 w-5" style={{ color: isDark ? D.dimmed : muted }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm line-through" style={{ color: isDark ? D.dimmed : muted }}>{item.name}</p>
-                    <p className="text-xs truncate mt-0.5" style={{ color: isDark ? "#374151" : muted }}>{item.description || "\u2014"}</p>
-                  </div>
-                  <span className="text-xs px-2.5 py-1 rounded-full shrink-0"
-                    style={{ background: isDark ? "rgba(75,85,99,0.15)" : div, color: isDark ? D.dimmed : muted }}>
-                    {item.type.replace("_", " ")}
-                  </span>
-                  <span className="text-sm shrink-0 w-20 text-right" style={{ color: isDark ? D.dimmed : muted }}>
-                    {item.price.toLocaleString()} xu
-                  </span>
-                  <button onClick={() => handleActivate(item)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-all"
-                    style={{ background: badge, color: isDark ? D.violet : sub }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = isDark ? D.badgeHover : "rgba(37,99,235,0.15)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = badge)}>
-                    <RotateCcw className="h-3 w-3" />
-                    Mở lại
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+      {successMsg && (
+        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-600">
+          ✓ {successMsg}
         </div>
       )}
 
-      {/* ── Dialog Thêm / Sửa ── */}
-      <Dialog
-        open={dialogMode !== null}
-        onOpenChange={(open) => { if (!open) { setDialogMode(null); setErrorMsg(null); } }}
-      >
-        <DialogContent
-          className="max-w-md"
-          aria-describedby={undefined}
-          style={{
-            background: isDark ? D.cardAlt : card,
-            border: `1px solid ${isDark ? D.borderHard : cb}`,
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle style={{ color: tt }}>
-              {dialogMode === "add" ? "Thêm vật phẩm mới" : `Sửa: ${editingItem?.name}`}
-            </DialogTitle>
-          </DialogHeader>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-muted">
+          <TabsTrigger value="items">
+            <Store className="w-4 h-4 mr-1.5" /> Cửa hàng
+          </TabsTrigger>
+          <TabsTrigger value="collections">
+            <BookImage className="w-4 h-4 mr-1.5" /> Bộ sưu tập
+          </TabsTrigger>
+          <TabsTrigger value="quests">
+            <Target className="w-4 h-4 mr-1.5" /> Nhiệm vụ
+          </TabsTrigger>
+          <TabsTrigger value="achievements">
+            <Trophy className="w-4 h-4 mr-1.5" /> Thành tựu
+          </TabsTrigger>
+        </TabsList>
 
-          <div className="space-y-4 py-2">
-            {errorMsg && (
-              <p className="text-sm px-3 py-2 rounded-lg"
-                style={{
-                  background: isDark ? D.redBg : "rgba(239,68,68,0.08)",
-                  color: isDark ? D.red : "#dc2626",
-                  border: `1px solid ${isDark ? D.redBorder : "rgba(239,68,68,0.2)"}`,
-                }}>
-                {errorMsg}
-              </p>
-            )}
-
-            {[
-              { id: "item-name", label: "Tên vật phẩm", placeholder: "Ví dụ: Streak Freeze", field: "name" as const },
-              { id: "item-price", label: "Giá (xu)", placeholder: "Ví dụ: 50", field: "price" as const, type: "number" },
-              { id: "item-desc", label: "Mô tả", placeholder: "Mô tả ngắn về vật phẩm...", field: "description" as const },
-            ].map(({ id, label, placeholder, field, type }) => (
-              <div key={id} className="space-y-1.5">
-                <label htmlFor={id} className="text-sm font-medium" style={{ color: muted }}>{label}</label>
-                <input
-                  id={id}
-                  type={type ?? "text"}
-                  min={type === "number" ? 0 : undefined}
-                  placeholder={placeholder}
-                  value={form[field]}
-                  onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-all"
-                  style={{
-                    background: isDark ? D.inputBg : "rgba(37,99,235,0.04)",
-                    border: `1px solid ${cb}`,
-                    color: tt,
-                  }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = sub)}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = isDark ? D.border : L.border)}
-                />
+        {/* ── STORE ITEMS TAB ── */}
+        <TabsContent value="items">
+          <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
+            {items.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <p>Chưa có vật phẩm nào trong hệ thống.</p>
               </div>
-            ))}
-
-            <div className="space-y-1.5">
-              <label htmlFor="item-type" className="text-sm font-medium" style={{ color: muted }}>Loại</label>
-              <select
-                id="item-type"
-                value={form.type}
-                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as ItemFormData["type"] }))}
-                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{
-                  background: isDark ? D.inputBg : "rgba(37,99,235,0.04)",
-                  border: `1px solid ${cb}`,
-                  color: tt,
-                }}
-              >
-                <option value="STREAK_FREEZE" style={{ background: isDark ? D.cardAlt : "#fff" }}>Streak Freeze</option>
-                <option value="AVATAR_FRAME" style={{ background: isDark ? D.cardAlt : "#fff" }}>Avatar Frame</option>
-              </select>
-            </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-6">Vật phẩm</TableHead>
+                    <TableHead>Loại</TableHead>
+                    <TableHead>Giá</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead className="text-right pr-6">Hành động</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium pl-6">
+                        <div className="flex items-center gap-3">
+                          {item.image_url ? (
+                            <div className={`h-8 ${item.type === 'COVER_PHOTO' ? 'w-14' : 'w-8'} rounded-md overflow-hidden border shrink-0`}>
+                              <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className={`h-8 ${item.type === 'COVER_PHOTO' ? 'w-14' : 'w-8'} rounded-md bg-primary/10 flex items-center justify-center text-primary shrink-0`}>
+                              {getTypeIcon(item.type)}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-sm">{item.name}</p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description || "—"}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{TYPE_LABELS[item.type] ?? item.type}</Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        {item.price.toLocaleString()} {item.price_type === "DIAMOND" ? "💎" : "xu"}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(item)}</TableCell>
+                      <TableCell className="text-right pr-6">
+                        <Button variant="secondary" size="sm" onClick={() => openDetail(item)}>
+                          <Eye className="w-4 h-4 mr-1.5" /> Chi tiết
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
+        </TabsContent>
 
-          <DialogFooter>
-            <button
-              onClick={() => { setDialogMode(null); setErrorMsg(null); }}
-              disabled={saving}
-              className="px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-              style={{
-                background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
-                color: muted,
-                border: `1px solid ${cb}`,
-              }}
-            >
-              Huỷ
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:brightness-110"
-              style={{
-                background: btnGrad,
-                color: isDark ? D.title : "#fff",
-                boxShadow: isDark ? "0 0 16px rgba(124,58,237,0.35)" : "0 4px 12px rgba(37,99,235,0.25)",
-              }}
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {dialogMode === "add" ? "Thêm vật phẩm" : "Lưu thay đổi"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
+        {/* ── COLLECTIONS TAB ── */}
+        <TabsContent value="collections" className="bg-card border rounded-xl shadow-sm overflow-hidden">
+          {collections.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <BookImage className="w-12 h-12 mx-auto mb-3 opacity-20" />
+              <p>Chưa có bộ sưu tập nào.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-6">Bộ sưu tập</TableHead>
+                  <TableHead>Mô tả</TableHead>
+                  <TableHead>Level yêu cầu</TableHead>
+                  <TableHead>Vật phẩm</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                  <TableHead className="text-right pr-6">Hành động</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {collections.map((coll) => (
+                  <TableRow key={coll.id}>
+                    <TableCell className="font-medium pl-6">
+                      <div className="flex items-center gap-3">
+                        {coll.image_url ? (
+                          <div className="w-14 h-8 rounded-md overflow-hidden border shrink-0">
+                            <img src={coll.image_url} alt={coll.name} className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: coll.theme_color || "#3b82f6" }} />
+                        )}
+                        {coll.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate text-muted-foreground">{coll.description}</TableCell>
+                    <TableCell>Lv. {coll.unlock_level}</TableCell>
+                    <TableCell>{coll.total_items} món</TableCell>
+                    <TableCell>
+                      {coll.is_deleted ? (
+                        <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Đã xóa</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Hoạt động</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right pr-6">
+                      <Button variant="secondary" size="sm" onClick={() => openCollectionDetail(coll)}>
+                        <Eye className="w-4 h-4 mr-1.5" /> Chi tiết
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        <TabsContent value="quests" className="bg-card border rounded-xl shadow-sm">
+          <div className="text-center py-16 text-muted-foreground">
+            <Target className="w-12 h-12 mx-auto mb-3 opacity-20" />
+            <p>Quản lý nhiệm vụ Daily/Weekly sẽ hiển thị ở đây.</p>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="achievements" className="bg-card border rounded-xl shadow-sm">
+          <div className="text-center py-16 text-muted-foreground">
+            <Trophy className="w-12 h-12 mx-auto mb-3 opacity-20" />
+            <p>Quản lý thành tựu sẽ hiển thị ở đây.</p>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* ── ITEM DETAIL MODAL ── */}
+      <Dialog open={selectedItem !== null} onOpenChange={(open) => { if (!open) closeDetail(); }}>
+        {selectedItem && (
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                Chi tiết Vật phẩm
+                {getStatusBadge(selectedItem)}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-5 py-2">
+              {/* Image preview — responsive by aspect ratio */}
+              {editFields.image_url && (
+                <div className={[
+                  "overflow-hidden rounded-xl border transition-all",
+                  imgAspect === 'square'
+                    ? "h-36 w-36 mx-auto"
+                    : "h-36 w-full",
+                ].join(" ")}>
+                  <img
+                    src={editFields.image_url}
+                    alt={selectedItem.name}
+                    className="w-full h-full object-cover"
+                    onLoad={(e) => {
+                      const { naturalWidth, naturalHeight } = e.currentTarget;
+                      setImgAspect(naturalWidth / naturalHeight > 1.2 ? 'landscape' : 'square');
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Editable fields */}
+              {([
+                { label: "Tên vật phẩm", field: "name", type: "text" },
+                { label: "Mô tả", field: "description", type: "text" },
+                { label: "Loại", field: "type", type: "text" },
+                { label: "Giá", field: "price", type: "number" },
+                { label: "URL ảnh", field: "image_url", type: "text" },
+                { label: "Level yêu cầu", field: "required_level", type: "number" },
+              ] as { label: string; field: keyof AdminItem; type: string }[]).map(({ label, field, type }) => (
+                <div key={String(field)} className="flex flex-col gap-1.5 border-b pb-4 last:border-0">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+                  <div className="flex items-center gap-3">
+                    {isEditing[String(field)] ? (
+                      <input
+                        type={type}
+                        className="flex-1 bg-transparent border-b border-primary outline-none py-1 focus:border-primary text-sm font-medium"
+                        value={String(editFields[field] ?? "")}
+                        onChange={(e) => setEditFields(f => ({
+                          ...f,
+                          [field]: type === "number" ? Number(e.target.value) : e.target.value
+                        }))}
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="flex-1 text-sm font-medium break-all">{String(editFields[field] ?? "—")}</p>
+                    )}
+                    <button
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() => setIsEditing(e => ({ ...e, [String(field)]: !e[String(field)] }))}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Toggle bán / ngưng bán */}
+              <div className="pt-4 border-t">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Trạng thái kinh doanh</h3>
+                <div className="flex items-center justify-between bg-muted/40 border rounded-xl p-4">
+                  <div>
+                    <p className="font-medium">Đang bán trong cửa hàng</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Tắt để ẩn vật phẩm. Người dùng đã mua vẫn giữ được.</p>
+                  </div>
+                  <Switch
+                    checked={editFields.is_active !== undefined ? (editFields.is_active == 1 || editFields.is_active === true) : isActive(selectedItem)}
+                    onCheckedChange={(val) => setEditFields(f => ({ ...f, is_active: val }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="ghost" onClick={closeDetail}>Huỷ</Button>
+              <Button onClick={handleSaveField} disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
+                Lưu thay đổi
+              </Button>
+            </div>
+          </DialogContent>
+        )}
       </Dialog>
 
-      {/* ── Dialog xác nhận Ngưng bán ── */}
-      <Dialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
-      >
-        <DialogContent
-          className="max-w-sm"
-          aria-describedby={undefined}
-          style={{
-            background: isDark ? D.cardAlt : card,
-            border: `1px solid ${isDark ? D.redBorder : "rgba(239,68,68,0.2)"}`,
-          }}
-        >
+      {/* ── COLLECTION DETAIL MODAL ── */}
+      <Dialog open={selectedCollection !== null} onOpenChange={(open) => { if (!open) closeCollectionDetail(); }}>
+        {selectedCollection && (
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                Chi tiết Bộ sưu tập
+                {selectedCollection.is_deleted ? (
+                  <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Đã xóa</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Hoạt động</Badge>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-5 py-2">
+              <div className="flex items-center gap-4">
+                {selectedCollection.image_url ? (
+                  <div className="w-28 h-16 rounded-xl overflow-hidden border shadow-sm shrink-0">
+                    <img src={selectedCollection.image_url} alt={selectedCollection.name} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-xl shadow-sm border flex items-center justify-center font-bold text-white text-xl shrink-0" style={{ backgroundColor: selectedCollection.theme_color || "#3b82f6" }}>
+                    {selectedCollection.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-bold text-lg">{selectedCollection.name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedCollection.total_items} vật phẩm</p>
+                </div>
+              </div>
+
+              {([
+                { label: "Tên bộ sưu tập", field: "name", type: "text" },
+                { label: "Mô tả", field: "description", type: "text" },
+                { label: "Level yêu cầu", field: "unlock_level", type: "number" },
+                { label: "Mã màu chủ đề", field: "theme_color", type: "text" },
+              ] as { label: string; field: keyof AdminCollection; type: string }[]).map(({ label, field, type }) => (
+                <div key={field} className="flex flex-col gap-1.5 border-b pb-4 last:border-0">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+                  <div className="flex items-center gap-3">
+                    {isEditingCollection[field] ? (
+                      <input
+                        className="flex-1 bg-transparent border-b border-primary outline-none py-1 focus:border-primary text-sm font-medium"
+                        type={type}
+                        value={editCollectionFields[field] as any || ""}
+                        onChange={(e) => setEditCollectionFields(f => ({
+                          ...f,
+                          [field]: type === "number" ? Number(e.target.value) : e.target.value
+                        }))}
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="flex-1 flex items-center gap-2">
+                        {field === "theme_color" && (
+                          <div className="w-4 h-4 rounded-full border shadow-sm" style={{ backgroundColor: String(editCollectionFields[field]) }} />
+                        )}
+                        <p className="text-sm font-medium break-all">{String(editCollectionFields[field] ?? "—")}</p>
+                      </div>
+                    )}
+                    <button
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() => setIsEditingCollection(e => ({ ...e, [String(field)]: !e[String(field)] }))}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Toggle bán / ngưng bán */}
+              <div className="pt-4 border-t">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Trạng thái phát hành</h3>
+                <div className="flex items-center justify-between bg-muted/40 border rounded-xl p-4">
+                  <div>
+                    <p className="font-medium">Đang phát hành</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Tắt để ngưng phát hành bộ sưu tập này.</p>
+                  </div>
+                  <Switch
+                    checked={editCollectionFields.is_deleted !== undefined ? !editCollectionFields.is_deleted : !selectedCollection.is_deleted}
+                    onCheckedChange={(val) => setEditCollectionFields(f => ({ ...f, is_deleted: !val }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+              <Button variant="ghost" onClick={closeCollectionDetail}>Huỷ</Button>
+              <Button onClick={handleSaveCollectionField} disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
+                Lưu thay đổi
+              </Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* ── CREATE COLLECTION MODAL ── */}
+      <Dialog open={isCreatingCollection} onOpenChange={(open) => {
+        setIsCreatingCollection(open);
+        if (!open) setEditCollectionFields({});
+      }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle style={{ color: tt }}>Ngưng bán vật phẩm?</DialogTitle>
+            <DialogTitle>Thêm Bộ Sưu Tập Mới</DialogTitle>
           </DialogHeader>
-          <p className="text-sm" style={{ color: muted }}>
-            Vật phẩm{" "}
-            <span style={{ color: sub, fontWeight: 600 }}>"{deleteTarget?.name}"</span>{" "}
-            sẽ bị ẩn khỏi cửa hàng. Bạn có thể mở bán lại bất cứ lúc nào.
-          </p>
-          <DialogFooter>
-            <button
-              onClick={() => setDeleteTarget(null)}
-              className="px-4 py-2 rounded-xl text-sm font-medium"
-              style={{
-                background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
-                color: muted,
-                border: `1px solid ${cb}`,
-              }}
-            >
-              Huỷ
-            </button>
-            <button
-              onClick={() => deleteTarget && handleDeactivate(deleteTarget)}
-              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-              style={{ background: "linear-gradient(135deg, #b91c1c, #dc2626)", color: "#fff" }}
-            >
-              Ngưng bán
-            </button>
-          </DialogFooter>
+          <form onSubmit={handleCreateCollectionSubmit} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tên bộ sưu tập <span className="text-red-500">*</span></label>
+              <input
+                required
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                value={editCollectionFields.name || ""}
+                onChange={e => setEditCollectionFields(f => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mô tả</label>
+              <textarea
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                value={editCollectionFields.description || ""}
+                onChange={e => setEditCollectionFields(f => ({ ...f, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Level yêu cầu</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editCollectionFields.unlock_level || 1}
+                  onChange={e => setEditCollectionFields(f => ({ ...f, unlock_level: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Mã màu chủ đề</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    className="w-10 h-10 rounded-md border bg-background cursor-pointer"
+                    value={editCollectionFields.theme_color || "#3b82f6"}
+                    onChange={e => setEditCollectionFields(f => ({ ...f, theme_color: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    className="flex-1 p-2 rounded-md border bg-background text-sm uppercase"
+                    value={editCollectionFields.theme_color || "#3b82f6"}
+                    onChange={e => setEditCollectionFields(f => ({ ...f, theme_color: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end pt-4 gap-2">
+              <Button type="button" variant="ghost" onClick={() => setIsCreatingCollection(false)}>Hủy</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Tạo mới
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
