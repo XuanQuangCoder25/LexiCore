@@ -1,268 +1,221 @@
+import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
-import { Card, CardContent, CardFooter } from "../ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
-import { Clock, Star, Users, Search, Filter, ArrowRight } from "lucide-react";
-import { ImageWithFallback } from "../figma/ImageWithFallback";
+import { Clock, Users, Search, Play, BookOpen, AlertCircle } from "lucide-react";
+import { studentCourseService } from "../../services/student-course-service";
+import { LearningWorkspace } from "./LearningWorkspace";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { toast } from "sonner";
 
-const courses = [
-  {
-    id: 1,
-    title: "English for Beginners",
-    description: "Start your English journey with basic vocabulary and simple conversations",
-    level: "Beginner",
-    duration: "4 weeks",
-    students: "45k",
-    rating: 4.8,
-    progress: 0,
-    image: "https://images.unsplash.com/photo-1565022536102-f7645c84354a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbmdsaXNoJTIwbGFuZ3VhZ2UlMjBsZWFybmluZyUyMGJvb2tzfGVufDF8fHx8MTc1ODcyODYyMHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "bg-secondary text-secondary-foreground",
-    status: "available"
-  },
-  {
-    id: 2,
-    title: "Business English Mastery",
-    description: "Professional communication skills for workplace success",
-    level: "Intermediate",
-    duration: "6 weeks",
-    students: "32k",
-    rating: 4.9,
-    progress: 75,
-    image: "https://images.unsplash.com/photo-1758612214899-c1bb0bfae408?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBvbmxpbmUlMjBlZHVjYXRpb24lMjB3b3Jrc3BhY2V8ZW58MXx8fHwxNzU4Nzg0NTc3fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "bg-secondary text-secondary-foreground",
-    status: "in-progress"
-  },
-  {
-    id: 3,
-    title: "IELTS Preparation",
-    description: "Comprehensive preparation for all four IELTS test sections",
-    level: "Advanced",
-    duration: "8 weeks",
-    students: "28k",
-    rating: 4.7,
-    progress: 45,
-    image: "https://images.unsplash.com/photo-1729824186959-ba83cbd1978d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoYXBweSUyMHN0dWRlbnQlMjBzdHVkeWluZ3xlbnwxfHx8fDE3NTg3ODQ1Nzd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "bg-secondary text-secondary-foreground",
-    status: "in-progress"
-  },
-  {
-    id: 4,
-    title: "Conversational English",
-    description: "Master everyday conversations with native speakers",
-    level: "Intermediate",
-    duration: "5 weeks",
-    students: "38k",
-    rating: 4.8,
-    progress: 100,
-    image: "https://images.unsplash.com/photo-1673515334717-da4d85aaf38b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb252ZXJzYXRpb24lMjBwcmFjdGljZSUyMGxhbmd1YWdlJTIwbGVhcm5pbmd8ZW58MXx8fHwxNzU4Nzg0NTc4fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "bg-secondary text-secondary-foreground",
-    status: "completed"
-  },
-  {
-    id: 5,
-    title: "Academic Writing",
-    description: "Develop advanced writing skills for academic success",
-    level: "Advanced",
-    duration: "7 weeks",
-    students: "22k",
-    rating: 4.6,
-    progress: 0,
-    image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3cml0aW5nJTIwZGVza3xlbnwxfHx8fDE3NTg3ODQ1Nzh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "bg-secondary text-secondary-foreground",
-    status: "available"
-  },
-  {
-    id: 6,
-    title: "Pronunciation Perfect",
-    description: "Improve your accent and pronunciation with AI feedback",
-    level: "All Levels",
-    duration: "3 weeks",
-    students: "55k",
-    rating: 4.9,
-    progress: 0,
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtaWNyb3Bob25lJTIwcmVjb3JkaW5nfGVufDF8fHx8MTc1ODc4NDU3OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    color: "bg-secondary text-secondary-foreground",
-    status: "available"
+export const CoursesView = () => {
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  
+  // Navigation State
+  const [activeWorkspaceCourseId, setActiveWorkspaceCourseId] = useState<string | null>(null);
+  
+  // Course Details State
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [courseDetails, setCourseDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  useEffect(() => {
+    fetchCourses();
+  }, [search]);
+
+  const fetchCourses = async () => {
+    try {
+      const res = await studentCourseService.getPublishedCourses({ search });
+      if (res.status === 'success') {
+        setCourses(res.data);
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải khóa học:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenDetails = async (id: string) => {
+    setSelectedCourseId(id);
+    setDetailsLoading(true);
+    try {
+      const res = await studentCourseService.getCourseDetails(id);
+      if (res.status === 'success') {
+        setCourseDetails(res.data);
+      }
+    } catch (error) {
+      toast.error("Không thể tải chi tiết khóa học");
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleEnroll = async () => {
+    if (!selectedCourseId) return;
+    try {
+      const res = await studentCourseService.enrollCourse(selectedCourseId);
+      if (res.status === 'success') {
+        toast.success("Đăng ký thành công! Bắt đầu học ngay.");
+        // Refresh details to get isEnrolled = true
+        handleOpenDetails(selectedCourseId);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Lỗi khi đăng ký");
+    }
+  };
+
+  const handleStartLearning = () => {
+    if (selectedCourseId) {
+      setActiveWorkspaceCourseId(selectedCourseId);
+      setSelectedCourseId(null);
+    }
+  };
+
+  if (activeWorkspaceCourseId) {
+    return <LearningWorkspace courseId={activeWorkspaceCourseId} onBack={() => setActiveWorkspaceCourseId(null)} />;
   }
-];
-
-export function CoursesView() {
-  const getStatusBadge = (status: string, progress: number) => {
-    switch (status) {
-      case "completed":
-        return <Badge variant="secondary">Completed</Badge>;
-      case "in-progress":
-        return <Badge variant="default">{progress}% Complete</Badge>;
-      default:
-        return <Badge variant="outline">Not Started</Badge>;
-    }
-  };
-
-  const getActionButton = (status: string, progress: number) => {
-    switch (status) {
-      case "completed":
-        return (
-          <Button variant="outline" className="w-full">
-            Review Course
-          </Button>
-        );
-      case "in-progress":
-        return (
-          <Button className="w-full">
-            Continue Learning
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        );
-      default:
-        return (
-          <Button className="w-full">
-            Start Course
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        );
-    }
-  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Courses</h1>
-        <p className="text-muted-foreground">Discover and track your learning progress</p>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+    <div className="space-y-8 max-w-6xl mx-auto p-4 md:p-6 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight">Khám Phá Khóa Học</h1>
+          <p className="text-muted-foreground mt-1 text-lg">Tìm khóa học phù hợp với trình độ của bạn</p>
+        </div>
+        
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input 
-            placeholder="Search courses..." 
-            className="pl-10"
+            placeholder="Tìm kiếm khóa học..." 
+            className="pl-10 h-12 rounded-full border-muted-foreground/20 focus-visible:ring-primary shadow-sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-          <Button variant="outline" size="sm">All Levels</Button>
-          <Button variant="outline" size="sm">In Progress</Button>
-          <Button variant="outline" size="sm">Available</Button>
-        </div>
       </div>
 
-      {/* My Courses Section */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">My Courses</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {courses.filter(course => course.status !== "available").map((course) => (
-            <Card key={course.id} className="group hover:shadow-lg transition-all duration-300">
-              <div className="relative overflow-hidden rounded-t-lg">
-                <ImageWithFallback
-                  src={course.image}
-                  alt={course.title}
-                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute top-3 left-3">
-                  <Badge className={course.color}>
-                    {course.level}
-                  </Badge>
-                </div>
-                <div className="absolute top-3 right-3">
-                  {getStatusBadge(course.status, course.progress)}
-                </div>
-                {course.progress > 0 && course.progress < 100 && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-2">
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${course.progress}%` }}
-                      ></div>
-                    </div>
+      {loading ? (
+        <div className="flex justify-center p-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div></div>
+      ) : courses.length === 0 ? (
+        <div className="text-center p-20 border rounded-xl bg-muted/10">
+          <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-xl font-semibold">Chưa có khóa học nào</h3>
+          <p className="text-muted-foreground">Vui lòng quay lại sau.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {courses.map((course) => (
+            <Card key={course._id} className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-border/50 cursor-pointer" onClick={() => handleOpenDetails(course._id)}>
+              <div className="relative h-48 w-full overflow-hidden bg-muted">
+                {course.thumbnail ? (
+                  <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                    <BookOpen className="w-12 h-12 text-primary/40" />
                   </div>
                 )}
+                <div className="absolute top-3 right-3 flex gap-2">
+                  <Badge className="bg-background/90 text-foreground backdrop-blur-sm border-none shadow-sm">{course.level}</Badge>
+                </div>
               </div>
               
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-2 group-hover:text-primary transition-colors">
-                  {course.title}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {course.description}
-                </p>
-                
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{course.duration}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                    <span>{course.rating}</span>
-                  </div>
+              <CardContent className="p-5">
+                <div className="flex gap-2 flex-wrap mb-3">
+                  {course.tags?.map((tag: string) => (
+                    <Badge key={tag} variant="secondary" className="text-[10px] uppercase tracking-wider">{tag}</Badge>
+                  ))}
                 </div>
+                <h3 className="font-bold text-xl line-clamp-2 leading-tight mb-2 group-hover:text-primary transition-colors">{course.title}</h3>
+                <p className="text-muted-foreground text-sm line-clamp-2">{course.description}</p>
               </CardContent>
-              
-              <CardFooter className="p-4 pt-0">
-                {getActionButton(course.status, course.progress)}
+              <CardFooter className="px-5 pb-5 pt-0 flex justify-between items-center border-t border-border/50 bg-muted/10 pt-4">
+                 <div className="flex items-center gap-4 text-sm text-muted-foreground font-medium">
+                   <span className="flex items-center gap-1"><BookOpen className="w-4 h-4 text-primary" /> Free</span>
+                 </div>
+                 <Button variant="ghost" className="hover:bg-primary hover:text-primary-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-all rounded-full p-2 h-10 w-10">
+                   <Play className="w-5 h-5 ml-1" />
+                 </Button>
               </CardFooter>
             </Card>
           ))}
         </div>
-      </div>
+      )}
 
-      {/* Available Courses */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Available Courses</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {courses.filter(course => course.status === "available").map((course) => (
-            <Card key={course.id} className="group hover:shadow-lg transition-all duration-300">
-              <div className="relative overflow-hidden rounded-t-lg">
-                <ImageWithFallback
-                  src={course.image}
-                  alt={course.title}
-                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute top-3 left-3">
-                  <Badge className={course.color}>
-                    {course.level}
-                  </Badge>
+      {/* Course Details Dialog */}
+      <Dialog open={selectedCourseId !== null} onOpenChange={(open) => !open && setSelectedCourseId(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 border-none rounded-2xl">
+          {detailsLoading || !courseDetails ? (
+            <div className="p-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
+          ) : (
+            <>
+              <div className="h-64 w-full relative">
+                {courseDetails.course.thumbnail ? (
+                  <img src={courseDetails.course.thumbnail} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5"></div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+                <div className="absolute bottom-6 left-6 right-6">
+                  <Badge className="mb-2">{courseDetails.course.level}</Badge>
+                  <h2 className="text-3xl font-extrabold text-foreground">{courseDetails.course.title}</h2>
                 </div>
-                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur rounded-lg p-2">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                    <span className="text-xs font-medium">{course.rating}</span>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Giới thiệu khóa học</h3>
+                  <p className="text-muted-foreground leading-relaxed">{courseDetails.course.description}</p>
+                </div>
+                
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2"><BookOpen className="w-5 h-5" /> Lộ trình học (Syllabus)</h3>
+                  <div className="space-y-3">
+                    {courseDetails.syllabus.map((chapter: any) => (
+                      <div key={chapter._id} className="border rounded-xl p-4 bg-card shadow-sm hover:shadow-md transition-shadow">
+                        <div className="font-bold text-base mb-2">Chương {chapter.order}: {chapter.title}</div>
+                        <div className="space-y-2">
+                          {chapter.lessons.map((lesson: any) => (
+                            <div key={lesson._id} className="flex justify-between items-center text-sm py-2 px-3 rounded-md bg-muted/30">
+                              <span className="flex items-center gap-2">
+                                <Play className="w-4 h-4 text-primary" /> {lesson.order}. {lesson.title}
+                              </span>
+                              <span className="text-muted-foreground">{lesson.durationMinutes} phút</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
               
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-2 group-hover:text-primary transition-colors">
-                  {course.title}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {course.description}
-                </p>
-                
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>{course.duration}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    <span>{course.students}</span>
-                  </div>
+              <div className="sticky bottom-0 p-4 bg-background/80 backdrop-blur-md border-t flex justify-between items-center rounded-b-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+                <div>
+                  {courseDetails.isEnrolled ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-primary flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" /> Đã đăng ký
+                      </span>
+                      <span className="text-xs text-muted-foreground">Tiến độ: {courseDetails.progress}%</span>
+                    </div>
+                  ) : (
+                    <span className="font-bold text-xl">Miễn phí</span>
+                  )}
                 </div>
-              </CardContent>
-              
-              <CardFooter className="p-4 pt-0">
-                {getActionButton(course.status, course.progress)}
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      </div>
+                {courseDetails.isEnrolled ? (
+                  <Button size="lg" className="rounded-full shadow-lg" onClick={handleStartLearning}>Vào Học Ngay <Play className="w-4 h-4 ml-2" /></Button>
+                ) : (
+                  <Button size="lg" className="rounded-full shadow-lg" onClick={handleEnroll}>Đăng Ký Khóa Học</Button>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+};
