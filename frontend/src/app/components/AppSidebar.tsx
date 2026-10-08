@@ -108,7 +108,7 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
             <>
               <SidebarSeparator className="my-2" />
               <div className="px-2 py-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">Admin</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1">ADMIN HUB</p>
                 <SidebarMenu>
                   {/* Dashboard */}
                   <SidebarMenuItem>

@@ -16,6 +16,7 @@ import {
   Trophy,
   Target,
   BookImage,
+  CircleDollarSign
 } from "lucide-react";
 
 const API_BASE = "";
@@ -45,6 +46,19 @@ interface AdminCollection {
   image_url?: string;
 }
 
+export interface AdminGoal {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  metric_key: string;
+  target_value: number;
+  reward_coin: number;
+  reward_exp: number;
+  type: "DAILY" | "WEEKLY";
+  is_active: boolean | number;
+}
+
 const TYPE_LABELS: Record<string, string> = {
   STREAK_FREEZE: "Streak Freeze",
   AVATAR: "Avatar",
@@ -61,6 +75,7 @@ export function AdminView() {
   const [activeTab, setActiveTab] = useState("items");
   const [items, setItems] = useState<AdminItem[]>([]);
   const [collections, setCollections] = useState<AdminCollection[]>([]);
+  const [goals, setGoals] = useState<AdminGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -77,6 +92,13 @@ export function AdminView() {
   const [isEditingCollection, setIsEditingCollection] = useState<Record<string, boolean>>({});
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
 
+  // Goal state
+  const [selectedGoal, setSelectedGoal] = useState<AdminGoal | null>(null);
+  const [editGoalFields, setEditGoalFields] = useState<Partial<AdminGoal>>({});
+  const [isEditingGoal, setIsEditingGoal] = useState<Record<string, boolean>>({});
+  const [isCreatingGoal, setIsCreatingGoal] = useState(false);
+  const [goalTab, setGoalTab] = useState("DAILY");
+
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
@@ -85,14 +107,17 @@ export function AdminView() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [resItems, resColls] = await Promise.all([
+      const [resItems, resColls, resGoals] = await Promise.all([
         fetch(`${API_BASE}/api/admin/gamification/items`, { credentials: "include" }),
-        fetch(`${API_BASE}/api/admin/gamification/collections`, { credentials: "include" })
+        fetch(`${API_BASE}/api/admin/gamification/collections`, { credentials: "include" }),
+        fetch(`${API_BASE}/api/admin/gamification/goals`, { credentials: "include" })
       ]);
       const dataItems = await resItems.json();
       const dataColls = await resColls.json();
+      const dataGoals = await resGoals.json();
       setItems(Array.isArray(dataItems.data) ? dataItems.data : []);
       setCollections(Array.isArray(dataColls.data) ? dataColls.data : []);
+      setGoals(Array.isArray(dataGoals.data) ? dataGoals.data : []);
     } catch {
       // silent
     } finally {
@@ -236,6 +261,107 @@ export function AdminView() {
         showSuccess("Đã thêm bộ sưu tập.");
         setIsCreatingCollection(false);
         setEditCollectionFields({});
+        fetchData();
+      } else {
+        const d = await res.json();
+        alert(d.message || "Lỗi tạo.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openGoalDetail = (goal: AdminGoal) => {
+    setSelectedGoal(goal);
+    setEditGoalFields({ ...goal });
+    setIsEditingGoal({});
+  };
+
+  const closeGoalDetail = () => {
+    setSelectedGoal(null);
+    setEditGoalFields({});
+    setIsEditingGoal({});
+  };
+
+  const handleToggleGoalActive = async (goal: AdminGoal) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/goals/${goal.id}/toggle`, {
+        method: "PUT",
+        credentials: "include"
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchData();
+      } else {
+        alert(data.message || "Lỗi kết nối.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    }
+  };
+
+  const handleSaveGoalField = async () => {
+    if (!selectedGoal) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/goals/${selectedGoal.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: editGoalFields.title,
+          description: editGoalFields.description,
+          icon: editGoalFields.icon,
+          metric_key: editGoalFields.metric_key,
+          target_value: editGoalFields.target_value,
+          reward_coin: editGoalFields.reward_coin,
+          reward_exp: editGoalFields.reward_exp,
+          type: editGoalFields.type,
+        }),
+      });
+      if (res.ok) {
+        await fetchData();
+        setIsEditingGoal({});
+        const merged = { ...selectedGoal, ...editGoalFields } as AdminGoal;
+        setSelectedGoal(merged);
+        showSuccess("Đã lưu nhiệm vụ.");
+        closeGoalDetail();
+      } else {
+        const d = await res.json();
+        alert(d.message || "Lỗi lưu.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateGoalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/goals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: editGoalFields.title,
+          description: editGoalFields.description,
+          icon: editGoalFields.icon || 'Target',
+          metric_key: editGoalFields.metric_key,
+          target_value: editGoalFields.target_value || 1,
+          reward_coin: editGoalFields.reward_coin || 0,
+          reward_exp: editGoalFields.reward_exp || 0,
+          type: goalTab,
+        }),
+      });
+      if (res.ok) {
+        showSuccess("Đã thêm nhiệm vụ.");
+        setIsCreatingGoal(false);
+        setEditGoalFields({});
         fetchData();
       } else {
         const d = await res.json();
@@ -405,9 +531,9 @@ export function AdminView() {
                     <TableCell>{coll.total_items} món</TableCell>
                     <TableCell>
                       {coll.is_deleted ? (
-                        <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Đã xóa</Badge>
+                        <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Ngưng phát hành</Badge>
                       ) : (
-                        <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Hoạt động</Badge>
+                        <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang phát hành</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right pr-6">
@@ -422,11 +548,68 @@ export function AdminView() {
           )}
         </TabsContent>
 
-        <TabsContent value="quests" className="bg-card border rounded-xl shadow-sm">
-          <div className="text-center py-16 text-muted-foreground">
-            <Target className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p>Quản lý nhiệm vụ Daily/Weekly sẽ hiển thị ở đây.</p>
-          </div>
+        <TabsContent value="quests" className="bg-card border rounded-xl shadow-sm p-6">
+          <Tabs value={goalTab} onValueChange={setGoalTab} className="w-full">
+            <div className="flex items-center justify-between mb-6">
+              <TabsList>
+                <TabsTrigger value="DAILY">Hàng ngày</TabsTrigger>
+                <TabsTrigger value="WEEKLY">Hàng tuần</TabsTrigger>
+              </TabsList>
+              <Button onClick={() => setIsCreatingGoal(true)}>Thêm Nhiệm Vụ</Button>
+            </div>
+
+            {(["DAILY", "WEEKLY"] as const).map(type => (
+              <TabsContent key={type} value={type} className="mt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {goals.filter(g => g.type === type).map(goal => (
+                    <div key={goal.id} className={`p-5 rounded-xl border relative transition-all ${goal.is_active ? 'bg-primary/5 border-primary/30 shadow-sm' : 'bg-background hover:bg-muted/30 opacity-70'}`}>
+                      <div className="absolute top-4 right-4">
+                        {goal.is_active ? (
+                          <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang bật</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">Đã tắt</Badge>
+                        )}
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
+                        <Target className="w-5 h-5" />
+                      </div>
+                      <h3 className="font-bold text-base mb-1 pr-16">{goal.title}</h3>
+                      <p className="text-xs text-muted-foreground mb-4 line-clamp-2 min-h-[32px]">{goal.description || "Chưa có mô tả"}</p>
+
+                      <div className="flex items-center gap-5 text-sm font-bold mb-5">
+                        <div className="flex items-center gap-2 text-emerald-600">
+                          <CircleDollarSign className="h-4 w-4" /> {goal.reward_coin} Coin
+                        </div>
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Shield className="w-4 h-4 fill-blue-500" /> {goal.reward_exp} XP
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 mt-auto">
+                        <Button variant="secondary" className="flex-1 text-xs h-8" onClick={() => openGoalDetail(goal)}>
+                          <Eye className="w-3.5 h-3.5 mr-1.5" /> Chi tiết
+                        </Button>
+                        {goal.is_active ? (
+                          <Button className="flex-1 text-xs h-8 bg-rose-500 hover:bg-rose-600 text-destructive-foreground" onClick={() => handleToggleGoalActive(goal)}>
+                            Gỡ xuống
+                          </Button>
+                        ) : (
+                          <Button className="flex-1 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleToggleGoalActive(goal)}>
+                            Kích hoạt
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {goals.filter(g => g.type === type).length === 0 && (
+                    <div className="col-span-full text-center py-12 border border-dashed rounded-xl text-muted-foreground">
+                      Không có nhiệm vụ nào.
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="achievements" className="bg-card border rounded-xl shadow-sm">
@@ -540,9 +723,9 @@ export function AdminView() {
               <DialogTitle className="text-xl flex items-center gap-2">
                 Chi tiết Bộ sưu tập
                 {selectedCollection.is_deleted ? (
-                  <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Đã xóa</Badge>
+                  <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Ngưng phát hành</Badge>
                 ) : (
-                  <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Hoạt động</Badge>
+                  <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang phát hành</Badge>
                 )}
               </DialogTitle>
             </DialogHeader>
@@ -688,6 +871,173 @@ export function AdminView() {
             </div>
             <div className="flex justify-end pt-4 gap-2">
               <Button type="button" variant="ghost" onClick={() => setIsCreatingCollection(false)}>Hủy</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Tạo mới
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── GOAL DETAIL MODAL ── */}
+      <Dialog open={selectedGoal !== null} onOpenChange={(open) => { if (!open) closeGoalDetail(); }}>
+        {selectedGoal && (
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                Chi tiết Nhiệm vụ
+                {selectedGoal.is_active ? (
+                  <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Hoạt động</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground">Đã tắt</Badge>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-5 py-2">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl shadow-sm border bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <Target className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">{selectedGoal.title}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedGoal.type === "DAILY" ? "Nhiệm vụ hàng ngày" : "Nhiệm vụ hàng tuần"}</p>
+                </div>
+              </div>
+
+              {([
+                { label: "Tên nhiệm vụ", field: "title", type: "text" },
+                { label: "Mô tả", field: "description", type: "text" },
+                { label: "Icon (Lucide)", field: "icon", type: "text" },
+                { label: "Metric Key", field: "metric_key", type: "text" },
+                { label: "Mục tiêu (Target)", field: "target_value", type: "number" },
+                { label: "Thưởng Coin", field: "reward_coin", type: "number" },
+                { label: "Thưởng EXP", field: "reward_exp", type: "number" },
+              ] as { label: string; field: keyof AdminGoal; type: string }[]).map(({ label, field, type }) => (
+                <div key={field} className="flex flex-col gap-1.5 border-b pb-4 last:border-0">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+                  <div className="flex items-center gap-3">
+                    {isEditingGoal[field] ? (
+                      <input
+                        className="flex-1 bg-transparent border-b border-primary outline-none py-1 focus:border-primary text-sm font-medium"
+                        type={type}
+                        value={editGoalFields[field] as any || ""}
+                        onChange={(e) => setEditGoalFields(f => ({
+                          ...f,
+                          [field]: type === "number" ? Number(e.target.value) : e.target.value
+                        }))}
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="flex-1 text-sm font-medium break-all">{String(editGoalFields[field] ?? "—")}</p>
+                    )}
+                    <button
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() => setIsEditingGoal(e => ({ ...e, [String(field)]: !e[String(field)] }))}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+              <Button variant="ghost" onClick={closeGoalDetail}>Huỷ</Button>
+              <Button onClick={handleSaveGoalField} disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
+                Lưu thay đổi
+              </Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* ── CREATE GOAL MODAL ── */}
+      <Dialog open={isCreatingGoal} onOpenChange={(open) => {
+        setIsCreatingGoal(open);
+        if (!open) setEditGoalFields({});
+      }}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Thêm Nhiệm Vụ Mới</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateGoalSubmit} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tên nhiệm vụ <span className="text-red-500">*</span></label>
+              <input
+                required
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                value={editGoalFields.title || ""}
+                onChange={e => setEditGoalFields(f => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mô tả</label>
+              <textarea
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                value={editGoalFields.description || ""}
+                onChange={e => setEditGoalFields(f => ({ ...f, description: e.target.value }))}
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Metric Key (Hệ thống) <span className="text-red-500">*</span></label>
+              <input
+                required
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                placeholder="VD: lesson_completed, current_streak"
+                value={editGoalFields.metric_key || ""}
+                onChange={e => setEditGoalFields(f => ({ ...f, metric_key: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Mục tiêu (Target) <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editGoalFields.target_value || 1}
+                  onChange={e => setEditGoalFields(f => ({ ...f, target_value: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Icon (Lucide)</label>
+                <input
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  placeholder="Target"
+                  value={editGoalFields.icon || ""}
+                  onChange={e => setEditGoalFields(f => ({ ...f, icon: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Thưởng Coin</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editGoalFields.reward_coin || 0}
+                  onChange={e => setEditGoalFields(f => ({ ...f, reward_coin: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Thưởng EXP</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editGoalFields.reward_exp || 0}
+                  onChange={e => setEditGoalFields(f => ({ ...f, reward_exp: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end pt-4 gap-2">
+              <Button type="button" variant="ghost" onClick={() => setIsCreatingGoal(false)}>Hủy</Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Tạo mới

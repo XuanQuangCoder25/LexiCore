@@ -231,3 +231,43 @@ export const setAchievementProgress = async (userId: string, metricKey: string, 
         );
     }
 };
+
+export const updateGoalProgress = async (userId: string, metricKey: string, incrementValue: number = 1) => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dayOfWeek = now.getDay();
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - daysSinceMonday);
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
+
+    const [achievements] = await pool.execute(
+        `SELECT id, target_value, type FROM daily_goal_definitions WHERE metric_key = ? AND is_active = TRUE`,
+        [metricKey]
+    );
+
+    const defs = achievements as any[];
+    if (defs.length === 0) return;
+
+    for (const def of defs) {
+        const dateStr = def.type === 'WEEKLY' ? weekStartStr : today;
+        await pool.execute(
+            `INSERT IGNORE INTO user_daily_goals (id, user_id, goal_id, date) VALUES (?, ?, ?, ?)`,
+            [uuidv4(), userId, def.id, dateStr]
+        );
+
+        await pool.execute(
+            `UPDATE user_daily_goals 
+             SET current_progress = current_progress + ? 
+             WHERE user_id = ? AND goal_id = ? AND date = ?`,
+            [incrementValue, userId, def.id, dateStr]
+        );
+
+        await pool.execute(
+            `UPDATE user_daily_goals 
+             SET is_completed = TRUE 
+             WHERE user_id = ? AND goal_id = ? AND date = ? AND current_progress >= ? AND is_completed = FALSE`,
+            [userId, def.id, dateStr, def.target_value]
+        );
+    }
+};

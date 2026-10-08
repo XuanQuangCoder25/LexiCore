@@ -1,6 +1,6 @@
 import { pool } from '../../config/mysql';
 import { v4 as uuidv4 } from 'uuid';
-import { updateAchievementProgress } from '../gamification/gamification-repository';
+import { updateAchievementProgress, updateGoalProgress } from '../gamification/gamification-repository';
 
 
 
@@ -71,6 +71,7 @@ export const purchaseItem = async (userId: string, item: { id: string; name: str
         // --- Achievement Events (chạy sau commit, không ảnh hưởng transaction) ---
         // 1. Tổng xu đã tiêu
         await updateAchievementProgress(userId, 'total_coin_spent', item.price);
+        await updateGoalProgress(userId, 'total_coin_spent', item.price);
 
         // 2. Kiểm tra bộ sưu tập hoàn chỉnh (nếu item thuộc 1 collection)
         if ((item as any).collection_id) {
@@ -86,6 +87,7 @@ export const purchaseItem = async (userId: string, item: { id: string; name: str
             const { total_items, owned_items } = (countRows as any[])[0];
             if (total_items > 0 && owned_items >= total_items) {
                 await updateAchievementProgress(userId, 'collection_completed', 1);
+                await updateGoalProgress(userId, 'collection_completed', 1);
             }
         }
 

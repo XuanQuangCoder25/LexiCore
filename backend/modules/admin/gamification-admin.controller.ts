@@ -40,6 +40,34 @@ export const toggleGoalActive = async (req: Request, res: Response): Promise<voi
     res.json({ success: true, message: `Đã ${goal.is_active ? 'tắt' : 'bật'} Quest.` });
 };
 
+export const createGoal = async (req: Request, res: Response): Promise<void> => {
+    const { title, description, icon, metric_key, target_value, reward_coin, reward_exp, type } = req.body;
+
+    if (!title || !metric_key || target_value === undefined) {
+        res.status(400).json({ success: false, message: 'Thiếu thông tin bắt buộc (title, metric_key, target_value).' });
+        return;
+    }
+
+    const id = uuidv4();
+    await db.execute(
+        `INSERT INTO daily_goal_definitions (id, title, description, icon, metric_key, target_value, reward_coin, reward_exp, type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, title, description || null, icon || 'Target', metric_key, target_value, reward_coin || 0, reward_exp || 0, type || 'DAILY']
+    );
+    res.status(201).json({ success: true, message: 'Tạo Nhiệm vụ thành công.', id });
+};
+
+export const updateGoal = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { title, description, icon, metric_key, target_value, reward_coin, reward_exp, type } = req.body;
+
+    await db.execute(
+        `UPDATE daily_goal_definitions SET title=?, description=?, icon=?, metric_key=?, target_value=?, reward_coin=?, reward_exp=?, type=? WHERE id=?`,
+        [title, description, icon, metric_key, target_value, reward_coin, reward_exp, type, id]
+    );
+    res.json({ success: true, message: 'Đã cập nhật Nhiệm vụ.' });
+};
+
 // ACHIEVEMENTS CRUD
 
 export const getAllAchievements = async (req: Request, res: Response): Promise<void> => {

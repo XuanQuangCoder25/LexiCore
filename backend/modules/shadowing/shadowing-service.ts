@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { YoutubeTranscript } from 'youtube-transcript';
 import { AppError } from '../../errors/AppError';
 import { updateStreak } from '../../utils/streak';
-import { updateAchievementProgress } from '../gamification/gamification-repository';
+import { updateAchievementProgress, updateGoalProgress } from '../gamification/gamification-repository';
 import { callGeminiWithRetry } from '../../utils/gemini';
 import {
     getVideos,
@@ -178,6 +178,7 @@ export const analyzeAudio = async (
         // Quy ước: target_value trong achievement_definitions tính bằng "1/100 phút" = giây * (100/60)
         const secondsToStore = Math.round(durationSeconds);
         await updateAchievementProgress(userId, 'shadowing_minutes_studied', secondsToStore);
+        await updateGoalProgress(userId, 'shadowing_minutes_studied', secondsToStore);
     }
 
     return {

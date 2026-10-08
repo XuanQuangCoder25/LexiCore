@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../../middlewares/requireAuth';
 import { requireRole } from '../../middlewares/requireRole';
 import {
-    getAllGoals, toggleGoalActive,
+    getAllGoals, toggleGoalActive, createGoal, updateGoal,
     getAllAchievements, createAchievement, updateAchievement, deleteAchievement,
     getAllCollections, createCollection, updateCollection, deleteCollection, toggleCollectionActive,
     getAllItems, createItem, updateItem, toggleItemActive
@@ -15,6 +15,8 @@ router.use(requireRole(['admin']));
 
 // Goals
 router.get('/goals', getAllGoals);
+router.post('/goals', createGoal);
+router.put('/goals/:id', updateGoal);
 router.put('/goals/:id/toggle', toggleGoalActive);
 
 // Achievements
