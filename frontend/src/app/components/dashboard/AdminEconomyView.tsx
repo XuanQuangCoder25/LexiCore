@@ -13,6 +13,7 @@ import {
   Pencil,
   Loader2,
   Package,
+  ImageUp,
   Trophy,
   Target,
   BookImage,
@@ -100,6 +101,7 @@ export function AdminView() {
   const [selectedItem, setSelectedItem] = useState<AdminItem | null>(null);
   const [editFields, setEditFields] = useState<Partial<AdminItem>>({});
   const [isEditing, setIsEditing] = useState<Record<string, boolean>>({});
+  const [isCreatingItem, setIsCreatingItem] = useState(false);
   const [imgAspect, setImgAspect] = useState<'landscape' | 'square' | null>(null);
 
   // Collection state
@@ -227,6 +229,44 @@ export function AdminView() {
       } else {
         const d = await res.json();
         alert(d.message || "Lỗi lưu.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateItemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = {
+        name: editFields.name,
+        type: editFields.type || 'AVATAR',
+        price: editFields.price || 0,
+        price_type: editFields.price_type || 'COIN',
+        description: editFields.description || '',
+        image_url: editFields.image_url || '',
+        required_level: editFields.required_level || 1,
+        collection_id: editFields.collection_id || null,
+      };
+
+      const res = await fetch(`${API_BASE}/api/admin/gamification/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const d = await res.json();
+      if (res.ok && d.success) {
+        showSuccess("Đã thêm vật phẩm.");
+        setIsCreatingItem(false);
+        setEditFields({});
+        fetchData();
+      } else {
+        alert(d.message || "Lỗi tạo vật phẩm.");
       }
     } catch {
       alert("Lỗi kết nối.");
@@ -535,7 +575,7 @@ export function AdminView() {
             <Button onClick={() => setIsCreatingCollection(true)}>Thêm Bộ Sưu Tập</Button>
           )}
           {activeTab === "items" && (
-            <Button>Thêm Vật Phẩm</Button>
+            <Button onClick={() => { setEditFields({}); setIsCreatingItem(true); }}>Thêm Vật Phẩm</Button>
           )}
         </div>
       </div>
@@ -1131,6 +1171,57 @@ export function AdminView() {
                   </div>
                 </div>
               ))}
+
+              <div className="flex flex-col gap-1.5 border-b pb-4 last:border-0">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Price Type (Loại tiền)</span>
+                <div className="flex items-center gap-3">
+                  {isEditing['price_type'] ? (
+                    <select
+                      className="flex-1 bg-transparent border-b border-primary outline-none py-1 focus:border-primary text-sm font-medium"
+                      value={editFields.price_type || "COIN"}
+                      onChange={(e) => setEditFields(f => ({ ...f, price_type: e.target.value as "COIN" | "DIAMOND" }))}
+                    >
+                      <option value="COIN">Coin</option>
+                      <option value="DIAMOND">Diamond</option>
+                    </select>
+                  ) : (
+                    <p className="flex-1 text-sm font-medium break-all">{editFields.price_type || "COIN"}</p>
+                  )}
+                  <button
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    onClick={() => setIsEditing(e => ({ ...e, price_type: !e.price_type }))}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Editable Collection ID */}
+              <div className="flex flex-col gap-1.5 border-b pb-4 last:border-0">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Thuộc Bộ Sưu Tập</span>
+                <div className="flex items-center gap-3">
+                  {isEditing['collection_id'] ? (
+                    <select
+                      className="flex-1 bg-transparent border-b border-primary outline-none py-1 focus:border-primary text-sm font-medium"
+                      value={editFields.collection_id || ""}
+                      onChange={(e) => setEditFields(f => ({ ...f, collection_id: e.target.value || undefined }))}
+                    >
+                      <option value="">(Không thuộc bộ nào)</option>
+                      {collections.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="flex-1 text-sm font-medium break-all">
+                      {collections.find(c => c.id === editFields.collection_id)?.name || "(Không thuộc bộ nào)"}
+                    </p>
+                  )}
+                  <button
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    onClick={() => setIsEditing(e => ({ ...e, collection_id: !e.collection_id }))}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
@@ -1438,6 +1529,172 @@ export function AdminView() {
             </div>
             <div className="flex justify-end pt-4 gap-2">
               <Button type="button" variant="ghost" onClick={() => setIsCreatingAchieve(false)}>Hủy</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Tạo mới
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {/* ── CREATE ITEM MODAL ── */}
+      <Dialog open={isCreatingItem} onOpenChange={(open) => {
+        setIsCreatingItem(open);
+        if (!open) setEditFields({});
+      }}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Thêm Vật Phẩm Mới</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateItemSubmit} className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tên vật phẩm <span className="text-red-500">*</span></label>
+                <input
+                  required
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editFields.name || ""}
+                  onChange={e => setEditFields(f => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Loại <span className="text-red-500">*</span></label>
+                <select
+                  required
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editFields.type || "AVATAR"}
+                  onChange={e => setEditFields(f => ({ ...f, type: e.target.value }))}
+                >
+                  {Object.entries(TYPE_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mô tả</label>
+              <textarea
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                value={editFields.description || ""}
+                onChange={e => setEditFields(f => ({ ...f, description: e.target.value }))}
+                rows={2}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Thuộc Bộ sưu tập</label>
+                <select
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editFields.collection_id || ""}
+                  onChange={e => setEditFields(f => ({ ...f, collection_id: e.target.value || undefined }))}
+                >
+                  <option value="">(Không thuộc bộ nào)</option>
+                  {collections.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Yêu cầu Level</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editFields.required_level || 1}
+                  onChange={e => setEditFields(f => ({ ...f, required_level: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Loại tiền <span className="text-red-500">*</span></label>
+                <select
+                  required
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editFields.price_type || "COIN"}
+                  onChange={e => setEditFields(f => ({ ...f, price_type: e.target.value as "COIN" | "DIAMOND" }))}
+                >
+                  <option value="COIN">Coin</option>
+                  <option value="DIAMOND">Diamond</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Giá bán <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editFields.price !== undefined ? editFields.price : 0}
+                  onChange={e => setEditFields(f => ({ ...f, price: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image URL</label>
+              <div className="flex gap-2 items-start">
+                {editFields.image_url && (
+                  <div className="w-20 h-20 rounded-md border shrink-0 overflow-hidden bg-primary/5">
+                    <img src={editFields.image_url} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="flex-1 space-y-2">
+                  <input
+                    className="w-full p-2 rounded-md border bg-background text-sm"
+                    value={editFields.image_url || ""}
+                    onChange={e => setEditFields(f => ({ ...f, image_url: e.target.value }))}
+                    placeholder="https://..."
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground text-xs font-semibold rounded-md hover:bg-secondary/80 transition-colors">
+                        <ImageUp className="w-3.5 h-3.5" />
+                        Tải ảnh lên
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const formData = new FormData();
+                          formData.append("image", file);
+                          try {
+                            setSaving(true);
+                            const res = await fetch(`${API_BASE}/api/upload/image`, {
+                              method: "POST",
+                              body: formData,
+                              credentials: "include"
+                            });
+                            const data = await res.json();
+                            if (res.ok && data.success) {
+                              setEditFields(f => ({ ...f, image_url: data.data.url }));
+                              showSuccess("Tải ảnh lên thành công!");
+                            } else {
+                              alert(data.message || "Lỗi tải ảnh.");
+                            }
+                          } catch {
+                            alert("Lỗi kết nối.");
+                          } finally {
+                            setSaving(false);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                    <span className="text-xs text-muted-foreground">Tự động tải lên Cloudinary</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 gap-2">
+              <Button type="button" variant="ghost" onClick={() => setIsCreatingItem(false)}>Hủy</Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Tạo mới
