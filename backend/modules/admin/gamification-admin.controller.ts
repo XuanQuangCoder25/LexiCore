@@ -111,10 +111,10 @@ export const updateAchievement = async (req: Request, res: Response): Promise<vo
     res.json({ success: true, message: 'Đã cập nhật Thành Tựu.' });
 };
 
-export const deleteAchievement = async (req: Request, res: Response): Promise<void> => {
+export const toggleAchievementActive = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    await db.execute(`UPDATE achievement_definitions SET is_deleted = TRUE WHERE id = ?`, [id]);
-    res.json({ success: true, message: 'Đã xóa mềm Thành Tựu.' });
+    await db.execute(`UPDATE achievement_definitions SET is_deleted = NOT is_deleted WHERE id = ?`, [id]);
+    res.json({ success: true, message: 'Đã cập nhật trạng thái Thành Tựu.' });
 };
 
 // COLLECTIONS CRUD

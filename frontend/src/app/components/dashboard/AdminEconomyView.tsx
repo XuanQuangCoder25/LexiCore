@@ -16,7 +16,8 @@ import {
   Trophy,
   Target,
   BookImage,
-  CircleDollarSign
+  CircleDollarSign,
+  Gem
 } from "lucide-react";
 
 const API_BASE = "";
@@ -59,6 +60,20 @@ export interface AdminGoal {
   is_active: boolean | number;
 }
 
+export interface AdminAchievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: "LEARNING" | "STREAK" | "PVP" | "COLLECTION";
+  target_value: number;
+  metric_key: string;
+  reward_coin: number;
+  reward_diamond: number;
+  reward_exp: number;
+  is_deleted: boolean | number;
+}
+
 const TYPE_LABELS: Record<string, string> = {
   STREAK_FREEZE: "Streak Freeze",
   AVATAR: "Avatar",
@@ -76,6 +91,7 @@ export function AdminView() {
   const [items, setItems] = useState<AdminItem[]>([]);
   const [collections, setCollections] = useState<AdminCollection[]>([]);
   const [goals, setGoals] = useState<AdminGoal[]>([]);
+  const [achievements, setAchievements] = useState<AdminAchievement[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -99,6 +115,13 @@ export function AdminView() {
   const [isCreatingGoal, setIsCreatingGoal] = useState(false);
   const [goalTab, setGoalTab] = useState("DAILY");
 
+  // Achievement state
+  const [selectedAchievement, setSelectedAchievement] = useState<AdminAchievement | null>(null);
+  const [editAchieveFields, setEditAchieveFields] = useState<Partial<AdminAchievement>>({});
+  const [isEditingAchieve, setIsEditingAchieve] = useState<Record<string, boolean>>({});
+  const [isCreatingAchieve, setIsCreatingAchieve] = useState(false);
+  const [achieveTab, setAchieveTab] = useState("LEARNING");
+
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
@@ -107,17 +130,20 @@ export function AdminView() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [resItems, resColls, resGoals] = await Promise.all([
+      const [resItems, resColls, resGoals, resAchieves] = await Promise.all([
         fetch(`${API_BASE}/api/admin/gamification/items`, { credentials: "include" }),
         fetch(`${API_BASE}/api/admin/gamification/collections`, { credentials: "include" }),
-        fetch(`${API_BASE}/api/admin/gamification/goals`, { credentials: "include" })
+        fetch(`${API_BASE}/api/admin/gamification/goals`, { credentials: "include" }),
+        fetch(`${API_BASE}/api/admin/gamification/achievements`, { credentials: "include" })
       ]);
       const dataItems = await resItems.json();
       const dataColls = await resColls.json();
       const dataGoals = await resGoals.json();
+      const dataAchieves = await resAchieves.json();
       setItems(Array.isArray(dataItems.data) ? dataItems.data : []);
       setCollections(Array.isArray(dataColls.data) ? dataColls.data : []);
       setGoals(Array.isArray(dataGoals.data) ? dataGoals.data : []);
+      setAchievements(Array.isArray(dataAchieves.data) ? dataAchieves.data : []);
     } catch {
       // silent
     } finally {
@@ -374,11 +400,114 @@ export function AdminView() {
     }
   };
 
+  const openAchieveDetail = (achieve: AdminAchievement) => {
+    setSelectedAchievement(achieve);
+    setEditAchieveFields({ ...achieve });
+    setIsEditingAchieve({});
+  };
+
+  const closeAchieveDetail = () => {
+    setSelectedAchievement(null);
+    setEditAchieveFields({});
+    setIsEditingAchieve({});
+  };
+
+  const handleToggleAchieveActive = async (achieve: AdminAchievement) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/achievements/${achieve.id}/toggle`, {
+        method: "PUT",
+        credentials: "include"
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchData();
+      } else {
+        alert(data.message || "Lỗi kết nối.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    }
+  };
+
+  const handleSaveAchieveField = async () => {
+    if (!selectedAchievement) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/achievements/${selectedAchievement.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: editAchieveFields.title,
+          description: editAchieveFields.description,
+          icon: editAchieveFields.icon,
+          category: editAchieveFields.category,
+          target_value: editAchieveFields.target_value,
+          metric_key: editAchieveFields.metric_key,
+          reward_coin: editAchieveFields.reward_coin,
+          reward_diamond: editAchieveFields.reward_diamond,
+          reward_exp: editAchieveFields.reward_exp,
+        }),
+      });
+      if (res.ok) {
+        await fetchData();
+        setIsEditingAchieve({});
+        const merged = { ...selectedAchievement, ...editAchieveFields } as AdminAchievement;
+        setSelectedAchievement(merged);
+        showSuccess("Đã lưu thành tựu.");
+        closeAchieveDetail();
+      } else {
+        const d = await res.json();
+        alert(d.message || "Lỗi lưu.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateAchieveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/gamification/achievements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: editAchieveFields.title,
+          description: editAchieveFields.description,
+          icon: editAchieveFields.icon || 'Trophy',
+          category: achieveTab,
+          target_value: editAchieveFields.target_value || 1,
+          metric_key: editAchieveFields.metric_key,
+          reward_coin: editAchieveFields.reward_coin || 0,
+          reward_diamond: editAchieveFields.reward_diamond || 0,
+          reward_exp: editAchieveFields.reward_exp || 0,
+        }),
+      });
+      if (res.ok) {
+        showSuccess("Đã thêm thành tựu.");
+        setIsCreatingAchieve(false);
+        setEditAchieveFields({});
+        fetchData();
+      } else {
+        const d = await res.json();
+        alert(d.message || "Lỗi tạo.");
+      }
+    } catch {
+      alert("Lỗi kết nối.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const isActive = (item: AdminItem) => item.is_active == 1 || item.is_active === true;
 
   const getStatusBadge = (item: AdminItem) => isActive(item)
     ? <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang bán</Badge>
-    : <Badge variant="outline" className="text-muted-foreground border-muted-foreground/40 bg-muted/30">Ngưng bán</Badge>;
+    : <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Ngưng bán</Badge>;
 
   const getTypeIcon = (type: string) => {
     const Icon = TYPE_ICONS[type] ?? Store;
@@ -468,7 +597,7 @@ export function AdminView() {
                           )}
                           <div>
                             <p className="font-semibold text-sm">{item.name}</p>
-                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description || "—"}</p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description || ""}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -567,7 +696,7 @@ export function AdminView() {
                         {goal.is_active ? (
                           <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang bật</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-muted-foreground">Đã tắt</Badge>
+                          <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Đã tắt</Badge>
                         )}
                       </div>
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
@@ -581,7 +710,7 @@ export function AdminView() {
                           <CircleDollarSign className="h-4 w-4" /> {goal.reward_coin} Coin
                         </div>
                         <div className="flex items-center gap-2 text-blue-600">
-                          <Shield className="w-4 h-4 fill-blue-500" /> {goal.reward_exp} XP
+                          <Shield className="w-4 h-4 fill-blue-500" /> {goal.reward_exp} EXP
                         </div>
                       </div>
 
@@ -612,11 +741,73 @@ export function AdminView() {
           </Tabs>
         </TabsContent>
 
-        <TabsContent value="achievements" className="bg-card border rounded-xl shadow-sm">
-          <div className="text-center py-16 text-muted-foreground">
-            <Trophy className="w-12 h-12 mx-auto mb-3 opacity-20" />
-            <p>Quản lý thành tựu sẽ hiển thị ở đây.</p>
-          </div>
+        <TabsContent value="achievements" className="bg-card border rounded-xl shadow-sm p-6">
+          <Tabs value={achieveTab} onValueChange={setAchieveTab} className="w-full">
+            <div className="flex items-center justify-between mb-6">
+              <TabsList>
+                <TabsTrigger value="LEARNING">Học tập</TabsTrigger>
+                <TabsTrigger value="STREAK">Chuỗi ngày</TabsTrigger>
+                <TabsTrigger value="PVP">Thách đấu</TabsTrigger>
+                <TabsTrigger value="COLLECTION">Bộ sưu tập</TabsTrigger>
+              </TabsList>
+              <Button onClick={() => setIsCreatingAchieve(true)}>Thêm Thành Tựu</Button>
+            </div>
+
+            {(["LEARNING", "STREAK", "PVP", "COLLECTION"] as const).map(cat => (
+              <TabsContent key={cat} value={cat} className="mt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {achievements.filter(a => a.category === cat).map(achieve => (
+                    <div key={achieve.id} className={`p-5 rounded-xl border relative transition-all ${!achieve.is_deleted ? 'bg-primary/5 border-primary/30 shadow-sm' : 'bg-background hover:bg-muted/30 opacity-70'}`}>
+                      <div className="absolute top-4 right-4">
+                        {!achieve.is_deleted ? (
+                          <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang phát hành</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Đã ẩn</Badge>
+                        )}
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
+                        <Trophy className="w-5 h-5" />
+                      </div>
+                      <h3 className="font-bold text-base mb-1 pr-16">{achieve.title}</h3>
+                      <p className="text-xs text-muted-foreground mb-4 line-clamp-2 min-h-[32px]">{achieve.description || "Chưa có mô tả"}</p>
+
+                      <div className="flex items-center gap-5 text-sm font-bold mb-5 flex-wrap">
+                        <div className="flex items-center gap-2 text-emerald-600">
+                          <CircleDollarSign className="h-4 w-4" /> {achieve.reward_coin}
+                        </div>
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Shield className="w-4 h-4 fill-blue-500" /> {achieve.reward_exp} EXP
+                        </div>
+                        <div className="flex items-center gap-2 text-fuchsia-500">
+                          <Gem className="w-4 h-4 text-fuchsia-500" /> {achieve.reward_diamond}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 mt-auto">
+                        <Button variant="secondary" className="flex-1 text-xs h-8" onClick={() => openAchieveDetail(achieve)}>
+                          <Eye className="w-3.5 h-3.5 mr-1.5" /> Chi tiết
+                        </Button>
+                        {!achieve.is_deleted ? (
+                          <Button className="flex-1 text-xs h-8 bg-rose-500 hover:bg-rose-600 text-destructive-foreground" onClick={() => handleToggleAchieveActive(achieve)}>
+                            Ngưng phát hành
+                          </Button>
+                        ) : (
+                          <Button className="flex-1 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleToggleAchieveActive(achieve)}>
+                            Phát hành
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {achievements.filter(a => a.category === cat).length === 0 && (
+                    <div className="col-span-full text-center py-12 border border-dashed rounded-xl text-muted-foreground">
+                      Không có thành tựu nào.
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
         </TabsContent>
       </Tabs>
 
@@ -632,7 +823,7 @@ export function AdminView() {
             </DialogHeader>
 
             <div className="space-y-5 py-2">
-              {/* Image preview — responsive by aspect ratio */}
+              {/* Image preview - responsive by aspect ratio */}
               {editFields.image_url && (
                 <div className={[
                   "overflow-hidden rounded-xl border transition-all",
@@ -676,7 +867,7 @@ export function AdminView() {
                         autoFocus
                       />
                     ) : (
-                      <p className="flex-1 text-sm font-medium break-all">{String(editFields[field] ?? "—")}</p>
+                      <p className="flex-1 text-sm font-medium break-all">{String(editFields[field] ?? "")}</p>
                     )}
                     <button
                       className="text-muted-foreground hover:text-primary transition-colors"
@@ -772,7 +963,7 @@ export function AdminView() {
                         {field === "theme_color" && (
                           <div className="w-4 h-4 rounded-full border shadow-sm" style={{ backgroundColor: String(editCollectionFields[field]) }} />
                         )}
-                        <p className="text-sm font-medium break-all">{String(editCollectionFields[field] ?? "—")}</p>
+                        <p className="text-sm font-medium break-all">{String(editCollectionFields[field] ?? "")}</p>
                       </div>
                     )}
                     <button
@@ -890,7 +1081,7 @@ export function AdminView() {
                 {selectedGoal.is_active ? (
                   <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Hoạt động</Badge>
                 ) : (
-                  <Badge variant="outline" className="text-muted-foreground">Đã tắt</Badge>
+                  <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Đã tắt</Badge>
                 )}
               </DialogTitle>
             </DialogHeader>
@@ -930,7 +1121,7 @@ export function AdminView() {
                         autoFocus
                       />
                     ) : (
-                      <p className="flex-1 text-sm font-medium break-all">{String(editGoalFields[field] ?? "—")}</p>
+                      <p className="flex-1 text-sm font-medium break-all">{String(editGoalFields[field] ?? "")}</p>
                     )}
                     <button
                       className="text-muted-foreground hover:text-primary transition-colors"
@@ -1038,6 +1229,215 @@ export function AdminView() {
             </div>
             <div className="flex justify-end pt-4 gap-2">
               <Button type="button" variant="ghost" onClick={() => setIsCreatingGoal(false)}>Hủy</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Tạo mới
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── ACHIEVEMENT DETAIL MODAL ── */}
+      <Dialog open={selectedAchievement !== null} onOpenChange={(open) => { if (!open) closeAchieveDetail(); }}>
+        {selectedAchievement && (
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                Chi tiết Thành Tựu
+                {!selectedAchievement.is_deleted ? (
+                  <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang phát hành</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Đã ẩn</Badge>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-5 py-2">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl shadow-sm border bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <Trophy className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">{selectedAchievement.title}</h3>
+                  <p className="text-sm text-muted-foreground">Nhóm: {selectedAchievement.category}</p>
+                </div>
+              </div>
+
+              {([
+                { label: "Tên thành tựu", field: "title", type: "text" },
+                { label: "Mô tả", field: "description", type: "text" },
+                { label: "Icon (Lucide)", field: "icon", type: "text" },
+                { label: "Metric Key", field: "metric_key", type: "text" },
+                { label: "Mục tiêu (Target)", field: "target_value", type: "number" },
+              ] as { label: string; field: keyof AdminAchievement; type: string }[]).map(({ label, field, type }) => (
+                <div key={field} className="flex flex-col gap-1.5 border-b pb-4 last:border-0">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+                  <div className="flex items-center gap-3">
+                    {isEditingAchieve[field] ? (
+                      <input
+                        className="flex-1 bg-transparent border-b border-primary outline-none py-1 focus:border-primary text-sm font-medium"
+                        type={type}
+                        value={editAchieveFields[field] as any || ""}
+                        onChange={(e) => setEditAchieveFields(f => ({
+                          ...f,
+                          [field]: type === "number" ? Number(e.target.value) : e.target.value
+                        }))}
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="flex-1 text-sm font-medium break-all">{String(editAchieveFields[field] ?? "")}</p>
+                    )}
+                    <button
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() => setIsEditingAchieve(e => ({ ...e, [String(field)]: !e[String(field)] }))}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <div className="grid grid-cols-3 gap-6 border-b pb-4 last:border-0">
+                {([
+                  { label: "Coin", field: "reward_coin", type: "number", icon: <CircleDollarSign className="w-4 h-4 text-emerald-600" /> },
+                  { label: "EXP", field: "reward_exp", type: "number", icon: <Shield className="w-4 h-4 text-blue-500 fill-blue-500" /> },
+                  { label: "Kim cương", field: "reward_diamond", type: "number", icon: <Gem className="w-4 h-4 text-fuchsia-500" /> },
+                ] as const).map(({ label, field, type, icon }) => (
+                  <div key={field} className="flex flex-col gap-1.5">
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {icon} {label}
+                    </span>
+                    <div className="flex items-center gap-10">
+                      {isEditingAchieve[field] ? (
+                        <input
+                          className="w-16 bg-transparent border-b border-primary outline-none py-1 focus:border-primary text-sm font-medium"
+                          type={type}
+                          value={editAchieveFields[field as keyof AdminAchievement] as any || ""}
+                          onChange={(e) => setEditAchieveFields(f => ({
+                            ...f,
+                            [field]: Number(e.target.value)
+                          }))}
+                          autoFocus
+                        />
+                      ) : (
+                        <p className="w-16 text-sm font-medium">{String(editAchieveFields[field as keyof AdminAchievement] ?? "0")}</p>
+                      )}
+                      <button
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => setIsEditingAchieve(e => ({ ...e, [String(field)]: !e[String(field)] }))}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+              <Button variant="ghost" onClick={closeAchieveDetail}>Huỷ</Button>
+              <Button onClick={handleSaveAchieveField} disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
+                Lưu thay đổi
+              </Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* ── CREATE ACHIEVEMENT MODAL ── */}
+      <Dialog open={isCreatingAchieve} onOpenChange={(open) => {
+        setIsCreatingAchieve(open);
+        if (!open) setEditAchieveFields({});
+      }}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Thêm Thành Tựu Mới</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateAchieveSubmit} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tên thành tựu <span className="text-red-500">*</span></label>
+              <input
+                required
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                value={editAchieveFields.title || ""}
+                onChange={e => setEditAchieveFields(f => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mô tả</label>
+              <textarea
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                value={editAchieveFields.description || ""}
+                onChange={e => setEditAchieveFields(f => ({ ...f, description: e.target.value }))}
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Metric Key (Hệ thống) <span className="text-red-500">*</span></label>
+              <input
+                required
+                className="w-full p-2 rounded-md border bg-background text-sm"
+                placeholder="VD: lesson_completed, current_streak"
+                value={editAchieveFields.metric_key || ""}
+                onChange={e => setEditAchieveFields(f => ({ ...f, metric_key: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Mục tiêu (Target) <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editAchieveFields.target_value || 1}
+                  onChange={e => setEditAchieveFields(f => ({ ...f, target_value: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Icon (Lucide)</label>
+                <input
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  placeholder="Trophy"
+                  value={editAchieveFields.icon || ""}
+                  onChange={e => setEditAchieveFields(f => ({ ...f, icon: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Thưởng Coin</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editAchieveFields.reward_coin || 0}
+                  onChange={e => setEditAchieveFields(f => ({ ...f, reward_coin: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Kim cương</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editAchieveFields.reward_diamond || 0}
+                  onChange={e => setEditAchieveFields(f => ({ ...f, reward_diamond: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Thưởng EXP</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full p-2 rounded-md border bg-background text-sm"
+                  value={editAchieveFields.reward_exp || 0}
+                  onChange={e => setEditAchieveFields(f => ({ ...f, reward_exp: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end pt-4 gap-2">
+              <Button type="button" variant="ghost" onClick={() => setIsCreatingAchieve(false)}>Hủy</Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Tạo mới

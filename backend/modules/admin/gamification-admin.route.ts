@@ -3,7 +3,7 @@ import { requireAuth } from '../../middlewares/requireAuth';
 import { requireRole } from '../../middlewares/requireRole';
 import {
     getAllGoals, toggleGoalActive, createGoal, updateGoal,
-    getAllAchievements, createAchievement, updateAchievement, deleteAchievement,
+    getAllAchievements, createAchievement, updateAchievement, toggleAchievementActive,
     getAllCollections, createCollection, updateCollection, deleteCollection, toggleCollectionActive,
     getAllItems, createItem, updateItem, toggleItemActive
 } from './gamification-admin.controller';
@@ -23,7 +23,7 @@ router.put('/goals/:id/toggle', toggleGoalActive);
 router.get('/achievements', getAllAchievements);
 router.post('/achievements', createAchievement);
 router.put('/achievements/:id', updateAchievement);
-router.delete('/achievements/:id', deleteAchievement);
+router.put('/achievements/:id/toggle', toggleAchievementActive);
 
 // Collections
 router.get('/collections', getAllCollections);
