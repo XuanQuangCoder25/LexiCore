@@ -1,5 +1,6 @@
 import { pool } from '../../config/mysql';
 import { v4 as uuidv4 } from 'uuid';
+import { calculateNewLevel } from '../../utils/level';
 
 export const getDailyGoals = async (userId: string) => {
     const now = new Date();
@@ -106,9 +107,24 @@ export const claimDailyGoal = async (userId: string, userGoalId: string) => {
             [userGoalId]
         );
 
+        const [walletRows] = await connection.execute(
+            `SELECT exp, level FROM wallets WHERE user_id = ? FOR UPDATE`,
+            [userId]
+        );
+        const wallet = (walletRows as any[])[0];
+
+        let newExp = wallet ? wallet.exp : 0;
+        let newLevel = wallet ? wallet.level : 1;
+
+        if (wallet && goal.reward_exp > 0) {
+            const levelInfo = calculateNewLevel(wallet.level, wallet.exp, goal.reward_exp);
+            newExp = levelInfo.newExp;
+            newLevel = levelInfo.newLevel;
+        }
+
         await connection.execute(
-            `UPDATE wallets SET coin_balance = coin_balance + ?, exp = exp + ? WHERE user_id = ?`,
-            [goal.reward_coin, goal.reward_exp, userId]
+            `UPDATE wallets SET coin_balance = coin_balance + ?, exp = ?, level = ? WHERE user_id = ?`,
+            [goal.reward_coin, newExp, newLevel, userId]
         );
 
         await connection.execute(
