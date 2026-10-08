@@ -6,7 +6,7 @@ import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
-  Play, Pause, RotateCcw, RotateCw, Timer, Repeat, Mic, MicOff, BookOpen, Loader2, PlusCircle, Sparkles, Notebook, Save, Captions, CaptionsOff, Volume2, X
+  Play, Pause, RotateCcw, RotateCw, Timer, Repeat, Mic, MicOff, BookOpen, Loader2, PlusCircle, Sparkles, Notebook, Save, Captions, CaptionsOff, Volume2, X, MoveLeft
 } from "lucide-react";
 
 interface Video {
@@ -39,7 +39,6 @@ export function ShadowingView() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [addVideoUrl, setAddVideoUrl] = useState("");
-  const [addVideoDifficulty, setAddVideoDifficulty] = useState("Intermediate");
   const [isAddingVideo, setIsAddingVideo] = useState(false);
   const [addVideoError, setAddVideoError] = useState("");
 
@@ -233,7 +232,6 @@ export function ShadowingView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ url: addVideoUrl, difficulty: addVideoDifficulty }),
       });
       const data = await res.json();
       if (data.status === 'success') {
@@ -547,7 +545,7 @@ export function ShadowingView() {
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div>
             <Button variant="ghost" onClick={handleBackToLibrary} className="mb-2 -ml-4">
-              ← Back to Library
+              <MoveLeft className="w-4 h-4" /> Back to Library
             </Button>
             <h1 className="text-2xl font-bold">{currentVideo.title}</h1>
             <p className="text-muted-foreground">{currentVideo.channel}</p>
@@ -1033,10 +1031,9 @@ export function ShadowingView() {
       </div>
 
       {/* Add Video Card */}
-      <Card className="border-dashed border-2">
+      <Card className="border-2">
         <CardContent className="p-5">
           <p className="text-sm font-medium mb-3 flex items-center gap-2">
-            <PlusCircle className="h-4 w-4 text-primary" />
             Thêm video YouTube để luyện tập
           </p>
           <div className="flex gap-2">
@@ -1048,16 +1045,6 @@ export function ShadowingView() {
               disabled={isAddingVideo}
               className="flex-1"
             />
-            <select
-              value={addVideoDifficulty}
-              onChange={(e) => setAddVideoDifficulty(e.target.value)}
-              disabled={isAddingVideo}
-              className="border rounded-md px-3 text-sm bg-background"
-            >
-              <option value="Beginner">Beginner</option>
-              <option value="Intermediate">Intermediate</option>
-              <option value="Advanced">Advanced</option>
-            </select>
             <Button onClick={handleAddVideo} disabled={isAddingVideo || !addVideoUrl.trim()}>
               {isAddingVideo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
               {isAddingVideo ? 'Đang tải phụ đề...' : 'Thêm Video'}
@@ -1091,11 +1078,6 @@ export function ShadowingView() {
                   <Play className="h-4 w-4 mr-2" />
                   Practice Now
                 </Button>
-              </div>
-              <div className="absolute top-2 right-2">
-                <Badge variant={video.difficulty === "Beginner" ? "secondary" : video.difficulty === "Intermediate" ? "default" : "destructive"}>
-                  {video.difficulty}
-                </Badge>
               </div>
               <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded">
                 {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}

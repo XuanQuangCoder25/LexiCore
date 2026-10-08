@@ -77,7 +77,7 @@ export const getVideoDetail = async (id: string) => {
     return { ...video, segments };
 };
 
-export const addVideo = async (youtubeUrl: string, difficulty: string) => {
+export const addVideo = async (youtubeUrl: string) => {
     const youtubeId = parseYoutubeId(youtubeUrl.trim());
     if (!youtubeId) throw new AppError('URL YouTube không hợp lệ.', 400);
 
@@ -118,7 +118,7 @@ export const addVideo = async (youtubeUrl: string, difficulty: string) => {
     const lastItem = transcriptItems[transcriptItems.length - 1];
     const duration = Math.ceil(((lastItem?.offset ?? 0) + (lastItem?.duration ?? 0)) / 1000);
 
-    const videoId = await insertVideo({ youtube_id: youtubeId, title, channel, duration, difficulty });
+    const videoId = await insertVideo({ youtube_id: youtubeId, title, channel, duration });
 
     const segments = transcriptItems.map((item, index) => ({
         start_time: item.offset / 1000,

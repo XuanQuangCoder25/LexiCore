@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const getVideos = async () => {
     const [rows] = await pool.execute(
-        `SELECT id, youtube_id, title, channel, duration, difficulty, created_at 
+        `SELECT id, youtube_id, title, channel, duration, created_at 
          FROM shadowing_videos 
          ORDER BY created_at DESC`
     );
@@ -12,7 +12,7 @@ export const getVideos = async () => {
 
 export const getVideoById = async (id: string) => {
     const [rows] = await pool.execute(
-        `SELECT id, youtube_id, title, channel, duration, difficulty 
+        `SELECT id, youtube_id, title, channel, duration 
          FROM shadowing_videos 
          WHERE id = ? LIMIT 1`,
         [id]
@@ -35,13 +35,12 @@ export const insertVideo = async (data: {
     title: string;
     channel: string;
     duration: number;
-    difficulty: string;
 }) => {
     const id = uuidv4();
     await pool.execute(
-        `INSERT INTO shadowing_videos (id, youtube_id, title, channel, duration, difficulty)
+        `INSERT INTO shadowing_videos (id, youtube_id, title, channel, duration)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [id, data.youtube_id, data.title, data.channel, data.duration, data.difficulty]
+        [id, data.youtube_id, data.title, data.channel, data.duration]
     );
     return id;
 };

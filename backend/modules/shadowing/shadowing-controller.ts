@@ -24,11 +24,11 @@ export const getVideoDetailHandler = async (req: Request, res: Response) => {
 
 export const addVideoHandler = async (req: Request, res: Response) => {
     try {
-        const { url, difficulty = 'Intermediate' } = req.body;
+        const { url } = req.body;
         if (!url) {
             return res.status(400).json({ status: 'error', message: 'Vui lòng cung cấp URL YouTube.' });
         }
-        const result = await addVideo(url, difficulty);
+        const result = await addVideo(url);
         res.status(201).json({
             status: 'success',
             message: `Đã thêm "${result.title}" và tải ${result.segmentsCount} câu phụ đề thành công!`,
