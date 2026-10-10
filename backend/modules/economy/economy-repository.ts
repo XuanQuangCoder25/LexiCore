@@ -5,16 +5,22 @@ import { updateAchievementProgress, updateGoalProgress } from '../gamification/g
 
 
 
-export const getActiveItems = async () => {
+export const getActiveItems = async (userId: string) => {
     const [rows] = await pool.execute(
-        `SELECT id, name, type, price, description, image_url FROM items WHERE is_active = TRUE ORDER BY price ASC`
+        `SELECT i.id, i.name, i.type, i.price, i.price_type, i.description, i.image_url, i.required_level, i.collection_id,
+                CASE WHEN ui.item_id IS NOT NULL THEN TRUE ELSE FALSE END AS is_owned
+         FROM items i
+         LEFT JOIN user_items ui ON i.id = ui.item_id AND ui.user_id = ?
+         WHERE i.is_active = TRUE 
+         ORDER BY is_owned ASC, i.price ASC`,
+        [userId]
     );
     return rows as any[];
 };
 
 export const findItemById = async (id: string) => {
     const [rows] = await pool.execute(
-        `SELECT id, name, type, price, price_type, is_active, collection_id FROM items WHERE id = ? LIMIT 1`,
+        `SELECT id, name, type, price, price_type, is_active, collection_id, image_url FROM items WHERE id = ? LIMIT 1`,
         [id]
     );
     const items = rows as any[];
@@ -23,7 +29,7 @@ export const findItemById = async (id: string) => {
 
 export const getUserInventory = async (userId: string) => {
     const [rows] = await pool.execute(
-        `SELECT ui.id, ui.quantity, i.name, i.type, i.description, i.image_url
+        `SELECT i.id, ui.quantity, i.name, i.type, i.description, i.image_url
          FROM user_items ui
          JOIN items i ON i.id = ui.item_id
          WHERE ui.user_id = ?`,
@@ -32,26 +38,43 @@ export const getUserInventory = async (userId: string) => {
     return rows as any[];
 };
 
-export const purchaseItem = async (userId: string, item: { id: string; name: string; price: number }) => {
+export const purchaseItem = async (userId: string, item: { id: string; name: string; price: number; type: string; price_type: string }) => {
     const connection = await pool.getConnection();
 
     try {
         await connection.beginTransaction();
 
+        const [ownedRows] = await connection.execute(
+            `SELECT id FROM user_items WHERE user_id = ? AND item_id = ?`,
+            [userId, item.id]
+        );
+        if ((ownedRows as any[]).length > 0) {
+            if (['AVATAR', 'COVER_PHOTO', 'THEME'].includes(item.type)) {
+                throw new Error('ALREADY_OWNED');
+            }
+        }
+
         const [walletRows] = await connection.execute(
-            `SELECT coin_balance FROM wallets WHERE user_id = ? FOR UPDATE`,
+            `SELECT coin_balance, diamond_balance FROM wallets WHERE user_id = ? FOR UPDATE`,
             [userId]
         );
         const wallet = (walletRows as any[])[0];
 
-        if (!wallet || wallet.coin_balance < item.price) {
+        if (!wallet) {
             throw new Error('INSUFFICIENT_BALANCE');
         }
 
-        await connection.execute(
-            `UPDATE wallets SET coin_balance = coin_balance - ? WHERE user_id = ?`,
-            [item.price, userId]
-        );
+        if (item.price_type === 'COIN') {
+            if (wallet.coin_balance < item.price) throw new Error('INSUFFICIENT_BALANCE');
+            await connection.execute(`UPDATE wallets SET coin_balance = coin_balance - ? WHERE user_id = ?`, [item.price, userId]);
+        } else if (item.price_type === 'DIAMOND') {
+            if (wallet.diamond_balance < item.price) throw new Error('INSUFFICIENT_BALANCE');
+            await connection.execute(`UPDATE wallets SET diamond_balance = diamond_balance - ? WHERE user_id = ?`, [item.price, userId]);
+        } else {
+            // Default to coin if price_type is not defined correctly
+            if (wallet.coin_balance < item.price) throw new Error('INSUFFICIENT_BALANCE');
+            await connection.execute(`UPDATE wallets SET coin_balance = coin_balance - ? WHERE user_id = ?`, [item.price, userId]);
+        }
 
         await connection.execute(
             `INSERT INTO user_items (id, user_id, item_id, quantity)
@@ -98,5 +121,26 @@ export const purchaseItem = async (userId: string, item: { id: string; name: str
         throw error;
     } finally {
         connection.release();
+    }
+};
+
+export const equipItemInDb = async (userId: string, itemId: string) => {
+    const [ownedRows] = await pool.execute(
+        `SELECT id FROM user_items WHERE user_id = ? AND item_id = ?`,
+        [userId, itemId]
+    );
+    if ((ownedRows as any[]).length === 0) {
+        throw new Error('NOT_OWNED');
+    }
+
+    const item = await findItemById(itemId);
+    if (!item) throw new Error('NOT_FOUND');
+
+    if (item.type === 'AVATAR') {
+        await pool.execute(`UPDATE users SET avatar_url = ? WHERE id = ?`, [item.image_url, userId]);
+    } else if (item.type === 'COVER_PHOTO') {
+        await pool.execute(`UPDATE users SET cover_url = ? WHERE id = ?`, [item.image_url, userId]);
+    } else {
+        throw new Error('NOT_EQUIPPABLE');
     }
 };

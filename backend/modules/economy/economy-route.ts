@@ -4,6 +4,7 @@ import {
     getStoreItemsHandler,
     getInventoryHandler,
     buyItemHandler,
+    equipItemHandler,
 } from './economy-controller';
 
 const router = Router();
@@ -17,8 +18,9 @@ const requireAdmin = (req: any, res: any, next: any) => {
     });
 };
 
-router.get('/items', getStoreItemsHandler);
+router.get('/items', requireAuth, getStoreItemsHandler);
 router.get('/inventory', requireAuth, getInventoryHandler);
 router.post('/buy/:itemId', requireAuth, buyItemHandler);
+router.post('/equip/:itemId', requireAuth, equipItemHandler);
 
 export default router;

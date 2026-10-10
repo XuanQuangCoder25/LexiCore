@@ -73,8 +73,8 @@ export const activateUser = async (email: string): Promise<void> => {
 
 export const findUserById = async (id: string) => {
     const [rows] = await pool.execute(
-        `SELECT u.id, u.email, u.full_name, u.role, u.status, u.created_at, u.creator_status,
-                w.coin_balance
+        `SELECT u.id, u.email, u.full_name, u.role, u.status, u.created_at, u.creator_status, u.avatar_url, u.cover_url,
+                w.coin_balance, w.diamond_balance, w.exp, w.level, w.rank_point, w.current_streak
          FROM users u
          LEFT JOIN wallets w ON w.user_id = u.id
          WHERE u.id = ? LIMIT 1`,

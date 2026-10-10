@@ -13,6 +13,7 @@ interface StoreItem {
   description: string;
   price: number;
   type: string;
+  is_owned?: boolean | number;
   image_url?: string;
 }
 
@@ -39,6 +40,8 @@ const API_BASE = "";
 // ============================================================
 export function StoreView() {
   const [balance, setBalance] = useState<number>(0);
+  const [equippedAvatar, setEquippedAvatar] = useState<string | null>(null);
+  const [equippedCover, setEquippedCover] = useState<string | null>(null);
   const [storeItems, setStoreItems] = useState<StoreItem[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,8 +59,8 @@ export function StoreView() {
   ];
 
   // Lấy danh sách cửa hàng + số dư ví + túi đồ
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true);
     try {
       const [itemsRes, meRes, inventoryRes] = await Promise.all([
         fetch(`${API_BASE}/api/store/items`, { credentials: "include" }),
@@ -69,11 +72,13 @@ export function StoreView() {
       const inv = await inventoryRes.json();
       setStoreItems(Array.isArray(items) ? items : []);
       setBalance(me?.coin_balance ?? 0);
+      setEquippedAvatar(me?.avatar_url ?? null);
+      setEquippedCover(me?.cover_url ?? null);
       setInventory(Array.isArray(inv) ? inv : []);
     } catch {
       setErrorMsg("Không thể tải dữ liệu. Vui lòng thử lại.");
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   }, []);
 
@@ -93,13 +98,30 @@ export function StoreView() {
       } else {
         setPurchaseSuccess(true);
         setConfirmItem(null);
-        await fetchAll();
+        await fetchAll(false);
         setTimeout(() => setPurchaseSuccess(false), 3000);
       }
     } catch {
       setErrorMsg("Lỗi kết nối, vui lòng thử lại.");
     } finally {
       setBuying(false);
+    }
+  };
+
+  const handleEquip = async (item: InventoryItem) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/store/equip/${item.id}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        await fetchAll(false);
+      } else {
+        const data = await res.json();
+        setErrorMsg(data.message || "Không thể trang bị.");
+      }
+    } catch {
+      setErrorMsg("Lỗi kết nối khi trang bị.");
     }
   };
 
@@ -172,7 +194,7 @@ export function StoreView() {
               {filtered.map((item) => {
                 const cfg = typeConfig[item.type] ?? { icon: Star, category: "other" };
                 const Icon = cfg.icon;
-                const owned = ownedItemIds.has(item.id);
+                const owned = item.is_owned || item.is_owned === 1 || ownedItemIds.has(item.id);
                 const canAfford = balance >= item.price;
 
                 return (
@@ -202,7 +224,7 @@ export function StoreView() {
                         </div>
                         {owned ? (
                           <Button variant="secondary" size="sm" disabled className="h-8 rounded-full px-4 text-xs">
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Đã sở hữu
+                            Đã sở hữu
                           </Button>
                         ) : (
                           <Button
@@ -230,6 +252,9 @@ export function StoreView() {
             {inventory.map((item) => {
               const cfg = typeConfig[item.type] ?? { icon: Star, category: "other" };
               const Icon = cfg.icon;
+              const isEquipped = (item.type === 'AVATAR' && item.image_url === equippedAvatar) ||
+                (item.type === 'COVER_PHOTO' && item.image_url === equippedCover);
+
               return (
                 <Card key={item.id} className="hover:shadow-sm transition-all">
                   <CardContent className="p-4 flex items-center gap-4">
@@ -244,6 +269,23 @@ export function StoreView() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium">{item.name}</p>
                       <p className="text-xs text-muted-foreground">Số lượng: {item.quantity}</p>
+                    </div>
+                    <div className="shrink-0 ml-auto pl-2">
+                      {(item.type === 'AVATAR' || item.type === 'COVER_PHOTO') && (
+                        isEquipped ? (
+                          <Button variant="secondary" size="sm" disabled className="h-8 rounded-full px-4 text-xs font-semibold">
+                            Đang dùng
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-8 rounded-full px-5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-sm"
+                            onClick={() => handleEquip(item)}
+                          >
+                            Trang bị
+                          </Button>
+                        )
+                      )}
                     </div>
                   </CardContent>
                 </Card>
