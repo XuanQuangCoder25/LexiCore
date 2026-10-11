@@ -17,7 +17,8 @@ export const createExam = async (req: Request, res: Response) => {
     const exam = new Exam({ 
       title, 
       description, 
-      thumbnail, 
+      thumbnail,
+      status: 'Draft', 
       totalQuestions: questions ? questions.length : 0,
       createdBy: creatorId 
     });
@@ -40,12 +41,30 @@ export const createExam = async (req: Request, res: Response) => {
 export const updateExam = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, thumbnail, questions } = req.body;
+    const { title, description, thumbnail, questions, status } = req.body;
     const creatorId = req.user?.id;
+
+    // Chặn role user xuất bản bài kiểm tra ra cộng đồng
+    if (status === 'Published') {
+      const role = req.user?.role?.toLowerCase().replace(/\s+/g, '_');
+      const creatorStatus = req.user?.creator_status;
+      const isAdmin = role === 'admin';
+      const isActiveCreator = role === 'content_creator' && creatorStatus !== 'SUSPENDED';
+      if (!isAdmin && !isActiveCreator) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bài kiểm tra ra cộng đồng.',
+          requires_creator: true
+        });
+      }
+    }
+
+    const updateFields: any = { title, description, thumbnail, totalQuestions: questions ? questions.length : 0 };
+    if (status) updateFields.status = status;
 
     const exam = await Exam.findOneAndUpdate(
       { _id: id, createdBy: creatorId }, 
-      { title, description, thumbnail, totalQuestions: questions ? questions.length : 0 },
+      updateFields,
       { new: true }
     );
 

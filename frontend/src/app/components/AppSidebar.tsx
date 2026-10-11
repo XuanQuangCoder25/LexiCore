@@ -29,6 +29,7 @@ import {
   PieChart,
   ShieldAlert,
   Megaphone,
+  FolderLock,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { PremiumModal } from "./global/PremiumModal";
@@ -51,6 +52,7 @@ const navigationItems = [
   { id: "exam", title: "Exam", icon: ClipboardList, description: "Multimedia Tests" },
   { id: "arena", title: "PvP Arena", icon: Swords, description: "Battle Opponents" },
   { id: "community", title: "Community", icon: Users, description: "Connect & Share" },
+  { id: "private-space", title: "Private Space", icon: FolderLock, description: "Personal Library" },
   { id: "creator", title: "Creator Studio", icon: FileEdit, description: "Build Decks" },
   { id: "store", title: "Store", icon: Store, description: "Spend Coins" },
   { id: "achievements", title: "Achievements", icon: Trophy, description: "Goals & Rewards" },

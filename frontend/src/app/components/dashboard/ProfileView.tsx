@@ -186,7 +186,7 @@ export function ProfileView() {
               </p>
 
               {/* Status Display */}
-              {userData?.role === "CONTENT_CREATOR" ? (
+              {userData?.role?.toLowerCase() === "content_creator" ? (
                 <div className="space-y-6">
                   {/* Info rows */}
                   <div className="space-y-3 mt-4 text-sm">

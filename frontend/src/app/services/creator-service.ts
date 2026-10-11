@@ -9,7 +9,8 @@ const api = axios.create({
 });
 
 export const creatorService = {
-  getCourses: async () => (await api.get('/courses')).data,
+  getPrivateSpaceContent: async () => (await api.get('/private-space')).data,
+  getCourses: async (params?: any) => (await api.get('/courses', { params })).data,
   createCourse: async (data: any) => (await api.post('/courses', data)).data,
   updateCourse: async (id: string, data: any) => (await api.put(`/courses/${id}`, data)).data,
   deleteCourse: async (id: string) => (await api.delete(`/courses/${id}`)).data,

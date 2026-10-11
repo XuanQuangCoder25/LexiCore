@@ -147,7 +147,10 @@ export const CoursesView = () => {
 
       {/* Course Details Dialog */}
       <Dialog open={selectedCourseId !== null} onOpenChange={(open) => !open && setSelectedCourseId(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 border-none rounded-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 border-none rounded-2xl" aria-describedby={undefined}>
+          <DialogHeader className="sr-only">
+            <DialogTitle>{courseDetails?.course?.title || "Chi tiết khóa học"}</DialogTitle>
+          </DialogHeader>
           {detailsLoading || !courseDetails ? (
             <div className="p-12 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
           ) : (

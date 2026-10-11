@@ -24,4 +24,8 @@ const CourseSchema = new Schema<ICourse>({
   type: { type: String, enum: ['course', 'flashcard'], default: 'course' }
 }, { timestamps: true });
 
+// Tối ưu hóa truy vấn: lọc nội dung cá nhân (Private Space) & nội dung cộng đồng
+CourseSchema.index({ creatorId: 1, type: 1, isPublished: 1 });
+CourseSchema.index({ isPublished: 1, type: 1 });
+
 export default mongoose.model<ICourse>('Course', CourseSchema);

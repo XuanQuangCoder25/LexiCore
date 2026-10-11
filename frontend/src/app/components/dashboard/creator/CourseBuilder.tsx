@@ -53,7 +53,7 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
     const fetchResources = async () => {
       try {
         const [flashcardsRes, examsRes] = await Promise.all([
-          creatorService.getCourses(),
+          creatorService.getCourses({ all: true }),
           axios.get('/api/exams', { withCredentials: true })
         ]);
         if (flashcardsRes.success) setAvailableFlashcards(flashcardsRes.data);
@@ -90,8 +90,14 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
     setLessonContent(lesson.content || "");
     setLessonBlocks(lesson.blocks || []);
     setLessonVideo(lesson.videoUrl || "");
-    setAttachedFlashcardId(lesson.attachedFlashcardId || "none");
-    setAttachedExamId(lesson.attachedExamId || "none");
+    const flashcardId = typeof lesson.attachedFlashcardId === 'object' && lesson.attachedFlashcardId?._id 
+      ? lesson.attachedFlashcardId._id.toString() 
+      : (lesson.attachedFlashcardId ? lesson.attachedFlashcardId.toString() : "none");
+    setAttachedFlashcardId(flashcardId);
+    const examId = typeof lesson.attachedExamId === 'object' && lesson.attachedExamId?._id 
+      ? lesson.attachedExamId._id.toString() 
+      : (lesson.attachedExamId ? lesson.attachedExamId.toString() : "none");
+    setAttachedExamId(examId);
     setShowLessonModal(true);
   };
 
@@ -103,12 +109,14 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
       const payload = {
         title: lessonTitle,
         durationMinutes: Math.max(1, parseInt(lessonDuration) || 5),
-        order,
+        order: activeLessonId 
+          ? (activeChapter?.lessons.find((l: any) => l._id === activeLessonId)?.order || order)
+          : order,
         content: lessonContent,
         blocks: lessonBlocks,
         videoUrl: lessonVideo,
-        attachedFlashcardId: attachedFlashcardId !== "none" ? attachedFlashcardId : undefined,
-        attachedExamId: attachedExamId !== "none" ? attachedExamId : undefined,
+        attachedFlashcardId: attachedFlashcardId !== "none" ? attachedFlashcardId : null,
+        attachedExamId: attachedExamId !== "none" ? attachedExamId : null,
       };
       
       const res = activeLessonId 
@@ -204,7 +212,7 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
 
       {/* Chapter Modal */}
       <Dialog open={showChapterModal} onOpenChange={setShowChapterModal}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader><DialogTitle>Thêm Chương Mới</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -218,7 +226,7 @@ export const CourseBuilder = ({ courseId, onBack }: { courseId: string; onBack: 
 
       {/* Lesson Modal */}
       <Dialog open={showLessonModal} onOpenChange={setShowLessonModal}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px]" aria-describedby={undefined}>
           <DialogHeader><DialogTitle>{activeLessonId ? "Sửa Bài Học" : "Thêm Bài Học Mới"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto px-2">
             <div className="space-y-2">

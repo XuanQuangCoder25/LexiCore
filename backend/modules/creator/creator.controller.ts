@@ -2,15 +2,37 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Course from '../../database/models/Course';
 import Flashcard from '../../database/models/Flashcard';
+import Exam from '../../database/models/Exam';
+import Question from '../../database/models/Question';
+import ExamResult from '../../database/models/ExamResult';
+import ExamReport from '../../database/models/ExamReport';
+import ExamRating from '../../database/models/ExamRating';
 
-// --- COURSES ---
+// Helper kiểm tra quyền xuất bản (Admin hoặc Content Creator ACTIVE)
+const canPublishContent = (req: Request): boolean => {
+  const role = req.user?.role?.toLowerCase().replace(/\s+/g, '_');
+  const creatorStatus = req.user?.creator_status;
+  const isAdmin = role === 'admin';
+  const isActiveCreator = role === 'content_creator' && creatorStatus !== 'SUSPENDED';
+  return isAdmin || isActiveCreator;
+};
+
+// --- COURSES (FLASHCARD DECKS) ---
 export const createCourse = async (req: Request, res: Response) => {
   try {
-    const { title, description, thumbnail, isPublished } = req.body;
+    const { title, description, thumbnail } = req.body;
     const creatorId = req.user?.id;
     if (!creatorId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const course = new Course({ title, description, thumbnail, isPublished, creatorId, type: 'flashcard' });
+    // Luôn tạo ở trạng thái private/draft ban đầu
+    const course = new Course({ 
+      title, 
+      description, 
+      thumbnail, 
+      isPublished: false, 
+      creatorId, 
+      type: 'flashcard' 
+    });
     await course.save();
     res.status(201).json({ success: true, data: course });
   } catch (error) {
@@ -21,8 +43,19 @@ export const createCourse = async (req: Request, res: Response) => {
 export const updateCourse = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const course = await Course.findOneAndUpdate({ _id: id, creatorId: req.user?.id }, req.body, { new: true });
-    if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+    const creatorId = req.user?.id;
+
+    // Chặn role user xuất bản ra cộng đồng
+    if (req.body.isPublished === true && !canPublishContent(req)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bộ thẻ ra cộng đồng.',
+        requires_creator: true
+      });
+    }
+
+    const course = await Course.findOneAndUpdate({ _id: id, creatorId }, req.body, { new: true });
+    if (!course) return res.status(404).json({ success: false, message: 'Bộ thẻ không tồn tại hoặc bạn không có quyền.' });
     res.json({ success: true, data: course });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -45,7 +78,12 @@ export const deleteCourse = async (req: Request, res: Response) => {
 
 export const getCourses = async (req: Request, res: Response) => {
   try {
-    const courses = await Course.find({ creatorId: req.user?.id, type: 'flashcard' }).sort({ createdAt: -1 });
+    const { all } = req.query;
+    const query: any = { type: 'flashcard' };
+    if (!all && req.user?.role !== 'admin') {
+      query.$or = [{ creatorId: req.user?.id }, { isPublished: true }];
+    }
+    const courses = await Course.find(query).sort({ createdAt: -1 });
     res.json({ success: true, data: courses });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -115,12 +153,6 @@ export const getFlashcards = async (req: Request, res: Response) => {
 };
 
 // --- EXAMS (CREATOR) ---
-import Exam from '../../database/models/Exam';
-import Question from '../../database/models/Question';
-import ExamResult from '../../database/models/ExamResult';
-import ExamReport from '../../database/models/ExamReport';
-import ExamRating from '../../database/models/ExamRating';
-
 export const getCreatorExams = async (req: Request, res: Response) => {
   try {
     const exams = await Exam.find({ createdBy: req.user?.id }).sort({ createdAt: -1 }).lean();
@@ -181,6 +213,15 @@ export const updateExam = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { title, description, thumbnail, status, password } = req.body;
+
+    // Chặn role user xuất bản bài thi ra cộng đồng
+    if (status === 'Published' && !canPublishContent(req)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bài kiểm tra ra cộng đồng.',
+        requires_creator: true
+      });
+    }
     
     const exam = await Exam.findOneAndUpdate(
       { _id: id, createdBy: req.user?.id }, 
@@ -272,6 +313,13 @@ export const bulkActionExams = async (req: Request, res: Response) => {
       await ExamRating.deleteMany({ examId: { $in: validIds } });
       
     } else if (action === 'publish') {
+      if (!canPublishContent(req)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bài kiểm tra ra cộng đồng.',
+          requires_creator: true
+        });
+      }
       await Exam.updateMany({ _id: { $in: ids }, createdBy: creatorId }, { status: 'Published' });
     } else if (action === 'unpublish') {
       await Exam.updateMany({ _id: { $in: ids }, createdBy: creatorId }, { status: 'Draft' });
@@ -282,6 +330,53 @@ export const bulkActionExams = async (req: Request, res: Response) => {
     res.json({ success: true, message: 'Thao tác thành công' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+// --- PRIVATE SPACE API ---
+export const getPrivateSpaceContent = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    // 1. Lấy tất cả khóa học của user (cả private và public)
+    const courses = await Course.find({ creatorId: userId, type: 'course' }).sort({ createdAt: -1 }).lean();
+
+    // 2. Lấy tất cả bộ thẻ Flashcard của user kèm số thẻ trong từng bộ
+    const flashcardDecks = await Course.find({ creatorId: userId, type: 'flashcard' }).sort({ createdAt: -1 }).lean();
+    const flashcardDecksWithCount = await Promise.all(flashcardDecks.map(async (deck) => {
+      const cardCount = await Flashcard.countDocuments({ courseId: deck._id });
+      return {
+        ...deck,
+        cardCount
+      };
+    }));
+
+    // 3. Lấy tất cả bài kiểm tra của user
+    const exams = await Exam.find({ createdBy: userId }).sort({ createdAt: -1 }).lean();
+
+    // 4. Tổng hợp số liệu thống kê
+    const stats = {
+      totalCourses: courses.length,
+      totalFlashcardDecks: flashcardDecks.length,
+      totalExams: exams.length,
+      privateCourses: courses.filter(c => !c.isPublished).length,
+      privateDecks: flashcardDecks.filter(d => !d.isPublished).length,
+      privateExams: exams.filter(e => e.status !== 'Published').length,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        courses,
+        flashcardDecks: flashcardDecksWithCount,
+        exams,
+        stats
+      }
+    });
+  } catch (error) {
+    console.error('Lỗi khi lấy dữ liệu Private Space:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server khi lấy dữ liệu Private Space' });
   }
 };
 

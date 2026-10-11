@@ -614,7 +614,7 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
 }
 
 // --- Taking View ---
-function ExamTakingView({ examId, onBack }: { examId: string; onBack: () => void }) {
+export function ExamTakingView({ examId, onBack }: { examId: string; onBack: () => void }) {
   const [exam, setExam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -747,9 +747,13 @@ function ExamTakingView({ examId, onBack }: { examId: string; onBack: () => void
 
   if (!exam || !exam.questions || exam.questions.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p>No questions found in this exam.</p>
-        <Button className="mt-4" onClick={onBack}>Back to Exams</Button>
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center space-y-4 max-w-md mx-auto">
+        <FileText className="w-12 h-12 text-muted-foreground/40 mb-2" />
+        <h3 className="text-lg font-semibold">Bài kiểm tra chưa có câu hỏi</h3>
+        <p className="text-sm text-muted-foreground">
+          Đề thi này hiện chưa có câu hỏi nào. Bạn có thể vào Creator Studio để thêm câu hỏi cho đề thi.
+        </p>
+        <Button variant="outline" className="mt-2" onClick={onBack}>← Quay lại</Button>
       </div>
     );
   }

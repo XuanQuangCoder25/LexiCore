@@ -55,6 +55,20 @@ export const getDueCards = async (req: Request, res: Response) => {
       resultCards = [...resultCards, ...newCards];
     }
 
+    // 3. Nếu không có thẻ due và không có thẻ new (đã ôn xong hết hôm nay), nhưng truyền courseId:
+    // Lấy lại tất cả thẻ trong deck để học viên có thể ôn tập bất cứ lúc nào (Cram/Practice mode)
+    if (resultCards.length === 0 && courseId) {
+      const allFlashcards = await Flashcard.find({ courseId }).limit(limitNum).lean();
+      resultCards = allFlashcards.map(fc => ({
+        _id: fc._id,
+        cardId: fc._id,
+        courseId: fc.courseId,
+        front: fc.front,
+        back: fc.back,
+        status: 'Practice'
+      }));
+    }
+
     res.json({
       success: true,
       data: {

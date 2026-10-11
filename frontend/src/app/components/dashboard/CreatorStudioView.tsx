@@ -33,6 +33,7 @@ import { LayoutList,
   CheckCircle2,
   AlertCircle,
   FileText,
+  Crown,
 } from "lucide-react";
 
 interface Course {
@@ -51,7 +52,14 @@ interface Flashcard {
   order: number;
 }
 
-export function CreatorStudioView() {
+interface CreatorStudioViewProps {
+  onNavigateTab?: (tab: string) => void;
+  userRole?: string;
+}
+
+export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorStudioViewProps) {
+  const isCreatorOrAdmin = userRole?.toLowerCase() === "content_creator" || userRole?.toLowerCase() === "admin";
+  const [showPublishRestrictedModal, setShowPublishRestrictedModal] = useState(false);
   const [view, setView] = useState<"list" | "editor">("list");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -156,6 +164,10 @@ export function CreatorStudioView() {
   };
 
   const handlePublishToggle = async (course: Course) => {
+    if (!course.isPublished && !isCreatorOrAdmin) {
+      setShowPublishRestrictedModal(true);
+      return;
+    }
     try {
       const res = await creatorService.updateCourse(course._id, { isPublished: !course.isPublished });
       if (res.success) {
@@ -173,6 +185,10 @@ export function CreatorStudioView() {
   };
 
   const handlePublishActualCourse = async (course: any) => {
+    if (!course.isPublished && !isCreatorOrAdmin) {
+      setShowPublishRestrictedModal(true);
+      return;
+    }
     try {
       const res = await courseBuilderService.updateCourse(course._id, { isPublished: !course.isPublished });
       if (res.status === 'success') {
@@ -329,6 +345,10 @@ const handleOpenEditor = (course: Course) => {
   };
 
   const handleBulkAction = async (action: 'delete' | 'publish' | 'unpublish') => {
+    if (action === 'publish' && !isCreatorOrAdmin) {
+      setShowPublishRestrictedModal(true);
+      return;
+    }
     if (selectedExams.length === 0) return;
     try {
       const res = await axios.post("/api/v1/creator/exams/bulk-action", { ids: selectedExams, action }, { withCredentials: true });
@@ -354,6 +374,46 @@ const handleOpenEditor = (course: Course) => {
       toast.error("Không thể tải danh sách đánh giá");
     }
   };
+
+  const renderPublishRestrictedModal = () => (
+    <Dialog open={showPublishRestrictedModal} onOpenChange={setShowPublishRestrictedModal}>
+      <DialogContent className="max-w-md" aria-describedby={undefined}>
+        <DialogHeader>
+          <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
+            <Crown className="w-6 h-6" />
+          </div>
+          <DialogTitle className="text-center text-xl">Tính năng dành cho Creator</DialogTitle>
+        </DialogHeader>
+        <div className="text-center py-2 text-sm text-muted-foreground space-y-2">
+          <p>
+            Tính năng xuất bản nội dung công khai chỉ dành riêng cho <strong className="text-foreground">Creator chính thức</strong>.
+          </p>
+          <p>
+            Nội dung của bạn vẫn được lưu an toàn trong <strong className="text-foreground">Private Space</strong> để bạn tự do học tập và làm bài thi bất kỳ lúc nào.
+          </p>
+          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium pt-1">
+            Hãy đăng ký làm Creator để chia sẻ kiến thức bổ ích tới cộng đồng học viên LexiCore!
+          </p>
+        </div>
+        <DialogFooter className="flex flex-col sm:flex-row sm:justify-center gap-2 pt-2">
+          <Button variant="outline" onClick={() => setShowPublishRestrictedModal(false)}>
+            Để sau
+          </Button>
+          <Button
+            className="bg-amber-500 hover:bg-amber-600 text-white font-medium gap-2 shadow-sm"
+            onClick={() => {
+              setShowPublishRestrictedModal(false);
+              if (onNavigateTab) {
+                onNavigateTab("profile");
+              }
+            }}
+          >
+            <Crown className="w-4 h-4" /> Đăng ký làm Creator ngay
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   // --- DECK EDITOR (Flashcards) ---
   if (view === "editor" && selectedCourse) {
@@ -449,6 +509,7 @@ const handleOpenEditor = (course: Course) => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {renderPublishRestrictedModal()}
       </div>
     );
   }
@@ -461,7 +522,7 @@ const handleOpenEditor = (course: Course) => {
     return <ExamBuilder examId={builderExamId} onBack={() => {
       setBuilderExamId(null);
       fetchExams();
-    }} />;
+    }} userRole={userRole} onNavigateTab={onNavigateTab} />;
   }
 
   // --- DECK LIST (Courses) ---
@@ -931,6 +992,8 @@ const handleOpenEditor = (course: Course) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {renderPublishRestrictedModal()}
     </div>
   );
 }

@@ -24,8 +24,8 @@ router.post('/:id/verify-password', requireAuth, verifyPassword);
 router.post('/:id/report', requireAuth, reportExam);
 router.post('/:id/rate', requireAuth, rateExam);
 
-// Routes cho Creator Studio (Quản lý)
-router.post('/', requireAuth, requireRole(['content_creator', 'admin']), createExam);
-router.put('/:id', requireAuth, requireRole(['content_creator', 'admin']), updateExam);
+// Routes cho Creator Studio (Quản lý) - Cho phép cả role user, content_creator, admin
+router.post('/', requireAuth, requireRole(['user', 'content_creator', 'admin']), createExam);
+router.put('/:id', requireAuth, requireRole(['user', 'content_creator', 'admin']), updateExam);
 
 export default router;

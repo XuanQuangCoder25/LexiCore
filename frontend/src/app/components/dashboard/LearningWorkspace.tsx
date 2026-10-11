@@ -2,10 +2,22 @@ import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Progress } from "../ui/progress";
-import { ArrowLeft, PlayCircle, FileText, CheckCircle, Circle } from "lucide-react";
+import { Badge } from "../ui/badge";
+import { ArrowLeft, PlayCircle, FileText, CheckCircle, Circle, Mic, BookOpen, Sparkles } from "lucide-react";
 import { studentCourseService } from "../../services/student-course-service";
 import { toast } from "sonner";
 import { ScrollArea } from "../ui/scroll-area";
+import { ExamTakingView } from "./ExamView";
+import { FlashcardStudySession } from "./FlashcardStudySession";
+
+const formatVideoEmbedUrl = (url: string) => {
+  if (!url) return '';
+  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  if (ytMatch && ytMatch[1]) {
+    return `https://www.youtube.com/embed/${ytMatch[1]}?enablejsapi=1`;
+  }
+  return url;
+};
 
 
 const InteractiveBlock = ({ block }: { block: any }) => {
@@ -129,6 +141,8 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
   const [activeLesson, setActiveLesson] = useState<any>(null);
   const [lessonContent, setLessonContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [takingExamId, setTakingExamId] = useState<string | null>(null);
+  const [studyingFlashcardDeck, setStudyingFlashcardDeck] = useState<{ id: string; title: string } | null>(null);
 
   const fetchCourseData = async () => {
     try {
@@ -178,7 +192,61 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
   };
 
   if (loading) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
-  if (!data) return <div>Không có dữ liệu.</div>;
+  if (!data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center space-y-4">
+        <BookOpen className="w-12 h-12 text-muted-foreground/40 mb-2" />
+        <h3 className="text-lg font-semibold">Không tìm thấy nội dung khóa học</h3>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Khóa học này có thể chưa có nội dung bài giảng hoặc đang được cập nhật.
+        </p>
+        <Button variant="outline" onClick={onBack} className="gap-2">
+          <ArrowLeft className="w-4 h-4" /> Quay lại
+        </Button>
+      </div>
+    );
+  }
+
+  // Nếu đang mở bài kiểm tra đính kèm
+  if (takingExamId) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-background">
+        <div className="p-3 border-b flex items-center justify-between bg-card shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => setTakingExamId(null)} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Quay lại bài học
+          </Button>
+          <span className="text-sm font-medium text-muted-foreground">Bài kiểm tra đính kèm của bài học: {activeLesson?.title}</span>
+        </div>
+        <div className="flex-1 overflow-auto p-6">
+          <ExamTakingView 
+            examId={takingExamId} 
+            onBack={() => {
+              setTakingExamId(null);
+              fetchCourseData();
+            }} 
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Nếu đang mở bộ thẻ Flashcard đính kèm
+  if (studyingFlashcardDeck) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-background">
+        <div className="flex-1 overflow-auto p-6">
+          <FlashcardStudySession 
+            deckId={studyingFlashcardDeck.id}
+            deckTitle={studyingFlashcardDeck.title}
+            onBack={() => {
+              setStudyingFlashcardDeck(null);
+              fetchCourseData();
+            }} 
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-background">
@@ -209,13 +277,12 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
 
               {lessonContent.videoUrl && (
                 <div className="aspect-video w-full rounded-xl overflow-hidden bg-black shadow-lg border">
-                  {/* Fake Video Player or actual iframe */}
-                  {lessonContent.videoUrl.includes('youtube') ? (
+                  {lessonContent.videoUrl.includes('youtube') || lessonContent.videoUrl.includes('youtu.be') ? (
                     <iframe 
                       className="w-full h-full"
-                      src={lessonContent.videoUrl.replace('watch?v=', 'embed/')} 
-                      title="Video Player"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                      src={formatVideoEmbedUrl(lessonContent.videoUrl)} 
+                      title="Lesson Video Player"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
                       allowFullScreen 
                     />
                   ) : (
@@ -243,12 +310,19 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                         )}
                         {block.type === 'video' && (
                           <div className="flex flex-col gap-2">
-                            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Video</span>
-                            <div className="aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-primary uppercase tracking-wider">Video</span>
+                              {block.metadata?.showTranscript && (
+                                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">Interactive Shadowing</span>
+                              )}
+                            </div>
+                            <div className="aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center shadow-md">
                               {block.content.includes('youtube.com') || block.content.includes('youtu.be') ? (
                                 <iframe 
                                   className="w-full h-full" 
-                                  src={block.content.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')} 
+                                  src={formatVideoEmbedUrl(block.content)} 
+                                  title="Block Video Player"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                   allowFullScreen 
                                 />
                               ) : (
@@ -285,6 +359,104 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                 </Card>
               )}
 
+              {/* Đính kèm Bài kiểm tra (Attached Exam) */}
+              {lessonContent.attachedExamId && (
+                <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-background to-card shadow-md my-6 overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-primary hover:bg-primary text-white font-medium">
+                            <FileText className="w-3.5 h-3.5 mr-1" /> Bài kiểm tra đính kèm
+                          </Badge>
+                          {typeof lessonContent.attachedExamId === 'object' && lessonContent.attachedExamId.totalQuestions > 0 && (
+                            <span className="text-xs text-muted-foreground font-medium">
+                              {lessonContent.attachedExamId.totalQuestions} câu hỏi
+                            </span>
+                          )}
+                          {lessonContent.isRequiredToPassExam && (
+                            <Badge variant="outline" className="border-amber-500 text-amber-600 text-[11px]">
+                              Bắt buộc hoàn thành
+                            </Badge>
+                          )}
+                        </div>
+                        <h3 className="text-xl font-bold tracking-tight">
+                          {typeof lessonContent.attachedExamId === 'object' 
+                            ? lessonContent.attachedExamId.title 
+                            : "Bài kiểm tra cuối bài học"}
+                        </h3>
+                        {typeof lessonContent.attachedExamId === 'object' && lessonContent.attachedExamId.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {lessonContent.attachedExamId.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <Button 
+                        size="lg" 
+                        className="shrink-0 gap-2 font-semibold shadow-md bg-primary hover:bg-primary/90"
+                        onClick={() => {
+                          const id = typeof lessonContent.attachedExamId === 'object' 
+                            ? lessonContent.attachedExamId._id 
+                            : lessonContent.attachedExamId;
+                          setTakingExamId(id);
+                        }}
+                      >
+                        <PlayCircle className="w-5 h-5" /> Bắt đầu làm bài kiểm tra
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Đính kèm Flashcards (Attached Flashcard) */}
+              {lessonContent.attachedFlashcardId && (
+                <Card className="border-2 border-indigo-500/20 bg-gradient-to-r from-indigo-500/10 via-background to-card shadow-md my-4 overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                          <BookOpen className="w-6 h-6" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold border-indigo-200">
+                              📚 Bộ thẻ Flashcard đính kèm
+                            </Badge>
+                          </div>
+                          <h3 className="text-xl font-bold tracking-tight">
+                            {typeof lessonContent.attachedFlashcardId === 'object' 
+                              ? lessonContent.attachedFlashcardId.title 
+                              : "Bộ thẻ từ vựng của bài học"}
+                          </h3>
+                          {typeof lessonContent.attachedFlashcardId === 'object' && lessonContent.attachedFlashcardId.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {lessonContent.attachedFlashcardId.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <Button 
+                        size="lg" 
+                        className="shrink-0 gap-2 font-semibold shadow-md bg-indigo-600 hover:bg-indigo-700 text-white"
+                        onClick={() => {
+                          const id = typeof lessonContent.attachedFlashcardId === 'object' 
+                            ? lessonContent.attachedFlashcardId._id 
+                            : lessonContent.attachedFlashcardId;
+                          const title = typeof lessonContent.attachedFlashcardId === 'object' 
+                            ? lessonContent.attachedFlashcardId.title 
+                            : "Bộ thẻ từ vựng của bài học";
+                          setStudyingFlashcardDeck({ id, title });
+                        }}
+                      >
+                        <Sparkles className="w-4 h-4" /> Luyện tập thẻ nhớ (SRS)
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <div className="pt-6 border-t flex justify-between items-center">
                  <Button variant="outline" onClick={onBack}>Thoát</Button>
                  {data.completedLessons?.includes(activeLesson?._id) ? (
@@ -299,8 +471,13 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
               </div>
             </div>
           ) : (
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-               <div className="animate-pulse">Đang tải nội dung...</div>
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center space-y-3 min-h-[300px]">
+              <BookOpen className="w-10 h-10 text-muted-foreground/40" />
+              <p className="font-medium text-foreground">Chưa có bài học nào trong khóa học này.</p>
+              <p className="text-xs max-w-xs text-muted-foreground">Bạn có thể vào Creator Studio để thêm chương và bài giảng cho khóa học.</p>
+              <Button variant="outline" size="sm" onClick={onBack} className="gap-1 mt-2">
+                <ArrowLeft className="w-3.5 h-3.5" /> Quay lại
+              </Button>
             </div>
           )}
         </ScrollArea>
@@ -333,8 +510,18 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                           <div className={`font-medium text-sm leading-tight ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
                             {lesson.order}. {lesson.title}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <PlayCircle className="w-3 h-3" /> {lesson.durationMinutes} phút
+                          <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+                            <span className="flex items-center gap-1"><PlayCircle className="w-3 h-3" /> {lesson.durationMinutes} phút</span>
+                            {lesson.attachedExamId && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary/40 text-primary font-normal">
+                                Quiz
+                              </Badge>
+                            )}
+                            {lesson.attachedFlashcardId && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-indigo-500/40 text-indigo-600 dark:text-indigo-400 font-normal">
+                                Cards
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </button>
