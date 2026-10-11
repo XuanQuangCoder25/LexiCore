@@ -19,6 +19,7 @@ import { AdminModerationView } from "./components/dashboard/AdminModerationView"
 import { AdminMarketingView } from "./components/dashboard/AdminMarketingView";
 import { ExamView } from "./components/dashboard/ExamView";
 import { ProfileView } from "./components/dashboard/ProfileView";
+import { SettingsView } from "./components/dashboard/SettingsView";
 import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
 import { Button } from "./components/ui/button";
@@ -45,6 +46,7 @@ const TAB_LABELS: Record<string, string> = {
   "admin-moderation": "Admin - Moderation",
   "admin-marketing": "Admin - Marketing & Campaigns",
   profile: "Profile",
+  settings: "Settings",
 };
 
 export default function App() {
@@ -91,6 +93,7 @@ export default function App() {
       case "admin-moderation": return <AdminModerationView />;
       case "admin-marketing": return <AdminMarketingView />;
       case "profile": return <ProfileView />;
+      case "settings": return <SettingsView onNavigateTab={setActiveTab} userRole={userRole || "user"} />;
       default: return <DashboardView />;
     }
   };

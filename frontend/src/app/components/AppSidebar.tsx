@@ -240,7 +240,10 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton className="w-full justify-start">
+              <SidebarMenuButton
+                className={`w-full justify-start ${activeTab === "settings" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
+                onClick={() => onTabChange("settings")}
+              >
                 <Settings className="h-4 w-4 mr-3" />
                 <span className="text-sm">Settings</span>
               </SidebarMenuButton>
