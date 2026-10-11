@@ -24,4 +24,8 @@ const ExamSchema = new Schema<IExam>({
   averageRating: { type: Number, default: 0 }
 }, { timestamps: true });
 
+// Tối ưu hóa truy vấn: lọc bài kiểm tra cá nhân (Private Space) & bài kiểm tra cộng đồng
+ExamSchema.index({ createdBy: 1, status: 1 });
+ExamSchema.index({ status: 1 });
+
 export default mongoose.model<IExam>('Exam', ExamSchema);

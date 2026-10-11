@@ -47,6 +47,23 @@ export const updateCourse = async (req: Request, res: Response): Promise<void> =
   try {
     const { id } = req.params;
     const creatorId = req.user?.id;
+
+    // Chặn role user xuất bản khóa học ra cộng đồng
+    if (req.body.isPublished === true) {
+      const role = req.user?.role?.toLowerCase().replace(/\s+/g, '_');
+      const creatorStatus = req.user?.creator_status;
+      const isAdmin = role === 'admin';
+      const isActiveCreator = role === 'content_creator' && creatorStatus !== 'SUSPENDED';
+      if (!isAdmin && !isActiveCreator) {
+        res.status(403).json({
+          status: 'error',
+          message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản khóa học ra cộng đồng.',
+          requires_creator: true
+        });
+        return;
+      }
+    }
+
     const course = await Course.findOneAndUpdate(
       { _id: id, creatorId },
       { $set: req.body },
@@ -134,7 +151,17 @@ export const createLesson = async (req: Request, res: Response): Promise<void> =
     }
 
     const lesson = new Lesson({
-      courseId, chapterId, title, durationMinutes, order, videoUrl, content, blocks, attachedExamId, attachedFlashcardId, isRequiredToPassExam
+      courseId, 
+      chapterId, 
+      title, 
+      durationMinutes, 
+      order, 
+      videoUrl, 
+      content, 
+      blocks, 
+      attachedExamId: attachedExamId && attachedExamId !== "none" ? attachedExamId : null, 
+      attachedFlashcardId: attachedFlashcardId && attachedFlashcardId !== "none" ? attachedFlashcardId : null, 
+      isRequiredToPassExam: !!isRequiredToPassExam
     });
     await lesson.save();
     res.status(201).json({ status: 'success', data: lesson });
@@ -153,9 +180,17 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
        return;
     }
 
+    const updateData: any = { ...req.body };
+    if ('attachedExamId' in updateData) {
+      updateData.attachedExamId = updateData.attachedExamId && updateData.attachedExamId !== "none" ? updateData.attachedExamId : null;
+    }
+    if ('attachedFlashcardId' in updateData) {
+      updateData.attachedFlashcardId = updateData.attachedFlashcardId && updateData.attachedFlashcardId !== "none" ? updateData.attachedFlashcardId : null;
+    }
+
     const lesson = await Lesson.findOneAndUpdate(
       { _id: lessonId, courseId, chapterId },
-      { $set: req.body },
+      { $set: updateData },
       { new: true }
     );
     res.status(200).json({ status: 'success', data: lesson });

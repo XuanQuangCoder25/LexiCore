@@ -3,6 +3,7 @@ import Course from '../../database/models/Course';
 import Chapter from '../../database/models/Chapter';
 import Lesson from '../../database/models/Lesson';
 import User from '../../database/models/User';
+import '../../database/models/Exam';
 import mongoose from 'mongoose';
 import { findUserById } from '../auth/auth-repository';
 
@@ -34,9 +35,17 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
         const { id } = req.params;
         const userId = req.user?.id; // Có thể null nếu gọi API public
 
-        const course = await Course.findOne({ _id: id, isPublished: true }).lean();
+        const course = await Course.findById(id).lean();
         if (!course) {
             res.status(404).json({ status: 'error', message: 'Không tìm thấy khóa học.' });
+            return;
+        }
+
+        const isOwner = userId && course.creatorId?.toString() === userId.toString();
+        const isAdmin = req.user?.role?.toLowerCase() === 'admin';
+
+        if (!course.isPublished && !isOwner && !isAdmin) {
+            res.status(404).json({ status: 'error', message: 'Khóa học này đang ở chế độ riêng tư.' });
             return;
         }
 
@@ -48,7 +57,15 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
                 ...chapter,
                 lessons: lessons.filter(lesson => lesson.chapterId.toString() === chapter._id.toString())
                     // Chỉ trả về các trường cần thiết, giấu content/video để bắt buộc enroll
-                    .map(l => ({ _id: l._id, title: l.title, durationMinutes: l.durationMinutes, order: l.order }))
+                    .map(l => ({ 
+                        _id: l._id, 
+                        title: l.title, 
+                        durationMinutes: l.durationMinutes, 
+                        order: l.order,
+                        attachedExamId: l.attachedExamId,
+                        attachedFlashcardId: l.attachedFlashcardId,
+                        isRequiredToPassExam: l.isRequiredToPassExam
+                    }))
             };
         });
 
@@ -57,6 +74,9 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
         let completedLessons: string[] = [];
         
         if (userId) {
+            if (course.creatorId?.toString() === userId?.toString()) {
+                isEnrolled = true;
+            }
             const user = await User.findById(userId);
             if (user) {
                 const enrollment = user.enrolledCourses.find(e => e.courseId.toString() === id);
@@ -137,15 +157,32 @@ export const getLessonContent = async (req: Request, res: Response): Promise<voi
         const { courseId, lessonId } = req.params;
         const userId = req.user?.id;
 
+        const course = await Course.findById(courseId);
+        if (!course) {
+            res.status(404).json({ status: 'error', message: 'Không tìm thấy khóa học.' });
+            return;
+        }
+
+        const isCreator = userId && course.creatorId?.toString() === userId.toString();
+        const isAdmin = req.user?.role?.toLowerCase() === 'admin';
+
+        if (!course.isPublished && !isCreator && !isAdmin) {
+            res.status(404).json({ status: 'error', message: 'Khóa học này đang ở chế độ riêng tư.' });
+            return;
+        }
+
         const user = await User.findById(userId);
-        const isEnrolled = user?.enrolledCourses.some(e => e.courseId.toString() === courseId);
+        const isEnrolled = isCreator || isAdmin || user?.enrolledCourses.some(e => e.courseId.toString() === courseId);
         
         if (!isEnrolled) {
             res.status(403).json({ status: 'error', message: 'Vui lòng đăng ký khóa học trước khi xem nội dung.' });
             return;
         }
 
-        const lesson = await Lesson.findOne({ _id: lessonId, courseId });
+        const lesson = await Lesson.findOne({ _id: lessonId, courseId })
+            .populate('attachedExamId', 'title description totalQuestions status averageRating')
+            .populate('attachedFlashcardId', 'title description')
+            .lean();
         if (!lesson) {
             res.status(404).json({ status: 'error', message: 'Bài học không tồn tại.' });
             return;

@@ -5,14 +5,21 @@ export const requireCreator = (req: Request, res: Response, next: NextFunction):
     const creatorStatus = req.user?.creator_status;
 
     const isAdmin = role === 'admin';
+    const isUser = role === 'user';
     const isActiveCreator = role === 'content_creator' && creatorStatus === 'ACTIVE';
 
-    if (!isAdmin && !isActiveCreator) {
+    if (role === 'content_creator' && creatorStatus === 'SUSPENDED') {
         res.status(403).json({
             status: 'error',
-            message: role === 'content_creator'
-                ? 'Tài khoản Creator của bạn đang bị đình chỉ. Vui lòng liên hệ Admin.'
-                : 'Cần quyền Content Creator để truy cập khu vực này.'
+            message: 'Tài khoản Creator của bạn đang bị đình chỉ. Vui lòng liên hệ Admin.'
+        });
+        return;
+    }
+
+    if (!isAdmin && !isActiveCreator && !isUser) {
+        res.status(403).json({
+            status: 'error',
+            message: 'Vui lòng đăng nhập để sử dụng tính năng này.'
         });
         return;
     }

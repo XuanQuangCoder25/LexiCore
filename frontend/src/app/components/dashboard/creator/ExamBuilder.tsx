@@ -7,7 +7,7 @@ import { Label } from "../../ui/label";
 import { Textarea } from "../../ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../../ui/card";
 import { 
-  Plus, Save, Globe, Lock, Trash2, ArrowLeft, GripVertical, FileText, Headphones, Video as VideoIcon, CheckCircle2 
+  Plus, Save, Globe, Lock, Trash2, ArrowLeft, GripVertical, FileText, Headphones, Video as VideoIcon, CheckCircle2, Crown 
 } from "lucide-react";
 import {
   Select,
@@ -17,13 +17,18 @@ import {
   SelectValue,
 } from "../../ui/select";
 import { Switch } from "../../ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../ui/dialog";
 
 interface ExamBuilderProps {
   examId: string;
   onBack: () => void;
+  userRole?: string;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export function ExamBuilder({ examId, onBack }: ExamBuilderProps) {
+export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }: ExamBuilderProps) {
+  const isCreatorOrAdmin = userRole?.toLowerCase() === "content_creator" || userRole?.toLowerCase() === "admin";
+  const [showPublishRestrictedModal, setShowPublishRestrictedModal] = useState(false);
   const [exam, setExam] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +78,10 @@ export function ExamBuilder({ examId, onBack }: ExamBuilderProps) {
   };
 
   const handlePublish = async () => {
+    if (!isCreatorOrAdmin) {
+      setShowPublishRestrictedModal(true);
+      return;
+    }
     // Basic validation
     if (questions.length === 0) {
       return toast.error("Bài kiểm tra phải có ít nhất 1 câu hỏi");
@@ -554,6 +563,44 @@ function MediaForm({ question, onUpload, onChange }: { question: any, onUpload: 
           </Card>
         ))}
       </div>
+
+      <Dialog open={showPublishRestrictedModal} onOpenChange={setShowPublishRestrictedModal}>
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
+              <Crown className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-center text-xl">Tính năng dành cho Creator</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-2 text-sm text-muted-foreground space-y-2">
+            <p>
+              Tính năng xuất bản bài kiểm tra công khai chỉ dành riêng cho <strong className="text-foreground">Creator chính thức</strong>.
+            </p>
+            <p>
+              Bài kiểm tra của bạn vẫn được lưu an toàn trong <strong className="text-foreground">Private Space</strong> để bạn tự luyện tập bất kỳ lúc nào.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium pt-1">
+              Hãy đăng ký làm Creator để chia sẻ bài thi với học viên trên LexiCore!
+            </p>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-center gap-2 pt-2">
+            <Button variant="outline" onClick={() => setShowPublishRestrictedModal(false)}>
+              Để sau
+            </Button>
+            <Button
+              className="bg-amber-500 hover:bg-amber-600 text-white font-medium gap-2 shadow-sm"
+              onClick={() => {
+                setShowPublishRestrictedModal(false);
+                if (onNavigateTab) {
+                  onNavigateTab("profile");
+                }
+              }}
+            >
+              <Crown className="w-4 h-4" /> Đăng ký làm Creator ngay
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

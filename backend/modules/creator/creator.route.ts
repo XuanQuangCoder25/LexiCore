@@ -4,7 +4,8 @@ import { requireCreator } from '../../middlewares/requireCreator';
 import {
   createCourse, updateCourse, deleteCourse, getCourses,
   createFlashcard, updateFlashcard, deleteFlashcard, getFlashcards,
-  createExam, updateExam, deleteExam, saveExamQuestions, getCreatorExams, getCreatorExamById, bulkActionExams, getExamRatings
+  createExam, updateExam, deleteExam, saveExamQuestions, getCreatorExams, getCreatorExamById, bulkActionExams, getExamRatings,
+  getPrivateSpaceContent
 } from './creator.controller';
 
 const router = Router();
@@ -12,6 +13,9 @@ const router = Router();
 // Middleware áp dụng cho tất cả routes ở đây
 router.use(requireAuth);
 router.use(requireCreator);
+
+// Private Space route (Lấy toàn bộ nội dung cá nhân)
+router.get('/private-space', getPrivateSpaceContent);
 
 // Courses routes
 router.get('/courses', getCourses);
