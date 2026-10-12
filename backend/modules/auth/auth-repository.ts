@@ -90,3 +90,19 @@ export const updatePassword = async (email: string, password_hash: string): Prom
         [password_hash, email]
     );
 };
+
+export const findUserWithPasswordById = async (id: string) => {
+    const [rows] = await pool.execute(
+        `SELECT id, email, password_hash, status, role, creator_status FROM users WHERE id = ? LIMIT 1`,
+        [id]
+    );
+    const users = rows as any[];
+    return users.length > 0 ? users[0] : null;
+};
+
+export const updatePasswordById = async (id: string, password_hash: string): Promise<void> => {
+    await pool.execute(
+        `UPDATE users SET password_hash = ? WHERE id = ?`,
+        [password_hash, id]
+    );
+};

@@ -11,7 +11,11 @@ declare global {
 }
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
-    const token = req.cookies?.token;
+    let token = req.cookies?.accessToken || req.cookies?.token;
+
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+        token = req.headers.authorization.split(' ')[1];
+    }
 
     if (!token) {
         res.status(401).json({ status: 'error', message: 'Truy cập bị từ chối. Vui lòng đăng nhập.' });
@@ -28,7 +32,12 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
 };
 
 export const optionalAuth = (req: Request, res: Response, next: NextFunction): void => {
-    const token = req.cookies?.token;
+    let token = req.cookies?.accessToken || req.cookies?.token;
+
+    if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+        token = req.headers.authorization.split(' ')[1];
+    }
+
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string; role: string };

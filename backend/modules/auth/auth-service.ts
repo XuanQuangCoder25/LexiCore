@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
-import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, checkOtp, activateUser, findUserById, updatePassword, updatePendingUser } from './auth-repository';
+import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, checkOtp, activateUser, findUserById, updatePassword, updatePendingUser, findUserWithPasswordById, updatePasswordById } from './auth-repository';
 import { AppError } from '../../errors/AppError';
 import { sendOtpEmail } from '../../utils/mailer';
 
@@ -71,15 +71,24 @@ export const loginUser = async (userData: any) => {
         throw new AppError('Tài khoản chưa được xác thực. Mã OTP mới đã được gửi tới email của bạn.', 403);
     }
 
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
         { id: user.id, role: user.role, creator_status: user.creator_status ?? null },
         process.env.JWT_SECRET as string,
+        { expiresIn: '15m' }
+    );
+
+    const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || ((process.env.JWT_SECRET as string) + '_refresh');
+    const refreshToken = jwt.sign(
+        { id: user.id },
+        refreshTokenSecret,
         { expiresIn: '7d' }
     );
 
     return {
         message: 'Đăng nhập thành công',
-        token,
+        accessToken,
+        refreshToken,
+        token: accessToken,
         user: {
             id: user.id,
             email: user.email,
@@ -181,3 +190,78 @@ export const verifyOtpCode = async (data: { email: string; otp_code: string; mod
 
     return { message: 'Mã OTP hợp lệ' };
 };
+
+export const refreshAccessToken = async (refreshToken?: string) => {
+    if (!refreshToken) {
+        throw new AppError('Refresh token không tồn tại. Vui lòng đăng nhập lại.', 401);
+    }
+
+    const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET || ((process.env.JWT_SECRET as string) + '_refresh');
+
+    let decoded: any;
+    try {
+        decoded = jwt.verify(refreshToken, refreshTokenSecret);
+    } catch {
+        throw new AppError('Refresh token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.', 401);
+    }
+
+    const user = await findUserById(decoded.id);
+    if (!user) {
+        throw new AppError('Người dùng không tồn tại.', 401);
+    }
+
+    if (user.status === 'BANNED') {
+        throw new AppError('Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.', 403);
+    }
+
+    const newAccessToken = jwt.sign(
+        { id: user.id, role: user.role, creator_status: user.creator_status ?? null },
+        process.env.JWT_SECRET as string,
+        { expiresIn: '15m' }
+    );
+
+    return {
+        accessToken: newAccessToken,
+        token: newAccessToken,
+        user: {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role
+        }
+    };
+};
+
+export const changePassword = async (userId: string, data: { currentPassword?: string; oldPassword?: string; newPassword?: string }) => {
+    const currentPassword = data.currentPassword || data.oldPassword;
+    const { newPassword } = data;
+
+    if (!currentPassword || !newPassword) {
+        throw new AppError('Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới.', 400);
+    }
+
+    if (newPassword.length < 6) {
+        throw new AppError('Mật khẩu mới phải có ít nhất 6 ký tự.', 400);
+    }
+
+    if (currentPassword === newPassword) {
+        throw new AppError('Mật khẩu mới không được trùng với mật khẩu hiện tại.', 400);
+    }
+
+    const user = await findUserWithPasswordById(userId);
+    if (!user) {
+        throw new AppError('Người dùng không tồn tại.', 404);
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isMatch) {
+        throw new AppError('Mật khẩu hiện tại không chính xác.', 400);
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash(newPassword, salt);
+    await updatePasswordById(userId, newHash);
+
+    return { message: 'Đổi mật khẩu thành công!' };
+};
+
