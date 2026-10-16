@@ -255,3 +255,191 @@ export async function fetchMatchQuestions(
         ...(w.example ? { example: w.example } : {}),
     }));
 }
+
+// ─── Xác định kết quả ván đấu ───────────────────────────────────────────
+
+export type MatchResult = 'P1_WIN' | 'P2_WIN' | 'DRAW';
+
+//  Xác định kết quả ván đấu:
+export function determineMatchResult(
+    p1Correct: number,
+    p2Correct: number,
+    p1TimeMs: number,
+    p2TimeMs: number,
+    surrenderedUserId?: string,
+    player1Id?: string,
+    player2Id?: string
+): MatchResult {
+    // 1. Trường hợp có người chơi đầu hàng
+    if (surrenderedUserId) {
+        if (surrenderedUserId === player1Id) return 'P2_WIN';
+        if (surrenderedUserId === player2Id) return 'P1_WIN';
+    }
+
+    // 2. So sánh số câu trả lời đúng
+    if (p1Correct > p2Correct) return 'P1_WIN';
+    if (p2Correct > p1Correct) return 'P2_WIN';
+
+    // 3. So sánh thời gian làm bài
+    if (p1TimeMs < p2TimeMs) return 'P1_WIN';
+    if (p2TimeMs < p1TimeMs) return 'P2_WIN';
+
+    // 4. Bằng nhau cả câu đúng và thời gian -> Hoà
+    return 'DRAW';
+}
+
+// ─── Tính điểm thay đổi dựa trên kết quả ──────────────────────────────────
+
+export interface PointsChange {
+    rankPointDelta: number;
+    leaderboardPointDelta: number;
+}
+
+//  Tính điểm thay đổi:
+//  - Thắng: rank +25, leaderboard +25
+//  - Thua: rank -15, leaderboard -25
+//  - Hoà: rank +0, leaderboard +0
+export function calculatePointsChange(playerResult: 'WIN' | 'LOSS' | 'DRAW'): PointsChange {
+    if (playerResult === 'WIN') {
+        return {
+            rankPointDelta: POINTS_CONFIG.WIN.rank_point,
+            leaderboardPointDelta: POINTS_CONFIG.WIN.leaderboard_point,
+        };
+    }
+    if (playerResult === 'LOSS') {
+        return {
+            rankPointDelta: POINTS_CONFIG.LOSS.rank_point,
+            leaderboardPointDelta: POINTS_CONFIG.LOSS.leaderboard_point,
+        };
+    }
+    return {
+        rankPointDelta: POINTS_CONFIG.DRAW.rank_point,
+        leaderboardPointDelta: POINTS_CONFIG.DRAW.leaderboard_point,
+    };
+}
+
+// ─── Kiểm tra thăng bậc / hạ bậc Rank ──────────────────────────────────────
+
+export const ORDERED_RANKS: ArenaRank[] = [
+    'BRONZE',
+    'SILVER',
+    'GOLD',
+    'PLATINUM_1',
+    'PLATINUM_2',
+    'SAPPHIRE_1',
+    'SAPPHIRE_2',
+    'EMERALD_1',
+    'EMERALD_2',
+    'DIAMOND_1',
+    'DIAMOND_2',
+    'MASTER_1',
+    'MASTER_2',
+    'MASTER_3',
+];
+
+
+export interface RankProgressionResult {
+    newRank: ArenaRank;
+    newRankPoint: number;
+    newLeaderboardPoint: number;
+    rankPointDelta: number;
+    leaderboardPointDelta: number;
+    isPromoted: boolean;
+    isDemoted: boolean;
+    promotionDetails?: {
+        oldRank: ArenaRank;
+        newRank: ArenaRank;
+        overflowPoints: number;
+    };
+    demotionDetails?: {
+        oldRank: ArenaRank;
+        newRank: ArenaRank;
+    };
+}
+
+//  Tính toán cập nhật Rank và Điểm số:
+//  - Thăng bậc khi: điểm mới > threshold. Hạ bậc: Điểm âm
+export function calculateRankProgression(
+    currentRank: ArenaRank,
+    currentRankPoint: number,
+    currentLeaderboardPoint: number,
+    playerResult: 'WIN' | 'LOSS' | 'DRAW'
+): RankProgressionResult {
+    const { rankPointDelta, leaderboardPointDelta } = calculatePointsChange(playerResult);
+
+    // Điểm leaderboard không âm
+    const newLeaderboardPoint = Math.max(0, currentLeaderboardPoint + leaderboardPointDelta);
+
+    const tentativeRankPoint = currentRankPoint + rankPointDelta;
+    const currentIndex = ORDERED_RANKS.indexOf(currentRank);
+    const threshold = RANK_THRESHOLDS[currentRank] ?? Infinity;
+
+    // THẮNG HOẶC ĐIỂM DƯƠNG: Kiểm tra thăng bậc
+    // Phải LỚN HƠN mốc thăng bậc mới lên rank kế tiếp
+    if (tentativeRankPoint > threshold && currentIndex < ORDERED_RANKS.length - 1 && threshold !== Infinity) {
+        const nextRank = ORDERED_RANKS[currentIndex + 1]!;
+        const overflowPoints = tentativeRankPoint - threshold;
+
+        return {
+            newRank: nextRank,
+            newRankPoint: overflowPoints,
+            newLeaderboardPoint,
+            rankPointDelta,
+            leaderboardPointDelta,
+            isPromoted: true,
+            isDemoted: false,
+            promotionDetails: {
+                oldRank: currentRank,
+                newRank: nextRank,
+                overflowPoints,
+            },
+        };
+    }
+
+    // THUA VÀ ĐIỂM ÂM: Kiểm tra hạ bậc
+    if (tentativeRankPoint < 0) {
+        // Nếu không phải là BRONZE (currentIndex > 0) -> Tụt xuống bậc rank ngay liền kề phía dưới
+        if (currentIndex > 0) {
+            const prevRank = ORDERED_RANKS[currentIndex - 1]!;
+            const prevThreshold = RANK_THRESHOLDS[prevRank] ?? 0;
+            const newRankPoint = Math.max(0, prevThreshold + tentativeRankPoint);
+
+            return {
+                newRank: prevRank,
+                newRankPoint,
+                newLeaderboardPoint,
+                rankPointDelta,
+                leaderboardPointDelta,
+                isPromoted: false,
+                isDemoted: true,
+                demotionDetails: {
+                    oldRank: currentRank,
+                    newRank: prevRank,
+                },
+            };
+        }
+
+        // Nếu là BRONZE -> Không thể tụt thêm, điểm rank_point chặn sàn ở mức 0
+        return {
+            newRank: currentRank,
+            newRankPoint: 0,
+            newLeaderboardPoint,
+            rankPointDelta,
+            leaderboardPointDelta,
+            isPromoted: false,
+            isDemoted: false,
+        };
+    }
+
+    // TRƯỜNG HỢP BÌNH THƯỜNG (0 <= tentativeRankPoint <= threshold)
+    return {
+        newRank: currentRank,
+        newRankPoint: tentativeRankPoint,
+        newLeaderboardPoint,
+        rankPointDelta,
+        leaderboardPointDelta,
+        isPromoted: false,
+        isDemoted: false,
+    };
+}
+

@@ -9,7 +9,32 @@ import {
     toPublicQuestions,
     TOTAL_MATCH_QUESTIONS,
     MATCH_TIME_LIMIT_SEC,
+    ArenaMatchQuestion,
+    determineMatchResult,
+    calculateRankProgression,
+    ArenaRank,
+    MatchResult,
 } from './arena-rank.utils';
+import {
+    getPlayersWallets,
+    saveMatchTransaction,
+    MatchWordRecord,
+} from './arena-match.repository';
+
+export interface SubmitAnswerPayload {
+    roomId: string;
+    questionIndex: number;
+    answer: string;
+    timeMs: number;
+}
+
+export interface PlayerAnswerRecord {
+    questionIndex: number;
+    wordId: string;
+    answer: string;
+    isCorrect: boolean;
+    timeMs: number;
+}
 
 export interface SocketUserPayload {
     id: string;
@@ -153,6 +178,10 @@ async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): 
         totalQuestions: matchQuestions.length.toString(),
         timeLimitSec: MATCH_TIME_LIMIT_SEC.toString(),
         questions: JSON.stringify(matchQuestions), // Server giữ đáp án đầy đủ để chấm điểm
+        p1_ready: '0',
+        p2_ready: '0',
+        p1_answers: '[]',
+        p2_answers: '[]',
         p1_correct: '0',
         p1_current: '0',
         p1_finished: '0',
@@ -192,6 +221,525 @@ async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): 
     });
 
     console.log(`[Arena Matchmaking] Ghép trận thành công: ${p1.full_name} vs ${p2.full_name} (Phòng: ${roomId})`);
+}
+
+// ─── Gameplay Real-time Handlers ──────────────────────────────────────
+
+// Quản lý bộ đếm thời gian cho các ván đấu đang diễn ra
+const matchTimers = new Map<string, NodeJS.Timeout>();
+
+// Xử lý khi người chơi bấm Sẵn sàng
+async function handlePlayerReady(
+    io: SocketIOServer,
+    socket: Socket,
+    userId: string,
+    roomId: string
+): Promise<void> {
+    const roomKey = `arena:room:${roomId}`;
+    const room = await redis.hgetall(roomKey);
+
+    if (!room || !room['roomId']) {
+        socket.emit('arena:gameplay_error', { message: 'Phòng thi đấu không tồn tại.' });
+        return;
+    }
+
+    if (room['status'] !== 'MATCHED' && room['status'] !== 'WAITING_READY') {
+        return;
+    }
+
+    const isP1 = userId === room['player1Id'];
+    const isP2 = userId === room['player2Id'];
+
+    if (!isP1 && !isP2) {
+        socket.emit('arena:gameplay_error', { message: 'Bạn không thuộc phòng đấu này.' });
+        return;
+    }
+
+    const readyField = isP1 ? 'p1_ready' : 'p2_ready';
+    await redis.hset(roomKey, readyField, '1');
+
+    // Thông báo cho cả phòng biết người chơi đã sẵn sàng
+    io.to(`arena:room:${roomId}`).emit('arena:player_ready', {
+        roomId,
+        userId,
+    });
+
+    // Kiểm tra xem cả 2 người chơi đã sẵn sàng chưa
+    const updatedRoom = await redis.hgetall(roomKey);
+    if (
+        updatedRoom['p1_ready'] === '1' &&
+        updatedRoom['p2_ready'] === '1' &&
+        (updatedRoom['status'] === 'MATCHED' || updatedRoom['status'] === 'WAITING_READY')
+    ) {
+        await redis.hset(roomKey, 'status', 'COUNTDOWN');
+        startMatchCountdown(io, roomId);
+    }
+}
+
+// Bắt đầu đếm ngược 3-2-1 trước khi vào ván đấu
+function startMatchCountdown(io: SocketIOServer, roomId: string): void {
+    let count = 3;
+    io.to(`arena:room:${roomId}`).emit('arena:countdown', { count: 3 });
+
+    const interval = setInterval(async () => {
+        count -= 1;
+        if (count > 0) {
+            io.to(`arena:room:${roomId}`).emit('arena:countdown', { count });
+        } else {
+            clearInterval(interval);
+            const roomKey = `arena:room:${roomId}`;
+            const startedAt = Date.now();
+            await redis.hset(roomKey, {
+                status: 'PLAYING',
+                started_at: startedAt.toString(),
+            });
+
+            io.to(`arena:room:${roomId}`).emit('arena:start_match', {
+                roomId,
+                startedAt,
+                timeLimitSec: MATCH_TIME_LIMIT_SEC,
+            });
+
+            console.log(`[Arena Gameplay] Ván đấu chính thức bắt đầu: ${roomId}`);
+
+            // Thiết lập hẹn giờ kết thúc ván nếu hết thời gian giới hạn (360s)
+            const timer = setTimeout(async () => {
+                await handleMatchTimeout(io, roomId);
+            }, MATCH_TIME_LIMIT_SEC * 1000);
+            matchTimers.set(roomId, timer);
+        }
+    }, 1000);
+}
+
+// Xử lý khi ván đấu hết thời gian quy định
+async function handleMatchTimeout(io: SocketIOServer, roomId: string): Promise<void> {
+    const roomKey = `arena:room:${roomId}`;
+    const room = await redis.hgetall(roomKey);
+    if (!room || room['status'] !== 'PLAYING') return;
+
+    console.log(`[Arena Gameplay] Ván đấu hết giờ: ${roomId}`);
+    await finishMatch(io, roomId, 'TIMEOUT');
+}
+
+// Xử lý nộp đáp án của người chơi
+async function handleSubmitAnswer(
+    io: SocketIOServer,
+    socket: Socket,
+    userId: string,
+    payload: SubmitAnswerPayload
+): Promise<void> {
+    const { roomId, questionIndex, answer, timeMs } = payload;
+    const roomKey = `arena:room:${roomId}`;
+    const room = await redis.hgetall(roomKey);
+
+    if (!room || !room['roomId']) {
+        socket.emit('arena:gameplay_error', { message: 'Phòng thi đấu không tồn tại.' });
+        return;
+    }
+
+    if (room['status'] !== 'PLAYING') {
+        socket.emit('arena:gameplay_error', { message: 'Ván đấu chưa bắt đầu hoặc đã kết thúc.' });
+        return;
+    }
+
+    const isP1 = userId === room['player1Id'];
+    const isP2 = userId === room['player2Id'];
+
+    if (!isP1 && !isP2) {
+        socket.emit('arena:gameplay_error', { message: 'Bạn không thuộc phòng đấu này.' });
+        return;
+    }
+
+    const questions: ArenaMatchQuestion[] = JSON.parse(room['questions'] || '[]');
+    const totalQuestions = questions.length;
+
+    if (questionIndex < 0 || questionIndex >= totalQuestions) {
+        socket.emit('arena:gameplay_error', { message: 'Chỉ số câu hỏi không hợp lệ.' });
+        return;
+    }
+
+    const targetQuestion = questions[questionIndex];
+    if (!targetQuestion) {
+        socket.emit('arena:gameplay_error', { message: 'Không tìm thấy câu hỏi.' });
+        return;
+    }
+
+    const answersField = isP1 ? 'p1_answers' : 'p2_answers';
+    const userAnswers: PlayerAnswerRecord[] = JSON.parse(room[answersField] || '[]');
+
+    // Kiểm tra xem câu này đã trả lời chưa (chống gian lận hoặc gửi trùng lặp)
+    const alreadyAnswered = userAnswers.some((a) => a.questionIndex === questionIndex);
+    if (alreadyAnswered) {
+        return;
+    }
+
+    // So khớp đáp án (chuẩn hóa không phân biệt hoa thường và khoảng trắng thừa)
+    const normalizedUserAnswer = (answer || '').trim().toLowerCase();
+    const normalizedCorrectAnswer = targetQuestion.word.trim().toLowerCase();
+    const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
+
+    userAnswers.push({
+        questionIndex,
+        wordId: targetQuestion.id,
+        answer: (answer || '').trim(),
+        isCorrect,
+        timeMs: Number(timeMs) || 0,
+    });
+
+    const currentCorrectCount = parseInt(isP1 ? (room['p1_correct'] || '0') : (room['p2_correct'] || '0'), 10);
+    const newCorrectCount = currentCorrectCount + (isCorrect ? 1 : 0);
+    const nextQuestionIndex = questionIndex + 1;
+    const isFinished = nextQuestionIndex >= totalQuestions;
+
+    const updates: Record<string, string> = {
+        [answersField]: JSON.stringify(userAnswers),
+        [isP1 ? 'p1_correct' : 'p2_correct']: newCorrectCount.toString(),
+        [isP1 ? 'p1_current' : 'p2_current']: nextQuestionIndex.toString(),
+        [isP1 ? 'p1_time_used_ms' : 'p2_time_used_ms']: (Number(timeMs) || 0).toString(),
+        [isP1 ? 'p1_finished' : 'p2_finished']: isFinished ? '1' : '0',
+    };
+
+    await redis.hset(roomKey, updates);
+
+    // 1. Gửi kết quả riêng cho người nộp
+    socket.emit('arena:answer_result', {
+        questionIndex,
+        isCorrect,
+        correctAnswer: isCorrect ? targetQuestion.word : undefined,
+        currentCorrect: newCorrectCount,
+        nextQuestionIndex,
+        totalQuestions,
+    });
+
+    // 2. Gửi tiến độ cho đối thủ
+    const opponentId = isP1 ? room['player2Id'] : room['player1Id'];
+    if (opponentId) {
+        io.to(`user:${opponentId}`).emit('arena:opponent_progress', {
+            opponentId: userId,
+            questionIndex: nextQuestionIndex,
+            opponentCorrectCount: newCorrectCount,
+            timeUsedMs: Number(timeMs) || 0,
+            totalQuestions,
+        });
+    }
+
+    // 3. Nếu cả 2 đều đã hoàn thành hết số câu hỏi thì kết thúc ván
+    const otherFinished = isP1 ? room['p2_finished'] === '1' : room['p1_finished'] === '1';
+    if (isFinished && otherFinished) {
+        await finishMatch(io, roomId, 'ALL_COMPLETED');
+    }
+}
+
+// Xử lý đầu hàng
+async function handleSurrender(
+    io: SocketIOServer,
+    socket: Socket,
+    userId: string,
+    roomId: string
+): Promise<void> {
+    const roomKey = `arena:room:${roomId}`;
+    const room = await redis.hgetall(roomKey);
+
+    if (!room || room['status'] !== 'PLAYING') {
+        return;
+    }
+
+    const isP1 = userId === room['player1Id'];
+    const isP2 = userId === room['player2Id'];
+    if (!isP1 && !isP2) return;
+
+    console.log(`[Arena Gameplay] Người chơi đầu hàng: ${userId} (Phòng: ${roomId})`);
+    await finishMatch(io, roomId, 'SURRENDER', userId);
+}
+
+// Kết thúc ván đấu
+export async function finishMatch(
+    io: SocketIOServer,
+    roomId: string,
+    reason: 'ALL_COMPLETED' | 'TIMEOUT' | 'SURRENDER',
+    surrenderedUserId?: string
+): Promise<void> {
+    const timer = matchTimers.get(roomId);
+    if (timer) {
+        clearTimeout(timer);
+        matchTimers.delete(roomId);
+    }
+
+    const roomKey = `arena:room:${roomId}`;
+    const room = await redis.hgetall(roomKey);
+    if (!room || room['status'] === 'FINISHED') return;
+
+    await redis.hset(roomKey, 'status', 'FINISHED');
+
+    const player1Id = room['player1Id'] || '';
+    const player2Id = room['player2Id'] || '';
+    const rankSnapshot = (room['rankSnapshot'] || 'BRONZE') as ArenaRank;
+    const totalQuestions = parseInt(room['totalQuestions'] || '25', 10);
+    const timeLimitSec = parseInt(room['timeLimitSec'] || '360', 10);
+    const startedAt = room['started_at']
+        ? new Date(Number(room['started_at'])).toISOString().slice(0, 19).replace('T', ' ')
+        : new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const endedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    const p1Correct = parseInt(room['p1_correct'] || '0', 10);
+    const p2Correct = parseInt(room['p2_correct'] || '0', 10);
+    const p1TimeMs = parseInt(room['p1_time_used_ms'] || '0', 10);
+    const p2TimeMs = parseInt(room['p2_time_used_ms'] || '0', 10);
+
+    // 1. Xác định kết quả
+    const result = determineMatchResult(
+        p1Correct,
+        p2Correct,
+        p1TimeMs,
+        p2TimeMs,
+        surrenderedUserId,
+        player1Id,
+        player2Id
+    );
+    const winnerId = result === 'P1_WIN' ? player1Id : (result === 'P2_WIN' ? player2Id : null);
+
+    // 2. Lấy thông tin ví & rank hiện tại của 2 người chơi
+    const walletsMap = await getPlayersWallets(player1Id, player2Id);
+    const p1Wallet = walletsMap.get(player1Id) || {
+        user_id: player1Id,
+        arena_rank: rankSnapshot,
+        rank_point: 0,
+        leaderboard_point: 0,
+        arena_current_win_streak: 0,
+        arena_longest_win_streak: 0,
+    };
+    const p2Wallet = walletsMap.get(player2Id) || {
+        user_id: player2Id,
+        arena_rank: rankSnapshot,
+        rank_point: 0,
+        leaderboard_point: 0,
+        arena_current_win_streak: 0,
+        arena_longest_win_streak: 0,
+    };
+
+    // 3. Tính toán rank, điểm số và streak mới
+    const p1MatchResult = result === 'P1_WIN' ? 'WIN' : (result === 'P2_WIN' ? 'LOSS' : 'DRAW');
+    const p2MatchResult = result === 'P2_WIN' ? 'WIN' : (result === 'P1_WIN' ? 'LOSS' : 'DRAW');
+
+    const p1Progression = calculateRankProgression(
+        p1Wallet.arena_rank,
+        p1Wallet.rank_point,
+        p1Wallet.leaderboard_point,
+        p1MatchResult
+    );
+    const p2Progression = calculateRankProgression(
+        p2Wallet.arena_rank,
+        p2Wallet.rank_point,
+        p2Wallet.leaderboard_point,
+        p2MatchResult
+    );
+
+    const p1WinStreak = result === 'P1_WIN' ? p1Wallet.arena_current_win_streak + 1 : 0;
+    const p2WinStreak = result === 'P2_WIN' ? p2Wallet.arena_current_win_streak + 1 : 0;
+
+    // 4. Chuẩn bị danh sách 25 câu hỏi chi tiết và đáp án 2 bên
+    const questions: ArenaMatchQuestion[] = JSON.parse(room['questions'] || '[]');
+    const p1Answers: PlayerAnswerRecord[] = JSON.parse(room['p1_answers'] || '[]');
+    const p2Answers: PlayerAnswerRecord[] = JSON.parse(room['p2_answers'] || '[]');
+
+    const p1AnswersMap = new Map<number, PlayerAnswerRecord>();
+    for (const a of p1Answers) p1AnswersMap.set(a.questionIndex, a);
+
+    const p2AnswersMap = new Map<number, PlayerAnswerRecord>();
+    for (const a of p2Answers) p2AnswersMap.set(a.questionIndex, a);
+
+    const matchWordRecords: MatchWordRecord[] = [];
+    const clientWords: any[] = [];
+
+    questions.forEach((q, idx) => {
+        const a1 = p1AnswersMap.get(idx);
+        const a2 = p2AnswersMap.get(idx);
+
+        const p1Ans = a1 ? a1.answer : null;
+        const p1Corr = a1 ? a1.isCorrect : false;
+        const p1T = a1 ? a1.timeMs : 0;
+
+        const p2Ans = a2 ? a2.answer : null;
+        const p2Corr = a2 ? a2.isCorrect : false;
+        const p2T = a2 ? a2.timeMs : 0;
+
+        matchWordRecords.push({
+            wordId: q.id,
+            orderIndex: idx + 1,
+            p1Answer: p1Ans,
+            p1Correct: p1Corr,
+            p1TimeMs: p1T,
+            p2Answer: p2Ans,
+            p2Correct: p2Corr,
+            p2TimeMs: p2T,
+        });
+
+        clientWords.push({
+            orderIndex: idx + 1,
+            wordId: q.id,
+            word: q.word,
+            meaning: q.meaning,
+            topic: q.topic,
+            level: q.level,
+            wordType: q.word_type,
+            example: q.example,
+            p1Answer: p1Ans,
+            p1Correct: p1Corr,
+            p1TimeMs: p1T,
+            p2Answer: p2Ans,
+            p2Correct: p2Corr,
+            p2TimeMs: p2T,
+        });
+    });
+
+    // 5. Lưu vào MySQL qua DB Transaction
+    try {
+        await saveMatchTransaction({
+            matchId: roomId,
+            player1Id,
+            player2Id,
+            topic: room['topic'] || 'general',
+            rankSnapshot,
+            totalQuestions,
+            timeLimitSec,
+            startedAt,
+            endedAt,
+            result,
+            winnerId,
+            p1: {
+                userId: player1Id,
+                correct: p1Correct,
+                timeMs: p1TimeMs,
+                progression: p1Progression,
+                winStreak: p1WinStreak,
+            },
+            p2: {
+                userId: player2Id,
+                correct: p2Correct,
+                timeMs: p2TimeMs,
+                progression: p2Progression,
+                winStreak: p2WinStreak,
+            },
+            words: matchWordRecords,
+        });
+    } catch (dbErr) {
+        console.error('[Arena Gameplay] Lỗi khi lưu MySQL match transaction:', dbErr);
+    }
+
+    // 6. Dọn dẹp Redis
+    await redis.del(`arena:player:${player1Id}`);
+    await redis.del(`arena:player:${player2Id}`);
+    await redis.expire(roomKey, 300); // Giữ room 5 phút phục vụ tra cứu sau trận nếu cần
+
+    // 7. Emit kết quả tổng kết (arena:game_over)
+    // Emit cho Player 1
+    io.to(`user:${player1Id}`).emit('arena:game_over', {
+        roomId,
+        result,
+        winnerId,
+        reason,
+        myResult: p1MatchResult,
+        myStats: {
+            id: player1Id,
+            correct: p1Correct,
+            timeMs: p1TimeMs,
+            rankPointDelta: p1Progression.rankPointDelta,
+            leaderboardPointDelta: p1Progression.leaderboardPointDelta,
+            newRank: p1Progression.newRank,
+            newRankPoint: p1Progression.newRankPoint,
+            newLeaderboardPoint: p1Progression.newLeaderboardPoint,
+            winStreak: p1WinStreak,
+            isPromoted: p1Progression.isPromoted,
+            isDemoted: p1Progression.isDemoted,
+            promotionDetails: p1Progression.promotionDetails,
+            demotionDetails: p1Progression.demotionDetails,
+        },
+        opponentStats: {
+            id: player2Id,
+            correct: p2Correct,
+            timeMs: p2TimeMs,
+            newRank: p2Progression.newRank,
+            newRankPoint: p2Progression.newRankPoint,
+            newLeaderboardPoint: p2Progression.newLeaderboardPoint,
+            winStreak: p2WinStreak,
+        },
+        words: clientWords.map((w) => ({
+            orderIndex: w.orderIndex,
+            wordId: w.wordId,
+            word: w.word,
+            meaning: w.meaning,
+            topic: w.topic,
+            level: w.level,
+            wordType: w.wordType,
+            example: w.example,
+            myAnswer: w.p1Answer,
+            myCorrect: w.p1Correct,
+            myTimeMs: w.p1TimeMs,
+            opponentAnswer: w.p2Answer,
+            opponentCorrect: w.p2Correct,
+            opponentTimeMs: w.p2TimeMs,
+        })),
+    });
+
+    // Emit cho Player 2
+    io.to(`user:${player2Id}`).emit('arena:game_over', {
+        roomId,
+        result,
+        winnerId,
+        reason,
+        myResult: p2MatchResult,
+        myStats: {
+            id: player2Id,
+            correct: p2Correct,
+            timeMs: p2TimeMs,
+            rankPointDelta: p2Progression.rankPointDelta,
+            leaderboardPointDelta: p2Progression.leaderboardPointDelta,
+            newRank: p2Progression.newRank,
+            newRankPoint: p2Progression.newRankPoint,
+            newLeaderboardPoint: p2Progression.newLeaderboardPoint,
+            winStreak: p2WinStreak,
+            isPromoted: p2Progression.isPromoted,
+            isDemoted: p2Progression.isDemoted,
+            promotionDetails: p2Progression.promotionDetails,
+            demotionDetails: p2Progression.demotionDetails,
+        },
+        opponentStats: {
+            id: player1Id,
+            correct: p1Correct,
+            timeMs: p1TimeMs,
+            newRank: p1Progression.newRank,
+            newRankPoint: p1Progression.newRankPoint,
+            newLeaderboardPoint: p1Progression.newLeaderboardPoint,
+            winStreak: p1WinStreak,
+        },
+        words: clientWords.map((w) => ({
+            orderIndex: w.orderIndex,
+            wordId: w.wordId,
+            word: w.word,
+            meaning: w.meaning,
+            topic: w.topic,
+            level: w.level,
+            wordType: w.wordType,
+            example: w.example,
+            myAnswer: w.p2Answer,
+            myCorrect: w.p2Correct,
+            myTimeMs: w.p2TimeMs,
+            opponentAnswer: w.p1Answer,
+            opponentCorrect: w.p1Correct,
+            opponentTimeMs: w.p1TimeMs,
+        })),
+    });
+
+    // Thông báo trạng thái kết thúc chung cho cả socket room
+    io.to(`arena:room:${roomId}`).emit('arena:match_ended', {
+        roomId,
+        reason,
+        surrenderedUserId,
+        winnerId,
+        result,
+    });
+
+    console.log(`[Arena Gameplay] Ván đấu ${roomId} đã kết thúc và phát kết quả game_over thành công.`);
 }
 
 // Xử lý hàng đợi ghép trận từ Redis list
@@ -337,7 +885,47 @@ export function initArenaSocket(io: SocketIOServer): void {
             }
         });
 
-        // 3. Event: Ngắt kết nối
+        // 3. Event: Tham gia socket room thi đấu
+        socket.on('arena:join_room', ({ roomId }: { roomId: string }) => {
+            if (roomId) {
+                socket.join(`arena:room:${roomId}`);
+            }
+        });
+
+        // 4. Event: Xác nhận sẵn sàng
+        socket.on('arena:ready', async ({ roomId }: { roomId: string }) => {
+            try {
+                if (roomId) {
+                    await handlePlayerReady(io, socket, user.id, roomId);
+                }
+            } catch (error) {
+                console.error('[Arena Gameplay] Lỗi khi xử lý ready:', error);
+            }
+        });
+
+        // 5. Event: Nộp đáp án cho 1 câu
+        socket.on('arena:submit_answer', async (payload: SubmitAnswerPayload) => {
+            try {
+                if (payload && payload.roomId && typeof payload.questionIndex === 'number') {
+                    await handleSubmitAnswer(io, socket, user.id, payload);
+                }
+            } catch (error) {
+                console.error('[Arena Gameplay] Lỗi khi xử lý submit_answer:', error);
+            }
+        });
+
+        // 6. Event: Đầu hàng
+        socket.on('arena:surrender', async ({ roomId }: { roomId: string }) => {
+            try {
+                if (roomId) {
+                    await handleSurrender(io, socket, user.id, roomId);
+                }
+            } catch (error) {
+                console.error('[Arena Gameplay] Lỗi khi xử lý surrender:', error);
+            }
+        });
+
+        // 7. Event: Ngắt kết nối
         socket.on('disconnect', async (reason) => {
             console.log(`[Arena Socket] Người chơi ngắt kết nối: ${user.id} (socket_id: ${socket.id}, reason: ${reason})`);
 
@@ -348,6 +936,21 @@ export function initArenaSocket(io: SocketIOServer): void {
                     await redis.lrem('arena:queue', 0, user.id);
                     await redis.del(`arena:in_queue:${user.id}`);
                     console.log(`[Arena Matchmaking] Tự động huỷ tìm trận cho user ${user.id} do ngắt kết nối.`);
+                }
+
+                // Thông báo cho đối thủ nếu đang trong trận đấu dở dang
+                const activeRoomId = await redis.get(`arena:player:${user.id}`);
+                if (activeRoomId) {
+                    const room = await redis.hgetall(`arena:room:${activeRoomId}`);
+                    if (room && (room['status'] === 'PLAYING' || room['status'] === 'COUNTDOWN')) {
+                        const opponentId = user.id === room['player1Id'] ? room['player2Id'] : room['player1Id'];
+                        if (opponentId) {
+                            io.to(`user:${opponentId}`).emit('arena:opponent_disconnected', {
+                                opponentId: user.id,
+                                message: 'Đối thủ đã ngắt kết nối.',
+                            });
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('[Arena Socket] Lỗi khi dọn dẹp disconnect:', err);
