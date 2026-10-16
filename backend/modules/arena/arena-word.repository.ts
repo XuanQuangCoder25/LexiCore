@@ -185,16 +185,23 @@ export const getTopics = async (): Promise<string[]> => {
     return (rows as any[]).map((r: any) => r.topic);
 };
 
+export interface MatchWordCondition {
+    levels: WordLevel[];
+    types?: WordType[];
+    count?: number;
+}
+
 // Lấy từ ngẫu nhiên cho 1 ván đấu theo điều kiện level + word_type.
 export const getRandomWordsForMatch = async (
-    levelConditions: { levels: WordLevel[]; types?: WordType[] }[],
+    levelConditions: MatchWordCondition[],
     totalCount: number
 ): Promise<ArenaWordRow[]> => {
-    // Mỗi condition là 1 "nhóm" (ví dụ: 20 từ level B1/B2 + 5 từ idiom/collocation)
-    // Ta lấy dư để có đủ sau khi shuffle, rồi cắt đúng số lượng
     const allWords: ArenaWordRow[] = [];
+    const selectedIds = new Set<string>();
 
     for (const cond of levelConditions) {
+        if (cond.levels.length === 0) continue;
+
         const levelPlaceholders = cond.levels.map(() => '?').join(', ');
         const levelParams: any[] = [...cond.levels];
 
@@ -204,15 +211,54 @@ export const getRandomWordsForMatch = async (
             levelParams.push(...cond.types);
         }
 
+        const limitCount = cond.count ?? totalCount;
+
         const [rows] = await pool.execute(
             `SELECT id, word, meaning, topic, level, word_type, example
              FROM arena_words
              WHERE level IN (${levelPlaceholders}) ${typeClause}
              ORDER BY RAND()
              LIMIT ?`,
-            [...levelParams, totalCount] // lấy dư để merge rồi cắt
+            [...levelParams, limitCount]
         );
-        allWords.push(...(rows as ArenaWordRow[]));
+
+        for (const row of rows as ArenaWordRow[]) {
+            if (!selectedIds.has(row.id)) {
+                selectedIds.add(row.id);
+                allWords.push(row);
+            }
+        }
+    }
+
+    // Fallback: nếu DB chưa đủ từ theo đúng điều kiện phân bổ, lấy thêm từ bất kỳ để đủ số lượng
+    if (allWords.length < totalCount) {
+        const needed = totalCount - allWords.length;
+        let notInClause = '';
+        const params: any[] = [];
+
+        if (selectedIds.size > 0) {
+            const idPlaceholders = Array.from(selectedIds).map(() => '?').join(', ');
+            notInClause = `WHERE id NOT IN (${idPlaceholders})`;
+            params.push(...Array.from(selectedIds));
+        }
+
+        params.push(needed);
+
+        const [fallbackRows] = await pool.execute(
+            `SELECT id, word, meaning, topic, level, word_type, example
+             FROM arena_words
+             ${notInClause}
+             ORDER BY RAND()
+             LIMIT ?`,
+            params
+        );
+
+        for (const row of fallbackRows as ArenaWordRow[]) {
+            if (!selectedIds.has(row.id)) {
+                selectedIds.add(row.id);
+                allWords.push(row);
+            }
+        }
     }
 
     // Shuffle tổng hợp rồi cắt đúng số cần

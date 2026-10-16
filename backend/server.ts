@@ -21,11 +21,20 @@ import examRoutes from './modules/exam/exam.route';
 import courseRoute from './modules/course/course.route';
 import studentCourseRoute from './modules/course/student-course.route';
 import arenaRoute from './modules/arena/arena-word.route';
+import { initArenaSocket } from './modules/arena/arena-socket';
 import { createServer } from 'http';
 import { Server as SocketIO } from 'socket.io';
 
 const app = express();
 const port = process.env.PORT || 5000;
+const httpServer = createServer(app);
+
+const io = new SocketIO(httpServer, {
+    cors: {
+        origin: process.env.CLIENT_URL || 'http://localhost:5173',
+        credentials: true
+    }
+});
 
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -76,7 +85,10 @@ const startServer = async () => {
             res.send('LexiCore Backend API is running!');
         });
 
-        app.listen(port, () => {
+        // Khởi tạo Arena Socket.IO (Xác thực + Real-time handlers)
+        initArenaSocket(io);
+
+        httpServer.listen(port, () => {
             console.log(`Server đang chạy tại http://localhost:${port}`);
         });
     } catch (error) {
