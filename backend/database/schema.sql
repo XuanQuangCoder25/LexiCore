@@ -66,6 +66,22 @@ CREATE TABLE wallets (
         'MASTER_2',
         'MASTER_3'
     ) DEFAULT 'BRONZE',
+    arena_highest_rank ENUM(
+        'BRONZE',
+        'SILVER',
+        'GOLD',
+        'PLATINUM_1',
+        'PLATINUM_2',
+        'SAPPHIRE_1',
+        'SAPPHIRE_2',
+        'EMERALD_1',
+        'EMERALD_2',
+        'DIAMOND_1',
+        'DIAMOND_2',
+        'MASTER_1',
+        'MASTER_2',
+        'MASTER_3'
+    ) DEFAULT 'BRONZE',
     arena_current_win_streak INT DEFAULT 0,
     arena_longest_win_streak INT DEFAULT 0,
     arena_total_wins INT DEFAULT 0,
