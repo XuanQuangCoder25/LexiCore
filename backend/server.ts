@@ -20,6 +20,9 @@ import gamificationAdminRoutes from './modules/admin/gamification-admin.route';
 import examRoutes from './modules/exam/exam.route';
 import courseRoute from './modules/course/course.route';
 import studentCourseRoute from './modules/course/student-course.route';
+import arenaRoute from './modules/arena/arena-word.route';
+import { createServer } from 'http';
+import { Server as SocketIO } from 'socket.io';
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -57,10 +60,13 @@ const startServer = async () => {
         app.use('/api/admin', adminRoutes);
         app.use('/api/admin/gamification', gamificationAdminRoutes);
         app.use('/api/exams', examRoutes);
-        
+
         // --- Course Routes ---
         app.use('/api/courses', courseRoute); // Của Creator/Admin (đã bọc requireCreator)
         app.use('/api/v1/student/courses', studentCourseRoute); // Của Student
+
+        // --- Arena Routes ---
+        app.use('/api/arena', arenaRoute);
 
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);

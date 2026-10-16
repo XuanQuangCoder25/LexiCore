@@ -161,11 +161,11 @@ export const getAchievements = async (userId: string) => {
 
 export const getLeaderboard = async () => {
     const [rows] = await pool.execute(
-        `SELECT u.id, u.full_name, w.rank_point, w.level
+        `SELECT u.id, u.full_name, w.leaderboard_point, w.level
          FROM wallets w
          JOIN users u ON w.user_id = u.id
-         WHERE w.rank_point > 0
-         ORDER BY w.rank_point DESC
+         WHERE w.leaderboard_point > 0
+         ORDER BY w.leaderboard_point DESC
          LIMIT 50`,
         []
     );

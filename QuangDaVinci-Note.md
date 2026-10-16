@@ -166,7 +166,6 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 
 ---
 
-
 # 🏆 THU THẬP & DANH SÁCH BỘ SƯU TẬP (ACHIEVEMENTS & COLLECTIONS)
 
 ## 🏜️ Collection 1: Kẻ Du Mục Sa Mạc (Desert Nomads)
@@ -217,3 +216,31 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 - **Cặp 2 (Tier 2 - Khá):** Rùa Cá Sấu (Snapping Turtle) — Rừng ngập mặn với hệ thống rễ cây đan chằng chịt (Mangrove Roots).
 - **Cặp 3 (Tier 3 - Hiếm):** Cóc Khổng Lồ (Goliath Frog) — Khu đầm lầy âm u phủ kín sương mù dày đặc (Misty Swamp).
 - **Cặp 4 (Tier 4 - Siêu Hiếm):** Cá Sấu Mõm Ngắn (Alligator / Crocodile) — Tàn tích một chiếc thuyền hơi nước hoen gỉ bị bỏ hoang giữa đầm lầy rêu phong (Abandoned Sunken Steamboat).
+--- 
+
+# ⚔️ HỆ THỐNG HUY HIỆU XẾP HẠNG PVP (PVP ARENA RANK BADGES)
+
+**Vị trí lưu trữ:** `frontend/public/assets/ranks/` (Core UI Asset, định dạng PNG tách nền trong suốt, tỉ lệ 1:1, tải tức thì không phụ thuộc CDN).
+
+### Danh mục 13 Huy hiệu Xếp hạng chính thức:
+
+| STT | Cấp Rank | Bậc | File UI (`/assets/ranks/`) | Linh vật đại diện | Chất liệu & Kiểu dáng Khiên | Ý nghĩa / Biểu trưng |
+| :---: | :--- | :---: | :--- | :--- | :--- | :--- |
+| 1 | **Đồng (Bronze)** | — | `rank-bronze.png` | **Chiến Binh Spartan** | Đồng đỏ & đồng cổ nguyên khối / Khiên tam giác tối giản | Tinh thần chiến binh sơ khởi, dũng cảm bước vào đấu trường. |
+| 2 | **Bạc (Silver)** | — | `rank-silver.png` | **Đại Bàng Bạc** | Bạc 925 & bạch kim phay xước / Khiên tam giác dứt khoát | Tầm nhìn sắc bén, sự nhanh nhạy và đôi cánh vươn cao. |
+| 3 | **Vàng (Gold)** | — | `rank-gold.png` | **Bò Tót Vàng** | Vàng ròng 24k cơ bắp nguyên khối / Khiên tam giác vàng | Sức mạnh kiên định, sự vững chãi và năng lượng hừng hực. |
+| 4 | **Bạch Kim (Platinum)** | — | `rank-platinum.png` | **Sói Đầu Đàn** | Bạch kim sáng bóng + 1 rãnh vi mạch neon cyan / Khiên ngũ giác | Bản lĩnh thủ lĩnh, sắc lạnh và tư duy chiến thuật đỉnh cao. |
+| 5 | **Lam Ngọc (Sapphire)** | **Bậc 1** | `rank-sapphire-1.png` | **Báo Săn Lam Ngọc** | Tinh thể Sapphire xanh hoàng gia / Khiên lục giác tinh thể | Tốc độ phản xạ thần tốc, dứt khoát trong từng câu hỏi. |
+| 6 | | **Bậc 2** | `rank-sapphire-2.png` | **Hổ Xanh Lam Ngọc** | Tinh thể Sapphire gầm vang / Khiên lục giác tinh thể | Uy lực bộc phá mãnh liệt, áp đảo đấu trường. |
+| 7 | **Lục Bảo (Emerald)** | **Bậc 1** | `rank-emerald-1.png` | **Sư Tử Hoàng Gia** | Ngọc Lục Bảo + vương miện vàng / Khiên bát giác Emerald-cut | Chúa sơn lâm làm chủ đấu trường, phong thái vương giả. |
+| 8 | | **Bậc 2** | `rank-emerald-2.png` | **Bảo Tượng Hoàng Gia** | Ngọc Lục Bảo + đôi ngà ngọc & vương miện / Khiên bát giác Emerald-cut | Trí tuệ uyên bác, ký ức siêu phàm ("An Elephant Never Forgets"). |
+| 9 | **Kim Cương (Diamond)** | **Bậc 1** | `rank-diamond-1.png` | **Kỳ Lân Pegasus Pha Lê** | Kim cương giác cắt tinh khiết / Khiên thoi kim cương (Rhombus) | Sự thuần khiết, thanh cao và khí phách kiêu hãnh. |
+| 10 | | **Bậc 2** | `rank-diamond-2.png` | **Phượng Hoàng Pha Lê** | Kim cương tán sắc cầu vồng / Khiên giác cắt kim cương đa diện | Sự hoàn mỹ, bất tử và hào quang tỏa sáng rực rỡ. |
+| 11 | **Đại Sư (Master)** | **Bậc 1** | `rank-master-1.png` | **Đại Pháp Sư Vũ Trụ** | Hắc diện thạch (Obsidian) & Vàng thần thoại / Vương Huy 8 cánh | Đỉnh cao tri thức nhân loại, làm chủ ma pháp ngôn từ. |
+| 12 | | **Bậc 2** | `rank-master-2.png` | **Thần Long Phương Đông** | Rồng châu Á uốn lượn ngậm ngọc vũ trụ / Vương Huy 8 cánh | Linh khí trời đất, trí tuệ thần thánh và sự trường tồn. |
+| 13 | | **Bậc 3** | `rank-master-3.png` | **Hắc Long Phương Tây** | Rồng khổng lồ sải cánh 4 chân thở lửa / Vương Huy 8 cánh | Đỉnh cao tối thượng của PvP Arena, biểu tượng kẻ bất bại! |
+
+---
+
+Để nhanh chóng có cái thử nghiệm thì ta sẽ phát triển 2 mode kia sau, hiện tại ta sẽ làm 1 mode trước thôi là việt anh, ta cho họ từ tiếng việt và chữ cái đầu tiên của từ tiếng anh, ta sẽ cho kí hiệu gạch chân để cho họ biết luôn là từ đó có mấy chữ cái (mỗi gạch chân là 1 từ). Các cấp bậc thì tôi muốn bậc đầu tiên là bronze, bỏ novice đi vì tôi muốn đồng bộ, tất cả đều là 1 loại đá quý/khoáng sản, trừ bậc cao nhất là master, ta sẽ bổ sung thêm 3 bậc: platinum (bạch kim) và sapphire (lam ngọc), emerald hoặc amethyst (thạch anh) (2 cái này bạn thấy cái nào hợp hơn), tôi không biết loại nào quý hơn nên bạn sắp xếp cấp bậc của chúng cho phù hợp nha. Về thời gian thì ta sẽ không giới hạn 5s cho 1 câu, ta sẽ cho họ 1 thời gian cụ thể cho cả bài như 5 phút, họ làm nhanh thì qua câu mới nhanh, làm chậm thì không hết được 20 câu. Về tính điểm thì ta so số câu đúng trước, nếu bằng nhau thì so đến thời gian, nếu vẫn huề nhau thì hoà (không có điểm nào). Về bảng xếp hạng thì bạn đề xuất ta tính bằng điểm riêng biệt với point trong wallet, vậy điểm này ta cũng sẽ tính giống level đúng không, đạt bao nhiêu thì sẽ lên rank, số điểm cộng thừa vẫn sẽ được cộng vào rank mới. Vậy cái leaderboard của ta bây giờ có lẽ chỉ thấy những người thuộc rank master thôi đúng không nhỉ, vì những người cao điểm nhất thì đồng nghĩa với việc là những người ở rank cao nhất mà đúng không haha. Sẵn tiện bạn có thể gợi ý cho tôi trang nào có từ vựng theo chủ đề không, còn độ khó thì làm sao ta biết được hay là trang web sẽ có để sẵn độ khó. Mà một từ thì có thể thuộc nhiều chủ để nữa nên ta cần sửa DB không. À ở các mức rank cao thì ngoài từ vựng thông thường ra sẽ có thêm tỉ lệ trúng idiom, collocation và cụm từ nữa nha (còn gì nữa không nhỉ), mà idiom thì có thể nó là một câu thành ngữ mà không liên quan đến chủ đề gì, nói đến đây tôi cũng có một băn khoăn và lung lay về ý tưởng random topic, đó là có những từ không thuộc chủ đề nào thì sao (ví dụ pollution thì ta có thể cho nó thuộc environment, còn các từ chung chung như manipulate, delay, postpone,... thì sao nhỉ), không thể nào họ học từ vựng mà chỉ có những từ của 1 topic không thôi, hay là những từ đó ta sẽ cho nó vào kiểu bài tập điền khuyết
+Ta là backend trước vì frontend tôi cần cải tổ và cũng đã có sẵn ý tưởng rồi, sẽ trình bày với bạn sau.

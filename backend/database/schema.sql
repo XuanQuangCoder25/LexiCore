@@ -49,6 +49,29 @@ CREATE TABLE wallets (
     exp INT DEFAULT 0,
     level INT DEFAULT 1,
     rank_point INT DEFAULT 0,
+    leaderboard_point INT DEFAULT 0,
+    arena_rank ENUM(
+        'BRONZE',
+        'SILVER',
+        'GOLD',
+        'PLATINUM',
+        'PLATINUM_2',
+        'SAPPHIRE_1',
+        'SAPPHIRE_2',
+        'EMERALD_1',
+        'EMERALD_2',
+        'DIAMOND_1',
+        'DIAMOND_2',
+        'MASTER_1',
+        'MASTER_2',
+        'MASTER_3'
+    ) DEFAULT 'BRONZE',
+    arena_current_win_streak INT DEFAULT 0,
+    arena_longest_win_streak INT DEFAULT 0,
+    arena_total_wins INT DEFAULT 0,
+    arena_total_losses INT DEFAULT 0,
+    arena_total_draws INT DEFAULT 0,
+    arena_total_matches INT DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
@@ -232,11 +255,6 @@ CREATE TABLE shadowing_videos (
     title VARCHAR(255) NOT NULL,
     channel VARCHAR(100),
     duration INT,
-    difficulty ENUM(
-        'Beginner',
-        'Intermediate',
-        'Advanced'
-    ) DEFAULT 'Intermediate',
     ai_summary JSON, -- Cache tóm tắt & từ vựng từ Gemini AI (lazy-load, lưu 1 lần dùng mãi)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -276,4 +294,98 @@ CREATE TABLE shadowing_notes (
     UNIQUE KEY uq_user_video_note (user_id, video_id),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     FOREIGN KEY (video_id) REFERENCES shadowing_videos (id) ON DELETE CASCADE
+);
+
+-- D. PVP ARENA
+-- 1. Kho từ vựng Arena
+CREATE TABLE arena_words (
+    id VARCHAR(36) PRIMARY KEY,
+    word VARCHAR(150) NOT NULL,
+    meaning VARCHAR(255) NOT NULL,
+    topic VARCHAR(100) NOT NULL,
+    level ENUM(
+        'A1',
+        'A2',
+        'B1',
+        'B2',
+        'C1',
+        'C2'
+    ) NOT NULL,
+    word_type ENUM(
+        'noun',
+        'verb',
+        'adjective',
+        'adverb',
+        'phrase',
+        'noun_phrase',
+        'verb_phrase',
+        'idiom',
+        'collocation'
+    ) NOT NULL DEFAULT 'noun',
+    example TEXT NULL,
+    created_by VARCHAR(36) NULL, -- Admin ID
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_arena_words_topic (topic),
+    INDEX idx_arena_words_level (level),
+    INDEX idx_arena_words_type (word_type),
+    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+);
+
+-- 2. Lịch sử các ván đấu PvP
+CREATE TABLE arena_matches (
+    id VARCHAR(36) PRIMARY KEY,
+    player1_id VARCHAR(36) NOT NULL,
+    player2_id VARCHAR(36) NOT NULL,
+    topic VARCHAR(100) NOT NULL,
+    rank_snapshot ENUM(
+        'BRONZE',
+        'SILVER',
+        'GOLD',
+        'PLATINUM',
+        'PLATINUM_2',
+        'SAPPHIRE_1',
+        'SAPPHIRE_2',
+        'EMERALD_1',
+        'EMERALD_2',
+        'DIAMOND_1',
+        'DIAMOND_2',
+        'MASTER_1',
+        'MASTER_2',
+        'MASTER_3'
+    ) NOT NULL,
+    total_questions INT NOT NULL DEFAULT 25,
+    time_limit_sec INT NOT NULL DEFAULT 360, -- 6 phút = 360 giây
+    p1_correct INT DEFAULT 0, -- Kết quả player 1
+    p1_time_used_ms INT DEFAULT 0,
+    p2_correct INT DEFAULT 0, -- Kết quả player 2
+    p2_time_used_ms INT DEFAULT 0,
+    winner_id VARCHAR(36) NULL, -- Kết quả ván đấu (NULL = hoà)
+    result ENUM('P1_WIN', 'P2_WIN', 'DRAW') NOT NULL,
+    p1_points_change INT DEFAULT 0, -- Thay đổi điểm Arena (+25 / -15 / 0)
+    p2_points_change INT DEFAULT 0,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP NULL,
+    FOREIGN KEY (player1_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (player2_id) REFERENCES users (id) ON DELETE CASCADE,
+    INDEX idx_arena_matches_p1 (player1_id),
+    INDEX idx_arena_matches_p2 (player2_id),
+    INDEX idx_arena_matches_started (started_at)
+);
+
+-- 3. Chi tiết từng câu hỏi trong ván đấu
+-- Dùng để hiển thị màn hình tổng kết (xanh/đỏ cho từng từ) sau ván
+CREATE TABLE arena_match_words (
+    id VARCHAR(36) PRIMARY KEY,
+    match_id VARCHAR(36) NOT NULL,
+    word_id VARCHAR(36) NOT NULL,
+    order_index TINYINT NOT NULL, -- Thứ tự câu hỏi (1..25)
+    p1_answer VARCHAR(150) NULL, -- Đáp án player 1 nhập
+    p1_correct BOOLEAN DEFAULT FALSE,
+    p1_time_ms INT DEFAULT 0, -- Thời gian trả lời (ms)
+    p2_answer VARCHAR(150) NULL,
+    p2_correct BOOLEAN DEFAULT FALSE,
+    p2_time_ms INT DEFAULT 0,
+    FOREIGN KEY (match_id) REFERENCES arena_matches (id) ON DELETE CASCADE,
+    FOREIGN KEY (word_id) REFERENCES arena_words (id) ON DELETE CASCADE,
+    INDEX idx_match_words_match (match_id)
 );
