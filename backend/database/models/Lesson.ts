@@ -29,7 +29,7 @@ const LessonSchema = new Schema<ILesson>({
   order: { type: Number, required: true },
   videoUrl: { type: String, default: '' },
   content: { type: String, default: '' },
-  blocks: { type: [Schema.Types.Mixed], default: [] },
+  blocks: { type: [Schema.Types.Mixed] as any, default: [] },
   attachedExamId: { type: Schema.Types.ObjectId, ref: 'Exam' },
   attachedFlashcardId: { type: Schema.Types.ObjectId, ref: 'Course' },
   isRequiredToPassExam: { type: Boolean, default: false }

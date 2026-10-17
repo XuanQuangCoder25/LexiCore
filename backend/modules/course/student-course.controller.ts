@@ -140,7 +140,7 @@ export const enrollCourse = async (req: Request, res: Response): Promise<void> =
         }
         
         user.enrolledCourses.push({
-            courseId: new mongoose.Types.ObjectId(id),
+            courseId: new mongoose.Types.ObjectId(String(id)),
             progressPercentage: 0
         });
 
@@ -206,7 +206,7 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
              return;
         }
 
-        const lessonObjId = new mongoose.Types.ObjectId(lessonId);
+        const lessonObjId = new mongoose.Types.ObjectId(String(lessonId));
         
         // Kiểm tra đã hoàn thành chưa?
         if (user.completedLessons.includes(lessonObjId)) {

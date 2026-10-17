@@ -180,7 +180,7 @@ export const getCreatorExamById = async (req: Request, res: Response) => {
     const exam = await Exam.findOne({ _id: id, createdBy: req.user?.id }).lean();
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
 
-    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(id) }).sort({ order: 1 }).lean();
+    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(String(id)) }).sort({ order: 1 }).lean();
     res.json({ success: true, data: { ...exam, questions } });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi server' });

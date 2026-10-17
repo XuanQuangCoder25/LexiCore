@@ -33,17 +33,17 @@ export const getDueCards = async (req: Request, res: Response) => {
       };
     }));
 
-    let resultCards = reviewCards;
+    let resultCards: any[] = reviewCards;
 
     // 2. Nếu thiếu thẻ, lấy thêm thẻ mới
     if (resultCards.length < limitNum && courseId) {
-      const existingCardIds = await CardReview.find({ userId, courseId }).distinct('cardId');
+      const existingCardIds = await CardReview.find({ userId, courseId: courseId as any }).distinct('cardId');
       const newFlashcards = await Flashcard.find({
-        courseId,
+        courseId: courseId as any,
         _id: { $nin: existingCardIds }
       }).limit(limitNum - resultCards.length).lean();
 
-      const newCards = newFlashcards.map(fc => ({
+      const newCards = newFlashcards.map((fc: any) => ({
         _id: fc._id,
         cardId: fc._id,
         courseId: fc.courseId,
@@ -58,8 +58,8 @@ export const getDueCards = async (req: Request, res: Response) => {
     // 3. Nếu không có thẻ due và không có thẻ new (đã ôn xong hết hôm nay), nhưng truyền courseId:
     // Lấy lại tất cả thẻ trong deck để học viên có thể ôn tập bất cứ lúc nào (Cram/Practice mode)
     if (resultCards.length === 0 && courseId) {
-      const allFlashcards = await Flashcard.find({ courseId }).limit(limitNum).lean();
-      resultCards = allFlashcards.map(fc => ({
+      const allFlashcards = await Flashcard.find({ courseId: courseId as any }).limit(limitNum).lean();
+      resultCards = allFlashcards.map((fc: any) => ({
         _id: fc._id,
         cardId: fc._id,
         courseId: fc.courseId,

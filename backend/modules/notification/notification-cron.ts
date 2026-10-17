@@ -18,9 +18,9 @@ export const checkAndSendReminders = async (forcedTime?: string): Promise<number
 
     // Tạo dạng 12h bổ trợ (ví dụ "15:44" -> "03:44") để bao quát mọi định dạng người dùng nhập
     const [h, m] = currentTime.split(':');
-    const hourNum = parseInt(h, 10);
+    const hourNum = parseInt(h || '0', 10);
     const h12 = (hourNum % 12 || 12).toString().padStart(2, '0');
-    const altTime = `${h12}:${m}`;
+    const altTime = h && m ? `${h12}:${m}` : currentTime;
 
     console.log(`[Notification Cron] Đang quét nhắc nhở cho khung giờ: ${currentTime} (hoặc ${altTime})`);
 

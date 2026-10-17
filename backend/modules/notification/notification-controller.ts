@@ -50,7 +50,7 @@ export const notificationController = {
   async markAsRead(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { id } = req.params;
+      const id = String(req.params.id || '');
       await notificationService.markAsRead(id, userId);
       res.status(200).json({
         status: 'success',
@@ -79,7 +79,7 @@ export const notificationController = {
   async deleteNotification(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.id;
-      const { id } = req.params;
+      const id = String(req.params.id || '');
       await notificationService.deleteNotification(id, userId);
       res.status(200).json({
         status: 'success',

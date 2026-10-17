@@ -21,9 +21,11 @@ jobs:
     env:
       NODE_ENV: test
       PORT: 5000
-      JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-test-jwt-secret-key-super-safe' }}
-      MYSQL_URI: ${{ secrets.MYSQL_URI || 'mysql://root:password@127.0.0.1:3306/lexicore_test?timezone=Z' }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 're_dummy_test_api_key' }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      MYSQL_URI: ${{ secrets.MYSQL_URI }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       CLIENT_URL: 'http://localhost:5173'
 
     steps:
@@ -41,9 +43,7 @@ jobs:
       run: npm install
 
     - name: Kiểm tra Type Check (TypeScript)
-      # Cho phép cảnh báo Mongoose type mismatch mà không làm ngắt pipeline
-      run: npx tsc --noEmit || echo "::warning title=TypeScript::Phát hiện cảnh báo kiểu dữ liệu Mongoose, pipeline tiếp tục kiểm tra cú pháp."
-      continue-on-error: true
+      run: npm run type-check
 
     - name: Kiểm tra Cú pháp và Khả năng biên dịch Backend
       run: |
