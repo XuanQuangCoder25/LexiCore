@@ -9,6 +9,10 @@ export const authService = {
     return api.post('/login', data);
   },
 
+  logout: async () => {
+    return api.post('/logout');
+  },
+
   verifyEmail: async (data: { email: string; otp_code: string }) => {
     return api.post('/verify-email', data);
   },

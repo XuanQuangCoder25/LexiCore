@@ -1,8 +1,7 @@
-import { Sun, Moon, Monitor, Type, Sparkles, Check, Globe } from "lucide-react";
+import { Sun, Moon, Monitor, Sparkles, Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Label } from "../../ui/label";
 import { Switch } from "../../ui/switch";
-import { Badge } from "../../ui/badge";
 import { SettingsState } from "./settingsMock";
 
 interface AppearanceSectionProps {
@@ -47,17 +46,6 @@ export function AppearanceSection({ settings, updateSetting }: AppearanceSection
       previewCard: "bg-white/80 dark:bg-zinc-900/80 border-slate-300 dark:border-zinc-700",
       previewText: "text-slate-800 dark:text-zinc-100",
     },
-  ];
-
-  const fontSizes: Array<{
-    id: "small" | "medium" | "large";
-    label: string;
-    desc: string;
-    sizeClass: string;
-  }> = [
-    { id: "small", label: "Nhỏ (Compact)", desc: "14px - Hiển thị nhiều nội dung hơn", sizeClass: "text-sm" },
-    { id: "medium", label: "Tiêu chuẩn (Khuyên dùng)", desc: "16px - Độ cân đối tối ưu cho học tập", sizeClass: "text-base" },
-    { id: "large", label: "Lớn (Dễ đọc)", desc: "18px - Chữ to, thoải mái quan sát", sizeClass: "text-lg" },
   ];
 
   return (
@@ -137,145 +125,6 @@ export function AppearanceSection({ settings, updateSetting }: AppearanceSection
                 </div>
               );
             })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Language */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
-              <Globe className="h-5 w-5" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">Ngôn ngữ ứng dụng (Language)</CardTitle>
-              <CardDescription>
-                Chọn ngôn ngữ hiển thị giao diện của LexiCore
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => updateSetting("language", "vi")}
-              className={`flex items-center justify-between p-4 rounded-xl border-2 text-left transition-all ${
-                settings.language === "vi"
-                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                  : "border-border hover:border-border/80 bg-card"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🇻🇳</span>
-                <div>
-                  <p className="text-sm font-semibold">Tiếng Việt</p>
-                  <p className="text-xs text-muted-foreground">Vietnamese (Mặc định)</p>
-                </div>
-              </div>
-              {settings.language === "vi" && (
-                <div className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                  <Check className="h-3 w-3 stroke-[3]" />
-                </div>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => updateSetting("language", "en")}
-              className={`flex items-center justify-between p-4 rounded-xl border-2 text-left transition-all ${
-                settings.language === "en"
-                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                  : "border-border hover:border-border/80 bg-card"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🇺🇸</span>
-                <div>
-                  <p className="text-sm font-semibold">English</p>
-                  <p className="text-xs text-muted-foreground">United States</p>
-                </div>
-              </div>
-              {settings.language === "en" && (
-                <div className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                  <Check className="h-3 w-3 stroke-[3]" />
-                </div>
-              )}
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Font Size & Live Preview */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-              <Type className="h-5 w-5" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">Kích thước chữ (Font Size)</CardTitle>
-              <CardDescription>
-                Điều chỉnh kích thước font chữ nội dung bài giảng và thẻ flashcard
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {fontSizes.map((f) => {
-              const isSelected = settings.fontSize === f.id;
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => updateSetting("fontSize", f.id)}
-                  className={`p-3.5 rounded-xl border-2 text-left transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/5 shadow-xs"
-                      : "border-border hover:border-border/80 bg-card"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold">{f.label}</span>
-                    {isSelected && <Badge variant="default" className="text-[10px] h-4 px-1.5">Active</Badge>}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{f.desc}</p>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Live Preview Sample */}
-          <div className="rounded-xl border border-dashed border-border p-4 bg-muted/30">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-primary" /> Bản xem trước hiển thị mẫu
-              </span>
-              <span className="text-xs text-muted-foreground font-mono">
-                {settings.fontSize === "small" ? "14px" : settings.fontSize === "large" ? "18px" : "16px"}
-              </span>
-            </div>
-            <div
-              className={`p-4 rounded-lg bg-background border transition-all duration-150 leading-relaxed ${
-                settings.fontSize === "small"
-                  ? "text-sm"
-                  : settings.fontSize === "large"
-                  ? "text-lg font-normal"
-                  : "text-base"
-              }`}
-            >
-              <p className="font-semibold text-primary mb-1">
-                Vocab: Resilience /rɪˈzɪl.jəns/ (noun)
-              </p>
-              <p className="text-foreground">
-                Khả năng phục hồi, kiên cường vượt qua khó khăn.
-              </p>
-              <p className="text-muted-foreground italic mt-1 text-[0.9em]">
-                &quot;The quick brown fox jumps over the lazy dog — LexiCore empowers your language mastery every single day.&quot;
-              </p>
-            </div>
           </div>
         </CardContent>
       </Card>

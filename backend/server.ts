@@ -21,6 +21,8 @@ import examRoutes from './modules/exam/exam.route';
 import courseRoute from './modules/course/course.route';
 import studentCourseRoute from './modules/course/student-course.route';
 import arenaRoute from './modules/arena/arena-word.route';
+import notificationRoute from './modules/notification/notification-route';
+import { initNotificationCron } from './modules/notification/notification-cron';
 import { initArenaSocket } from './modules/arena/arena-socket';
 import { createServer } from 'http';
 import { Server as SocketIO } from 'socket.io';
@@ -77,6 +79,9 @@ const startServer = async () => {
         // --- Arena Routes ---
         app.use('/api/arena', arenaRoute);
 
+        // --- Notification & Settings Routes ---
+        app.use('/api/notifications', notificationRoute);
+
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);
 
@@ -87,6 +92,9 @@ const startServer = async () => {
 
         // Khởi tạo Arena Socket.IO (Xác thực + Real-time handlers)
         initArenaSocket(io);
+
+        // Khởi tạo Background Task nhắc nhở học tập (quét DB mỗi phút)
+        initNotificationCron();
 
         httpServer.listen(port, () => {
             console.log(`Server đang chạy tại http://localhost:${port}`);

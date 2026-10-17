@@ -1,14 +1,11 @@
 import { useState } from "react";
 import {
   ShieldCheck,
-  Brain,
   Bell,
   Palette,
   CreditCard,
-  GraduationCap,
   Save,
   RotateCcw,
-  Sparkles,
   ChevronRight,
   Settings,
 } from "lucide-react";
@@ -17,11 +14,9 @@ import { Badge } from "../ui/badge";
 import { toast } from "sonner";
 import { initialSettingsMock, SettingsState } from "./settings/settingsMock";
 import { AccountSecuritySection } from "./settings/AccountSecuritySection";
-import { LearningPreferencesSection } from "./settings/LearningPreferencesSection";
 import { NotificationsSection } from "./settings/NotificationsSection";
 import { AppearanceSection } from "./settings/AppearanceSection";
 import { BillingWalletSection } from "./settings/BillingWalletSection";
-import { CreatorSettingsSection } from "./settings/CreatorSettingsSection";
 
 interface SettingsViewProps {
   onNavigateTab?: (tab: string) => void;
@@ -30,13 +25,11 @@ interface SettingsViewProps {
 
 type SettingsTab =
   | "account"
-  | "learning"
   | "notifications"
   | "appearance"
-  | "billing"
-  | "creator";
+  | "billing";
 
-export function SettingsView({ onNavigateTab, userRole = "user" }: SettingsViewProps) {
+export function SettingsView({ onNavigateTab }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
   const [savedSettings, setSavedSettings] = useState<SettingsState>(initialSettingsMock);
   const [settings, setSettings] = useState<SettingsState>(initialSettingsMock);
@@ -57,7 +50,7 @@ export function SettingsView({ onNavigateTab, userRole = "user" }: SettingsViewP
   const handleSaveChanges = () => {
     setSavedSettings(settings);
     toast.success("Đã lưu toàn bộ cài đặt thành công!", {
-      description: "Các tùy chỉnh học tập và giao diện đã được áp dụng ngay lập tức.",
+      description: "Các tùy chỉnh đã được áp dụng ngay lập tức.",
     });
   };
 
@@ -76,14 +69,8 @@ export function SettingsView({ onNavigateTab, userRole = "user" }: SettingsViewP
     {
       id: "account",
       label: "Tài khoản & Bảo mật",
-      description: "Email, mật khẩu, xác thực 2FA, phiên đăng nhập",
+      description: "Email tài khoản, mật khẩu đăng nhập và quản trị bảo mật",
       icon: ShieldCheck,
-    },
-    {
-      id: "learning",
-      label: "Phương pháp học tập",
-      description: "Mục tiêu Streak, Spaced Repetition SRS, Shadowing",
-      icon: Brain,
     },
     {
       id: "notifications",
@@ -94,7 +81,7 @@ export function SettingsView({ onNavigateTab, userRole = "user" }: SettingsViewP
     {
       id: "appearance",
       label: "Giao diện & Hiển thị",
-      description: "Chủ đề Sáng/Tối, ngôn ngữ, cỡ chữ, giảm chuyển động",
+      description: "Chủ đề Sáng/Tối và hiệu ứng giao diện",
       icon: Palette,
     },
     {
@@ -103,13 +90,6 @@ export function SettingsView({ onNavigateTab, userRole = "user" }: SettingsViewP
       description: "Gói LexiCore Pro, số dư LexiCoins, lịch sử giao dịch",
       icon: CreditCard,
       badge: settings.currentPlan === "pro" ? "PRO" : undefined,
-    },
-    {
-      id: "creator",
-      label: "Dành cho Nhà sáng tạo",
-      description: "Hồ sơ Giảng viên, thông báo review, Creator Studio",
-      icon: GraduationCap,
-      badge: userRole === "content_creator" ? "Creator" : "Mới",
     },
   ];
 
@@ -227,13 +207,6 @@ export function SettingsView({ onNavigateTab, userRole = "user" }: SettingsViewP
             />
           )}
 
-          {activeTab === "learning" && (
-            <LearningPreferencesSection
-              settings={settings}
-              updateSetting={updateSetting}
-            />
-          )}
-
           {activeTab === "notifications" && (
             <NotificationsSection
               settings={settings}
@@ -252,15 +225,6 @@ export function SettingsView({ onNavigateTab, userRole = "user" }: SettingsViewP
             <BillingWalletSection
               settings={settings}
               updateSetting={updateSetting}
-              onNavigateTab={onNavigateTab}
-            />
-          )}
-
-          {activeTab === "creator" && (
-            <CreatorSettingsSection
-              settings={settings}
-              updateSetting={updateSetting}
-              userRole={userRole}
               onNavigateTab={onNavigateTab}
             />
           )}
