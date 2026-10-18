@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Swords, History, Trophy } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ArenaHub } from './arena/ArenaHub';
+import { ArenaHistory } from './arena/ArenaHistory';
 
 export type ArenaTab = 'hub' | 'history' | 'leaderboard';
 
@@ -54,11 +55,9 @@ export function ArenaView() {
           />
         </TabsContent>
 
-        {/* Tab 2: Lịch sử đấu (Placeholder cho bước tiếp theo) */}
+        {/* Tab 2: Lịch sử đấu */}
         <TabsContent value="history" className="mt-6">
-          <div className="p-12 text-center border rounded-xl text-muted-foreground">
-            Tính năng Lịch sử đấu sẽ được triển khai ở bước kế tiếp.
-          </div>
+          <ArenaHistory onFindMatch={() => setActiveTab('hub')} />
         </TabsContent>
 
         {/* Tab 3: Bảng xếp hạng (Placeholder cho bước tiếp theo) */}
