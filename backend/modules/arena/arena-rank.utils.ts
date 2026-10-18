@@ -540,7 +540,7 @@ export const RANK_TIER_DETAILS: RankTierDetail[] = [
     },
     {
         rank: 'EMERALD_1',
-        name: 'EMERALD',
+        name: 'EMERALD I',
         order: 7,
         threshold: 550,
         badgeFile: 'rank-emerald-1.png',

@@ -5,6 +5,7 @@ import { ArenaHub } from './arena/ArenaHub';
 import { ArenaHistory } from './arena/ArenaHistory';
 import { ArenaLeaderboard } from './arena/ArenaLeaderboard';
 import { ArenaRankModal } from './arena/ArenaRankModal';
+import { ArenaMatchmakingModal } from './arena/ArenaMatchmakingModal';
 import { UserArenaProfile } from '../../services/arena-service';
 
 export type ArenaTab = 'hub' | 'history' | 'leaderboard';
@@ -12,6 +13,7 @@ export type ArenaTab = 'hub' | 'history' | 'leaderboard';
 export function ArenaView() {
   const [activeTab, setActiveTab] = useState<ArenaTab>('hub');
   const [isRankModalOpen, setIsRankModalOpen] = useState<boolean>(false);
+  const [isMatchmakingOpen, setIsMatchmakingOpen] = useState<boolean>(false);
   const [profile, setProfile] = useState<UserArenaProfile | null>(null);
 
   return (
@@ -53,15 +55,13 @@ export function ArenaView() {
             onNavigateToLeaderboard={(_rank) => setActiveTab('leaderboard')}
             onOpenRankModal={() => setIsRankModalOpen(true)}
             onProfileLoaded={(p) => setProfile(p)}
-            onFindMatch={() => {
-              // Sẽ kích hoạt animation cánh cửa & tìm trận ở bước kế tiếp
-            }}
+            onFindMatch={() => setIsMatchmakingOpen(true)}
           />
         </TabsContent>
 
         {/* Tab 2: Lịch sử đấu */}
         <TabsContent value="history" className="mt-6">
-          <ArenaHistory onFindMatch={() => setActiveTab('hub')} />
+          <ArenaHistory onFindMatch={() => setIsMatchmakingOpen(true)} />
         </TabsContent>
 
         {/* Tab 3: Bảng xếp hạng (Top 50) */}
@@ -77,7 +77,18 @@ export function ArenaView() {
         currentRank={profile?.arena?.rank}
         highestRank={profile?.arena?.highestRank}
       />
+
+      {/* ── Màn hình Ghép trận Matchmaking ── */}
+      <ArenaMatchmakingModal
+        isOpen={isMatchmakingOpen}
+        onClose={() => setIsMatchmakingOpen(false)}
+        currentUserProfile={profile}
+        onMatchReady={(matchData) => {
+          console.log('[Arena Gameplay] Match ready to start:', matchData);
+        }}
+      />
     </div>
   );
 }
 export default ArenaView;
+

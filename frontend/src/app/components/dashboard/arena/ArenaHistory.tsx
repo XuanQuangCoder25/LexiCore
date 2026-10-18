@@ -290,12 +290,12 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                 </div>
 
                 {/* ── 2. TRUNG TÂM: BANNER KẾT QUẢ VICTORY / DEFEAT / DRAW ── */}
-                <div className="shrink-0 px-2 sm:px-4 flex flex-col items-center justify-center z-10">
-                  <div className="h-9 sm:h-11 flex items-center justify-center">
+                <div className="shrink-0 px-1 sm:px-3 flex flex-col items-center justify-center z-10">
+                  <div className="h-14 sm:h-16 md:h-18 flex items-center justify-center">
                     <img
                       src={`/assets/banners/banner-${isWin ? 'victory' : isLoss ? 'defeat' : 'draw'}.png`}
                       alt={isWin ? 'Victory' : isLoss ? 'Defeat' : 'Draw'}
-                      className="h-full object-contain drop-shadow-md select-none"
+                      className="h-full w-auto max-w-[150px] sm:max-w-[190px] md:max-w-[220px] object-contain drop-shadow-[0_6px_16px_rgba(0,0,0,0.4)] select-none hover:scale-105 transition-transform duration-200"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = 'none';
                         const fallbackEl = (e.target as HTMLElement).nextElementSibling;
@@ -304,7 +304,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                     />
                     <div
                       style={{ display: 'none' }}
-                      className={`px-3 sm:px-5 py-1 sm:py-1.5 rounded-md border font-black text-xs sm:text-sm tracking-widest uppercase text-center select-none shadow-xs ${badgeBgClass}`}
+                      className={`px-4 sm:px-6 py-2 rounded-md border font-black text-xs sm:text-sm tracking-widest uppercase text-center select-none shadow-xs ${badgeBgClass}`}
                     >
                       {isWin && <span>VICTORY</span>}
                       {isLoss && <span>DEFEAT</span>}

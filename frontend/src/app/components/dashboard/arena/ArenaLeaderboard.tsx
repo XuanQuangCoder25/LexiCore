@@ -116,22 +116,23 @@ export const ArenaLeaderboard: React.FC = () => {
                 </AvatarFallback>
               </Avatar>
 
-              <div>
-                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+              <div className="space-y-0.5">
+                {/* Dòng 1: Tên người chơi */}
+                <p className="text-base sm:text-lg font-extrabold text-foreground tracking-tight leading-tight">
                   {profile?.user?.fullName || 'Vị trí của bạn'}
                 </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-2xl font-black text-primary">#{myRank.rankPosition}</span>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-card/90 shadow-xs">
-                    <img
-                      src={getRankBadgeUrl(myRank.arenaRank)}
-                      alt={formatRankName(myRank.arenaRank)}
-                      className="w-5 h-5 object-contain rounded-sm"
-                    />
-                    <span className="text-xs font-bold text-foreground">
-                      {formatRankName(myRank.arenaRank)}
-                    </span>
-                  </div>
+
+                {/* Dòng 2: Thứ hạng + Badge Rank */}
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl sm:text-3xl font-black text-primary drop-shadow-xs">
+                    #{myRank.rankPosition}
+                  </span>
+                  <img
+                    src={getRankBadgeUrl(myRank.arenaRank)}
+                    alt={formatRankName(myRank.arenaRank)}
+                    title={formatRankName(myRank.arenaRank)}
+                    className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow-sm select-none hover:scale-110 transition-transform duration-200"
+                  />
                 </div>
               </div>
             </div>

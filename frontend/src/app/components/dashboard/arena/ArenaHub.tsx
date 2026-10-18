@@ -11,8 +11,6 @@ import {
     Zap,
     Loader2,
     TrendingUp,
-    Shield,
-    Award,
 } from 'lucide-react';
 import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
 

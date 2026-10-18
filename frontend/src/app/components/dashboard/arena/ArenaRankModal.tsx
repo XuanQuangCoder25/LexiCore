@@ -98,7 +98,7 @@ const FALLBACK_RANK_TIERS: RankTierDetail[] = [
     },
     {
         rank: 'EMERALD_1',
-        name: 'EMERALD',
+        name: 'EMERALD I',
         order: 7,
         threshold: 550,
         badgeFile: 'rank-emerald-1.png',
@@ -121,7 +121,7 @@ const FALLBACK_RANK_TIERS: RankTierDetail[] = [
         name: 'DIAMOND I',
         order: 9,
         threshold: 700,
-        badgeFile: 'rank-diamond.png',
+        badgeFile: 'rank-diamond-1.png',
         mascot: 'Kỳ Lân Pegasus Pha Lê',
         meaning: 'Sự thuần khiết, thanh cao và khí phách kiêu hãnh.',
         color: '#b9f2ff',
@@ -299,11 +299,10 @@ export const ArenaRankModal: React.FC<ArenaRankModalProps> = ({
                                         <img
                                             src={getRankBadgeUrl(tier.rank)}
                                             alt={tier.name}
-                                            className={`w-full h-full object-contain transition-all duration-300 ${
-                                                isLocked 
-                                                    ? 'grayscale-[75%] opacity-40' 
+                                            className={`w-full h-full object-contain transition-all duration-300 ${isLocked
+                                                    ? 'grayscale-[75%] opacity-40'
                                                     : 'drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)]'
-                                            }`}
+                                                }`}
                                         />
                                         {isLocked && (
                                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
