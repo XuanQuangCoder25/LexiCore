@@ -20,6 +20,7 @@ interface ArenaHubProps {
     onNavigateToLeaderboard?: (rankFilter?: string) => void;
     onOpenRankModal?: () => void;
     onFindMatch?: () => void;
+    onProfileLoaded?: (profile: UserArenaProfile) => void;
 }
 
 const formatRankName = (rank?: string): string => {
@@ -47,6 +48,7 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
     onNavigateToLeaderboard,
     onOpenRankModal,
     onFindMatch,
+    onProfileLoaded,
 }) => {
     const [profile, setProfile] = useState<UserArenaProfile | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -61,6 +63,7 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                 const data = await arenaService.getMyProfile();
                 if (isMounted) {
                     setProfile(data);
+                    if (data) onProfileLoaded?.(data);
                 }
             } catch (err: any) {
                 if (isMounted) {
@@ -219,10 +222,17 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                     <Card className="border shadow-sm">
                         <CardContent className="p-6 text-center space-y-5">
 
-                            {/*Badge Rank*/}
-                            <div className="w-40 h-40 mx-auto rounded-2xl border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center p-3 text-center text-xs text-muted-foreground bg-muted/20">
-                                <Award className="h-10 w-10 mb-2 opacity-50" />
+                            {/*Badge Rank - Click để xem lộ trình rank*/}
+                            <div
+                                onClick={onOpenRankModal}
+                                className="w-40 h-40 mx-auto rounded-2xl border-2 border-dashed border-muted-foreground/30 hover:border-primary/60 cursor-pointer flex flex-col items-center justify-center p-3 text-center text-xs text-muted-foreground bg-muted/20 transition-all hover:scale-105 group"
+                                title="Nhấn để xem lộ trình rank"
+                            >
+                                <Award className="h-10 w-10 mb-2 opacity-50 group-hover:text-primary group-hover:opacity-100 transition-colors" />
                                 <span className="font-mono font-medium">[Asset: Badge Rank {arena.rank}]</span>
+                                <span className="text-[10px] text-primary mt-1 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                                    Xem lộ trình
+                                </span>
                             </div>
 
                             {/* Tên Rank */}

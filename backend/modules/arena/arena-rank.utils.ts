@@ -49,7 +49,7 @@ export const RANK_ORDER: Record<string, number> = {
 // Cấu hình điểm thưởng/phạt
 export const POINTS_CONFIG = {
     WIN: { rank_point: 25, leaderboard_point: 25 },
-    LOSS: { rank_point: -15, leaderboard_point: -25 },
+    LOSS: { rank_point: -20, leaderboard_point: -20 },
     DRAW: { rank_point: 0, leaderboard_point: 0 },
 } as const;
 
@@ -307,9 +307,9 @@ export interface PointsChange {
 }
 
 //  Tính điểm thay đổi:
-//  - Thắng: rank +25, leaderboard +25
-//  - Thua: rank -15, leaderboard -25
-//  - Hoà: rank +0, leaderboard +0
+//  - Thắng: +25 RP/LP
+//  - Thua: -20 RP/LP
+//  - Hoà: +0 RP/LP
 export function calculatePointsChange(playerResult: 'WIN' | 'LOSS' | 'DRAW'): PointsChange {
     if (playerResult === 'WIN') {
         return {

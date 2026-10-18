@@ -19,7 +19,8 @@ import {
   Calendar,
   Zap,
   Award,
-  Bot
+  Bot,
+  BookOpen
 } from 'lucide-react';
 import {
   arenaService,
@@ -329,6 +330,10 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                     <p className="font-bold text-sm sm:text-base truncate" title={m.opponent.fullName || 'Đối thủ'}>
                       {m.opponent.fullName || 'Đối thủ'}
                     </p>
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <BookOpen className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{m.topic}</span>
+                    </div>
                   </div>
 
                   {/* Avatar đối thủ*/}

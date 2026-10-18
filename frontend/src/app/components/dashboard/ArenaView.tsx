@@ -3,11 +3,16 @@ import { Swords, History, Trophy } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ArenaHub } from './arena/ArenaHub';
 import { ArenaHistory } from './arena/ArenaHistory';
+import { ArenaLeaderboard } from './arena/ArenaLeaderboard';
+import { ArenaRankModal } from './arena/ArenaRankModal';
+import { UserArenaProfile } from '../../services/arena-service';
 
 export type ArenaTab = 'hub' | 'history' | 'leaderboard';
 
 export function ArenaView() {
   const [activeTab, setActiveTab] = useState<ArenaTab>('hub');
+  const [isRankModalOpen, setIsRankModalOpen] = useState<boolean>(false);
+  const [profile, setProfile] = useState<UserArenaProfile | null>(null);
 
   return (
     <div className="space-y-6">
@@ -46,9 +51,8 @@ export function ArenaView() {
         <TabsContent value="hub" className="mt-6">
           <ArenaHub
             onNavigateToLeaderboard={(_rank) => setActiveTab('leaderboard')}
-            onOpenRankModal={() => {
-              // Sẽ kích hoạt modal lộ trình rank ở bước kế tiếp
-            }}
+            onOpenRankModal={() => setIsRankModalOpen(true)}
+            onProfileLoaded={(p) => setProfile(p)}
             onFindMatch={() => {
               // Sẽ kích hoạt animation cánh cửa & tìm trận ở bước kế tiếp
             }}
@@ -60,13 +64,19 @@ export function ArenaView() {
           <ArenaHistory onFindMatch={() => setActiveTab('hub')} />
         </TabsContent>
 
-        {/* Tab 3: Bảng xếp hạng (Placeholder cho bước tiếp theo) */}
+        {/* Tab 3: Bảng xếp hạng (Top 50) */}
         <TabsContent value="leaderboard" className="mt-6">
-          <div className="p-12 text-center border rounded-xl text-muted-foreground">
-            Tính năng Bảng xếp hạng sẽ được triển khai ở bước kế tiếp.
-          </div>
+          <ArenaLeaderboard />
         </TabsContent>
       </Tabs>
+
+      {/* ── Modal Lộ trình Rank (14 cấp bậc, scroll ngang) ── */}
+      <ArenaRankModal
+        isOpen={isRankModalOpen}
+        onClose={() => setIsRankModalOpen(false)}
+        currentRank={profile?.arena?.rank}
+        highestRank={profile?.arena?.highestRank}
+      />
     </div>
   );
 }
