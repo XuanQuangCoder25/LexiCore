@@ -13,7 +13,7 @@ import {
   Flame,
   UserCheck
 } from 'lucide-react';
-import { arenaService, UserArenaProfile } from '../../../services/arena-service';
+import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
 
 export interface LeaderboardPlayer {
   rankPosition: number;
@@ -122,9 +122,16 @@ export const ArenaLeaderboard: React.FC = () => {
                 </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-2xl font-black text-primary">#{myRank.rankPosition}</span>
-                  <Badge variant="outline" className="text-xs font-semibold">
-                    {formatRankName(myRank.arenaRank)}
-                  </Badge>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-card/90 shadow-xs">
+                    <img
+                      src={getRankBadgeUrl(myRank.arenaRank)}
+                      alt={formatRankName(myRank.arenaRank)}
+                      className="w-5 h-5 object-contain rounded-sm"
+                    />
+                    <span className="text-xs font-bold text-foreground">
+                      {formatRankName(myRank.arenaRank)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -233,13 +240,20 @@ export const ArenaLeaderboard: React.FC = () => {
                         </div>
                       </TableCell>
 
-                      {/* Cột 3: Bậc Rank (Badge placeholder + Tên) */}
+                      {/* Cột 3: Bậc Rank (Badge + Tên) */}
                       <TableCell className="hidden sm:table-cell">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center text-[8px] text-muted-foreground bg-muted/20 shrink-0">
-                            <Award className="h-3.5 w-3.5 opacity-60" />
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 shrink-0 flex items-center justify-center">
+                            <img
+                              src={getRankBadgeUrl(player.arenaRank)}
+                              alt={formatRankName(player.arenaRank)}
+                              className="w-full h-full object-contain drop-shadow-xs"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
                           </div>
-                          <span className="font-medium text-xs text-foreground">
+                          <span className="font-semibold text-xs text-foreground">
                             {formatRankName(player.arenaRank)}
                           </span>
                         </div>

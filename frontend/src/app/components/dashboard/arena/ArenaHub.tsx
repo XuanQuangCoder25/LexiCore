@@ -14,7 +14,7 @@ import {
     Shield,
     Award,
 } from 'lucide-react';
-import { arenaService, UserArenaProfile } from '../../../services/arena-service';
+import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
 
 interface ArenaHubProps {
     onNavigateToLeaderboard?: (rankFilter?: string) => void;
@@ -182,8 +182,8 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
 
                                 <div className="p-3 rounded-lg border bg-card text-center space-y-1">
                                     <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-                                        <Shield className="h-3.5 w-3.5 text-blue-500" />
-                                        <span>Số ván</span>
+                                        <Swords className="h-3.5 w-3.5 text-blue-500" />
+                                        <span>Số trận</span>
                                     </div>
                                     <p className="text-xl font-bold">
                                         {arena.totalMatches}
@@ -222,17 +222,20 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                     <Card className="border shadow-sm">
                         <CardContent className="p-6 text-center space-y-5">
 
-                            {/*Badge Rank - Click để xem lộ trình rank*/}
+                            {/* Badge Rank - Click để xem lộ trình rank */}
                             <div
                                 onClick={onOpenRankModal}
-                                className="w-40 h-40 mx-auto rounded-2xl border-2 border-dashed border-muted-foreground/30 hover:border-primary/60 cursor-pointer flex flex-col items-center justify-center p-3 text-center text-xs text-muted-foreground bg-muted/20 transition-all hover:scale-105 group"
+                                className="w-44 h-44 mx-auto cursor-pointer flex items-center justify-center p-2 transition-transform duration-300 hover:scale-110 select-none group"
                                 title="Nhấn để xem lộ trình rank"
                             >
-                                <Award className="h-10 w-10 mb-2 opacity-50 group-hover:text-primary group-hover:opacity-100 transition-colors" />
-                                <span className="font-mono font-medium">[Asset: Badge Rank {arena.rank}]</span>
-                                <span className="text-[10px] text-primary mt-1 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                                    Xem lộ trình
-                                </span>
+                                <img
+                                    src={getRankBadgeUrl(arena.rank)}
+                                    alt={formatRankName(arena.rank)}
+                                    className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-105"
+                                    onError={(e) => {
+                                        (e.target as HTMLElement).style.display = 'none';
+                                    }}
+                                />
                             </div>
 
                             {/* Tên Rank */}

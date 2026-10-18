@@ -9,14 +9,13 @@ import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 import {
     Award,
-    ChevronLeft,
-    ChevronRight,
-    CheckCircle2,
+    Crosshair,
+    Radio,
     Lock,
+    Unlock,
     Sparkles,
-    HelpCircle,
 } from 'lucide-react';
-import { arenaService, RankTierDetail } from '../../../services/arena-service';
+import { arenaService, RankTierDetail, getRankBadgeUrl } from '../../../services/arena-service';
 
 export interface ArenaRankModalProps {
     isOpen: boolean;
@@ -29,170 +28,142 @@ export interface ArenaRankModalProps {
 const FALLBACK_RANK_TIERS: RankTierDetail[] = [
     {
         rank: 'BRONZE',
-        name: 'Bronze',
-        subTier: null,
+        name: 'BRONZE',
         order: 0,
         threshold: 200,
         badgeFile: 'rank-bronze.png',
         mascot: 'Chiến Binh Spartan',
-        shieldMaterial: 'Đồng đỏ nguyên khối',
-        meaning: 'Tinh thần chiến binh sơ khởi',
+        meaning: 'Tinh thần chiến binh sơ khởi, dũng cảm bước vào đấu trường.',
         color: '#cd7f32',
     },
     {
         rank: 'SILVER',
-        name: 'Silver',
-        subTier: null,
+        name: 'SILVER',
         order: 1,
         threshold: 250,
         badgeFile: 'rank-silver.png',
         mascot: 'Đại Bàng Bạc',
-        shieldMaterial: 'Bạc 925 & bạch kim phay xước',
-        meaning: 'Tầm nhìn sắc bén và sự nhanh nhạy',
+        meaning: 'Tầm nhìn sắc bén, sự nhanh nhạy và đôi cánh vươn cao.',
         color: '#c0c0c0',
     },
     {
         rank: 'GOLD',
-        name: 'Gold',
-        subTier: null,
+        name: 'GOLD',
         order: 2,
         threshold: 300,
         badgeFile: 'rank-gold.png',
         mascot: 'Bò Tót Vàng',
-        shieldMaterial: 'Vàng ròng 24k cơ bắp nguyên khối',
-        meaning: 'Sức mạnh kiên định và vững chãi',
+        meaning: 'Sức mạnh kiên định, sự vững chãi và năng lượng hừng hực.',
         color: '#ffd700',
     },
     {
         rank: 'PLATINUM_1',
-        name: 'Platinum I',
-        subTier: 1,
+        name: 'PLATINUM I',
         order: 3,
         threshold: 350,
         badgeFile: 'rank-platinum-1.png',
         mascot: 'Sói Đầu Đàn',
-        shieldMaterial: 'Bạch kim + vi mạch neon cyan',
-        meaning: 'Bản lĩnh thủ lĩnh và sắc lạnh',
+        meaning: 'Bản lĩnh thủ lĩnh, sắc lạnh và tư duy chiến thuật đỉnh cao.',
         color: '#00e5ff',
     },
     {
         rank: 'PLATINUM_2',
-        name: 'Platinum II',
-        subTier: 2,
+        name: 'PLATINUM II',
         order: 4,
         threshold: 400,
         badgeFile: 'rank-platinum-2.png',
         mascot: 'Sói Đầu Đàn Hào Quang',
-        shieldMaterial: 'Bạch kim + 2 rãnh neon cyan',
-        meaning: 'Bản lĩnh thủ lĩnh tối thượng',
+        meaning: 'Bản lĩnh thủ lĩnh tối thượng, chuẩn bị bứt phá lên hàng bảo thạch.',
         color: '#00f0ff',
     },
     {
         rank: 'SAPPHIRE_1',
-        name: 'Sapphire I',
-        subTier: 1,
+        name: 'SAPPHIRE I',
         order: 5,
         threshold: 450,
         badgeFile: 'rank-sapphire-1.png',
         mascot: 'Báo Săn Lam Ngọc',
-        shieldMaterial: 'Tinh thể Sapphire xanh hoàng gia',
-        meaning: 'Tốc độ phản xạ thần tốc',
+        meaning: 'Tốc độ phản xạ thần tốc, dứt khoát trong từng câu hỏi.',
         color: '#0f52ba',
     },
     {
         rank: 'SAPPHIRE_2',
-        name: 'Sapphire II',
-        subTier: 2,
+        name: 'SAPPHIRE II',
         order: 6,
         threshold: 500,
         badgeFile: 'rank-sapphire-2.png',
         mascot: 'Hổ Xanh Lam Ngọc',
-        shieldMaterial: 'Tinh thể Sapphire gầm vang',
-        meaning: 'Uy lực bộc phá mãnh liệt',
+        meaning: 'Uy lực bộc phá mãnh liệt, áp đảo đấu trường.',
         color: '#0047ab',
     },
     {
         rank: 'EMERALD_1',
-        name: 'Emerald I',
-        subTier: 1,
+        name: 'EMERALD',
         order: 7,
         threshold: 550,
         badgeFile: 'rank-emerald-1.png',
         mascot: 'Sư Tử Hoàng Gia',
-        shieldMaterial: 'Ngọc Lục Bảo + vương miện vàng',
-        meaning: 'Chúa sơn lâm làm chủ đấu trường',
+        meaning: 'Chúa sơn lâm làm chủ đấu trường, phong thái vương giả.',
         color: '#50c878',
     },
     {
         rank: 'EMERALD_2',
-        name: 'Emerald II',
-        subTier: 2,
+        name: 'EMERALD II',
         order: 8,
         threshold: 600,
         badgeFile: 'rank-emerald-2.png',
         mascot: 'Bảo Tượng Hoàng Gia',
-        shieldMaterial: 'Ngọc Lục Bảo + đôi ngà ngọc',
-        meaning: 'Trí tuệ uyên bác, ký ức siêu phàm',
+        meaning: 'Trí tuệ uyên bác, ký ức siêu phàm ("An Elephant Never Forgets").',
         color: '#00a86b',
     },
     {
         rank: 'DIAMOND_1',
-        name: 'Diamond I',
-        subTier: 1,
+        name: 'DIAMOND I',
         order: 9,
         threshold: 700,
-        badgeFile: 'rank-diamond-1.png',
+        badgeFile: 'rank-diamond.png',
         mascot: 'Kỳ Lân Pegasus Pha Lê',
-        shieldMaterial: 'Kim cương giác cắt tinh khiết',
-        meaning: 'Sự thuần khiết và thanh cao',
+        meaning: 'Sự thuần khiết, thanh cao và khí phách kiêu hãnh.',
         color: '#b9f2ff',
     },
     {
         rank: 'DIAMOND_2',
-        name: 'Diamond II',
-        subTier: 2,
+        name: 'DIAMOND II',
         order: 10,
         threshold: 800,
         badgeFile: 'rank-diamond-2.png',
         mascot: 'Phượng Hoàng Pha Lê',
-        shieldMaterial: 'Kim cương tán sắc cầu vồng',
-        meaning: 'Sự hoàn mỹ và hào quang rực rỡ',
+        meaning: 'Sự hoàn mỹ, bất tử và hào quang tỏa sáng rực rỡ.',
         color: '#40e0d0',
     },
     {
         rank: 'MASTER_1',
-        name: 'Master I',
-        subTier: 1,
+        name: 'MASTER I',
         order: 11,
         threshold: 900,
         badgeFile: 'rank-master-1.png',
         mascot: 'Đại Pháp Sư Vũ Trụ',
-        shieldMaterial: 'Hắc diện thạch & Vàng thần thoại',
-        meaning: 'Làm chủ ma pháp ngôn từ',
+        meaning: 'Đỉnh cao tri thức nhân loại, làm chủ ma pháp ngôn từ.',
         color: '#9d00ff',
     },
     {
         rank: 'MASTER_2',
-        name: 'Master II',
-        subTier: 2,
+        name: 'MASTER II',
         order: 12,
         threshold: 1000,
         badgeFile: 'rank-master-2.png',
         mascot: 'Thần Long Phương Đông',
-        shieldMaterial: 'Rồng châu Á uốn lượn ngậm ngọc',
-        meaning: 'Trí tuệ thần thánh và trường tồn',
+        meaning: 'Linh khí trời đất, trí tuệ thần thánh và sự trường tồn.',
         color: '#ff0055',
     },
     {
         rank: 'MASTER_3',
-        name: 'Master III',
-        subTier: 3,
+        name: 'MASTER III',
         order: 13,
         threshold: Infinity,
         badgeFile: 'rank-master-3.png',
         mascot: 'Hắc Long Phương Tây',
-        shieldMaterial: 'Rồng khổng lồ sải cánh thở lửa',
-        meaning: 'Đỉnh cao tối thượng của PvP Arena',
+        meaning: 'Đỉnh cao tối thượng của PvP Arena, biểu tượng kẻ bất bại!',
         color: '#ff2a2a',
     },
 ];
@@ -265,8 +236,7 @@ export const ArenaRankModal: React.FC<ArenaRankModalProps> = ({
                 <div className="shrink-0 p-6 pb-4 border-b">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-black flex items-center gap-2">
-                            <Sparkles className="h-6 w-6 text-amber-400" />
-                            <span>Lộ Trình Bậc Rank PvP Arena</span>
+                            Roadmap Bậc Rank PvP Arena
                         </DialogTitle>
                     </DialogHeader>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -291,25 +261,30 @@ export const ArenaRankModal: React.FC<ArenaRankModalProps> = ({
                                 <div
                                     key={tier.rank}
                                     ref={isCurrent ? currentCardRef : null}
-                                    style={{ scrollSnapAlign: 'center' }}
+                                    style={{
+                                        scrollSnapAlign: 'center',
+                                        borderColor: isCurrent ? tier.color : (hasReached ? `${tier.color}60` : undefined),
+                                        boxShadow: isCurrent ? `0 0 25px ${tier.color}90, inset 0 0 15px ${tier.color}25` : undefined,
+                                    }}
                                     className={`w-[240px] min-w-[240px] shrink-0 rounded-2xl p-5 flex flex-col items-center text-center justify-between transition-all duration-300 relative
-                                    ${isCurrent ? 'border-2 border-amber-400/90 bg-card shadow-[0_0_25px_rgba(251,191,36,0.25)] animate-[pulse_3s_ease-in-out_infinite]'
+                                    ${isCurrent
+                                            ? 'border-2 bg-card animate-[pulse_3s_ease-in-out_infinite]'
                                             : hasReached
-                                                ? 'border border-border/80 bg-card hover:border-primary/40'
+                                                ? 'border bg-card hover:border-opacity-100'
                                                 : 'border border-dashed border-border/50 bg-muted/20 opacity-40 grayscale hover:opacity-60'
                                         }`}
                                 >
                                     {/* Nhãn "HIỆN TẠI" phía trên badge (border vàng kim, chữ và viền tỏa sáng nhẹ) */}
                                     <div className="h-7 flex items-center justify-center">
                                         {isCurrent ? (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider text-amber-400 border border-amber-400 bg-amber-400/10 shadow-[0_0_12px_rgba(251,191,36,0.45)]">
-                                                <Sparkles className="h-3 w-3 animate-spin" />
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[12px] font-black uppercase tracking-wider text-amber-400 border border-amber-400 bg-amber-400/10 shadow-[0_0_12px_rgba(251,191,36,0.45)]">
+                                                <Crosshair className="h-3 w-3 animate-spin" />
                                                 HIỆN TẠI
                                             </span>
                                         ) : hasReached ? (
-                                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-500 font-bold">
-                                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                                Đã từng đạt
+                                            <span className="inline-flex items-center gap-1 text-[12px] text-emerald-300 font-bold">
+                                                <Unlock className="h-3.5 w-3.5" />
+                                                Đã mở
                                             </span>
                                         ) : (
                                             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium">
@@ -319,45 +294,31 @@ export const ArenaRankModal: React.FC<ArenaRankModalProps> = ({
                                         )}
                                     </div>
 
-                                    {/* Khung Badge Rank (Không tự ý code ảnh giả, chừa chỗ placeholder cho asset sau này) */}
-                                    <div className="my-4 relative">
-                                        <div
-                                            className={`
-                        w-28 h-28 rounded-2xl flex flex-col items-center justify-center p-2 text-center text-xs
-                        ${isCurrent
-                                                    ? 'border-2 border-dashed border-amber-400/60 bg-amber-400/5'
-                                                    : hasReached
-                                                        ? 'border-2 border-dashed border-primary/30 bg-primary/5'
-                                                        : 'border-2 border-dashed border-muted-foreground/30 bg-muted/30'
-                                                }
-                      `}
-                                        >
-                                            {isLocked ? (
-                                                <div className="flex flex-col items-center justify-center">
-                                                    <span className="text-4xl font-black text-muted-foreground/40 mb-1">?</span>
-                                                    <span className="font-mono text-[9px] text-muted-foreground/60">
-                                                        [Asset: {tier.badgeFile}]
-                                                    </span>
+                                    {/* Badge Rank */}
+                                    <div className="my-3 relative w-32 h-32 flex items-center justify-center transition-transform duration-300 hover:scale-110 select-none">
+                                        <img
+                                            src={getRankBadgeUrl(tier.rank)}
+                                            alt={tier.name}
+                                            className={`w-full h-full object-contain transition-all duration-300 ${
+                                                isLocked 
+                                                    ? 'grayscale-[75%] opacity-40' 
+                                                    : 'drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)]'
+                                            }`}
+                                        />
+                                        {isLocked && (
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <div className="p-2 rounded-full bg-background/80 backdrop-blur-xs border shadow-sm">
+                                                    <Lock className="h-5 w-5 text-muted-foreground" />
                                                 </div>
-                                            ) : (
-                                                <div className="flex flex-col items-center justify-center">
-                                                    <Award
-                                                        className={`h-10 w-10 mb-1 ${isCurrent ? 'text-amber-400' : 'text-primary opacity-70'
-                                                            }`}
-                                                    />
-                                                    <span className="font-mono text-[9px] text-muted-foreground">
-                                                        [Asset: {tier.badgeFile}]
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Thông tin: Tên Rank & Điểm yêu cầu */}
                                     <div className="space-y-1.5 w-full pt-1">
                                         <h4
-                                            className={`font-black text-base tracking-wide uppercase truncate ${isCurrent ? 'text-amber-400' : 'text-foreground'
-                                                }`}
+                                            className="font-black text-base tracking-wide uppercase truncate drop-shadow-xs"
+                                            style={{ color: tier.color }}
                                             title={tier.name}
                                         >
                                             {tier.name}

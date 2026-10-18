@@ -25,6 +25,7 @@ import {
 import {
   arenaService,
   UserArenaProfile,
+  getRankBadgeUrl,
 } from '../../../services/arena-service';
 
 export interface MatchHistoryItem {
@@ -254,12 +255,19 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                     </div>
                   </div>
 
-                  {/* Badge Rank placeholder + Điểm RP cộng/trừ bên dưới */}
+                  {/* Badge Rank + Điểm RP cộng/trừ bên dưới */}
                   <div className="hidden md:flex flex-col items-center justify-center px-2 shrink-0">
-                    <div className="w-9 h-9 rounded-md border border-dashed border-muted-foreground/30 flex items-center justify-center text-[9px] text-muted-foreground p-1 text-center bg-background/50">
-                      <Award className="h-4 w-4 opacity-60" />
+                    <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+                      <img
+                        src={getRankBadgeUrl(m.rankSnapshot)}
+                        alt={m.rankSnapshot}
+                        className="w-full h-full object-contain drop-shadow-xs"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
                     </div>
-                    <span className={`text-xs font-bold mt-1 ${rpColorClass}`}>
+                    <span className={`text-xs font-bold mt-0.5 ${rpColorClass}`}>
                       {m.myPointsChange > 0 ? `+${m.myPointsChange}` : m.myPointsChange} RP
                     </span>
                   </div>
@@ -282,19 +290,27 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                 </div>
 
                 {/* ── 2. TRUNG TÂM: BANNER KẾT QUẢ VICTORY / DEFEAT / DRAW ── */}
-                <div className="shrink-0 px-2 sm:px-6 flex flex-col items-center justify-center z-10">
-                  {/* Ô dành cho asset banner (sau này thay bằng ảnh banner PNG) */}
-                  <div
-                    className={`px-3 sm:px-5 py-1 sm:py-1.5 rounded-md border font-black text-xs sm:text-sm tracking-widest uppercase text-center select-none shadow-xs ${badgeBgClass}`}
-                  >
-                    {isWin && <span>VICTORY</span>}
-                    {isLoss && <span>DEFEAT</span>}
-                    {isDraw && <span>DRAW</span>}
+                <div className="shrink-0 px-2 sm:px-4 flex flex-col items-center justify-center z-10">
+                  <div className="h-9 sm:h-11 flex items-center justify-center">
+                    <img
+                      src={`/assets/banners/banner-${isWin ? 'victory' : isLoss ? 'defeat' : 'draw'}.png`}
+                      alt={isWin ? 'Victory' : isLoss ? 'Defeat' : 'Draw'}
+                      className="h-full object-contain drop-shadow-md select-none"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                        const fallbackEl = (e.target as HTMLElement).nextElementSibling;
+                        if (fallbackEl) (fallbackEl as HTMLElement).style.display = 'inline-block';
+                      }}
+                    />
+                    <div
+                      style={{ display: 'none' }}
+                      className={`px-3 sm:px-5 py-1 sm:py-1.5 rounded-md border font-black text-xs sm:text-sm tracking-widest uppercase text-center select-none shadow-xs ${badgeBgClass}`}
+                    >
+                      {isWin && <span>VICTORY</span>}
+                      {isLoss && <span>DEFEAT</span>}
+                      {isDraw && <span>DRAW</span>}
+                    </div>
                   </div>
-                  {/* Text chú thích chừa chỗ cho asset theo yêu cầu */}
-                  <span className="text-[9px] text-muted-foreground/60 mt-0.5 font-mono hidden sm:inline-block">
-                    [Asset: {isWin ? 'Victory' : isLoss ? 'Defeat' : 'Draw'} Banner]
-                  </span>
                 </div>
 
                 {/* ── 3. BÊN PHẢI: THÔNG TIN ĐỐI THỦ (ĐỐI XỨNG) ── */}
@@ -317,10 +333,17 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
 
                   {/* Badge Rank đối thủ + Điểm RP của đối thủ */}
                   <div className="hidden md:flex flex-col items-center justify-center px-2 shrink-0">
-                    <div className="w-9 h-9 rounded-md border border-dashed border-muted-foreground/30 flex items-center justify-center text-[9px] text-muted-foreground p-1 text-center bg-background/50">
-                      <Award className="h-4 w-4 opacity-60" />
+                    <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+                      <img
+                        src={getRankBadgeUrl(m.opponent.rank)}
+                        alt={m.opponent.rank}
+                        className="w-full h-full object-contain drop-shadow-xs"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
                     </div>
-                    <span className="text-xs font-bold mt-1 text-muted-foreground">
+                    <span className="text-xs font-bold mt-0.5 text-muted-foreground">
                       {m.opponent.pointsChange > 0 ? `+${m.opponent.pointsChange}` : m.opponent.pointsChange} RP
                     </span>
                   </div>

@@ -41,12 +41,10 @@ export interface UserArenaProfile {
 export interface RankTierDetail {
   rank: string;
   name: string;
-  subTier: number | null;
   order: number;
   threshold: number;
   badgeFile: string;
   mascot: string;
-  shieldMaterial: string;
   meaning: string;
   color: string;
 }
@@ -72,4 +70,11 @@ export const arenaService = {
     const res = await api.get('/ranks');
     return res.data.data;
   },
+};
+
+export const getRankBadgeUrl = (rank?: string): string => {
+  if (!rank) return '/assets/ranks/rank-bronze.png';
+  const cleanRank = rank.toUpperCase().trim();
+  const slug = cleanRank.toLowerCase().replace(/_/g, '-');
+  return `/assets/ranks/rank-${slug}.png`;
 };
