@@ -215,9 +215,9 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
             let rpColorClass = 'text-muted-foreground';
 
             if (isWin) {
-              rowBgClass = 'bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15';
-              badgeBgClass = 'text-emerald-500 bg-emerald-500/15 border-emerald-500/30';
-              rpColorClass = 'text-emerald-500';
+              rowBgClass = 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15';
+              badgeBgClass = 'text-amber-500 bg-amber-500/15 border-amber-500/30';
+              rpColorClass = 'text-amber-600 dark:text-amber-400 font-bold';
             } else if (isLoss) {
               rowBgClass = 'bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/15';
               badgeBgClass = 'text-rose-500 bg-rose-500/15 border-rose-500/30';

@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Swords,
-  Loader2,
+  VenetianMask,
   Bot,
 } from 'lucide-react';
 import { UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
@@ -95,10 +95,19 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     // 3. Khi có người chơi bấm sẵn sàng
     const handlePlayerReady = ({ userId }: { roomId: string; userId: string }) => {
       if (matchedData) {
-        if (userId === matchedData.me.id) {
+        const isMe = userId === matchedData.me.id;
+        if (isMe) {
           setP1Ready(true);
         } else {
           setP2Ready(true);
+        }
+
+        // Nếu cả hai đã sẵn sàng
+        const isBothReady = (isMe && p2Ready) || (!isMe && p1Ready);
+        if (isBothReady && onMatchReady) {
+          setTimeout(() => {
+            onMatchReady(matchedData);
+          }, 600);
         }
       }
     };
@@ -107,10 +116,9 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     const handleCountdown = ({ count }: { count: number }) => {
       setCountdown(count);
       setStage('STARTING');
-      if (count <= 1 && matchedData && onMatchReady) {
-        setTimeout(() => {
-          onMatchReady(matchedData);
-        }, 1200);
+      // Kích hoạt Gate countdown ngay khi countdown bắt đầu từ server
+      if (count === 3 && matchedData && onMatchReady) {
+        onMatchReady(matchedData);
       }
     };
 
@@ -143,7 +151,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       if (timerRef.current) clearInterval(timerRef.current);
       if (mockTimeoutRef.current) clearTimeout(mockTimeoutRef.current);
     };
-  }, [isOpen]);
+  }, [isOpen, p1Ready, p2Ready, matchedData, onMatchReady]);
 
   // Hủy tìm trận
   const handleCancel = () => {
@@ -159,12 +167,17 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     setP1Ready(true);
 
     if (isMockMode) {
-      // Giả lập bot cũng ready sau 1 giây
+      // Giả lập bot cũng ready sau 1.2 giây
       setTimeout(() => {
         setP2Ready(true);
-        setCountdown(3);
         setStage('STARTING');
-      }, 1000);
+        // Cả 2 đã ready -> kích hoạt chuyển cảnh cánh cửa sau 600ms
+        setTimeout(() => {
+          if (onMatchReady && matchedData) {
+            onMatchReady(matchedData);
+          }
+        }, 600);
+      }, 1200);
     } else {
       arenaSocketService.ready(matchedData.roomId);
     }
@@ -368,10 +381,10 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
                 <span>??? LP</span>
               </div>
 
-              {/* Avatar spinner loading khi chưa ghép được */}
+              {/* Avatar ẩn danh VenetianMask */}
               <div className="my-6 relative flex flex-col items-center justify-center">
                 <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 flex items-center justify-center relative overflow-hidden shadow-inner">
-                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                  <VenetianMask className="w-12 h-12 text-primary/80 animate-[maskBreath_2.5s_ease-in-out_infinite] drop-shadow-[0_0_12px_rgba(var(--primary),0.35)]" />
                 </div>
               </div>
 
@@ -486,7 +499,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
         </div>
       </div>
 
-      {/* Style nhúng keyframes flipIn 3D */}
+      {/* Style nhúng keyframes flipIn 3D & breathing effect */}
       <style>{`
         @keyframes flipIn {
           0% {
@@ -499,6 +512,17 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
           }
           100% {
             transform: perspective(800px) rotateY(0deg);
+            opacity: 1;
+          }
+        }
+
+        @keyframes maskBreath {
+          0%, 100% {
+            transform: scale(0.9);
+            opacity: 0.55;
+          }
+          50% {
+            transform: scale(1.18);
             opacity: 1;
           }
         }
