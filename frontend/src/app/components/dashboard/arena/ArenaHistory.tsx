@@ -26,6 +26,7 @@ import {
   arenaService,
   UserArenaProfile,
   getRankBadgeUrl,
+  optimizeAvatarUrl,
 } from '../../../services/arena-service';
 
 export interface MatchHistoryItem {
@@ -235,9 +236,10 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                   <div className="w-16 sm:w-20 h-16 sm:h-20 bg-muted shrink-0 overflow-hidden flex items-center justify-center font-bold text-lg select-none border-r border-border/50">
                     {profile?.user?.avatarUrl ? (
                       <img
-                        src={profile.user.avatarUrl}
+                        src={optimizeAvatarUrl(profile.user.avatarUrl, 200)}
                         alt="My Avatar"
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       <span>{profile?.user?.fullName?.charAt(0)?.toUpperCase() || 'U'}</span>
@@ -363,9 +365,10 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                   <div className="w-16 sm:w-20 h-16 sm:h-20 bg-muted shrink-0 overflow-hidden flex items-center justify-center font-bold text-lg select-none border-l border-border/50">
                     {m.opponent.avatarUrl ? (
                       <img
-                        src={m.opponent.avatarUrl}
+                        src={optimizeAvatarUrl(m.opponent.avatarUrl, 200)}
                         alt={m.opponent.fullName}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       <span>{m.opponent.fullName?.charAt(0)?.toUpperCase() || 'E'}</span>

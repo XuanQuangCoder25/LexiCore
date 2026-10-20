@@ -161,15 +161,17 @@ export const getAchievements = async (userId: string) => {
 
 export const getLeaderboard = async () => {
     const [rows] = await pool.execute(
-        `SELECT u.id, u.full_name, w.leaderboard_point, w.level
+        `SELECT u.id, u.full_name, u.avatar_url,
+                COALESCE(w.leaderboard_point, 0) as leaderboard_point,
+                COALESCE(w.level, 1) as level,
+                COALESCE(w.arena_rank, 'BRONZE') as arena_rank
          FROM wallets w
          JOIN users u ON w.user_id = u.id
-         WHERE w.leaderboard_point > 0
-         ORDER BY w.leaderboard_point DESC
+         WHERE u.status = 'ACTIVE'
+         ORDER BY w.leaderboard_point DESC, w.level DESC
          LIMIT 50`,
         []
     );
-    // TODO: Join bảng túi đồ lấy Avatar + Cover (nếu có)
     return rows;
 };
 

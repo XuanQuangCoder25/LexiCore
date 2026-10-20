@@ -26,8 +26,10 @@ import {
   Crown,
   Medal,
   Lock,
-  BookImage
+  BookImage,
+  Loader2
 } from "lucide-react";
+import { getRankBadgeUrl, formatRankName, optimizeAvatarUrl } from "../../services/arena-service";
 
 interface Quest {
   user_goal_id: string;
@@ -60,9 +62,15 @@ interface Achievement {
 
 interface LeaderboardUser {
   id: string;
-  full_name: string | null;
-  leaderboard_point: number;
-  level: number;
+  full_name?: string | null;
+  fullName?: string | null;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
+  leaderboard_point?: number;
+  leaderboardPoint?: number;
+  level?: number;
+  arena_rank?: string;
+  arenaRank?: string;
 }
 
 interface Collection {
@@ -514,55 +522,132 @@ export function AchievementsView() {
 
         {/* Leaderboard Tab */}
         <TabsContent value="leaderboard" className="space-y-6">
-          <Card className="shadow-sm border">
+          <Card className="shadow-sm border gap-0 overflow-hidden">
+            {/* Header */}
+            <div className="p-5 sm:px-6 sm:py-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-card">
+              <div>
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-amber-500" />
+                  <span>Bảng xếp hạng Vinh Danh</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Top 50 học viên có thành tích học tập và điểm mùa giải (LP) cao nhất
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Flame className="h-4 w-4 text-orange-500" />
+                <span>Cập nhật liên tục theo tiến độ học tập</span>
+              </div>
+            </div>
+
             <CardContent className="p-0">
               {loadingLeaderboard ? (
-                <div className="text-center py-12 text-muted-foreground animate-pulse">Đang tải bảng xếp hạng...</div>
-              ) : leaderboard.length > 0 ? (
+                <div className="flex flex-col items-center justify-center min-h-[300px] space-y-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Đang tải bảng xếp hạng...</p>
+                </div>
+              ) : leaderboard.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground space-y-2">
+                  <Trophy className="h-10 w-10 mx-auto opacity-30" />
+                  <p className="font-medium">Chưa có ai trên bảng xếp hạng</p>
+                  <p className="text-xs">Hãy tích cực học tập để ghi tên mình lên bảng vàng!</p>
+                </div>
+              ) : (
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-primary/5 hover:bg-primary/5">
-                      <TableHead className="w-20 text-center font-bold">Hạng</TableHead>
+                      <TableHead className="w-16 sm:w-20 text-center font-bold">Hạng</TableHead>
                       <TableHead className="font-bold">Học viên</TableHead>
-                      <TableHead className="text-center font-bold">Level</TableHead>
-                      <TableHead className="text-right pr-8 font-bold">Điểm xếp hạng</TableHead>
+                      <TableHead className="font-bold hidden sm:table-cell">Bậc Rank</TableHead>
+                      <TableHead className="text-center font-bold hidden sm:table-cell">Level</TableHead>
+                      <TableHead className="text-right pr-6 sm:pr-8 font-bold">Điểm mùa giải</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {leaderboard.map((user, index) => {
                       const rank = index + 1;
                       let rankBadge = null;
-                      if (rank === 1) rankBadge = <Crown className="w-6 h-6 text-yellow-500 mx-auto drop-shadow-sm" />;
-                      else if (rank === 2) rankBadge = <Medal className="w-5 h-5 text-slate-400 mx-auto" />;
-                      else if (rank === 3) rankBadge = <Medal className="w-5 h-5 text-amber-600 mx-auto" />;
-                      else rankBadge = <span className="font-semibold text-muted-foreground">{rank}</span>;
+
+                      if (rank === 1) {
+                        rankBadge = <Crown className="w-6 h-6 text-yellow-500 mx-auto drop-shadow-sm" />;
+                      } else if (rank === 2) {
+                        rankBadge = <Medal className="w-5 h-5 text-slate-400 mx-auto" />;
+                      } else if (rank === 3) {
+                        rankBadge = <Medal className="w-5 h-5 text-amber-600 mx-auto" />;
+                      } else {
+                        rankBadge = <span className="font-semibold text-muted-foreground">{rank}</span>;
+                      }
+
+                      const fullName = user.full_name ?? user.fullName ?? 'Người dùng';
+                      const avatarUrl = user.avatar_url ?? user.avatarUrl ?? null;
+                      const arenaRank = user.arena_rank ?? user.arenaRank ?? 'BRONZE';
+                      const level = user.level ?? 1;
+                      const points = user.leaderboard_point ?? user.leaderboardPoint ?? 0;
 
                       return (
                         <TableRow key={user.id} className="hover:bg-muted/50 transition-colors">
-                          <TableCell className="text-center align-middle">{rankBadge}</TableCell>
+                          {/* Cột 1: Thứ hạng */}
+                          <TableCell className="text-center align-middle font-bold">
+                            {rankBadge}
+                          </TableCell>
+
+                          {/* Cột 2: Avatar thật + Tên học viên */}
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
-                                <AvatarFallback className="bg-primary/5 text-primary font-bold">
-                                  {(user.full_name ?? '?').charAt(0).toUpperCase()}
+                              <Avatar className="h-9 w-9 border border-border shadow-xs">
+                                {avatarUrl && (
+                                  <AvatarImage src={optimizeAvatarUrl(avatarUrl, 100)} alt={fullName} className="object-cover" />
+                                )}
+                                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                                  {fullName.charAt(0).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="font-medium text-foreground">{user.full_name ?? 'Người dùng'}</span>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-sm text-foreground truncate max-w-[150px] sm:max-w-[220px]">
+                                  {fullName}
+                                </p>
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-center font-bold text-primary">
-                            {user.level}
+
+                          {/* Cột 3: Bậc Rank (Badge + Tên) */}
+                          <TableCell className="hidden sm:table-cell">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 shrink-0 flex items-center justify-center">
+                                <img
+                                  src={getRankBadgeUrl(arenaRank)}
+                                  alt={formatRankName(arenaRank)}
+                                  className="w-full h-full object-contain drop-shadow-xs"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                              <span className="font-semibold text-xs text-foreground">
+                                {formatRankName(arenaRank)}
+                              </span>
+                            </div>
                           </TableCell>
-                          <TableCell className="text-right pr-8 font-bold text-primary">
-                            {(user.leaderboard_point ?? 0).toLocaleString()}
+
+                          {/* Cột 4: Cấp độ (Level) */}
+                          <TableCell className="text-center hidden sm:table-cell">
+                            <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+                              Lv {level}
+                            </span>
+                          </TableCell>
+
+                          {/* Cột 5: Điểm mùa giải (LP) */}
+                          <TableCell className="text-right pr-6 sm:pr-8">
+                            <span className="font-extrabold text-sm sm:text-base text-primary">
+                              {points.toLocaleString()}
+                            </span>
+                            <span className="text-xs font-semibold text-muted-foreground ml-1">LP</span>
                           </TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                 </Table>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">Chưa có ai trên bảng xếp hạng. Hãy là người đầu tiên!</div>
               )}
             </CardContent>
           </Card>

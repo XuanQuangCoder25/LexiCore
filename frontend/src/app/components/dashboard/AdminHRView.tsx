@@ -5,7 +5,9 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Switch } from "../ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Users, CircleDollarSign, Gem, Trophy, Star, CalendarDays, Mail } from "lucide-react";
+import { optimizeAvatarUrl } from "../../services/arena-service";
 
 const API_BASE = "";
 
@@ -13,6 +15,7 @@ interface UserProfile {
   id: string;
   full_name: string;
   email: string;
+  avatar_url?: string | null;
   role: "USER" | "CONTENT_CREATOR" | "ADMIN";
   status: "PENDING" | "ACTIVE" | "BANNED";
   creator_status: "ACTIVE" | "SUSPENDED" | null;
@@ -141,29 +144,38 @@ export function AdminHRView() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-6">Người dùng</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Vai trò</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead className="text-right pr-6">Hành động</TableHead>
+                <TableRow className="bg-primary/5 hover:bg-primary/5">
+                  <TableHead className="pl-6 font-bold">Người dùng</TableHead>
+                  <TableHead className="font-bold">Email</TableHead>
+                  <TableHead className="font-bold">Vai trò</TableHead>
+                  <TableHead className="font-bold">Trạng thái</TableHead>
+                  <TableHead className="text-right pr-6 font-bold">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium pl-6">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                          {user.full_name.charAt(0).toUpperCase()}
-                        </div>
-                        {user.full_name}
+                  <TableRow key={user.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell className="font-medium pl-6 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 border border-border shadow-xs shrink-0">
+                          {user.avatar_url && (
+                            <AvatarImage
+                              src={optimizeAvatarUrl(user.avatar_url, 100)}
+                              alt={user.full_name}
+                              className="object-cover"
+                            />
+                          )}
+                          <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                            {(user.full_name || '?').charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-semibold text-sm text-foreground">{user.full_name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>{getStatusBadge(user)}</TableCell>
-                    <TableCell className="text-right pr-6">
+                    <TableCell className="text-muted-foreground py-2.5">{user.email}</TableCell>
+                    <TableCell className="py-2.5">{getRoleBadge(user.role)}</TableCell>
+                    <TableCell className="py-2.5">{getStatusBadge(user)}</TableCell>
+                    <TableCell className="text-right pr-6 py-2.5">
                       <Button variant="secondary" size="sm" onClick={() => setSelectedUser(user)}>
                         Chi tiết
                       </Button>
@@ -192,9 +204,18 @@ export function AdminHRView() {
             <div className="space-y-6 py-4">
               {/* Header Info */}
               <div className="flex items-start gap-4 pb-4 border-b">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-bold shrink-0">
-                  {selectedUser.full_name.charAt(0).toUpperCase()}
-                </div>
+                <Avatar className="w-16 h-16 rounded-2xl border-2 border-primary/20 shadow-xs shrink-0 overflow-hidden">
+                  {selectedUser.avatar_url && (
+                    <AvatarImage
+                      src={optimizeAvatarUrl(selectedUser.avatar_url, 160)}
+                      alt={selectedUser.full_name}
+                      className="object-cover"
+                    />
+                  )}
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">
+                    {(selectedUser.full_name || '?').charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="space-y-1 flex-1">
                   <h2 className="text-xl font-bold flex items-center gap-2">
                     {selectedUser.full_name}

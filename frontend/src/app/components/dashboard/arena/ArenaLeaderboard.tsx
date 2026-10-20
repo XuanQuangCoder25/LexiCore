@@ -13,7 +13,7 @@ import {
   Flame,
   UserCheck
 } from 'lucide-react';
-import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
+import { arenaService, UserArenaProfile, getRankBadgeUrl, optimizeAvatarUrl } from '../../../services/arena-service';
 
 export interface LeaderboardPlayer {
   rankPosition: number;
@@ -109,7 +109,7 @@ export const ArenaLeaderboard: React.FC = () => {
               {/* Avatar người chơi */}
               <Avatar className="w-13 h-13 rounded-2xl border-2 border-primary/20 shadow-xs shrink-0 overflow-hidden">
                 {profile?.user?.avatarUrl && (
-                  <AvatarImage src={profile.user.avatarUrl} alt={profile.user.fullName} className="object-cover" />
+                  <AvatarImage src={optimizeAvatarUrl(profile.user.avatarUrl, 160)} alt={profile.user.fullName} className="object-cover" />
                 )}
                 <AvatarFallback className="bg-primary/15 text-primary font-bold text-base">
                   {profile?.user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
@@ -224,7 +224,7 @@ export const ArenaLeaderboard: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9 border border-border shadow-xs">
                             {player.avatarUrl && (
-                              <AvatarImage src={player.avatarUrl} alt={player.fullName} />
+                              <AvatarImage src={optimizeAvatarUrl(player.avatarUrl, 100)} alt={player.fullName} />
                             )}
                             <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
                               {player.fullName?.charAt(0)?.toUpperCase() || 'U'}

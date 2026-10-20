@@ -20,6 +20,7 @@ import {
   CircleDollarSign,
   Gem
 } from "lucide-react";
+import { optimizeImageUrl } from "../../services/arena-service";
 
 const API_BASE = "";
 
@@ -623,32 +624,36 @@ export function AdminView() {
                 </TableHeader>
                 <TableBody>
                   {items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium pl-6">
-                        <div className="flex items-center gap-3">
+                    <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
+                      <TableCell className="font-medium pl-6 py-3">
+                        <div className="flex items-center gap-3.5">
                           {item.image_url ? (
-                            <div className={`h-8 ${item.type === 'COVER_PHOTO' ? 'w-14' : 'w-8'} rounded-md overflow-hidden border shrink-0`}>
-                              <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                            <div className={`h-14 ${item.type === 'COVER_PHOTO' ? 'w-24' : 'w-14'} rounded-lg overflow-hidden border shadow-xs shrink-0 bg-muted`}>
+                              <img
+                                src={optimizeImageUrl(item.image_url, { width: item.type === 'COVER_PHOTO' ? 220 : 140, aspectRatio: item.type === 'COVER_PHOTO' ? '16:9' : '1:1' })}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
                             </div>
                           ) : (
-                            <div className={`h-8 ${item.type === 'COVER_PHOTO' ? 'w-14' : 'w-8'} rounded-md bg-primary/10 flex items-center justify-center text-primary shrink-0`}>
+                            <div className={`h-14 ${item.type === 'COVER_PHOTO' ? 'w-24' : 'w-14'} rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 border border-primary/20`}>
                               {getTypeIcon(item.type)}
                             </div>
                           )}
                           <div>
-                            <p className="font-semibold text-sm">{item.name}</p>
-                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description || ""}</p>
+                            <p className="font-semibold text-sm text-foreground">{item.name}</p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[220px] mt-0.5">{item.description || ""}</p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-3">
                         <Badge variant="outline">{TYPE_LABELS[item.type] ?? item.type}</Badge>
                       </TableCell>
-                      <TableCell className="font-semibold">
+                      <TableCell className="font-semibold py-3">
                         {item.price.toLocaleString()} {item.price_type === "DIAMOND" ? "💎" : "xu"}
                       </TableCell>
-                      <TableCell>{getStatusBadge(item)}</TableCell>
-                      <TableCell className="text-right pr-6">
+                      <TableCell className="py-3">{getStatusBadge(item)}</TableCell>
+                      <TableCell className="text-right pr-6 py-3">
                         <Button variant="secondary" size="sm" onClick={() => openDetail(item)}>
                           <Eye className="w-4 h-4 mr-1.5" /> Chi tiết
                         </Button>
@@ -682,30 +687,39 @@ export function AdminView() {
               </TableHeader>
               <TableBody>
                 {collections.map((coll) => (
-                  <TableRow key={coll.id}>
-                    <TableCell className="font-medium pl-6">
-                      <div className="flex items-center gap-3">
+                  <TableRow key={coll.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell className="font-medium pl-6 py-3">
+                      <div className="flex items-center gap-3.5">
                         {coll.image_url ? (
-                          <div className="w-14 h-8 rounded-md overflow-hidden border shrink-0">
-                            <img src={coll.image_url} alt={coll.name} className="w-full h-full object-cover" />
+                          <div className="w-24 h-14 rounded-lg overflow-hidden border shadow-xs shrink-0 bg-muted">
+                            <img
+                              src={optimizeImageUrl(coll.image_url, { width: 220, aspectRatio: '16:9' })}
+                              alt={coll.name}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
                         ) : (
-                          <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: coll.theme_color || "#3b82f6" }} />
+                          <div className="w-24 h-14 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-xs shrink-0" style={{ backgroundColor: coll.theme_color || "#3b82f6" }}>
+                            {coll.name.charAt(0).toUpperCase()}
+                          </div>
                         )}
-                        {coll.name}
+                        <div>
+                          <p className="font-semibold text-sm text-foreground">{coll.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{coll.total_items} vật phẩm</p>
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-muted-foreground">{coll.description}</TableCell>
-                    <TableCell>Lv. {coll.unlock_level}</TableCell>
-                    <TableCell>{coll.total_items} món</TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-[220px] truncate text-muted-foreground py-3">{coll.description}</TableCell>
+                    <TableCell className="py-3 font-semibold">Lv. {coll.unlock_level}</TableCell>
+                    <TableCell className="py-3">{coll.total_items} món</TableCell>
+                    <TableCell className="py-3">
                       {coll.is_deleted ? (
                         <Badge variant="outline" className="text-destructive border-destructive bg-destructive/10">Ngưng phát hành</Badge>
                       ) : (
                         <Badge variant="outline" className="text-emerald-500 border-emerald-500 bg-emerald-500/10">Đang phát hành</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right pr-6">
+                    <TableCell className="text-right pr-6 py-3">
                       <Button variant="secondary" size="sm" onClick={() => openCollectionDetail(coll)}>
                         <Eye className="w-4 h-4 mr-1.5" /> Chi tiết
                       </Button>
@@ -965,7 +979,11 @@ export function AdminView() {
               <div className="flex items-center gap-4">
                 {selectedCollection.image_url ? (
                   <div className="w-28 h-16 rounded-xl overflow-hidden border shadow-sm shrink-0">
-                    <img src={selectedCollection.image_url} alt={selectedCollection.name} className="w-full h-full object-cover" />
+                    <img
+                      src={optimizeImageUrl(selectedCollection.image_url, { width: 280, aspectRatio: '16:9' })}
+                      alt={selectedCollection.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 ) : (
                   <div className="w-16 h-16 rounded-xl shadow-sm border flex items-center justify-center font-bold text-white text-xl shrink-0" style={{ backgroundColor: selectedCollection.theme_color || "#3b82f6" }}>

@@ -145,7 +145,7 @@ export const getPendingCounts = async (req: Request, res: Response): Promise<voi
 
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
     const [rows] = await db.execute(
-        `SELECT u.id, u.full_name, u.email, u.role, u.status, u.creator_status, u.created_at,
+        `SELECT u.id, u.full_name, u.email, u.role, u.status, u.creator_status, u.avatar_url, u.created_at,
                 w.coin_balance, w.diamond_balance, w.level, w.rank_point
          FROM users u
          LEFT JOIN wallets w ON u.id = w.user_id

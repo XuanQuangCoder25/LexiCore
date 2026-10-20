@@ -123,7 +123,7 @@ export const getAllCollections = async (req: Request, res: Response): Promise<vo
     const [rows] = await db.execute(
         `SELECT c.id, c.name, c.description, c.unlock_level, c.theme_color, c.is_deleted,
                 COUNT(i.id) as total_items,
-                (SELECT image_url FROM items WHERE collection_id = c.id AND image_url IS NOT NULL LIMIT 1) as image_url
+                (SELECT image_url FROM items WHERE collection_id = c.id AND image_url IS NOT NULL ORDER BY (type = 'COVER_PHOTO') DESC, id ASC LIMIT 1) as image_url
          FROM collections c
          LEFT JOIN items i ON i.collection_id = c.id
          GROUP BY c.id
