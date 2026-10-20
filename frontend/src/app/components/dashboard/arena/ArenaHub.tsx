@@ -46,6 +46,45 @@ const formatRankName = (rank?: string): string => {
     return map[rank] || rank;
 };
 
+const RANK_ORDER_MAP: Record<string, number> = {
+    BRONZE: 0,
+    SILVER: 1,
+    GOLD: 2,
+    PLATINUM_1: 3,
+    PLATINUM_2: 4,
+    SAPPHIRE_1: 5,
+    SAPPHIRE_2: 6,
+    EMERALD_1: 7,
+    EMERALD_2: 8,
+    DIAMOND_1: 9,
+    DIAMOND_2: 10,
+    MASTER_1: 11,
+    MASTER_2: 12,
+    MASTER_3: 13,
+};
+
+const getRankOrderVal = (rank?: string | null): number => {
+    if (!rank) return 0;
+    return RANK_ORDER_MAP[rank.toUpperCase().trim()] ?? 0;
+};
+
+const ORDERED_RANKS = [
+    'BRONZE',
+    'SILVER',
+    'GOLD',
+    'PLATINUM_1',
+    'PLATINUM_2',
+    'SAPPHIRE_1',
+    'SAPPHIRE_2',
+    'EMERALD_1',
+    'EMERALD_2',
+    'DIAMOND_1',
+    'DIAMOND_2',
+    'MASTER_1',
+    'MASTER_2',
+    'MASTER_3',
+];
+
 export const ArenaHub: React.FC<ArenaHubProps> = ({
     onNavigateToLeaderboard,
     onOpenRankModal,
@@ -58,53 +97,88 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [isAnimatingRankChange, setIsAnimatingRankChange] = useState<boolean>(false);
+    const [detectedRankChange, setDetectedRankChange] = useState<RankChangeData | null>(null);
     const [testRankChange, setTestRankChange] = useState<RankChangeData | null>(null);
+    const [previewRank, setPreviewRank] = useState<string | null>(null);
 
-    // Kích hoạt animation khi có dữ liệu thăng/hạ rank và đảm bảo CHỈ CHẠY 1 LẦN
-    useEffect(() => {
-        if (rankChangeData) {
-            const sessionKey = `rank_anim_${rankChangeData.oldRank}_to_${rankChangeData.newRank}`;
-            const alreadyAnimated = sessionStorage.getItem(sessionKey);
-            if (!alreadyAnimated) {
-                sessionStorage.setItem(sessionKey, 'done');
-                setIsAnimatingRankChange(true);
-            } else {
-                onRankChangeAnimationComplete?.();
+    const activeRankChangeData = detectedRankChange || rankChangeData || testRankChange;
+
+    let isAdmin = Boolean(
+        profile?.user?.role?.toLowerCase() === 'admin' ||
+        Boolean((import.meta as any)?.env?.DEV)
+    );
+    if (!isAdmin) {
+        try {
+            const rawUser = localStorage.getItem('user');
+            if (rawUser) {
+                const u = JSON.parse(rawUser);
+                if (u?.role?.toLowerCase() === 'admin') {
+                    isAdmin = true;
+                }
             }
+        } catch {
+            // ignore
         }
-    }, [rankChangeData, onRankChangeAnimationComplete]);
-
-    const activeRankChangeData = rankChangeData || testRankChange;
+    }
 
     const handleAnimationComplete = () => {
         setIsAnimatingRankChange(false);
+        if (profile) {
+            const storageKey = `arena_hub_base_rank_${profile.user.id}`;
+            localStorage.setItem(storageKey, profile.arena.rank);
+        }
+        setDetectedRankChange(null);
         setTestRankChange(null);
         onRankChangeAnimationComplete?.();
     };
 
     const handleBadgeClick = (e: React.MouseEvent) => {
-        // Phím tắt tiện ích: Shift + Click để test animation Thăng rank, Alt + Click để test Hạ rank
+        // Phím tắt tiện ích chỉ dành riêng cho Admin (Shift: Thăng rank, Alt: Hạ rank, Ctrl: Reset rank)
+        if (!isAdmin || (!e.shiftKey && !e.altKey && !e.ctrlKey)) {
+            onOpenRankModal?.();
+            return;
+        }
+
+        // Ctrl + Click: Reset preview về rank gốc của tài khoản
+        if (e.ctrlKey) {
+            setPreviewRank(null);
+            return;
+        }
+
+        const currentRankForClick = previewRank || profile?.arena?.rank || 'BRONZE';
+        const currentIndex = ORDERED_RANKS.indexOf(currentRankForClick.toUpperCase().trim());
+
+        // Shift + Click: Thăng tuần tự lên rank kế tiếp (tối đa Master III)
         if (e.shiftKey) {
-            setTestRankChange({
-                oldRank: 'BRONZE',
-                newRank: 'SILVER',
-                isPromoted: true,
-                isDemoted: false,
-            });
-            setIsAnimatingRankChange(true);
+            if (currentIndex >= 0 && currentIndex < ORDERED_RANKS.length - 1) {
+                const nextRank = ORDERED_RANKS[currentIndex + 1];
+                setTestRankChange({
+                    oldRank: currentRankForClick,
+                    newRank: nextRank,
+                    isPromoted: true,
+                    isDemoted: false,
+                });
+                setPreviewRank(nextRank);
+                setIsAnimatingRankChange(true);
+            }
             return;
         }
+
+        // Alt + Click: Hạ tuần tự về rank liền trước (tối thiểu Bronze)
         if (e.altKey) {
-            setTestRankChange({
-                oldRank: 'SILVER',
-                newRank: 'BRONZE',
-                isPromoted: false,
-                isDemoted: true,
-            });
-            setIsAnimatingRankChange(true);
+            if (currentIndex > 0) {
+                const prevRank = ORDERED_RANKS[currentIndex - 1];
+                setTestRankChange({
+                    oldRank: currentRankForClick,
+                    newRank: prevRank,
+                    isPromoted: false,
+                    isDemoted: true,
+                });
+                setPreviewRank(prevRank);
+                setIsAnimatingRankChange(true);
+            }
             return;
         }
-        onOpenRankModal?.();
     };
 
     useEffect(() => {
@@ -116,7 +190,37 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                 const data = await arenaService.getMyProfile();
                 if (isMounted) {
                     setProfile(data);
-                    if (data) onProfileLoaded?.(data);
+                    if (data) {
+                        onProfileLoaded?.(data);
+
+                        // Phát hiện thăng rank / hạ rank bằng cách so sánh với rank lúc rời Hub
+                        const currentRank = data.arena.rank;
+                        const storageKey = `arena_hub_base_rank_${data.user.id}`;
+                        const lastSeenRank = localStorage.getItem(storageKey);
+
+                        if (!lastSeenRank) {
+                            // Lần đầu tiên vào Hub: ghi nhận mốc xuất phát
+                            localStorage.setItem(storageKey, currentRank);
+                        } else if (lastSeenRank !== currentRank) {
+                            const oldOrder = getRankOrderVal(lastSeenRank);
+                            const newOrder = getRankOrderVal(currentRank);
+                            if (oldOrder !== newOrder) {
+                                setDetectedRankChange({
+                                    oldRank: lastSeenRank,
+                                    newRank: currentRank,
+                                    isPromoted: newOrder > oldOrder,
+                                    isDemoted: newOrder < oldOrder,
+                                });
+                                setIsAnimatingRankChange(true);
+                            } else {
+                                localStorage.setItem(storageKey, currentRank);
+                            }
+                        } else if (rankChangeData) {
+                            // Dự phòng trường hợp rankChangeData được truyền trực tiếp từ ArenaView
+                            setDetectedRankChange(rankChangeData);
+                            setIsAnimatingRankChange(true);
+                        }
+                    }
                 }
             } catch (err: any) {
                 if (isMounted) {
@@ -286,31 +390,42 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                 />
                             ) : (
                                 <>
-                                    {/* Badge Rank - Click để xem lộ trình rank */}
-                                    <div
-                                        onClick={handleBadgeClick}
-                                        className="w-44 h-44 mx-auto cursor-pointer flex items-center justify-center p-2 transition-transform duration-300 hover:scale-110 select-none group"
-                                        title="Nhấn để xem lộ trình rank (Shift+Click: Test Thăng Rank, Alt+Click: Test Hạ Rank)"
-                                    >
-                                        <img
-                                            src={getRankBadgeUrl(arena.rank)}
-                                            alt={formatRankName(arena.rank)}
-                                            className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-105"
-                                            onError={(e) => {
-                                                (e.target as HTMLElement).style.display = 'none';
-                                            }}
-                                        />
-                                    </div>
+                                    {/* Badge Rank - Click để xem lộ trình rank (Admin: Shift+Click / Alt+Click để test) */}
+                                    {(() => {
+                                        const displayedRank = previewRank || arena.rank;
+                                        return (
+                                            <>
+                                                <div
+                                                    onClick={handleBadgeClick}
+                                                    className="w-44 h-44 mx-auto cursor-pointer flex items-center justify-center p-2 transition-transform duration-300 hover:scale-110 select-none group"
+                                                    title={
+                                                        isAdmin
+                                                            ? `Bậc hiện tại: ${formatRankName(displayedRank)} (Shift+Click: Thăng bậc, Alt+Click: Hạ bậc, Ctrl+Click: Về rank gốc, Click: Lộ trình rank)`
+                                                            : "Nhấn để xem lộ trình rank"
+                                                    }
+                                                >
+                                                    <img
+                                                        src={getRankBadgeUrl(displayedRank)}
+                                                        alt={formatRankName(displayedRank)}
+                                                        className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-105"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLElement).style.display = 'none';
+                                                        }}
+                                                    />
+                                                </div>
 
-                                    {/* Tên Rank */}
-                                    <div className="space-y-1">
-                                        <h3 className="text-2xl font-extrabold tracking-wide uppercase">
-                                            {formatRankName(arena.rank)}
-                                        </h3>
-                                        <p className="text-xs text-muted-foreground">
-                                            Điểm xếp hạng mùa giải: <span className="font-semibold text-foreground">{arena.leaderboardPoint} LP</span>
-                                        </p>
-                                    </div>
+                                                {/* Tên Rank */}
+                                                <div className="space-y-1">
+                                                    <h3 className="text-2xl font-extrabold tracking-wide uppercase">
+                                                        {formatRankName(displayedRank)}
+                                                    </h3>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Điểm xếp hạng mùa giải: <span className="font-semibold text-foreground">{arena.leaderboardPoint} LP</span>
+                                                    </p>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </>
                             )}
 

@@ -14,6 +14,7 @@ export interface UserArenaProfile {
     fullName: string;
     avatarUrl: string | null;
     coverUrl: string | null;
+    role?: string;
     level: number;
     exp: number;
     coinBalance: number;

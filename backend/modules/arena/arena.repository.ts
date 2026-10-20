@@ -13,6 +13,7 @@ export interface UserArenaProfileResult {
         fullName: string;
         avatarUrl: string | null;
         coverUrl: string | null;
+        role?: string;
         level: number;
         exp: number;
         coinBalance: number;
@@ -163,7 +164,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
     const hasHighest = await checkHighestCol();
 
     const walletQuery = hasHighest
-        ? `SELECT u.id, u.full_name, u.avatar_url, u.cover_url,
+        ? `SELECT u.id, u.full_name, u.avatar_url, u.cover_url, u.role,
                   COALESCE(w.arena_rank, 'BRONZE') as arena_rank,
                   COALESCE(w.arena_highest_rank, w.arena_rank, 'BRONZE') as arena_highest_rank,
                   COALESCE(w.rank_point, 0) as rank_point,
@@ -182,7 +183,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
            LEFT JOIN wallets w ON u.id = w.user_id
            WHERE u.id = ?
            LIMIT 1`
-        : `SELECT u.id, u.full_name, u.avatar_url, u.cover_url,
+        : `SELECT u.id, u.full_name, u.avatar_url, u.cover_url, u.role,
                   COALESCE(w.arena_rank, 'BRONZE') as arena_rank,
                   COALESCE(w.arena_rank, 'BRONZE') as arena_highest_rank,
                   COALESCE(w.rank_point, 0) as rank_point,
@@ -281,6 +282,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
             fullName: userRow.full_name,
             avatarUrl: userRow.avatar_url,
             coverUrl: userRow.cover_url,
+            role: userRow.role || 'USER',
             level: Number(userRow.level) || 1,
             exp: Number(userRow.exp) || 0,
             coinBalance: Number(userRow.coin_balance) || 0,
