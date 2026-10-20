@@ -1,18 +1,17 @@
 import React from 'react';
 import { Button } from '../../ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
 import {
   Swords,
   RotateCcw,
   Home,
   Trophy,
   Star,
-  CheckCircle2,
-  XCircle,
   Clock,
   Target,
-  Sparkles,
   BookOpen,
+  Check,
+  X,
+  CheckCircle2,
 } from 'lucide-react';
 import { getRankBadgeUrl } from '../../../services/arena-service';
 import { GameOverPayload, MatchReviewWord, ArenaPlayerInfo } from '../../../services/arena-socket.service';
@@ -25,6 +24,123 @@ export interface ArenaMatchResultProps {
   onBackToHub: () => void;
 }
 
+const RANK_THRESHOLDS: Record<string, number> = {
+  BRONZE: 200,
+  SILVER: 250,
+  GOLD: 300,
+  PLATINUM_1: 350,
+  PLATINUM_2: 400,
+  SAPPHIRE_1: 450,
+  SAPPHIRE_2: 500,
+  EMERALD_1: 550,
+  EMERALD_2: 600,
+  DIAMOND_1: 700,
+  DIAMOND_2: 800,
+  MASTER_1: 900,
+  MASTER_2: 1000,
+  MASTER_3: Infinity,
+};
+
+const formatRank = (rank?: string) => {
+  if (!rank) return 'Bronze';
+  const map: Record<string, string> = {
+    BRONZE: 'Bronze',
+    SILVER: 'Silver',
+    GOLD: 'Gold',
+    PLATINUM_1: 'Platinum I',
+    PLATINUM_2: 'Platinum II',
+    SAPPHIRE_1: 'Sapphire I',
+    SAPPHIRE_2: 'Sapphire II',
+    EMERALD_1: 'Emerald I',
+    EMERALD_2: 'Emerald II',
+    DIAMOND_1: 'Diamond I',
+    DIAMOND_2: 'Diamond II',
+    MASTER_1: 'Master I',
+    MASTER_2: 'Master II',
+    MASTER_3: 'Master III',
+  };
+  return map[rank.toUpperCase().trim()] || rank.replace(/_/g, ' ');
+};
+
+const getProgressBarData = (rank?: string, currentRP?: number, delta?: number) => {
+  const cleanRank = (rank || 'BRONZE').toUpperCase().trim();
+  const threshold = RANK_THRESHOLDS[cleanRank] || 200;
+  const rp = typeof currentRP === 'number' && !isNaN(currentRP) ? currentRP : 0;
+  const d = typeof delta === 'number' && !isNaN(delta) ? delta : 0;
+
+  if (threshold === Infinity) {
+    return {
+      basePercent: 100,
+      deltaPercent: 0,
+      isPositive: true,
+      label: `${rp} RP (Tối đa)`,
+    };
+  }
+
+  if (d >= 0) {
+    const oldRP = Math.max(0, rp - d);
+    const basePercent = Math.min(100, Math.max(0, (oldRP / threshold) * 100));
+    const deltaPercent = Math.min(100 - basePercent, Math.max(0, (d / threshold) * 100));
+    return {
+      basePercent,
+      deltaPercent,
+      isPositive: true,
+      label: `${rp} / ${threshold} RP`,
+    };
+  } else {
+    const basePercent = Math.min(100, Math.max(0, (rp / threshold) * 100));
+    const deltaPercent = Math.min(100 - basePercent, Math.max(0, (Math.abs(d) / threshold) * 100));
+    return {
+      basePercent,
+      deltaPercent,
+      isPositive: false,
+      label: `${rp} / ${threshold} RP`,
+    };
+  }
+};
+
+const RankProgressBar: React.FC<{
+  rank?: string;
+  currentRP?: number;
+  delta?: number;
+}> = ({ rank, currentRP, delta }) => {
+  const data = getProgressBarData(rank, currentRP, delta);
+
+  return (
+    <div className="space-y-1 w-full">
+      <div className="h-2 w-full bg-muted/80 rounded-full overflow-hidden flex shadow-inner">
+        {data.isPositive ? (
+          <>
+            <div
+              className="h-full bg-primary/80 transition-all duration-500 rounded-l-full"
+              style={{ width: `${data.basePercent}%` }}
+            />
+            <div
+              className="h-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse transition-all duration-500"
+              style={{ width: `${data.deltaPercent}%` }}
+            />
+          </>
+        ) : (
+          <>
+            <div
+              className="h-full bg-primary/80 transition-all duration-500 rounded-l-full"
+              style={{ width: `${data.basePercent}%` }}
+            />
+            <div
+              className="h-full bg-rose-500/50 border-l border-rose-500/80 transition-all duration-500"
+              style={{ width: `${data.deltaPercent}%` }}
+            />
+          </>
+        )}
+      </div>
+      <div className="flex justify-between items-center text-[10px] text-muted-foreground font-semibold">
+        <span className="text-[9px] uppercase tracking-wider">Tiến trình</span>
+        <span className="font-mono text-foreground">{data.label}</span>
+      </div>
+    </div>
+  );
+};
+
 export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
   gameOverData,
   mePlayerInfo,
@@ -32,7 +148,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
   onPlayAgain,
   onBackToHub,
 }) => {
-  const { result, myResult, myStats, opponentStats, words, reason } = gameOverData;
+  const { myResult, myStats, opponentStats, words, reason } = gameOverData;
 
   const isWin = myResult === 'WIN';
   const isLoss = myResult === 'LOSS';
@@ -64,13 +180,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
       ? '/assets/emblems/emblem-victory.png'
       : '/assets/emblems/emblem-draw.png';
 
-  // Format rank name
-  const formatRank = (rank?: string) => {
-    if (!rank) return 'Bronze';
-    return rank.replace(/_/g, ' ');
-  };
-
-  // Format thời gian từ ms sang mm:ss hoặc giây
+  // Format thời gian từ ms sang mm:ss
   const formatTimeMs = (ms: number) => {
     const totalSecs = Math.floor(ms / 1000);
     const m = Math.floor(totalSecs / 60);
@@ -101,25 +211,47 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
     return 'text-sky-400 bg-sky-500/15 border-sky-500/30';
   };
 
-  // Helper lấy class kích thước và scale để cân bằng thị giác cho Victory, Defeat, Draw
   const getEmblemVisualClass = (emblemType: 'VICTORY' | 'DEFEAT' | 'DRAW') => {
     if (emblemType === 'DEFEAT') {
-      // Defeat có hình khối khiên đá thuôn hẹp, scale ~1.28x - 1.3x và nhấc nhẹ lên để không đè vào chữ
-      return 'scale-[1.2] sm:scale-[1.25] xl:scale-[1.3] -translate-y-1.5';
+      return 'scale-[1.25] sm:scale-[1.3] md:scale-[1.35]';
     }
     if (emblemType === 'DRAW') {
-      // Draw có hình khiên tròn bắt chéo kiếm, scale ~1.14x để cân bằng thị giác
-      return 'scale-[1.08] sm:scale-[1.12] xl:scale-[1.15] -translate-y-1';
+      return 'scale-[1.15] sm:scale-[1.2] md:scale-[1.25]';
     }
-    // VICTORY: Cánh thiên thần xòe rộng phủ kín khung hình
-    return 'scale-[1.2] sm:scale-[1.25] xl:scale-[1.3] -translate-y-1.5';
+    return 'scale-[1.22] sm:scale-[1.28] md:scale-[1.32]';
   };
 
   const myEmblemType: 'VICTORY' | 'DEFEAT' | 'DRAW' = isWin ? 'VICTORY' : isLoss ? 'DEFEAT' : 'DRAW';
   const oppEmblemType: 'VICTORY' | 'DEFEAT' | 'DRAW' = !isWin && !isDraw ? 'VICTORY' : isWin ? 'DEFEAT' : 'DRAW';
 
+  // Tính toán delta RP an toàn (fallback -20 khi thua, +25 khi thắng)
+  const myRankPointDelta =
+    typeof myStats.rankPointDelta === 'number' && !isNaN(myStats.rankPointDelta)
+      ? myStats.rankPointDelta
+      : isWin
+        ? 25
+        : isLoss
+          ? -20
+          : 0;
+
+  const oppRankPointDelta =
+    typeof opponentStats.rankPointDelta === 'number' && !isNaN(opponentStats.rankPointDelta)
+      ? opponentStats.rankPointDelta
+      : isWin
+        ? -20
+        : isLoss
+          ? 25
+          : 0;
+
+  // RP hiện tại sau trận
+  const myCurrentRP = myStats.newRankPoint ?? mePlayerInfo?.rank_point;
+  const myRank = myStats.newRank || mePlayerInfo?.arena_rank || 'BRONZE';
+
+  const oppCurrentRP = opponentStats.newRankPoint ?? opponentPlayerInfo?.rank_point;
+  const oppRank = opponentStats.newRank || opponentPlayerInfo?.arena_rank || 'BRONZE';
+
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 py-6 px-3 sm:px-6 animate-in fade-in duration-300 select-none">
+    <div className="w-full max-w-6xl mx-auto space-y-4 pt-1 sm:pt-2 pb-6 px-3 sm:px-6 animate-in fade-in duration-300 select-none">
       <style>{`
         @keyframes floatSlow {
           0%, 100% {
@@ -157,15 +289,15 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
         )}
       </div>
 
-      {/* ── BỐ CỤC 3 PHẦN: P1 (TRÁI) ── [EMBLEM VS + NÚT HÀNH ĐỘNG Ở GIỮA] ── P2 (PHẢI) ── */}
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-8 pt-6">
+      {/* ── BỐ CỤC 3 PHẦN NỬA TRÊN: P1 (TRÁI) ── [EMBLEM VS + NÚT Ở GIỮA] ── P2 (PHẢI) ── */}
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-8 -mt-2 sm:-mt-3">
         {/* ── CỘT BÊN TRÁI: PLAYER 1 (BẠN) ── */}
         <div className="flex flex-col items-center relative w-full max-w-[360px]">
-          {/* Banner Victory/Defeat cực lớn ngoạm lấy viền trên Card P1 */}
+          {/* Banner Victory/Defeat ngoạm lấy viền trên Card P1 */}
           <div className="w-[115%] sm:w-[125%] max-w-[440px] sm:max-w-[470px] h-28 sm:h-36 relative -mb-9 sm:-mb-12 z-20 flex items-center justify-center animate-in zoom-in-95 duration-500 pointer-events-none">
             <img
               src={myBannerSrc}
-              alt={myResult}
+              alt="My result"
               className={`w-full h-full object-contain ${isWin
                 ? 'drop-shadow-[0_0_40px_rgba(251,191,36,0.7)]'
                 : isLoss
@@ -177,7 +309,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
 
           {/* Card Thông tin P1 */}
           <div
-            className={`w-full rounded-3xl border-2 pt-11 pb-6 px-5 flex flex-col items-center justify-between min-h-[360px] relative transition-transform duration-200 hover:scale-[1.01] shadow-xl z-10 ${isWin
+            className={`w-full rounded-3xl border-2 pt-12 pb-5 px-4 sm:px-5 flex flex-col justify-between min-h-[420px] sm:min-h-[440px] relative transition-transform duration-200 hover:scale-[1.01] shadow-xl z-10 ${isWin
               ? 'border-amber-400/50 bg-card shadow-[0_0_35px_rgba(251,191,36,0.15)]'
               : isLoss
                 ? 'border-rose-500/40 bg-card shadow-[0_0_35px_rgba(244,63,94,0.12)]'
@@ -191,49 +323,86 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
               </span>
               <span
                 className={`text-xs sm:text-sm font-black font-mono px-3 py-1 rounded-xl border shadow-xs ${getRPBadgeClass(
-                  myStats.rankPointDelta
+                  myRankPointDelta
                 )}`}
               >
-                {formatRPDelta(myStats.rankPointDelta)}
+                {formatRPDelta(myRankPointDelta)}
               </span>
             </div>
 
-            {/* Avatar & Huy hiệu Rank P1 */}
-            <div className="my-2 relative flex flex-col items-center">
-              <Avatar className="w-24 h-24 rounded-2xl border-2 border-primary/60 shadow-lg overflow-hidden">
-                {mePlayerInfo?.avatar_url && (
-                  <AvatarImage src={mePlayerInfo.avatar_url} alt={mePlayerInfo.full_name} className="object-cover" />
-                )}
-                <AvatarFallback className="bg-primary/15 text-primary font-black text-2xl">
-                  {mePlayerInfo?.full_name?.charAt(0).toUpperCase() || 'P1'}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="w-14 h-14 -mt-5 relative z-10">
-                <img
-                  src={getRankBadgeUrl(myStats.newRank || mePlayerInfo?.arena_rank || 'BRONZE')}
-                  alt="Rank"
-                  className="w-full h-full object-contain drop-shadow-md select-none"
-                />
-              </div>
+            {/* EMBLEM VICTORY / DEFEAT / DRAW CHIẾM TRỌN TRUNG TÂM CARD VỚI KÍCH THƯỚC LỚN */}
+            <div className="w-full flex-1 flex flex-col items-center justify-center py-4 sm:py-6 relative overflow-visible">
+              <img
+                src={myEmblemSrc}
+                alt="My Emblem"
+                className={`h-36 sm:h-44 md:h-48 w-full max-w-[280px] object-contain transition-all duration-300 ${getEmblemVisualClass(
+                  myEmblemType
+                )} ${isWin
+                  ? 'drop-shadow-[0_0_40px_rgba(251,191,36,0.65)]'
+                  : isLoss
+                    ? 'drop-shadow-[0_0_35px_rgba(244,63,94,0.6)]'
+                    : 'drop-shadow-[0_0_35px_rgba(56,189,248,0.6)]'
+                  }`}
+              />
             </div>
 
-            {/* Tên & Cấp bậc Rank */}
-            <div className="space-y-0.5 text-center">
-              <h3 className="font-black text-lg text-foreground truncate max-w-[220px]">
-                {mePlayerInfo?.full_name || 'Bạn'}
-              </h3>
-              <p className="text-xs font-extrabold text-primary uppercase tracking-wider">
-                {formatRank(myStats.newRank || mePlayerInfo?.arena_rank)}
-              </p>
+            {/* THANH NGANG BÊN DƯỚI EMBLEM: AVATAR VUÔNG BÊN TRÁI, TÊN & BADGE RANK + TIẾN TRÌNH Ở BÊN PHẢI */}
+            <div className="w-full pt-1">
+              <div className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-muted/40 border border-border/60 backdrop-blur-xs">
+                {/* Avatar hình vuông sát bên trái */}
+                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-primary/40 bg-muted flex items-center justify-center shadow-xs">
+                  {mePlayerInfo?.avatar_url ? (
+                    <img
+                      src={mePlayerInfo.avatar_url}
+                      alt={mePlayerInfo.full_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-black text-lg text-primary">
+                      {mePlayerInfo?.full_name?.charAt(0).toUpperCase() || 'P1'}
+                    </span>
+                  )}
+                </div>
+
+                {/* 2 Hàng kế bên */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  {/* Hàng 1: Tên user & Tên rank */}
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="font-extrabold text-xs sm:text-sm text-foreground truncate max-w-[140px]">
+                      {mePlayerInfo?.full_name || 'Bạn'}
+                    </h4>
+                    <span className="text-[10px] font-bold text-primary uppercase shrink-0">
+                      {formatRank(myRank)}
+                    </span>
+                  </div>
+
+                  {/* Hàng 2: Badge rank to bằng cả 2 hàng tiến trình và text */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center p-0.5">
+                      <img
+                        src={getRankBadgeUrl(myRank)}
+                        alt="Rank Badge"
+                        className="w-full h-full object-contain drop-shadow-md select-none"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <RankProgressBar
+                        rank={myRank}
+                        currentRP={myCurrentRP}
+                        delta={myRankPointDelta}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ── KHU VỰC TRUNG TÂM: EMBLEM "VS" LỚN HƠN + 2 NÚT HÀNH ĐỘNG DỜI XUỐNG DƯỚI ── */}
-        <div className="flex flex-col items-center justify-center gap-2 py-2 shrink-0 z-20">
-          {/* Emblem VS to uy lực kèm hiệu ứng lơ lửng và hào quang sáng */}
-          <div className="w-32 h-32 sm:w-36 sm:h-36 md:w-44 md:h-44 flex items-center justify-center animate-float-vs">
+        {/* ── KHU VỰC TRUNG TÂM: EMBLEM "VS" + 2 NÚT HÀNH ĐỘNG ── */}
+        <div className="flex flex-col items-center justify-center gap-3 py-2 shrink-0 z-20">
+          {/* Emblem VS uy lực kèm hiệu ứng lơ lửng */}
+          <div className="w-36 h-36 sm:w-40 sm:h-40 md:w-48 md:h-48 flex items-center justify-center animate-float-vs">
             <img
               src="/assets/emblems/emblem-vs.png"
               alt="VS"
@@ -241,9 +410,8 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
             />
           </div>
 
-          {/* 2 Nút Hành động dời xuống dưới một xíu tạo không gian thoáng cho Emblem VS */}
+          {/* 2 Nút Hành động */}
           <div className="flex flex-col items-center gap-2.5 w-full min-w-[210px] mt-2 sm:mt-4">
-            {/* Nút 1: Tìm trận mới (Đấu lại) */}
             <Button
               onClick={onPlayAgain}
               size="lg"
@@ -253,7 +421,6 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
               <span>TÌM TRẬN MỚI</span>
             </Button>
 
-            {/* Nút 2: Về Sảnh Đấu Trường */}
             <Button
               onClick={onBackToHub}
               variant="outline"
@@ -268,7 +435,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
 
         {/* ── CỘT BÊN PHẢI: PLAYER 2 (ĐỐI THỦ) ── */}
         <div className="flex flex-col items-center relative w-full max-w-[360px]">
-          {/* Banner Victory/Defeat cực lớn trên đỉnh Card P2 */}
+          {/* Banner Victory/Defeat trên đỉnh Card P2 */}
           <div className="w-[115%] sm:w-[125%] max-w-[440px] sm:max-w-[470px] h-28 sm:h-36 relative -mb-9 sm:-mb-12 z-20 flex items-center justify-center animate-in zoom-in-95 duration-500 pointer-events-none">
             <img
               src={oppBannerSrc}
@@ -284,7 +451,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
 
           {/* Card Thông tin P2 */}
           <div
-            className={`w-full rounded-3xl border-2 pt-11 pb-6 px-5 flex flex-col items-center justify-between min-h-[360px] relative transition-transform duration-200 hover:scale-[1.01] shadow-xl z-10 ${!isWin && !isDraw
+            className={`w-full rounded-3xl border-2 pt-12 pb-5 px-4 sm:px-5 flex flex-col justify-between min-h-[420px] sm:min-h-[440px] relative transition-transform duration-200 hover:scale-[1.01] shadow-xl z-10 ${!isWin && !isDraw
               ? 'border-amber-400/50 bg-card shadow-[0_0_35px_rgba(251,191,36,0.15)]'
               : isWin
                 ? 'border-rose-500/40 bg-card shadow-[0_0_35px_rgba(244,63,94,0.12)]'
@@ -298,260 +465,231 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
               </span>
               <span
                 className={`text-xs sm:text-sm font-black font-mono px-3 py-1 rounded-xl border shadow-xs ${getRPBadgeClass(
-                  opponentStats.rankPointDelta
+                  oppRankPointDelta
                 )}`}
               >
-                {formatRPDelta(opponentStats.rankPointDelta)}
+                {formatRPDelta(oppRankPointDelta)}
               </span>
             </div>
 
-            {/* Avatar & Huy hiệu Rank P2 */}
-            <div className="my-2 relative flex flex-col items-center">
-              <Avatar className="w-24 h-24 rounded-2xl border-2 border-amber-500/60 shadow-lg overflow-hidden">
-                {opponentPlayerInfo?.avatar_url && (
-                  <AvatarImage src={opponentPlayerInfo.avatar_url} alt={opponentPlayerInfo.full_name} className="object-cover" />
-                )}
-                <AvatarFallback className="bg-amber-500/15 text-amber-500 font-black text-2xl">
-                  {opponentPlayerInfo?.full_name?.charAt(0).toUpperCase() || 'P2'}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="w-14 h-14 -mt-5 relative z-10">
-                <img
-                  src={getRankBadgeUrl(opponentStats.newRank || opponentPlayerInfo?.arena_rank || 'BRONZE')}
-                  alt="Rank"
-                  className="w-full h-full object-contain drop-shadow-md select-none"
-                />
-              </div>
+            {/* EMBLEM VICTORY / DEFEAT / DRAW CỦA ĐỐI THỦ Ở TRUNG TÂM CARD VỚI KÍCH THƯỚC LỚN */}
+            <div className="w-full flex-1 flex flex-col items-center justify-center py-4 sm:py-6 relative overflow-visible">
+              <img
+                src={oppEmblemSrc}
+                alt="Opponent Emblem"
+                className={`h-36 sm:h-44 md:h-48 w-full max-w-[280px] object-contain transition-all duration-300 ${getEmblemVisualClass(
+                  oppEmblemType
+                )} ${!isWin && !isDraw
+                  ? 'drop-shadow-[0_0_40px_rgba(251,191,36,0.65)]'
+                  : isWin
+                    ? 'drop-shadow-[0_0_35px_rgba(244,63,94,0.6)]'
+                    : 'drop-shadow-[0_0_35px_rgba(56,189,248,0.6)]'
+                  }`}
+              />
             </div>
 
-            {/* Tên & Cấp bậc Rank P2 */}
-            <div className="space-y-0.5 text-center">
-              <h3 className="font-black text-lg text-foreground truncate max-w-[220px]">
-                {opponentPlayerInfo?.full_name || 'Đối thủ'}
-              </h3>
-              <p className="text-xs font-extrabold text-amber-500 uppercase tracking-wider">
-                {formatRank(opponentStats.newRank || opponentPlayerInfo?.arena_rank)}
-              </p>
+            {/* THANH NGANG BÊN DƯỚI EMBLEM: AVATAR VUÔNG, TÊN & BADGE RANK + TIẾN TRÌNH ĐỐI THỦ */}
+            <div className="w-full pt-1">
+              <div className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-muted/40 border border-border/60 backdrop-blur-xs">
+                {/* Avatar hình vuông sát bên trái */}
+                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-amber-500/40 bg-muted flex items-center justify-center shadow-xs">
+                  {opponentPlayerInfo?.avatar_url ? (
+                    <img
+                      src={opponentPlayerInfo.avatar_url}
+                      alt={opponentPlayerInfo.full_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-black text-lg text-amber-500">
+                      {opponentPlayerInfo?.full_name?.charAt(0).toUpperCase() || 'P2'}
+                    </span>
+                  )}
+                </div>
+
+                {/* 2 Hàng kế bên */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  {/* Hàng 1: Tên đối thủ & Tên rank */}
+                  <div className="flex items-center justify-between gap-1">
+                    <h4 className="font-extrabold text-xs sm:text-sm text-foreground truncate max-w-[140px]">
+                      {opponentPlayerInfo?.full_name || 'Đối thủ'}
+                    </h4>
+                    <span className="text-[10px] font-bold text-amber-500 uppercase shrink-0">
+                      {formatRank(oppRank)}
+                    </span>
+                  </div>
+
+                  {/* Hàng 2: Badge rank to bằng cả 2 hàng tiến trình và text */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center p-0.5">
+                      <img
+                        src={getRankBadgeUrl(oppRank)}
+                        alt="Rank Badge"
+                        className="w-full h-full object-contain drop-shadow-md select-none"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <RankProgressBar
+                        rank={oppRank}
+                        currentRP={oppCurrentRP}
+                        delta={oppRankPointDelta}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── KHU VỰC THỐNG KÊ CHI TIẾT KÈM 2 EMBLEM SIÊU TO Ở 2 BÊN ── */}
-      <div className="w-full flex items-center justify-center gap-4 sm:gap-6 lg:gap-10 pt-4">
-        {/* Emblem cực lớn của P1 bên trái bảng thống kê */}
-        <div className="hidden md:flex flex-col items-center justify-center shrink-0 w-44 lg:w-56 xl:w-64 overflow-visible transition-transform duration-300 hover:scale-105">
-          <img
-            src={myEmblemSrc}
-            alt="My Emblem"
-            className={`w-36 h-36 sm:w-44 sm:h-44 lg:w-52 lg:h-52 xl:w-60 xl:h-60 object-contain transition-all duration-300 ${getEmblemVisualClass(
-              myEmblemType
-            )} ${isWin
-              ? 'drop-shadow-[0_0_45px_rgba(251,191,36,0.65)]'
-              : isLoss
-                ? 'drop-shadow-[0_0_40px_rgba(244,63,94,0.6)]'
-                : 'drop-shadow-[0_0_40px_rgba(56,189,248,0.6)]'
-              }`}
-          />
-          <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-muted-foreground mt-5 sm:mt-6 relative z-10">
-            {isWin ? 'VICTORY' : isLoss ? 'DEFEAT' : 'DRAW'}
-          </span>
-        </div>
-
-        {/* Bảng Thống Kê Đối Đầu Trực Tiếp ở Giữa */}
-        <div className="flex-1 max-w-2xl rounded-3xl border bg-card/70 backdrop-blur-md p-5 sm:p-6 shadow-lg space-y-4">
+      {/* ── NỬA DƯỚI: BẢNG THỐNG KÊ (BÊN TRÁI) ── BẢNG 25 TỪ VỰNG CỦA USER (BÊN PHẢI) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pt-2">
+        {/* ── CỘT TRÁI (BẢNG THỐNG KÊ ĐỐI ĐẦU TRỰC TIẾP): lg:col-span-5 ── */}
+        <div className="lg:col-span-5 rounded-3xl border bg-card/70 backdrop-blur-md p-5 sm:p-6 shadow-lg space-y-4">
           <div className="flex items-center justify-between border-b pb-3 text-xs font-black uppercase text-foreground">
             <div className="flex items-center gap-2 text-primary">
               <Trophy className="w-4 h-4" />
-              <span>Thống Kê Đối Đầu Trực Tiếp</span>
+              <span>Thống Kê Đối Đầu</span>
             </div>
-            <div className="flex items-center gap-6 text-[11px] text-muted-foreground font-bold">
-              <span className="text-primary font-black">P1 (Bạn)</span>
+            <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-bold">
+              <span className="text-primary font-black">P1</span>
               <span>vs</span>
-              <span className="text-amber-500 font-black">P2 (Đối thủ)</span>
+              <span className="text-amber-500 font-black">P2</span>
             </div>
           </div>
 
-          {/* 4 DÒNG THỐNG KÊ ĐỒNG BỘ TUYỆT ĐỐI CHIỀU CAO VÀ CỠ CHỮ */}
+          {/* 4 DÒNG THỐNG KÊ ĐỒNG BỘ TUYỆT ĐỐI */}
           <div className="space-y-2.5">
             {/* Dòng 1: Tổng điểm */}
             <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-amber-500 text-right pr-3">
+              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-amber-500 text-right pr-2">
                 {myScore}
               </div>
               <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400/20" />
                 <span>Tổng Điểm (250)</span>
               </div>
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-amber-500 text-left pl-3">
+              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-amber-500 text-left pl-2">
                 {oppScore}
               </div>
             </div>
 
             {/* Dòng 2: Câu trả lời đúng */}
             <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-emerald-500 text-right pr-3">
+              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-emerald-500 text-right pr-2">
                 {myStats.correct}/25
               </div>
               <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Câu Trả Lời Đúng</span>
+                <span>Câu Đúng</span>
               </div>
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-emerald-500 text-left pl-3">
+              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-emerald-500 text-left pl-2">
                 {opponentStats.correct}/25
               </div>
             </div>
 
             {/* Dòng 3: Thời gian dùng */}
             <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-sky-500 text-right pr-3">
+              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-sky-500 text-right pr-2">
                 {formatTimeMs(myStats.timeMs)}
               </div>
               <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
                 <Clock className="w-4 h-4 text-sky-400" />
-                <span>Thời Gian Dùng</span>
+                <span>Thời Gian</span>
               </div>
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-sky-500 text-left pl-3">
+              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-sky-500 text-left pl-2">
                 {formatTimeMs(opponentStats.timeMs)}
               </div>
             </div>
 
             {/* Dòng 4: Độ chính xác */}
             <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-rose-500 text-right pr-3">
+              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-rose-500 text-right pr-2">
                 {myAccuracy}%
               </div>
               <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
                 <Target className="w-4 h-4 text-rose-400" />
                 <span>Độ Chính Xác</span>
               </div>
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-rose-500 text-left pl-3">
+              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-rose-500 text-left pl-2">
                 {oppAccuracy}%
               </div>
             </div>
           </div>
         </div>
 
-        {/* Emblem lớn của P2 bên phải bảng thống kê */}
-        <div className="hidden md:flex flex-col items-center justify-center shrink-0 w-44 lg:w-56 xl:w-64 overflow-visible transition-transform duration-300 hover:scale-105">
-          <img
-            src={oppEmblemSrc}
-            alt="Opponent Emblem"
-            className={`w-36 h-36 sm:w-44 sm:h-44 lg:w-52 lg:h-52 xl:w-60 xl:h-60 object-contain transition-all duration-300 ${getEmblemVisualClass(
-              oppEmblemType
-            )} ${!isWin && !isDraw
-              ? 'drop-shadow-[0_0_45px_rgba(251,191,36,0.65)]'
-              : isWin
-                ? 'drop-shadow-[0_0_40px_rgba(244,63,94,0.6)]'
-                : 'drop-shadow-[0_0_40px_rgba(56,189,248,0.6)]'
-              }`}
-          />
-          <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-muted-foreground mt-5 sm:mt-6 relative z-10">
-            {!isWin && !isDraw ? 'VICTORY' : isWin ? 'DEFEAT' : 'DRAW'}
-          </span>
-        </div>
-      </div>
-
-      {/* ── DANH SÁCH 25 TỪ VỰNG TRONG TRẬN (MATCH WORD REVIEW) ── */}
-      <div className="w-full space-y-4 pt-6 border-t border-border/60">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-black uppercase text-foreground">
-              Bảng Đối Chiếu 25 Từ Vựng Trận Đấu
-            </h3>
+        {/* ── CỘT PHẢI (BẢNG 25 TỪ VỰNG CỦA USER): lg:col-span-7 ── */}
+        <div className="lg:col-span-7 rounded-3xl border bg-card/70 backdrop-blur-md p-5 sm:p-6 shadow-lg space-y-3.5">
+          {/* Header Bảng từ vựng */}
+          <div className="flex items-center justify-between border-b pb-3">
+            <div className="flex items-center gap-2 text-primary font-black uppercase text-xs">
+              <BookOpen className="w-4 h-4" />
+              <span>Đối Chiếu 25 Từ Vựng Trận Đấu</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-bold">
+              <span className="text-emerald-500 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+                {myStats.correct} đúng
+              </span>
+              <span className="text-muted-foreground">/</span>
+              <span className="text-rose-500 flex items-center gap-1">
+                <X className="w-3.5 h-3.5" />
+                {25 - myStats.correct} sai
+              </span>
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground">
-            Cuộn xuống để xem chi tiết đáp án và thời gian của cả 2 bên
-          </span>
-        </div>
 
-        {/* Danh sách từng từ vựng */}
-        <div className="space-y-3">
-          {words.map((item: MatchReviewWord) => {
-            const myAnsCorrect = item.myCorrect;
-            const oppAnsCorrect = item.opponentCorrect;
+          {/* Lưới 2 cột hiển thị 25 từ vựng theo định dạng người dùng yêu cầu */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[340px] overflow-y-auto pr-1">
+            {words.map((item: MatchReviewWord) => {
+              const isCorrect = item.myCorrect;
+              const userAnswer = item.myAnswer?.trim();
+              const correctWord = item.word;
 
-            return (
-              <div
-                key={item.orderIndex}
-                className="rounded-2xl border bg-card/80 p-4 transition-all duration-200 hover:border-primary/40 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3"
-              >
-                {/* Thông tin từ vựng tiếng Anh & Nghĩa tiếng Việt */}
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="w-7 h-7 rounded-lg bg-muted text-xs font-black font-mono flex items-center justify-center text-muted-foreground">
-                      #{item.orderIndex}
+              return (
+                <div
+                  key={item.orderIndex}
+                  className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-muted/30 hover:bg-muted/60 transition-colors text-xs gap-1.5 border border-border/30"
+                  title={item.meaning ? `Nghĩa: ${item.meaning}` : undefined}
+                >
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
+                    <span className="text-[11px] font-mono text-muted-foreground shrink-0 w-5">
+                      {item.orderIndex}.
                     </span>
-                    <span className="font-black text-base text-foreground tracking-wide uppercase">
-                      {item.word}
-                    </span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                      {item.wordType}
-                    </span>
-                    {item.topic && (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {item.topic}
-                      </span>
+
+                    {isCorrect ? (
+                      /* Trường hợp 1: Đúng (Ví dụ: 1. resident <Check> màu xanh) */
+                      <div className="flex items-center gap-1 truncate text-emerald-500 font-bold">
+                        <span className="truncate">{correctWord}</span>
+                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      </div>
+                    ) : (
+                      /* Trường hợp 2: Sai (Ví dụ: 2. evel <X> màu đỏ (evil <Check>) màu xanh) */
+                      <div className="flex items-center gap-1 truncate">
+                        <span className="text-rose-500 font-semibold truncate">
+                          {userAnswer || '—'}
+                        </span>
+                        <X className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span className="text-muted-foreground font-normal shrink-0 flex items-center gap-0.5">
+                          (
+                          <span className="text-emerald-500 font-bold">{correctWord}</span>
+                          <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                          )
+                        </span>
+                      </div>
                     )}
                   </div>
 
-                  <p className="text-xs font-semibold text-muted-foreground pl-9">
-                    Nghĩa: <strong className="text-foreground">{item.meaning}</strong>
-                  </p>
-
-                  {item.example && (
-                    <p className="text-[11px] text-muted-foreground/75 italic pl-9">
-                      Ví dụ: &quot;{item.example}&quot;
-                    </p>
+                  {/* Nghĩa tiếng Việt gợi ý mờ ở cuối dòng */}
+                  {item.meaning && (
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[85px] shrink-0 text-right opacity-70">
+                      {item.meaning}
+                    </span>
                   )}
                 </div>
-
-                {/* Kết quả trả lời của P1 và P2 */}
-                <div className="flex items-center gap-3 sm:gap-6 self-end md:self-center shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-border/40 w-full md:w-auto justify-between md:justify-end">
-                  {/* P1 Result */}
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <div className="text-[11px] font-bold text-primary">P1 (Bạn)</div>
-                      <div className="text-xs font-mono font-extrabold truncate max-w-[110px]">
-                        {item.myAnswer || '—'}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground font-mono">
-                        {(item.myTimeMs / 1000).toFixed(1)}s
-                      </div>
-                    </div>
-                    {myAnsCorrect ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
-                    )}
-                  </div>
-
-                  {/* Divider */}
-                  <div className="h-8 w-px bg-border/60" />
-
-                  {/* P2 Result */}
-                  <div className="flex items-center gap-2">
-                    {oppAnsCorrect ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
-                    )}
-                    <div className="text-left">
-                      <div className="text-[11px] font-bold text-amber-500">P2 (Đối thủ)</div>
-                      <div className="text-xs font-mono font-extrabold truncate max-w-[110px]">
-                        {item.opponentAnswer || '—'}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground font-mono">
-                        {(item.opponentTimeMs / 1000).toFixed(1)}s
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

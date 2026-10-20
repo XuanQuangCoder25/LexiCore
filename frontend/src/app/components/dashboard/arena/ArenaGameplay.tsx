@@ -298,17 +298,31 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
     if (!socket) return;
 
     // 1. Tiến trình điểm đối thủ
-    const handleOpponentProgress = ({
-      opponentCorrectCount,
-    }: {
-      opponentCorrectCount: number;
-    }) => {
-      // 1 câu đúng = 10 điểm, cập nhật ngay trên giao diện của mình
-      setOpponentScore(opponentCorrectCount * 10);
+    const handleOpponentProgress = (data: any) => {
+      console.log('[Arena Gameplay] Nhận arena:opponent_progress:', data);
+      const count =
+        typeof data?.opponentCorrectCount === 'number'
+          ? data.opponentCorrectCount
+          : typeof data?.opponentCorrect === 'number'
+            ? data.opponentCorrect
+            : typeof data?.currentCorrect === 'number'
+              ? data.currentCorrect
+              : 0;
+      const score =
+        typeof data?.opponentScore === 'number'
+          ? data.opponentScore
+          : count * 10;
+      setOpponentScore(score);
     };
 
     // 2. Đối thủ đã hoàn thành 25 câu
-    const handleOpponentFinished = () => {
+    const handleOpponentFinished = (data: any) => {
+      console.log('[Arena Gameplay] Nhận arena:opponent_finished:', data);
+      if (typeof data?.opponentScore === 'number') {
+        setOpponentScore(data.opponentScore);
+      } else if (typeof data?.opponentCorrect === 'number') {
+        setOpponentScore(data.opponentCorrect * 10);
+      }
       setOpponentNotice('Đối thủ đã hoàn thành xong 25 câu!');
       setTimeout(() => setOpponentNotice(null), 4000);
     };
@@ -479,17 +493,17 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
     const isCorrect = fullUserAnswer === fullTargetAnswer;
     const timeSpentMs = Date.now() - questionStartTimeRef.current;
 
-    // Gửi socket event nếu có phòng đấu thật
-    if (matchData?.roomId) {
-      arenaSocketService.submitAnswer(
-        matchData.roomId,
-        currentQuestionIndex,
-        fullUserAnswer,
-        timeSpentMs
-      );
-    }
-
     if (isCorrect) {
+      // 1. Khi trả lời đúng: gửi lên server, tăng điểm và cộng chuỗi
+      if (matchData?.roomId) {
+        arenaSocketService.submitAnswer(
+          matchData.roomId,
+          currentQuestionIndex,
+          fullUserAnswer,
+          timeSpentMs
+        );
+      }
+
       setFeedbackState('correct');
       // Mỗi câu đúng nhận đúng 10 điểm, 25 câu = 250 điểm
       const gainedScore = 10;
@@ -507,8 +521,8 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
         setCurrentQuestionIndex((prev) => prev + 1);
       }, 800);
     } else {
+      // 2. Khi trả lời sai: rung đỏ báo sai nhưng KHÔNG mất chuỗi streak, không gửi socket để người chơi sửa lại
       setFeedbackState('wrong');
-      setMyStreak(0);
 
       // Rung đỏ cảnh báo rồi cho phép sửa lại
       setTimeout(() => {
@@ -527,9 +541,23 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
   // ─── BỎ QUA CÂU HỎI (SKIP) ───
   const handleSkipQuestion = useCallback(() => {
     if (feedbackState !== 'idle') return;
+
+    // Chỉ khi chủ động bỏ qua câu hỏi thì MỚI BỊ MẤT CHUỖI STREAK
     setMyStreak(0);
+
+    // Gửi socket lên server ghi nhận câu này là Bỏ qua (sai) để cập nhật tiến độ
+    if (matchData?.roomId) {
+      const timeSpentMs = Date.now() - questionStartTimeRef.current;
+      arenaSocketService.submitAnswer(
+        matchData.roomId,
+        currentQuestionIndex,
+        '', // Đáp án rỗng -> server tính là không đúng
+        timeSpentMs
+      );
+    }
+
     setCurrentQuestionIndex((prev) => prev + 1);
-  }, [feedbackState]);
+  }, [feedbackState, matchData?.roomId, currentQuestionIndex]);
 
   // Lắng nghe bàn phím toàn cục (Keyboard Event Listener)
   useEffect(() => {
@@ -714,7 +742,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
                     className="w-4 h-4 object-contain"
                   />
                   <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground">
-                    {p1?.rank_point || 0} LP
+                    {p1?.leaderboard_point ?? p1?.rank_point ?? 0} LP
                   </span>
                 </div>
               </div>
@@ -762,7 +790,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-0.5">
                   <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground">
-                    {p2?.rank_point || 0} LP
+                    {p2?.leaderboard_point ?? p2?.rank_point ?? 0} LP
                   </span>
                   <img
                     src={getRankBadgeUrl(p2?.arena_rank || 'BRONZE')}

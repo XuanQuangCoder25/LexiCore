@@ -6,6 +6,7 @@ export interface ArenaPlayerInfo {
   avatar_url: string | null;
   arena_rank: string;
   rank_point: number;
+  leaderboard_point?: number;
   arena_current_win_streak: number;
 }
 

@@ -54,6 +54,7 @@ export interface PlayerProfile {
     avatar_url: string | null;
     arena_rank: string;
     rank_point: number;
+    leaderboard_point: number;
     arena_current_win_streak: number;
 }
 
@@ -115,6 +116,7 @@ async function getPlayerProfiles(userIds: string[]): Promise<Map<string, PlayerP
         `SELECT u.id, u.full_name, u.avatar_url, 
                 COALESCE(w.arena_rank, 'BRONZE') as arena_rank, 
                 COALESCE(w.rank_point, 0) as rank_point, 
+                COALESCE(w.leaderboard_point, 0) as leaderboard_point, 
                 COALESCE(w.arena_current_win_streak, 0) as arena_current_win_streak
          FROM users u
          LEFT JOIN wallets w ON u.id = w.user_id
@@ -129,6 +131,7 @@ async function getPlayerProfiles(userIds: string[]): Promise<Map<string, PlayerP
             avatar_url: row.avatar_url || null,
             arena_rank: row.arena_rank || 'BRONZE',
             rank_point: Number(row.rank_point) || 0,
+            leaderboard_point: Number(row.leaderboard_point) || 0,
             arena_current_win_streak: Number(row.arena_current_win_streak) || 0,
         });
     }
@@ -147,6 +150,7 @@ async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): 
         avatar_url: null,
         arena_rank: 'BRONZE',
         rank_point: 0,
+        leaderboard_point: 0,
         arena_current_win_streak: 0,
     };
 
@@ -156,6 +160,7 @@ async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): 
         avatar_url: null,
         arena_rank: 'BRONZE',
         rank_point: 0,
+        leaderboard_point: 0,
         arena_current_win_streak: 0,
     };
 
@@ -514,15 +519,19 @@ async function handleSubmitAnswer(
 
     // 2. Gửi tiến độ cho đối thủ
     const opponentId = isP1 ? room['player2Id'] : room['player1Id'];
+    const oppProgressData = {
+        opponentId: userId,
+        questionIndex: nextQuestionIndex,
+        opponentCorrectCount: newCorrectCount,
+        opponentScore: newCorrectCount * 10,
+        timeUsedMs: Number(timeMs) || 0,
+        totalQuestions,
+    };
+
     if (opponentId) {
-        io.to(`user:${opponentId}`).emit('arena:opponent_progress', {
-            opponentId: userId,
-            questionIndex: nextQuestionIndex,
-            opponentCorrectCount: newCorrectCount,
-            timeUsedMs: Number(timeMs) || 0,
-            totalQuestions,
-        });
+        io.to(`user:${opponentId}`).emit('arena:opponent_progress', oppProgressData);
     }
+    socket.to(`arena:room:${roomId}`).emit('arena:opponent_progress', oppProgressData);
 
     // Nếu người chơi này vừa hoàn thành hết 25 câu hỏi
     if (isFinished) {
@@ -800,6 +809,8 @@ export async function finishMatch(
             id: player2Id,
             correct: p2Correct,
             timeMs: p2TimeMs,
+            rankPointDelta: p2Progression.rankPointDelta,
+            leaderboardPointDelta: p2Progression.leaderboardPointDelta,
             newRank: p2Progression.newRank,
             newRankPoint: p2Progression.newRankPoint,
             newLeaderboardPoint: p2Progression.newLeaderboardPoint,
@@ -849,6 +860,8 @@ export async function finishMatch(
             id: player1Id,
             correct: p1Correct,
             timeMs: p1TimeMs,
+            rankPointDelta: p1Progression.rankPointDelta,
+            leaderboardPointDelta: p1Progression.leaderboardPointDelta,
             newRank: p1Progression.newRank,
             newRankPoint: p1Progression.newRankPoint,
             newLeaderboardPoint: p1Progression.newLeaderboardPoint,
