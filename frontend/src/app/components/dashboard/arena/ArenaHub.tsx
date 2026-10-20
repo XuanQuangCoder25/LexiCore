@@ -11,14 +11,18 @@ import {
     Zap,
     Loader2,
     TrendingUp,
+    CircleDollarSign,
 } from 'lucide-react';
 import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
+import { ArenaRankChangeEffect, RankChangeData } from './ArenaRankChangeEffect';
 
 interface ArenaHubProps {
     onNavigateToLeaderboard?: (rankFilter?: string) => void;
     onOpenRankModal?: () => void;
     onFindMatch?: () => void;
     onProfileLoaded?: (profile: UserArenaProfile) => void;
+    rankChangeData?: RankChangeData | null;
+    onRankChangeAnimationComplete?: () => void;
 }
 
 const formatRankName = (rank?: string): string => {
@@ -47,10 +51,61 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
     onOpenRankModal,
     onFindMatch,
     onProfileLoaded,
+    rankChangeData,
+    onRankChangeAnimationComplete,
 }) => {
     const [profile, setProfile] = useState<UserArenaProfile | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [isAnimatingRankChange, setIsAnimatingRankChange] = useState<boolean>(false);
+    const [testRankChange, setTestRankChange] = useState<RankChangeData | null>(null);
+
+    // Kích hoạt animation khi có dữ liệu thăng/hạ rank và đảm bảo CHỈ CHẠY 1 LẦN
+    useEffect(() => {
+        if (rankChangeData) {
+            const sessionKey = `rank_anim_${rankChangeData.oldRank}_to_${rankChangeData.newRank}`;
+            const alreadyAnimated = sessionStorage.getItem(sessionKey);
+            if (!alreadyAnimated) {
+                sessionStorage.setItem(sessionKey, 'done');
+                setIsAnimatingRankChange(true);
+            } else {
+                onRankChangeAnimationComplete?.();
+            }
+        }
+    }, [rankChangeData, onRankChangeAnimationComplete]);
+
+    const activeRankChangeData = rankChangeData || testRankChange;
+
+    const handleAnimationComplete = () => {
+        setIsAnimatingRankChange(false);
+        setTestRankChange(null);
+        onRankChangeAnimationComplete?.();
+    };
+
+    const handleBadgeClick = (e: React.MouseEvent) => {
+        // Phím tắt tiện ích: Shift + Click để test animation Thăng rank, Alt + Click để test Hạ rank
+        if (e.shiftKey) {
+            setTestRankChange({
+                oldRank: 'BRONZE',
+                newRank: 'SILVER',
+                isPromoted: true,
+                isDemoted: false,
+            });
+            setIsAnimatingRankChange(true);
+            return;
+        }
+        if (e.altKey) {
+            setTestRankChange({
+                oldRank: 'SILVER',
+                newRank: 'BRONZE',
+                isPromoted: false,
+                isDemoted: true,
+            });
+            setIsAnimatingRankChange(true);
+            return;
+        }
+        onOpenRankModal?.();
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -143,8 +198,8 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                         <Badge variant="secondary" className="text-xs">
                                             Level {user.level}
                                         </Badge>
-                                        <span className="text-xs text-muted-foreground">
-                                            {user.coinBalance.toLocaleString()} Xu
+                                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                            <CircleDollarSign className="w-4 h-4 text-emerald-600" />{user.coinBalance.toLocaleString()}
                                         </span>
                                     </div>
                                 </div>
@@ -186,8 +241,10 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                     <p className="text-xl font-bold">
                                         {arena.totalMatches}
                                     </p>
-                                    <p className="text-[11px] text-muted-foreground">
-                                        {arena.totalWins}W - {arena.totalLosses}L - {arena.totalDraws}D
+                                    <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-3">
+                                        <span className="text-amber-400">Win: {arena.totalWins}</span>
+                                        <span className="text-red-400">Lose: {arena.totalLosses} </span>
+                                        <span className="text-gray-400">Draw: {arena.totalDraws}</span>
                                     </p>
                                 </div>
                             </div>
@@ -220,31 +277,42 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                     <Card className="border shadow-sm">
                         <CardContent className="p-6 text-center space-y-5">
 
-                            {/* Badge Rank - Click để xem lộ trình rank */}
-                            <div
-                                onClick={onOpenRankModal}
-                                className="w-44 h-44 mx-auto cursor-pointer flex items-center justify-center p-2 transition-transform duration-300 hover:scale-110 select-none group"
-                                title="Nhấn để xem lộ trình rank"
-                            >
-                                <img
-                                    src={getRankBadgeUrl(arena.rank)}
-                                    alt={formatRankName(arena.rank)}
-                                    className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-105"
-                                    onError={(e) => {
-                                        (e.target as HTMLElement).style.display = 'none';
-                                    }}
+                            {/* NẾU ĐANG CHẠY ANIMATION THĂNG/HẠ RANK THÌ HIỆN EFFECT DIỄN HOẠT */}
+                            {isAnimatingRankChange && activeRankChangeData ? (
+                                <ArenaRankChangeEffect
+                                    changeData={activeRankChangeData}
+                                    onComplete={handleAnimationComplete}
+                                    formatRankName={formatRankName}
                                 />
-                            </div>
+                            ) : (
+                                <>
+                                    {/* Badge Rank - Click để xem lộ trình rank */}
+                                    <div
+                                        onClick={handleBadgeClick}
+                                        className="w-44 h-44 mx-auto cursor-pointer flex items-center justify-center p-2 transition-transform duration-300 hover:scale-110 select-none group"
+                                        title="Nhấn để xem lộ trình rank (Shift+Click: Test Thăng Rank, Alt+Click: Test Hạ Rank)"
+                                    >
+                                        <img
+                                            src={getRankBadgeUrl(arena.rank)}
+                                            alt={formatRankName(arena.rank)}
+                                            className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.35)] transition-transform duration-300 group-hover:scale-105"
+                                            onError={(e) => {
+                                                (e.target as HTMLElement).style.display = 'none';
+                                            }}
+                                        />
+                                    </div>
 
-                            {/* Tên Rank */}
-                            <div className="space-y-1">
-                                <h3 className="text-2xl font-extrabold tracking-wide uppercase">
-                                    {formatRankName(arena.rank)}
-                                </h3>
-                                <p className="text-xs text-muted-foreground">
-                                    Điểm xếp hạng mùa giải: <span className="font-semibold text-foreground">{arena.leaderboardPoint} LP</span>
-                                </p>
-                            </div>
+                                    {/* Tên Rank */}
+                                    <div className="space-y-1">
+                                        <h3 className="text-2xl font-extrabold tracking-wide uppercase">
+                                            {formatRankName(arena.rank)}
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            Điểm xếp hạng mùa giải: <span className="font-semibold text-foreground">{arena.leaderboardPoint} LP</span>
+                                        </p>
+                                    </div>
+                                </>
+                            )}
 
                             {/* Thanh tiến trình & Điểm số */}
                             <div className="space-y-2">

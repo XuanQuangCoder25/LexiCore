@@ -20,7 +20,7 @@ export interface ArenaMatchmakingModalProps {
   onMatchReady?: (matchData: MatchedPayload) => void;
 }
 
-type MatchmakingStage = 'SEARCHING' | 'MATCHED' | 'STARTING';
+type MatchmakingStage = 'SEARCHING' | 'MATCHED';
 
 export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
   isOpen,
@@ -33,12 +33,26 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
   const [matchedData, setMatchedData] = useState<MatchedPayload | null>(null);
   const [p1Ready, setP1Ready] = useState<boolean>(false);
   const [p2Ready, setP2Ready] = useState<boolean>(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
+  const [readyCountdown, setReadyCountdown] = useState<number>(15);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [isFlippingBack, setIsFlippingBack] = useState<boolean>(false);
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const readyTimerRef = useRef<NodeJS.Timeout | null>(null);
   const mockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sử dụng Ref để lưu trữ state mới nhất mà không làm re-run useEffect socket
+  const matchedDataRef = useRef<MatchedPayload | null>(null);
+  matchedDataRef.current = matchedData;
+  const p1ReadyRef = useRef<boolean>(p1Ready);
+  p1ReadyRef.current = p1Ready;
+  const p2ReadyRef = useRef<boolean>(p2Ready);
+  p2ReadyRef.current = p2Ready;
+  const onMatchReadyRef = useRef(onMatchReady);
+  onMatchReadyRef.current = onMatchReady;
+  const hasTriggeredReadyRef = useRef<boolean>(false);
 
   // Định dạng thời gian đếm giây mm:ss
   const formatTime = (secs: number) => {
@@ -53,7 +67,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     return rank.replace(/_/g, ' ');
   };
 
-  // Khởi tạo luồng tìm kiếm và kết nối Socket
+  // Khởi tạo luồng tìm kiếm và kết nối Socket (CHỈ CHẠY 1 LẦN KHI MODAL MỞ)
   useEffect(() => {
     if (!isOpen) {
       // Reset state khi modal đóng
@@ -62,15 +76,20 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       setMatchedData(null);
       setP1Ready(false);
       setP2Ready(false);
-      setCountdown(null);
+      setReadyCountdown(15);
       setErrorMessage(null);
+      setNoticeMessage(null);
+      setIsFlippingBack(false);
+      hasTriggeredReadyRef.current = false;
       if (timerRef.current) clearInterval(timerRef.current);
+      if (readyTimerRef.current) clearInterval(readyTimerRef.current);
       if (mockTimeoutRef.current) clearTimeout(mockTimeoutRef.current);
       return;
     }
 
     // Bắt đầu đếm giây tìm kiếm
     setSearchSeconds(0);
+    hasTriggeredReadyRef.current = false;
     timerRef.current = setInterval(() => {
       setSearchSeconds((prev) => prev + 1);
     }, 1000);
@@ -78,9 +97,34 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     // Kết nối Socket và gửi yêu cầu tìm trận
     const socket = arenaSocketService.connect();
 
-    // 1. Khi đang trong hàng đợi
-    const handleSearching = () => {
-      setStage('SEARCHING');
+    // 1. Khi đang trong hàng đợi (hoặc đối thủ cũ không sẵn sàng, hệ thống tiếp tục tìm trận mới)
+    const handleSearching = (payload?: { message?: string }) => {
+      console.log('[Matchmaking UI] Đang tìm kiếm đối thủ...');
+      if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+
+      // Nếu trước đó đang ở MATCHED (đối thủ không sẵn sàng hoặc out):
+      // Kích hoạt hiệu ứng lật thẻ ngược lại (flip-back) trước khi đổi về ẩn danh
+      if (matchedDataRef.current) {
+        setIsFlippingBack(true);
+        setTimeout(() => {
+          setIsFlippingBack(false);
+          setMatchedData(null);
+          setP1Ready(false);
+          setP2Ready(false);
+          setStage('SEARCHING');
+          setReadyCountdown(15);
+        }, 400);
+      } else {
+        setMatchedData(null);
+        setP1Ready(false);
+        setP2Ready(false);
+        setStage('SEARCHING');
+      }
+
+      if (payload?.message) {
+        setNoticeMessage(payload.message);
+        setTimeout(() => setNoticeMessage(null), 6000);
+      }
     };
 
     // 2. Khi tìm thấy đối thủ
@@ -90,41 +134,68 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       setStage('MATCHED');
       setP1Ready(false);
       setP2Ready(false);
+      setNoticeMessage(null);
+      setIsFlippingBack(false);
+
+      // Bắt đầu đếm ngược 15 giây sẵn sàng
+      setReadyCountdown(15);
+      if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+      readyTimerRef.current = setInterval(() => {
+        setReadyCountdown((prev) => {
+          if (prev <= 1) {
+            if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     };
 
     // 3. Khi có người chơi bấm sẵn sàng
     const handlePlayerReady = ({ userId }: { roomId: string; userId: string }) => {
-      if (matchedData) {
-        const isMe = userId === matchedData.me.id;
+      const currentMatched = matchedDataRef.current;
+      if (currentMatched) {
+        const isMe = userId === currentMatched.me.id;
         if (isMe) {
           setP1Ready(true);
+          p1ReadyRef.current = true;
         } else {
           setP2Ready(true);
+          p2ReadyRef.current = true;
         }
 
         // Nếu cả hai đã sẵn sàng
-        const isBothReady = (isMe && p2Ready) || (!isMe && p1Ready);
-        if (isBothReady && onMatchReady) {
-          setTimeout(() => {
-            onMatchReady(matchedData);
-          }, 600);
+        const isBothReady = isMe ? p2ReadyRef.current : p1ReadyRef.current;
+        if (isBothReady) {
+          if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+          if (onMatchReadyRef.current && !hasTriggeredReadyRef.current) {
+            hasTriggeredReadyRef.current = true;
+            setTimeout(() => {
+              onMatchReadyRef.current?.(currentMatched);
+            }, 300);
+          }
         }
       }
     };
 
-    // 4. Khi server phát event đếm ngược
-    const handleCountdown = ({ count }: { count: number }) => {
-      setCountdown(count);
-      setStage('STARTING');
-      // Kích hoạt Gate countdown ngay khi countdown bắt đầu từ server
-      if (count === 3 && matchedData && onMatchReady) {
-        onMatchReady(matchedData);
+    // 4. Khi server phát event đếm ngược (dùng làm fallback kích hoạt cánh cửa nếu chưa trigger)
+    const handleCountdown = () => {
+      if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+      if (matchedDataRef.current && onMatchReadyRef.current && !hasTriggeredReadyRef.current) {
+        hasTriggeredReadyRef.current = true;
+        onMatchReadyRef.current(matchedDataRef.current);
       }
     };
 
     // 5. Khi trận đấu bị hủy hoặc lỗi
-    const handleMatchCancelled = () => {
-      onClose();
+    const handleMatchCancelled = (payload?: { message?: string }) => {
+      if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+      if (payload?.message) {
+        setErrorMessage(payload.message);
+      }
+      setTimeout(() => {
+        onClose();
+      }, 300);
     };
 
     const handleMatchError = ({ message }: { message: string }) => {
@@ -138,7 +209,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     socket.on('arena:match_cancelled', handleMatchCancelled);
     socket.on('arena:match_error', handleMatchError);
 
-    // Bắn event tìm trận thật lên server
+    // Bắn event tìm trận thật lên server MỘT LẦN DUY NHẤT
     arenaSocketService.findMatch();
 
     return () => {
@@ -149,13 +220,15 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       socket.off('arena:match_cancelled', handleMatchCancelled);
       socket.off('arena:match_error', handleMatchError);
       if (timerRef.current) clearInterval(timerRef.current);
+      if (readyTimerRef.current) clearInterval(readyTimerRef.current);
       if (mockTimeoutRef.current) clearTimeout(mockTimeoutRef.current);
     };
-  }, [isOpen, p1Ready, p2Ready, matchedData, onMatchReady]);
+  }, [isOpen]);
 
   // Hủy tìm trận
   const handleCancel = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (readyTimerRef.current) clearInterval(readyTimerRef.current);
     if (mockTimeoutRef.current) clearTimeout(mockTimeoutRef.current);
     arenaSocketService.cancelMatch();
     onClose();
@@ -170,13 +243,13 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       // Giả lập bot cũng ready sau 1.2 giây
       setTimeout(() => {
         setP2Ready(true);
-        setStage('STARTING');
-        // Cả 2 đã ready -> kích hoạt chuyển cảnh cánh cửa sau 600ms
+        if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+        // Cả 2 đã ready -> kích hoạt chuyển cảnh cánh cửa sau 400ms
         setTimeout(() => {
           if (onMatchReady && matchedData) {
             onMatchReady(matchedData);
           }
-        }, 600);
+        }, 400);
       }, 1200);
     } else {
       arenaSocketService.ready(matchedData.roomId);
@@ -246,23 +319,13 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
           <h2 className="text-2xl sm:text-3xl font-black tracking-wider uppercase text-foreground drop-shadow-sm">
             {stage === 'SEARCHING' && 'ĐANG TÌM KIẾM ĐỐI THỦ'}
             {stage === 'MATCHED' && 'ĐÃ TÌM THẤY ĐỐI THỦ!'}
-            {stage === 'STARTING' && 'CHUẨN BỊ BƯỚC VÀO TRẬN ĐẤU!'}
           </h2>
 
           <p className="text-xs text-muted-foreground font-medium">
             {stage === 'SEARCHING' && 'Hệ thống đang quét các chiến binh có cùng đẳng cấp Elo...'}
             {stage === 'MATCHED' && 'Cả hai người chơi cần bấm Sẵn sàng để mở cửa Đấu trường.'}
-            {stage === 'STARTING' && `Trận đấu sẽ bắt đầu sau: ${countdown || 3} giây`}
           </p>
         </div>
-
-        {/* Thông báo lỗi nếu có */}
-        {errorMessage && (
-          <div className="px-4 py-2 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
 
         {/* ── KHU VỰC TRUNG TÂM: CARD P1 - VS - CARD P2 ── */}
         <div className="w-full flex flex-col md:flex-row items-center justify-center gap-6 sm:gap-10 my-6">
@@ -348,7 +411,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
               </span>
             </div>
 
-            {/* Đồng hồ đếm thời gian tìm trận hoặc countdown */}
+            {/* Đồng hồ đếm thời gian tìm trận hoặc đếm ngược 15s sẵn sàng */}
             {stage === 'SEARCHING' && (
               <div className="flex flex-col items-center space-y-1">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/60 border text-xs font-mono font-bold text-foreground">
@@ -359,23 +422,39 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
             )}
 
             {stage === 'MATCHED' && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                <span>Chờ xác nhận</span>
-              </div>
-            )}
+              <div className="flex flex-col items-center space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                {/* Pill đếm ngược 15s */}
+                <div
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm transition-all duration-300 ${readyCountdown <= 5
+                      ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse'
+                      : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                    }`}
+                >
+                  <Hourglass
+                    className={`w-3.5 h-3.5 ${readyCountdown <= 5 ? 'animate-bounce text-rose-400' : 'animate-spin text-amber-400'
+                      }`}
+                  />
+                  <span className="text-xs font-black tracking-wide">
+                    SẴN SÀNG: <span className="font-mono text-sm">{readyCountdown}s</span>
+                  </span>
+                </div>
 
-            {stage === 'STARTING' && countdown !== null && (
-              <div className="text-4xl font-black text-primary animate-ping">
-                {countdown}
+                {/* Thanh Progress bar thời gian sẵn sàng 15s */}
+                <div className="w-28 sm:w-32 h-1.5 bg-muted/60 rounded-full overflow-hidden border border-border/40">
+                  <div
+                    className={`h-full transition-all duration-1000 ease-linear rounded-full ${readyCountdown <= 5 ? 'bg-rose-500' : 'bg-amber-500'
+                      }`}
+                    style={{ width: `${Math.max(0, (readyCountdown / 15) * 100)}%` }}
+                  />
+                </div>
               </div>
             )}
           </div>
 
           {/* ── 3. CARD PLAYER 2 ── */}
-          {stage === 'SEARCHING' ? (
-            /* Card P2: Ẩn danh khi chưa ghép được (Spinner loading, không hiện dấu ?) */
-            <div className="w-64 sm:w-72 rounded-2xl border-2 border-dashed border-muted-foreground/30 bg-muted/15 p-5 flex flex-col items-center text-center justify-between min-h-[360px] relative">
+          {stage === 'SEARCHING' && !isFlippingBack ? (
+            /* Card P2: Ẩn danh khi chưa ghép được (VenetianMask thở phập phồng) */
+            <div className="w-64 sm:w-72 rounded-2xl border-2 border-dashed border-muted-foreground/30 bg-muted/15 p-5 flex flex-col items-center text-center justify-between min-h-[360px] relative animate-in fade-in duration-300">
               <div className="w-full flex items-center justify-between text-[11px] font-bold text-muted-foreground/60">
                 <span>P2 (Đối thủ)</span>
                 <span>??? LP</span>
@@ -406,10 +485,12 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
               </div>
             </div>
           ) : (
-            /* Card P2: Flip-In Animation khi đã tìm thấy đối thủ (Hover phóng to mượt, không mờ) */
+            /* Card P2: Flip-In Animation khi tìm thấy đối thủ HOẶC Flip-Out khi đối thủ bị hủy */
             <div
               style={{
-                animation: 'flipIn 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards',
+                animation: isFlippingBack
+                  ? 'flipOut 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards'
+                  : 'flipIn 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards',
               }}
               className="w-64 sm:w-72"
             >
@@ -499,7 +580,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
         </div>
       </div>
 
-      {/* Style nhúng keyframes flipIn 3D & breathing effect */}
+      {/* Style nhúng keyframes flipIn, flipOut 3D & breathing effect */}
       <style>{`
         @keyframes flipIn {
           0% {
@@ -513,6 +594,17 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
           100% {
             transform: perspective(800px) rotateY(0deg);
             opacity: 1;
+          }
+        }
+
+        @keyframes flipOut {
+          0% {
+            transform: perspective(800px) rotateY(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: perspective(800px) rotateY(90deg);
+            opacity: 0;
           }
         }
 

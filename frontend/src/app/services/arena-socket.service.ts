@@ -18,6 +18,50 @@ export interface MatchedPayload {
   timeLimitSec: number;
 }
 
+export interface GameOverPlayerStats {
+  id: string;
+  correct: number;
+  timeMs: number;
+  rankPointDelta: number;
+  leaderboardPointDelta: number;
+  newRank: string;
+  newRankPoint: number;
+  newLeaderboardPoint: number;
+  winStreak: number;
+  isPromoted?: boolean;
+  isDemoted?: boolean;
+  promotionDetails?: any;
+  demotionDetails?: any;
+}
+
+export interface MatchReviewWord {
+  orderIndex: number;
+  wordId: string;
+  word: string;
+  meaning: string;
+  topic: string;
+  level: string;
+  wordType: string;
+  example?: string;
+  myAnswer: string | null;
+  myCorrect: boolean;
+  myTimeMs: number;
+  opponentAnswer: string | null;
+  opponentCorrect: boolean;
+  opponentTimeMs: number;
+}
+
+export interface GameOverPayload {
+  roomId: string;
+  result: 'P1_WIN' | 'P2_WIN' | 'DRAW';
+  winnerId: string | null;
+  reason: 'ALL_COMPLETED' | 'TIMEOUT' | 'SURRENDER';
+  myResult: 'WIN' | 'LOSS' | 'DRAW';
+  myStats: GameOverPlayerStats;
+  opponentStats: GameOverPlayerStats;
+  words: MatchReviewWord[];
+}
+
 class ArenaSocketService {
   private socket: Socket | null = null;
   private isConnecting = false;
@@ -78,6 +122,24 @@ class ArenaSocketService {
   public ready(roomId: string): void {
     if (this.socket && roomId) {
       this.socket.emit('arena:ready', { roomId });
+    }
+  }
+
+  public submitAnswer(roomId: string, questionIndex: number, answer: string, timeMs: number): void {
+    if (this.socket && roomId) {
+      this.socket.emit('arena:submit_answer', { roomId, questionIndex, answer, timeMs });
+    }
+  }
+
+  public surrender(roomId: string): void {
+    if (this.socket && roomId) {
+      this.socket.emit('arena:surrender', { roomId });
+    }
+  }
+
+  public leaveRoom(roomId?: string): void {
+    if (this.socket) {
+      this.socket.emit('arena:leave_room', { roomId });
     }
   }
 

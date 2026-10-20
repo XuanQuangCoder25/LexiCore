@@ -5,21 +5,47 @@ import { ArenaHub } from './arena/ArenaHub';
 import { ArenaHistory } from './arena/ArenaHistory';
 import { ArenaLeaderboard } from './arena/ArenaLeaderboard';
 import { ArenaRankModal } from './arena/ArenaRankModal';
-import { ArenaMatchmakingModal } from './arena/ArenaMatchmakingModal';
+import { ArenaMatchmakingModal } from './arena/ArenaMatchmaking';
 import { ArenaGateTransition, ArenaGateHandle } from './arena/ArenaGateTransition';
 import { ArenaGameplay } from './arena/ArenaGameplay';
+import { ArenaMatchResult } from './arena/ArenaMatchResult';
 import { UserArenaProfile } from '../../services/arena-service';
-import { MatchedPayload } from '../../services/arena-socket.service';
+import { MatchedPayload, GameOverPayload, arenaSocketService } from '../../services/arena-socket.service';
+import { RankChangeData } from './arena/ArenaRankChangeEffect';
 
 export type ArenaTab = 'hub' | 'history' | 'leaderboard';
 
+const RANK_ORDER_MAP: Record<string, number> = {
+  BRONZE: 0,
+  SILVER: 1,
+  GOLD: 2,
+  PLATINUM_1: 3,
+  PLATINUM_2: 4,
+  SAPPHIRE_1: 5,
+  SAPPHIRE_2: 6,
+  EMERALD_1: 7,
+  EMERALD_2: 8,
+  DIAMOND_1: 9,
+  DIAMOND_2: 10,
+  MASTER_1: 11,
+  MASTER_2: 12,
+  MASTER_3: 13,
+};
+
+const getRankOrderVal = (rank?: string | null): number => {
+  if (!rank) return 0;
+  return RANK_ORDER_MAP[rank.toUpperCase().trim()] ?? 0;
+};
+
 export function ArenaView() {
   const [activeTab, setActiveTab] = useState<ArenaTab>('hub');
-  const [activeScreen, setActiveScreen] = useState<'lobby' | 'gameplay'>('lobby');
+  const [activeScreen, setActiveScreen] = useState<'lobby' | 'gameplay' | 'result'>('lobby');
   const [isRankModalOpen, setIsRankModalOpen] = useState<boolean>(false);
   const [isMatchmakingOpen, setIsMatchmakingOpen] = useState<boolean>(false);
   const [profile, setProfile] = useState<UserArenaProfile | null>(null);
   const [activeMatchData, setActiveMatchData] = useState<MatchedPayload | null>(null);
+  const [gameOverData, setGameOverData] = useState<GameOverPayload | null>(null);
+  const [pendingRankChange, setPendingRankChange] = useState<RankChangeData | null>(null);
 
   // Ref điều khiển hoạt cảnh Cánh Cửa Đấu Trường (2 cánh đá gate-left & gate-right)
   const gateRef = useRef<ArenaGateHandle>(null);
@@ -55,11 +81,80 @@ export function ArenaView() {
   };
 
   /**
+   * KHI TRẬN ĐẤU KẾT THÚC (ARENA GAME OVER)
+   * Hiển thị bảng tổng kết kết quả, biến động Elo RP và danh sách 25 từ
+   * Đồng thời phát hiện thăng rank hoặc hạ rank
+   */
+  const handleGameOver = (data: GameOverPayload) => {
+    setGameOverData(data);
+    setActiveScreen('result');
+
+    // Xác định xem trận đấu này có làm thay đổi rank (thăng rank hoặc hạ rank) của người chơi không
+    const myStats = data.myStats;
+    const oldRank =
+      activeMatchData?.me?.arena_rank ||
+      profile?.arena?.rank ||
+      myStats.promotionDetails?.oldRank ||
+      myStats.demotionDetails?.oldRank;
+    const newRank = myStats.newRank;
+
+    const isPromoted = Boolean(
+      myStats.isPromoted ||
+        (oldRank && newRank && getRankOrderVal(newRank) > getRankOrderVal(oldRank))
+    );
+    const isDemoted = Boolean(
+      myStats.isDemoted ||
+        (oldRank && newRank && getRankOrderVal(newRank) < getRankOrderVal(oldRank))
+    );
+
+    if (oldRank && newRank && oldRank !== newRank && (isPromoted || isDemoted)) {
+      setPendingRankChange({
+        oldRank,
+        newRank,
+        isPromoted,
+        isDemoted,
+      });
+    } else {
+      setPendingRankChange(null);
+    }
+  };
+
+  /**
+   * KÍCH HOẠT LẦN 4: BẤM "TÌM TRẬN MỚI" TỪ MÀN HÌNH KẾT QUẢ
+   * Cửa đóng sầm lại -> Thoát màn hình kết quả và mở modal tìm trận mới -> Cửa mở toang ra
+   */
+  const handlePlayAgain = () => {
+    gateRef.current?.triggerGateTransition({
+      onMiddle: () => {
+        setActiveScreen('lobby');
+        setGameOverData(null);
+        setActiveMatchData(null);
+        setPendingRankChange(null);
+        setIsMatchmakingOpen(true);
+      },
+    });
+  };
+
+  /**
+   * Về sảnh Hub Đấu Trường từ màn hình kết quả
+   */
+  const handleBackToHub = () => {
+    setActiveScreen('lobby');
+    setGameOverData(null);
+    setActiveMatchData(null);
+    setActiveTab('hub');
+  };
+
+  /**
    * Rời khỏi trận đấu (Quay về Sảnh Lobby)
    */
   const handleExitMatch = () => {
+    if (activeMatchData?.roomId) {
+      arenaSocketService.leaveRoom(activeMatchData.roomId);
+    }
     setActiveScreen('lobby');
     setActiveMatchData(null);
+    setGameOverData(null);
   };
 
   return (
@@ -67,11 +162,21 @@ export function ArenaView() {
       {/* ── HIỆU ỨNG CÁNH CỬA ĐẤU TRƯỜNG (GATE TRANSITIONS) ── */}
       <ArenaGateTransition ref={gateRef} />
 
-      {activeScreen === 'gameplay' ? (
+      {activeScreen === 'result' && gameOverData ? (
+        /* ── MÀN HÌNH KẾT THÚC VÁN ĐẤU (FE-7: MATCH RESULT) ── */
+        <ArenaMatchResult
+          gameOverData={gameOverData}
+          mePlayerInfo={activeMatchData?.me}
+          opponentPlayerInfo={activeMatchData?.opponent}
+          onPlayAgain={handlePlayAgain}
+          onBackToHub={handleBackToHub}
+        />
+      ) : activeScreen === 'gameplay' ? (
         /* ── MÀN HÌNH GAMEPLAY ĐẤU TRƯỜNG (FE-6) ── */
         <ArenaGameplay
           matchData={activeMatchData}
           onExitMatch={handleExitMatch}
+          onGameOver={handleGameOver}
           onFinishMatch={() => {
             console.log('[Arena] Hết giờ thi đấu');
           }}
@@ -117,6 +222,8 @@ export function ArenaView() {
                 onOpenRankModal={() => setIsRankModalOpen(true)}
                 onProfileLoaded={(p) => setProfile(p)}
                 onFindMatch={handleStartFindMatch}
+                rankChangeData={pendingRankChange}
+                onRankChangeAnimationComplete={() => setPendingRankChange(null)}
               />
             </TabsContent>
 
