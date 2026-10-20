@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { authService } from "../../services/auth-service";
+import { tokenStore } from "../../services/tokenStore";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -20,18 +21,24 @@ export function LoginPage() {
 
     setIsLoading(true);
     try {
-      await authService.login({ email, password });
+      const data = await authService.login({ email, password });
+      // Lưu accessToken vào memory (tokenStore) — không lưu ở localStorage/sessionStorage
+      if (data?.accessToken || data?.token) {
+        tokenStore.setToken(data.accessToken || data.token);
+      }
       navigate("/");
-    } catch (err: any) {
-      if (err.status === 403) {
+    } catch (err: unknown) {
+      const e = err as { status?: number; message?: string };
+      if (e.status === 403) {
         navigate("/verify-otp", { state: { email, mode: "REGISTER" } });
         return;
       }
-      setError(err.message || "Đăng nhập thất bại.");
+      setError(e.message || "Đăng nhập thất bại.");
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="space-y-8">

@@ -31,13 +31,13 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
             sameSite: 'lax' as const
         };
 
-        // Access token: 15 phút
+        // Access token: 15 phut
         res.cookie('accessToken', result.accessToken, {
             ...cookieBaseOptions,
             maxAge: 15 * 60 * 1000
         });
 
-        // Giữ cookie 'token' để tương thích ngược
+        // Giu cookie 'token' de tuong thich nguoc
         res.cookie('token', result.accessToken, {
             ...cookieBaseOptions,
             maxAge: 15 * 60 * 1000
@@ -51,6 +51,8 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
 
         res.status(200).json({
             message: result.message,
+            accessToken: result.accessToken,   // Frontend lưu vào memory (tokenStore)
+            token: result.accessToken,         // alias tương thích ngược
             user: result.user
         });
     } catch (error) {
@@ -137,6 +139,8 @@ export const refreshTokenHandler = async (req: Request, res: Response, next: Nex
         res.status(200).json({
             status: 'success',
             message: 'Token đã được làm mới thành công',
+            accessToken: result.accessToken,   // Frontend lưu vào memory (tokenStore)
+            token: result.accessToken,         // alias tương thích ngược
             user: result.user
         });
     } catch (error) {

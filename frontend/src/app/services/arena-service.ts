@@ -1,12 +1,6 @@
-import axios from 'axios';
+import httpClient from './httpClient';
 
-const api = axios.create({
-  baseURL: '/api/arena',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const api = httpClient;
 
 export interface UserArenaProfile {
   user: {
@@ -52,23 +46,23 @@ export interface RankTierDetail {
 
 export const arenaService = {
   getMyProfile: async (): Promise<UserArenaProfile> => {
-    const res = await api.get('/profile/me');
+    const res = await api.get('/api/arena/profile/me');
     return res.data.data;
   },
   getMyMatches: async (params?: { page?: number; limit?: number; filter?: string }) => {
-    const res = await api.get('/matches', { params });
+    const res = await api.get('/api/arena/matches', { params });
     return res.data.data;
   },
   getMatchDetail: async (id: string) => {
-    const res = await api.get(`/matches/${id}`);
+    const res = await api.get(`/api/arena/matches/${id}`);
     return res.data.data;
   },
   getLeaderboard: async (params?: { page?: number; limit?: number }) => {
-    const res = await api.get('/leaderboard', { params });
+    const res = await api.get('/api/arena/leaderboard', { params });
     return res.data.data;
   },
   getRankTiers: async (): Promise<RankTierDetail[]> => {
-    const res = await api.get('/ranks');
+    const res = await api.get('/api/arena/ranks');
     return res.data.data;
   },
 };

@@ -1,4 +1,6 @@
 import { io, Socket } from 'socket.io-client';
+import axios from 'axios';
+import { tokenStore } from './tokenStore';
 
 export interface ArenaPlayerInfo {
   id: string;
@@ -66,6 +68,7 @@ export interface GameOverPayload {
 class ArenaSocketService {
   private socket: Socket | null = null;
   private isConnecting = false;
+  private unsubscribeTokenChange: (() => void) | null = null;
 
   public connect(): Socket {
     if (this.socket && this.socket.connected) {
@@ -79,27 +82,66 @@ class ArenaSocketService {
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 2000,
+        // Truyen accessToken qua auth option (socket middleware doc Bearer token)
+        auth: { token: tokenStore.getToken() ?? '' },
       });
 
       this.socket.on('connect', () => {
-        console.log('[Arena Socket Client] Connected to server, socketId:', this.socket?.id);
+        console.log('[Arena Socket Client] Connected, socketId:', this.socket?.id);
       });
 
       this.socket.on('connect_error', (err) => {
         console.warn('[Arena Socket Client] Connection error:', err.message);
+        if (err.message?.toLowerCase().includes('unauthorized') || err.message?.includes('401')) {
+          this._refreshAndReconnect();
+        }
       });
 
       this.socket.on('disconnect', (reason) => {
         console.log('[Arena Socket Client] Disconnected:', reason);
       });
+
+      // Lang nghe khi token duoc cap nhat (sau khi refresh) → cap nhat auth socket
+      this.unsubscribeTokenChange = tokenStore.onTokenChange((newToken) => {
+        if (this.socket && newToken) {
+          (this.socket.auth as Record<string, string>).token = newToken;
+        }
+      });
     } else if (!this.socket.connected) {
+      // Cap nhat token moi nhat truoc khi reconnect
+      (this.socket.auth as Record<string, string>).token = tokenStore.getToken() ?? '';
       this.socket.connect();
     }
 
     return this.socket;
   }
+
+  /** Refresh accessToken roi reconnect socket voi token moi */
+  private async _refreshAndReconnect() {
+    try {
+      const res = await axios.post<{ accessToken?: string; token?: string }>(
+        '/api/auth/refresh-token',
+        {},
+        { withCredentials: true }
+      );
+      const newToken = res.data?.accessToken || res.data?.token;
+      if (newToken) {
+        tokenStore.setToken(newToken);   // cap nhat memory store + thong bao listeners
+        if (this.socket) {
+          (this.socket.auth as Record<string, string>).token = newToken;
+        }
+      }
+      console.log('[Arena Socket Client] Token refreshed, reconnecting...');
+      this.socket?.connect();
+    } catch {
+      console.warn('[Arena Socket Client] Token refresh failed, redirecting to login');
+      tokenStore.clear();
+      window.location.href = '/login';
+    }
+  }
+
 
   public getSocket(): Socket | null {
     return this.socket;
