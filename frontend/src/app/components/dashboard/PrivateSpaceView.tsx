@@ -382,7 +382,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
                   <div className="p-4 pt-0 flex items-center gap-2">
                     <Button
                       className="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-medium shadow-sm gap-2"
-                      onClick={() => setStudyingDeck({ id: deck._id, title: deck.title })}
+                      onClick={() => setStudyingDeck({ id: (deck._id || deck.id)?.toString(), title: deck.title })}
                     >
                       <Play className="w-4 h-4 fill-white" /> Ôn tập ngay
                     </Button>

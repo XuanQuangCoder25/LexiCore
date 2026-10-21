@@ -55,11 +55,16 @@ export const getDueCards = async (req: Request, res: Response) => {
       resultCards = [...resultCards, ...newCards];
     }
 
-    // 3. Nếu không có thẻ due và không có thẻ new (đã ôn xong hết hôm nay), nhưng truyền courseId:
-    // Lấy lại tất cả thẻ trong deck để học viên có thể ôn tập bất cứ lúc nào (Cram/Practice mode)
-    if (resultCards.length === 0 && courseId) {
-      const allFlashcards = await Flashcard.find({ courseId: courseId as any }).limit(limitNum).lean();
-      resultCards = allFlashcards.map((fc: any) => ({
+    // 3. Nếu vẫn còn chỗ trong giới hạn và có truyền courseId:
+    // Lấy thêm các thẻ còn lại trong deck để học viên có thể ôn tập toàn diện bộ thẻ (Cram/Practice mode)
+    if (resultCards.length < limitNum && courseId) {
+      const includedCardIds = resultCards.map(c => (c._id || c.cardId)?.toString());
+      const remainingFlashcards = await Flashcard.find({
+        courseId: courseId as any,
+        _id: { $nin: includedCardIds }
+      }).limit(limitNum - resultCards.length).lean();
+
+      const practiceCards = remainingFlashcards.map((fc: any) => ({
         _id: fc._id,
         cardId: fc._id,
         courseId: fc.courseId,
@@ -67,6 +72,8 @@ export const getDueCards = async (req: Request, res: Response) => {
         back: fc.back,
         status: 'Practice'
       }));
+
+      resultCards = [...resultCards, ...practiceCards];
     }
 
     res.json({

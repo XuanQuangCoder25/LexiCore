@@ -267,6 +267,44 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
           </div>
         </div>
       </div>
+
+      <Dialog open={showPublishRestrictedModal} onOpenChange={setShowPublishRestrictedModal}>
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
+              <Crown className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-center text-xl">Tính năng dành cho Creator</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-2 text-sm text-muted-foreground space-y-2">
+            <p>
+              Tính năng xuất bản bài kiểm tra công khai chỉ dành riêng cho <strong className="text-foreground">Creator chính thức</strong>.
+            </p>
+            <p>
+              Bài kiểm tra của bạn vẫn được lưu an toàn trong <strong className="text-foreground">Private Space</strong> để bạn tự luyện tập bất kỳ lúc nào.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium pt-1">
+              Hãy đăng ký làm Creator để chia sẻ bài thi với học viên trên LexiCore!
+            </p>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-center gap-2 pt-2">
+            <Button variant="outline" onClick={() => setShowPublishRestrictedModal(false)}>
+              Để sau
+            </Button>
+            <Button
+              className="bg-amber-500 hover:bg-amber-600 text-white font-medium gap-2 shadow-sm"
+              onClick={() => {
+                setShowPublishRestrictedModal(false);
+                if (onNavigateTab) {
+                  onNavigateTab("profile");
+                }
+              }}
+            >
+              <Crown className="w-4 h-4" /> Đăng ký làm Creator ngay
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -563,44 +601,6 @@ function MediaForm({ question, onUpload, onChange }: { question: any, onUpload: 
           </Card>
         ))}
       </div>
-
-      <Dialog open={showPublishRestrictedModal} onOpenChange={setShowPublishRestrictedModal}>
-        <DialogContent className="max-w-md" aria-describedby={undefined}>
-          <DialogHeader>
-            <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
-              <Crown className="w-6 h-6" />
-            </div>
-            <DialogTitle className="text-center text-xl">Tính năng dành cho Creator</DialogTitle>
-          </DialogHeader>
-          <div className="text-center py-2 text-sm text-muted-foreground space-y-2">
-            <p>
-              Tính năng xuất bản bài kiểm tra công khai chỉ dành riêng cho <strong className="text-foreground">Creator chính thức</strong>.
-            </p>
-            <p>
-              Bài kiểm tra của bạn vẫn được lưu an toàn trong <strong className="text-foreground">Private Space</strong> để bạn tự luyện tập bất kỳ lúc nào.
-            </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium pt-1">
-              Hãy đăng ký làm Creator để chia sẻ bài thi với học viên trên LexiCore!
-            </p>
-          </div>
-          <DialogFooter className="flex flex-col sm:flex-row sm:justify-center gap-2 pt-2">
-            <Button variant="outline" onClick={() => setShowPublishRestrictedModal(false)}>
-              Để sau
-            </Button>
-            <Button
-              className="bg-amber-500 hover:bg-amber-600 text-white font-medium gap-2 shadow-sm"
-              onClick={() => {
-                setShowPublishRestrictedModal(false);
-                if (onNavigateTab) {
-                  onNavigateTab("profile");
-                }
-              }}
-            >
-              <Crown className="w-4 h-4" /> Đăng ký làm Creator ngay
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
