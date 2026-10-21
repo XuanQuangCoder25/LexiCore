@@ -55,3 +55,15 @@ export const getCollections = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+export const getCollectionItems = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user!.id;
+        const { collectionId } = req.params;
+        const items = await gamificationRepo.getCollectionItems(collectionId as string, userId);
+        res.json({ success: true, data: items });
+    } catch (error: any) {
+        console.error('Error fetching collection items:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

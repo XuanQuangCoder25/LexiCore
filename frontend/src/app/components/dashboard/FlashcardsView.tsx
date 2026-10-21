@@ -293,7 +293,7 @@ export function FlashcardsView() {
                       {deck.thumbnail ? (
                         <img src={deck.thumbnail} alt={deck.title} className="w-12 h-12 rounded-lg object-cover" />
                       ) : (
-                        <div className="p-2 rounded-lg bg-blue-500 bg-opacity-10">
+                        <div className="p-2 rounded-lg bg-blue-500/10">
                           <Brain className="h-6 w-6 text-blue-500" />
                         </div>
                       )}

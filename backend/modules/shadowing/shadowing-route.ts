@@ -5,6 +5,7 @@ import {
     getLibraryHandler,
     getVideoDetailHandler,
     addVideoHandler,
+    checkManualSubHandler,
     analyzeAudioHandler,
     getVideoSummaryHandler,
     getNoteHandler,
@@ -19,6 +20,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.get('/videos', requireAuth, getLibraryHandler);
 router.get('/videos/:id', requireAuth, getVideoDetailHandler);
+router.post('/check-sub', requireAuth, checkManualSubHandler);
 router.post('/videos', requireAuth, addVideoHandler);
 router.post('/analyze/:segmentId', requireAuth, upload.single('audio'), analyzeAudioHandler);
 

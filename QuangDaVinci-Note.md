@@ -216,6 +216,14 @@ Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một c�
 - **Cặp 2 (Tier 2 - Khá):** Rùa Cá Sấu (Snapping Turtle) — Rừng ngập mặn với hệ thống rễ cây đan chằng chịt (Mangrove Roots).
 - **Cặp 3 (Tier 3 - Hiếm):** Cóc Khổng Lồ (Goliath Frog) — Khu đầm lầy âm u phủ kín sương mù dày đặc (Misty Swamp).
 - **Cặp 4 (Tier 4 - Siêu Hiếm):** Cá Sấu Mõm Ngắn (Alligator / Crocodile) — Tàn tích một chiếc thuyền hơi nước hoen gỉ bị bỏ hoang giữa đầm lầy rêu phong (Abandoned Sunken Steamboat).
+
+## 🦁 Collection 8: Thảo Nguyên Châu Phi (African Savanna)
+*Vùng đất của ánh hoàng hôn rực rỡ, những cây cổ thụ bao báp và nhịp sống hoang dã hùng vĩ.*
+- **Cặp 1 (Tier 1 - Cơ bản):** Hươu Cao Cổ (Giraffe) — Cây bao-báp khổng lồ sừng sững giữa thảo nguyên (Giant Baobab Tree).
+- **Cặp 2 (Tier 2 - Khá):** Ngựa Vằn (Zebra) — Dòng sông Serengeti mùa thú di cư vượt lũ (Serengeti River Crossing).
+- **Cặp 3 (Tier 3 - Hiếm):** Báo Săn Cheetah (Cheetah) — Cánh đồng cỏ savanna vàng xào xạc trong gió chiều tà (Golden Savanna at Sunset).
+- **Cặp 4 (Tier 4 - Siêu hiếm):** Sư Tử Bờm Đen (Black-maned Lion) — Mỏm đá vương quyền nhìn bao quát toàn bộ thảo nguyên lúc chạng vạng (Pride Rock at Twilight).
+
 --- 
 
 # ⚔️ HỆ THỐNG HUY HIỆU XẾP HẠNG PVP (PVP ARENA RANK BADGES)

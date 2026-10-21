@@ -195,6 +195,27 @@ export const getCollections = async (userId: string) => {
     return rows;
 };
 
+export const getCollectionItems = async (collectionId: string, userId: string) => {
+    const [rows] = await pool.execute(
+        `SELECT 
+            i.id, i.name, i.type, i.price, i.price_type, i.description, i.image_url, i.required_level, i.collection_id,
+            CASE WHEN ui.item_id IS NOT NULL THEN 1 ELSE 0 END as is_owned,
+            CASE 
+                WHEN i.type = 'AVATAR' AND u.avatar_url = i.image_url THEN 1
+                WHEN i.type = 'COVER_PHOTO' AND u.cover_url = i.image_url THEN 1
+                ELSE 0 
+            END as is_equipped
+         FROM items i
+         LEFT JOIN user_items ui ON ui.item_id = i.id AND ui.user_id = ?
+         LEFT JOIN users u ON u.id = ?
+         WHERE i.collection_id = ? AND i.is_active = 1
+         ORDER BY i.type DESC, i.name ASC`,
+        [userId, userId, collectionId]
+    );
+
+    return rows as any[];
+};
+
 export const updateAchievementProgress = async (userId: string, metricKey: string, incrementValue: number = 1) => {
     const [achievements] = await pool.execute(
         `SELECT id, target_value FROM achievement_definitions WHERE metric_key = ?`,

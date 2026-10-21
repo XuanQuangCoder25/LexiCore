@@ -39,7 +39,7 @@ export const insertVideo = async (data: {
     const id = uuidv4();
     await pool.execute(
         `INSERT INTO shadowing_videos (id, youtube_id, title, channel, duration)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?)`,
         [id, data.youtube_id, data.title, data.channel, data.duration]
     );
     return id;

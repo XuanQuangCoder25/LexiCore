@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getLibrary, getVideoDetail, addVideo, analyzeAudio, getVideoSummary, fetchNote, saveNote, explainWordInContext } from './shadowing-service';
+import { getLibrary, getVideoDetail, addVideo, analyzeAudio, getVideoSummary, fetchNote, saveNote, explainWordInContext, checkManualSub } from './shadowing-service';
 
 export const getLibraryHandler = async (req: Request, res: Response) => {
     try {
@@ -19,6 +19,23 @@ export const getVideoDetailHandler = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error(error);
         res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi server' });
+    }
+};
+
+export const checkManualSubHandler = async (req: Request, res: Response) => {
+    try {
+        const { url } = req.body;
+        if (!url) {
+            return res.status(400).json({ status: 'error', message: 'Vui lòng cung cấp URL YouTube.' });
+        }
+        const result = await checkManualSub(url);
+        res.json({
+            status: 'success',
+            data: result,
+        });
+    } catch (error: any) {
+        console.error('[Shadowing checkSub]', error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi kiểm tra phụ đề' });
     }
 };
 

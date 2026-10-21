@@ -16,5 +16,6 @@ router.post('/daily-goals/claim/:goalId', gamificationController.claimDailyGoal)
 router.get('/achievements', gamificationController.getAchievements);
 
 router.get('/collections', gamificationController.getCollections);
+router.get('/collections/:collectionId/items', gamificationController.getCollectionItems);
 
 export default router;

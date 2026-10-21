@@ -27,7 +27,10 @@ import {
   Medal,
   Lock,
   BookImage,
-  Loader2
+  Loader2,
+  MoveLeft,
+  Check,
+  Sparkles
 } from "lucide-react";
 import { getRankBadgeUrl, formatRankName, optimizeAvatarUrl } from "../../services/arena-service";
 
@@ -85,6 +88,20 @@ interface Collection {
   total_items: number;
 }
 
+interface CollectionItem {
+  id: string;
+  name: string;
+  type: 'AVATAR' | 'COVER_PHOTO';
+  price: number;
+  price_type: 'COIN' | 'DIAMOND';
+  description: string;
+  image_url: string;
+  required_level: number;
+  collection_id: string;
+  is_owned: number;
+  is_equipped: number;
+}
+
 export function AchievementsView() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +115,12 @@ export function AchievementsView() {
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(true);
+
+  // Collection Detail View State
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+  const [collectionItems, setCollectionItems] = useState<CollectionItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [equippingItemId, setEquippingItemId] = useState<string | null>(null);
 
   const fetchQuests = async () => {
     try {
@@ -160,6 +183,52 @@ export function AchievementsView() {
       console.error(e);
     } finally {
       setLoadingCollections(false);
+    }
+  };
+
+  const handleOpenCollection = async (col: Collection) => {
+    setSelectedCollection(col);
+    setLoadingItems(true);
+    try {
+      const res = await fetch(`/api/gamification/collections/${col.id}/items`, {
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCollectionItems(data.data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  const handleEquipItem = async (item: CollectionItem) => {
+    if (item.is_equipped === 1) return;
+    setEquippingItemId(item.id);
+    try {
+      const res = await fetch(`/api/store/equip/${item.id}`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Cập nhật trạng thái trang bị ngay lập tức
+        setCollectionItems(prev => prev.map(i => {
+          if (i.type === item.type) {
+            return { ...i, is_equipped: i.id === item.id ? 1 : 0 };
+          }
+          return i;
+        }));
+      } else {
+        alert(data.message || 'Lỗi trang bị');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Không thể kết nối máy chủ');
+    } finally {
+      setEquippingItemId(null);
     }
   };
 
@@ -434,90 +503,326 @@ export function AchievementsView() {
 
         {/* Collections Tab */}
         <TabsContent value="collections" className="space-y-6">
-          <Card className="shadow-sm border">
-            <CardContent className="p-6">
-              {loadingCollections ? (
-                <div className="text-center py-12 text-muted-foreground animate-pulse">Đang tải bộ sưu tập...</div>
-              ) : collections.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {collections.map(col => {
-                    const isUnlocked = col.is_unlocked === 1;
-                    const cssVars = { '--theme-color': col.theme_color || '#3b82f6' } as React.CSSProperties;
+          {selectedCollection ? (
+            /* ─── MÀN HÌNH CHI TIẾT BỘ SƯU TẬP ─── */
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Nút quay lại */}
+              <div>
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelectedCollection(null)}
+                  className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
+                >
+                  <MoveLeft className="w-4 h-4" /> Quay lại danh sách Bộ Sưu Tập
+                </Button>
+              </div>
 
-                    const currentItems = col.current_items || 0;
-                    const totalItems = col.total_items || 1; // Tránh chia cho 0 nếu chưa có items trong db
-                    const progressPercent = (currentItems / totalItems) * 100;
+              {/* Hero Banner của Collection */}
+              <div
+                className="relative rounded-2xl overflow-hidden border shadow-sm p-6 sm:p-8 text-white"
+                style={{
+                  backgroundColor: selectedCollection.theme_color || '#1e293b',
+                  backgroundImage: selectedCollection.image_url ? `linear-gradient(to right, rgba(0,0,0,0.88) 35%, rgba(0,0,0,0.45)), url(${selectedCollection.image_url})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              >
+                <div className="max-w-2xl space-y-3 relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    <Badge className="bg-white/20 text-white backdrop-blur-md border-white/30 text-xs font-semibold px-2.5 py-0.5">
+                      Mở khóa: Cấp {selectedCollection.unlock_level}
+                    </Badge>
+                    {selectedCollection.is_unlocked === 1 ? (
+                      <Badge className="bg-emerald-500/90 text-white backdrop-blur-md border-none text-xs">
+                        Đã mở khóa
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-rose-500/90 text-white backdrop-blur-md border-none text-xs flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Chưa mở khóa
+                      </Badge>
+                    )}
+                  </div>
+                  <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight drop-shadow-md">
+                    {selectedCollection.name}
+                  </h2>
+                  <p className="text-white/85 text-xs sm:text-sm leading-relaxed">
+                    {selectedCollection.description}
+                  </p>
 
-                    return (
-                      <div
-                        key={col.id}
-                        style={cssVars}
-                        className="group relative overflow-hidden rounded-xl border-2 border-border transition-all duration-300 flex flex-col hover:-translate-y-1 hover:[box-shadow:0_0_20px_var(--theme-color)] hover:border-[color:var(--theme-color)] bg-card"
-                      >
-                        {/* Wrapper ảnh tỉ lệ 16:9 */}
-                        <div className="relative aspect-video w-full overflow-hidden">
-                          {/* Ảnh nền */}
-                          <div
-                            className={`w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105 ${!isUnlocked ? 'grayscale opacity-80' : ''}`}
-                            style={{
-                              backgroundColor: col.theme_color || '#e2e8f0',
-                              backgroundImage: col.image_url ? `url(${col.image_url})` : 'none'
-                            }}
-                          >
-                            {!col.image_url && (
-                              <div className="w-full h-full flex items-center justify-center bg-black/10">
-                                <ImageIcon className="w-16 h-16 text-white/50" />
+                  {/* Tiến độ thu thập vật phẩm */}
+                  <div className="pt-2 max-w-md">
+                    <div className="flex justify-between text-xs font-semibold text-white/90 mb-1.5">
+                      <span>Tiến độ thu thập</span>
+                      <span>
+                        {collectionItems.filter(i => i.is_owned === 1).length} / {collectionItems.length} vật phẩm (
+                        {collectionItems.length > 0
+                          ? Math.round((collectionItems.filter(i => i.is_owned === 1).length / collectionItems.length) * 100)
+                          : 0}%)
+                      </span>
+                    </div>
+                    <Progress
+                      value={collectionItems.length > 0 ? (collectionItems.filter(i => i.is_owned === 1).length / collectionItems.length) * 100 : 0}
+                      className="h-2.5 bg-black/40"
+                      indicatorClassName="bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {loadingItems ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-sm">Đang tải các vật phẩm trong bộ sưu tập...</p>
+                </div>
+              ) : (
+                <div className="space-y-10">
+                  {/* ─── PHẦN 1: ẢNH BÌA (COVER PHOTOS) - TỈ LỆ 16:9 ─── */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b pb-2.5">
+                      <BookImage className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-bold">Ảnh Bìa Bộ Sưu Tập (Cover Photos)</h3>
+                      <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">Tỉ lệ 16:9</Badge>
+                      <Badge variant="secondary" className="ml-auto text-xs font-semibold">
+                        {collectionItems.filter(i => i.type === 'COVER_PHOTO').length} ảnh bìa
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {collectionItems.filter(i => i.type === 'COVER_PHOTO').map(cover => (
+                        <Card
+                          key={cover.id}
+                          className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${
+                            cover.is_equipped === 1 ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+                          }`}
+                        >
+                          {/* 16:9 Widescreen Container */}
+                          <div className="relative aspect-video w-full overflow-hidden bg-muted group">
+                            <img
+                              src={cover.image_url}
+                              alt={cover.name}
+                              referrerPolicy="no-referrer"
+                              className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
+                                cover.is_owned === 0 ? 'grayscale contrast-75 opacity-70' : ''
+                              }`}
+                            />
+                            {cover.is_owned === 0 && (
+                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                                <div className="bg-background/90 text-foreground p-3 rounded-full shadow-lg">
+                                  <Lock className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                              </div>
+                            )}
+                            {cover.is_equipped === 1 && (
+                              <div className="absolute top-3 left-3">
+                                <Badge className="bg-primary text-primary-foreground shadow-md text-xs font-semibold px-2.5 py-0.5">
+                                  Đang sử dụng
+                                </Badge>
                               </div>
                             )}
                           </div>
 
-                          {/* Overlay Gradient hiển thị chữ */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-5">
-                            <h4 className={`font-bold text-xl text-white leading-tight drop-shadow-md ${!isUnlocked ? 'opacity-80' : ''}`}>{col.name}</h4>
-
-                            {/* Badge Level */}
-                            <div className="absolute top-4 right-4 z-20">
-                              <Badge variant="secondary" className="bg-black/50 text-white hover:bg-black/70 border-none backdrop-blur-sm shadow-sm">
-                                Lv.{col.unlock_level}
-                              </Badge>
+                          <CardContent className="p-4 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-base truncate">{cover.name}</h4>
+                              <p className="text-xs text-muted-foreground truncate">{cover.description}</p>
                             </div>
-                          </div>
-
-                          {/* Lớp phủ mờ + Ổ khoá nếu chưa mở */}
-                          {!isUnlocked && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] z-10">
-                              <div className="bg-background/95 p-4 rounded-full shadow-2xl">
-                                <Lock className="w-8 h-8 text-muted-foreground" />
-                              </div>
+                            <div className="shrink-0">
+                              {cover.is_equipped === 1 ? (
+                                <Button size="sm" disabled variant="outline" className="text-xs font-semibold opacity-70">
+                                  Đang dùng
+                                </Button>
+                              ) : cover.is_owned === 1 ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleEquipItem(cover)}
+                                  disabled={equippingItemId === cover.id}
+                                  className="text-xs font-semibold shadow-sm"
+                                >
+                                  {equippingItemId === cover.id ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                                  Trang bị
+                                </Button>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-muted-foreground bg-muted/40">
+                                  {cover.price} {cover.price_type}
+                                </Badge>
+                              )}
                             </div>
-                          )}
-                        </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
 
-                        {/* Progress Bar nằm gọn gàng cạnh dưới của Card */}
-                        <div className={`p-4 border-t ${!isUnlocked ? 'grayscale opacity-70' : ''}`}>
-                          <div className="flex items-center text-xs font-medium text-muted-foreground mb-2">
-                            <span>{col.description}</span>
+                  {/* ─── PHẦN 2: ẢNH ĐẠI DIỆN (AVATARS) - TỈ LỆ 1:1 ─── */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b pb-2.5">
+                      <Users className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-bold">Ảnh Đại Diện (Avatars)</h3>
+                      <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">Tỉ lệ 1:1</Badge>
+                      <Badge variant="secondary" className="ml-auto text-xs font-semibold">
+                        {collectionItems.filter(i => i.type === 'AVATAR').length} avatar
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {collectionItems.filter(i => i.type === 'AVATAR').map(avatar => (
+                        <Card
+                          key={avatar.id}
+                          className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md flex flex-col justify-between ${
+                            avatar.is_equipped === 1 ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+                          }`}
+                        >
+                          <div className="p-3 flex flex-col items-center text-center">
+                            {/* Square 1:1 Aspect Container */}
+                            <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-muted/30 p-2 flex items-center justify-center group">
+                              <img
+                                src={avatar.image_url}
+                                alt={avatar.name}
+                                referrerPolicy="no-referrer"
+                                className={`w-full h-full object-cover rounded-lg transition-transform duration-300 group-hover:scale-105 ${
+                                  avatar.is_owned === 0 ? 'grayscale opacity-60' : ''
+                                }`}
+                              />
+                              {avatar.is_owned === 0 && (
+                                <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
+                                  <Lock className="w-5 h-5 text-white/80" />
+                                </div>
+                              )}
+                              {avatar.is_equipped === 1 && (
+                                <div className="absolute top-1.5 right-1.5">
+                                  <span className="flex h-2.5 w-2.5 relative">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <h5 className="font-bold text-sm mt-2 truncate w-full" title={avatar.name}>
+                              {avatar.name}
+                            </h5>
+                            <p className="text-[11px] text-muted-foreground truncate w-full mt-0.5">
+                              {avatar.is_owned === 1 ? 'Đã sở hữu' : `${avatar.price} ${avatar.price_type}`}
+                            </p>
                           </div>
-                          <Progress
-                            value={progressPercent}
-                            className="h-2"
-                            indicatorClassName={isUnlocked ? "bg-[color:var(--theme-color)]" : "bg-muted-foreground"}
-                          />
-                          <div className="flex justify-center items-center text-xs font-medium text-muted-foreground mb-2">
-                            <span>Đã thu thập: {currentItems}/{totalItems}</span>
+
+                          <div className="p-2 border-t bg-muted/10">
+                            {avatar.is_equipped === 1 ? (
+                              <Button size="sm" disabled variant="outline" className="w-full text-xs h-7 opacity-70">
+                                Đang dùng
+                              </Button>
+                            ) : avatar.is_owned === 1 ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handleEquipItem(avatar)}
+                                disabled={equippingItemId === avatar.id}
+                                className="w-full text-xs h-7 font-semibold"
+                              >
+                                {equippingItemId === avatar.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                                Trang bị
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="ghost" disabled className="w-full text-xs h-7 text-muted-foreground">
+                                Khóa
+                              </Button>
+                            )}
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-12 bg-secondary/20 rounded-xl border border-dashed">
-                  Chưa có bộ sưu tập nào. Vui lòng thêm dữ liệu vào DB.
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          ) : (
+            /* ─── DANH SÁCH CÁC BỘ SƯU TẬP ─── */
+            <Card className="shadow-sm border">
+              <CardContent className="p-6">
+                {loadingCollections ? (
+                  <div className="text-center py-12 text-muted-foreground animate-pulse">Đang tải bộ sưu tập...</div>
+                ) : collections.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {collections.map(col => {
+                      const isUnlocked = col.is_unlocked === 1;
+                      const cssVars = { '--theme-color': col.theme_color || '#3b82f6' } as React.CSSProperties;
+
+                      const currentItems = col.current_items || 0;
+                      const totalItems = col.total_items || 1; // Tránh chia cho 0 nếu chưa có items trong db
+                      const progressPercent = (currentItems / totalItems) * 100;
+
+                      return (
+                        <div
+                          key={col.id}
+                          style={cssVars}
+                          onClick={() => handleOpenCollection(col)}
+                          className="group relative overflow-hidden rounded-xl border-2 border-border transition-all duration-300 flex flex-col hover:-translate-y-1 hover:[box-shadow:0_0_20px_var(--theme-color)] hover:border-[color:var(--theme-color)] bg-card cursor-pointer"
+                        >
+                          {/* Wrapper ảnh tỉ lệ 16:9 */}
+                          <div className="relative aspect-video w-full overflow-hidden">
+                            {/* Ảnh nền */}
+                            <div
+                              className={`w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105 ${!isUnlocked ? 'grayscale opacity-80' : ''}`}
+                              style={{
+                                backgroundColor: col.theme_color || '#e2e8f0',
+                                backgroundImage: col.image_url ? `url(${col.image_url})` : 'none'
+                              }}
+                            >
+                              {!col.image_url && (
+                                <div className="w-full h-full flex items-center justify-center bg-black/10">
+                                  <ImageIcon className="w-16 h-16 text-white/50" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Overlay Gradient hiển thị chữ */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-5">
+                              <h4 className={`font-bold text-xl text-white leading-tight drop-shadow-md ${!isUnlocked ? 'opacity-80' : ''}`}>{col.name}</h4>
+
+                              {/* Badge Level */}
+                              <div className="absolute top-4 right-4 z-20">
+                                <Badge variant="secondary" className="bg-black/50 text-white hover:bg-black/70 border-none backdrop-blur-sm shadow-sm">
+                                  Lv.{col.unlock_level}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {/* Lớp phủ mờ + Ổ khoá nếu chưa mở */}
+                            {!isUnlocked && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] z-10">
+                                <div className="bg-background/95 p-4 rounded-full shadow-2xl">
+                                  <Lock className="w-8 h-8 text-muted-foreground" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Progress Bar nằm gọn gàng cạnh dưới của Card */}
+                          <div className={`p-4 border-t ${!isUnlocked ? 'grayscale opacity-70' : ''}`}>
+                            <div className="flex items-center text-xs font-medium text-muted-foreground mb-2">
+                              <span className="line-clamp-1">{col.description}</span>
+                            </div>
+                            <Progress
+                              value={progressPercent}
+                              className="h-2"
+                              indicatorClassName={isUnlocked ? "bg-[color:var(--theme-color)]" : "bg-muted-foreground"}
+                            />
+                            <div className="flex justify-between items-center text-xs font-medium text-muted-foreground mt-2">
+                              <span>Đã thu thập: {currentItems}/{totalItems}</span>
+                              <span className="text-primary font-semibold group-hover:underline">Xem chi tiết →</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-12 bg-secondary/20 rounded-xl border border-dashed">
+                    Chưa có bộ sưu tập nào. Vui lòng thêm dữ liệu vào DB.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Leaderboard Tab */}
