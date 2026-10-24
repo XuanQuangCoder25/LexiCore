@@ -23,6 +23,8 @@ import studentCourseRoute from './modules/course/student-course.route';
 import arenaRoute from './modules/arena/arena-word.route';
 import notificationRoute from './modules/notification/notification-route';
 import { initNotificationCron } from './modules/notification/notification-cron';
+import socialRoute from './modules/social/social.route';
+import { initSocialSocket } from './modules/social/social-socket';
 import { initArenaSocket } from './modules/arena/arena-socket';
 import { createServer } from 'http';
 import { Server as SocketIO } from 'socket.io';
@@ -82,6 +84,9 @@ const startServer = async () => {
         // --- Notification & Settings Routes ---
         app.use('/api/notifications', notificationRoute);
 
+        // --- Friends & Direct Messaging Routes ---
+        app.use('/api/social', socialRoute);
+
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);
 
@@ -92,6 +97,9 @@ const startServer = async () => {
 
         // Khởi tạo Arena Socket.IO (Xác thực + Real-time handlers)
         initArenaSocket(io);
+
+        // Khởi tạo Socket.IO namespace /chat (Kết bạn & Nhắn tin realtime)
+        initSocialSocket(io);
 
         // Khởi tạo Background Task nhắc nhở học tập (quét DB mỗi phút)
         initNotificationCron();

@@ -13,6 +13,8 @@ import {
   Clock,
   Info,
   RefreshCw,
+  UserCheck,
+  UserPlus,
 } from "lucide-react";
 import { notificationService, InAppNotification } from "../../services/notification-service";
 import { toast } from "sonner";
@@ -151,6 +153,12 @@ export function NotificationPopover() {
     } else if (type === "achievement") {
       Icon = CheckCircle2;
       bgClass = "bg-emerald-500/15 text-emerald-500";
+    } else if (type === "friend_request") {
+      Icon = UserPlus;
+      bgClass = "bg-indigo-500/15 text-indigo-500";
+    } else if (type === "friend_accepted") {
+      Icon = UserCheck;
+      bgClass = "bg-teal-500/15 text-teal-500";
     } else {
       Icon = Info;
       bgClass = "bg-blue-500/15 text-blue-500";

@@ -11,7 +11,7 @@ export interface IUserSettings {
 export interface INotification {
   id: string;
   user_id: string;
-  type: 'reminder' | 'srs' | 'challenge' | 'system' | 'achievement';
+  type: 'reminder' | 'srs' | 'challenge' | 'system' | 'achievement' | 'friend_request' | 'friend_accepted';
   title: string;
   body: string;
   is_read: boolean;
