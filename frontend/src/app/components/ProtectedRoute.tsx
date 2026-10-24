@@ -11,7 +11,13 @@ const ProtectedRoute = () => {
         await authService.getMe();
         setIsAuthenticated(true);
       } catch (error) {
-        setIsAuthenticated(false);
+        try {
+          await authService.refreshToken();
+          await authService.getMe();
+          setIsAuthenticated(true);
+        } catch {
+          setIsAuthenticated(false);
+        }
       }
     };
 

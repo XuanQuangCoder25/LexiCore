@@ -45,9 +45,11 @@ export function NotificationPopover() {
   const [isOpen, setIsOpen] = useState(false);
   const knownIdsRef = useRef<Set<string>>(new Set());
   const isInitialLoadRef = useRef(true);
+  const isUnauthorizedRef = useRef(false);
 
   // Fetch danh sách thông báo từ API
   const fetchNotifications = useCallback(async () => {
+    if (isUnauthorizedRef.current) return;
     try {
       const data = await notificationService.getNotifications(25);
       const list = data.notifications || [];
@@ -74,8 +76,10 @@ export function NotificationPopover() {
 
       setNotifications(list);
       setUnreadCount(newUnreadCount);
-    } catch (error) {
-      // Bỏ qua lỗi nếu chưa đăng nhập hoặc mạng chập chờn
+    } catch (error: any) {
+      if (error?.response?.status === 401 || error?.status === 401) {
+        isUnauthorizedRef.current = true;
+      }
     }
   }, []);
 

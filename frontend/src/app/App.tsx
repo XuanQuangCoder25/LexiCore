@@ -63,8 +63,12 @@ function AppContent() {
 
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
+        if (!data) return;
         if (data?.coin_balance !== undefined) setCoins(data.coin_balance);
         if (data?.role) setUserRole(data.role.toLowerCase());
         if (data?.full_name) setUserName(data.full_name);

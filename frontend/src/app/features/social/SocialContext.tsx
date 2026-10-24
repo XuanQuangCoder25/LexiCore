@@ -101,7 +101,10 @@ export function SocialProvider({ children }: { children: ReactNode }) {
   // Lấy thông tin người dùng hiện tại (id)
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
         if (data?.id && mountedRef.current) {
           setCurrentUserId(data.id);
@@ -157,8 +160,9 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     if (mountedRef.current) setLoading(false);
   }, [refreshFriends, refreshRequests, refreshSummary, refreshConversations]);
 
-  // Tải lần đầu + cập nhật badge định kỳ / khi quay lại tab
+  // Tải lần đầu + cập nhật badge định kỳ / khi quay lại tab (chỉ chạy khi đã có user)
   useEffect(() => {
+    if (!currentUserId) return;
     refreshAll();
     const interval = setInterval(refreshSummary, SUMMARY_POLL_MS);
     const onVisible = () => {
@@ -169,10 +173,11 @@ export function SocialProvider({ children }: { children: ReactNode }) {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [refreshAll, refreshSummary]);
+  }, [currentUserId, refreshAll, refreshSummary]);
 
-  // WebSocket /chat integration
+  // WebSocket /chat integration (chỉ kết nối khi đã xác thực user)
   useEffect(() => {
+    if (!currentUserId) return;
     const socket = getChatSocket();
     if (!socket.connected) {
       socket.connect();
@@ -298,7 +303,7 @@ export function SocialProvider({ children }: { children: ReactNode }) {
       socket.off("receive_message", handleReceiveMessage);
       socket.off("messages_read", handleMessagesRead);
     };
-  }, [refreshFriends, refreshRequests, refreshSummary, refreshConversations]);
+  }, [currentUserId, refreshFriends, refreshRequests, refreshSummary, refreshConversations]);
 
   // Bọc action: gọi API -> toast -> refresh dữ liệu liên quan
   const perform = useCallback(

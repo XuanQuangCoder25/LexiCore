@@ -21,6 +21,10 @@ export const authService = {
     return api.get('/me');
   },
 
+  refreshToken: async () => {
+    return api.post('/refresh-token');
+  },
+
   forgotPassword: async (data: { email: string }) => {
     return api.post('/forgot-password', data);
   },
