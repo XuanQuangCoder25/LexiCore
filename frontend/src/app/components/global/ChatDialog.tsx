@@ -164,7 +164,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
         // 2. Thay thế tin nhắn lạc quan (optimistic) của chính mình
         const optIndex = prev.findIndex(
           (m) =>
-            (msg.clientId && m.clientId === msg.clientId) ||
+            (msg.clientId && (m.clientId === msg.clientId || m.id === msg.clientId)) ||
             (m.sender_id === msg.sender_id &&
               typeof m.id === "string" &&
               m.id.startsWith("client-") &&
@@ -335,17 +335,29 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
           (ack: any) => {
             if (ack?.ok && ack.message) {
               setMessages((prev) => {
-                // Nếu tin nhắn thật đã được thêm vào qua receive_message, chỉ cần lọc bỏ bản tạm
-                const realExists = prev.some((m) => m.id === ack.message.id);
-                if (realExists) {
-                  return prev.filter((m) => m.clientId !== tempClientId);
+                const realId = ack.message.id;
+                let foundTemp = false;
+                const updated = prev.map((m) => {
+                  if (m.clientId === tempClientId || m.id === tempClientId) {
+                    foundTemp = true;
+                    return ack.message;
+                  }
+                  return m;
+                });
+
+                if (!foundTemp && !updated.some((m) => m.id === realId)) {
+                  updated.push(ack.message);
                 }
-                return prev.map((m) => (m.clientId === tempClientId ? ack.message : m));
+
+                return updated.filter(
+                  (m) =>
+                    !(typeof m.id === "string" && m.id === tempClientId && updated.some((x) => x.id === realId))
+                );
               });
               refreshConversations();
             } else {
               toast.error(ack?.error || "Không thể gửi tin nhắn.");
-              setMessages((prev) => prev.filter((m) => m.clientId !== tempClientId));
+              setMessages((prev) => prev.filter((m) => m.clientId !== tempClientId && m.id !== tempClientId));
             }
             setIsSending(false);
           }
@@ -354,11 +366,24 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
         // Fallback REST API nếu socket bị mất kết nối
         const realMsg = await socialService.sendMessage(activeConversationId, content);
         setMessages((prev) => {
-          const realExists = prev.some((m) => m.id === realMsg.id);
-          if (realExists) {
-            return prev.filter((m) => m.clientId !== tempClientId);
+          const realId = realMsg.id;
+          let foundTemp = false;
+          const updated = prev.map((m) => {
+            if (m.clientId === tempClientId || m.id === tempClientId) {
+              foundTemp = true;
+              return realMsg;
+            }
+            return m;
+          });
+
+          if (!foundTemp && !updated.some((m) => m.id === realId)) {
+            updated.push(realMsg);
           }
-          return prev.map((m) => (m.clientId === tempClientId ? realMsg : m));
+
+          return updated.filter(
+            (m) =>
+              !(typeof m.id === "string" && m.id === tempClientId && updated.some((x) => x.id === realId))
+          );
         });
         refreshConversations();
         setIsSending(false);
