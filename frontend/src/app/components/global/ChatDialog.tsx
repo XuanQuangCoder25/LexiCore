@@ -759,7 +759,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
                               <span>{formatMessageTime(msg.created_at)}</span>
                               {isMe && (
                                 <>
-                                  {msg.clientId && msg.id.startsWith("client-") ? (
+                                  {typeof msg.id === "string" && msg.id.startsWith("client-") ? (
                                     <Clock className="h-2.5 w-2.5 text-muted-foreground/70" />
                                   ) : msg.is_read ? (
                                     <span className="flex items-center text-primary font-medium">
