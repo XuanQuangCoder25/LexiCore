@@ -67,6 +67,7 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
   const [showDeleteExamDialog, setShowDeleteExamDialog] = useState<string | null>(null);
   const [exams, setExams] = useState<any[]>([]);
   const [builderExamId, setBuilderExamId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("flashcards");
 
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
   const [viewingRatingsId, setViewingRatingsId] = useState<string | null>(null);
@@ -102,7 +103,7 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
 
   const fetchExams = async () => {
     try {
-      const res = await axios.get("/api/exams", { withCredentials: true });
+      const res = await axios.get("/api/v1/creator/exams", { withCredentials: true });
       if (res.data.success) {
         setExams(res.data.data);
       }
@@ -323,6 +324,7 @@ const handleOpenEditor = (course: Course) => {
         thumbnail: ""
       }, { withCredentials: true });
       if (res.data.success) {
+        setActiveTab("exams");
         setBuilderExamId(res.data.data._id);
         fetchExams();
       }
@@ -521,6 +523,7 @@ const handleOpenEditor = (course: Course) => {
   if (builderExamId) {
     return <ExamBuilder examId={builderExamId} onBack={() => {
       setBuilderExamId(null);
+      setActiveTab("exams");
       fetchExams();
     }} userRole={userRole} onNavigateTab={onNavigateTab} />;
   }
@@ -535,7 +538,7 @@ const handleOpenEditor = (course: Course) => {
         </div>
       </div>
 
-      <Tabs defaultValue="flashcards" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="flashcards">Flashcards</TabsTrigger>
           <TabsTrigger value="courses">Khóa Học</TabsTrigger>
@@ -879,7 +882,7 @@ const handleOpenEditor = (course: Course) => {
               <p className="text-muted-foreground">Chưa có bài kiểm tra nào.</p>
             ) : (
               exams.map((exam) => (
-                <Card key={exam._id} className="cursor-pointer hover:border-primary transition-colors relative" onClick={() => setBuilderExamId(exam._id)}>
+                <Card key={exam._id} className="cursor-pointer hover:border-primary transition-colors relative" onClick={() => { setActiveTab("exams"); setBuilderExamId(exam._id); }}>
                   <div className="absolute top-3 left-3 z-10" onClick={(e) => e.stopPropagation()}>
                     <Checkbox 
                       className="bg-background/80"

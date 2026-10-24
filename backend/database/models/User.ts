@@ -17,6 +17,9 @@ export interface IUser extends Document<any> {
   enrolledCourses: Array<{
     courseId: Types.ObjectId;
     progressPercentage: number; // 0 - 100
+    completedChapters?: Types.ObjectId[]; // Các chương đã được xác nhận hoàn thành
+    isCompleted?: boolean; // Đã hoàn thành toàn bộ khóa học
+    completedAt?: Date | null; // Thời điểm hoàn thành khóa học
   }>;
   
   completedLessons: Types.ObjectId[]; // Lưu các bài học đã hoàn thành
@@ -41,7 +44,10 @@ const UserSchema = new Schema<IUser>({
   
   enrolledCourses: [{
     courseId: { type: Schema.Types.ObjectId, ref: 'Course' },
-    progressPercentage: { type: Number, default: 0 }
+    progressPercentage: { type: Number, default: 0 },
+    completedChapters: [{ type: Schema.Types.ObjectId, ref: 'Chapter' }],
+    isCompleted: { type: Boolean, default: false },
+    completedAt: { type: Date, default: null }
   }],
   
   completedLessons: [{ type: Schema.Types.ObjectId, ref: 'Lesson' }],

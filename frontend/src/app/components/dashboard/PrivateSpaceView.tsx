@@ -30,6 +30,7 @@ import { creatorService } from "../../services/creator-service";
 import { FlashcardStudySession } from "./FlashcardStudySession";
 import { LearningWorkspace } from "./LearningWorkspace";
 import { ExamTakingView } from "./ExamView";
+import { ExamBuilder } from "./creator/ExamBuilder";
 
 interface PrivateSpaceViewProps {
   onNavigateTab?: (tab: string) => void;
@@ -64,6 +65,8 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
   const [studyingDeck, setStudyingDeck] = useState<{ id: string; title: string } | null>(null);
   const [learningCourseId, setLearningCourseId] = useState<string | null>(null);
   const [takingExamId, setTakingExamId] = useState<string | null>(null);
+  const [editingExamId, setEditingExamId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("flashcards");
 
   const fetchPrivateContent = async () => {
     setLoading(true);
@@ -141,6 +144,22 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
     );
   }
 
+  // --- Sub-view: Exam Builder ---
+  if (editingExamId) {
+    return (
+      <ExamBuilder
+        examId={editingExamId}
+        onBack={() => {
+          setEditingExamId(null);
+          setActiveTab("exams");
+          fetchPrivateContent();
+        }}
+        userRole={userRole}
+        onNavigateTab={onNavigateTab}
+      />
+    );
+  }
+
   const filteredDecks = filterList(data.flashcardDecks, "flashcard");
   const filteredCourses = filterList(data.courses, "course");
   const filteredExams = filterList(data.exams, "exam");
@@ -188,7 +207,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
 
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mt-6 pt-6 border-t border-white/10">
-          <div className="bg-white/5 backdrop-blur rounded-xl p-3 md:p-4 border border-white/10">
+          <div onClick={() => setActiveTab("flashcards")} className="bg-white/5 hover:bg-white/10 cursor-pointer transition-colors backdrop-blur rounded-xl p-3 md:p-4 border border-white/10">
             <div className="flex items-center gap-2 text-indigo-300 text-xs font-medium mb-1">
               <Brain className="w-4 h-4 text-pink-400" /> Flashcards
             </div>
@@ -198,7 +217,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur rounded-xl p-3 md:p-4 border border-white/10">
+          <div onClick={() => setActiveTab("courses")} className="bg-white/5 hover:bg-white/10 cursor-pointer transition-colors backdrop-blur rounded-xl p-3 md:p-4 border border-white/10">
             <div className="flex items-center gap-2 text-indigo-300 text-xs font-medium mb-1">
               <BookOpen className="w-4 h-4 text-blue-400" /> Khóa học
             </div>
@@ -208,7 +227,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur rounded-xl p-3 md:p-4 border border-white/10">
+          <div onClick={() => setActiveTab("exams")} className="bg-white/5 hover:bg-white/10 cursor-pointer transition-colors backdrop-blur rounded-xl p-3 md:p-4 border border-white/10">
             <div className="flex items-center gap-2 text-indigo-300 text-xs font-medium mb-1">
               <ClipboardList className="w-4 h-4 text-emerald-400" /> Đề kiểm tra
             </div>
@@ -218,7 +237,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
             </div>
           </div>
 
-          <div className="bg-white/5 backdrop-blur rounded-xl p-3 md:p-4 border border-white/10">
+          <div onClick={() => setFilterStatus("private")} className="bg-white/5 hover:bg-white/10 cursor-pointer transition-colors backdrop-blur rounded-xl p-3 md:p-4 border border-white/10">
             <div className="flex items-center gap-2 text-indigo-300 text-xs font-medium mb-1">
               <Lock className="w-4 h-4 text-amber-400" /> Tổng riêng tư
             </div>
@@ -273,7 +292,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
       </div>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="flashcards" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid grid-cols-3 max-w-md bg-muted/60 p-1">
           <TabsTrigger value="flashcards" className="gap-2 text-sm">
             <Brain className="w-4 h-4 text-pink-500" />
@@ -588,18 +607,18 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
 
                   <div className="p-4 pt-0 flex items-center gap-2">
                     <Button
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2"
-                      onClick={() => setTakingExamId(exam._id)}
+                      className={exam.status === "Published" ? "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-2" : "flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-sm gap-2"}
+                      onClick={() => exam.status === "Published" ? setTakingExamId(exam._id) : setEditingExamId(exam._id)}
                     >
-                      <Play className="w-4 h-4 fill-white" /> Làm bài thi
+                      {exam.status === "Published" ? (<><Play className="w-4 h-4 fill-white" /> Làm bài thi</>) : (<><Edit3 className="w-4 h-4" /> Tiếp tục sửa nháp</>)}
                     </Button>
                     <Button
                       variant="outline"
                       size="icon"
-                      title="Chỉnh sửa trong Creator Studio"
-                      onClick={() => onNavigateTab?.("creator")}
+                      title={exam.status === "Published" ? "Chỉnh sửa bài thi" : "Làm thử bài thi"}
+                      onClick={() => exam.status === "Published" ? setEditingExamId(exam._id) : setTakingExamId(exam._id)}
                     >
-                      <Edit3 className="w-4 h-4" />
+                      {exam.status === "Published" ? <Edit3 className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </Button>
                   </div>
                 </Card>

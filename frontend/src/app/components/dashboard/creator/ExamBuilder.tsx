@@ -52,7 +52,7 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
     }
   };
 
-  const handleSaveDraft = async () => {
+  const handleSaveDraft = async (exitAfterSave = false) => {
     setSaving(true);
     try {
       // 1. Update general info
@@ -70,6 +70,9 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
       }, { withCredentials: true });
 
       toast.success("Đã lưu nháp thành công");
+      if (exitAfterSave) {
+        onBack();
+      }
     } catch (err) {
       toast.error("Lỗi khi lưu bài kiểm tra");
     } finally {
@@ -176,8 +179,11 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
         </Button>
 
         <div className="mt-auto pt-6 border-t flex flex-col gap-2">
-           <Button onClick={handleSaveDraft} disabled={saving} variant="secondary">
+           <Button onClick={() => handleSaveDraft(false)} disabled={saving} variant="secondary">
               <Save className="h-4 w-4 mr-2" /> Lưu nháp
+           </Button>
+           <Button onClick={() => handleSaveDraft(true)} disabled={saving} variant="outline" className="border-indigo-400/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Lưu & Trở về
            </Button>
            <Button onClick={handlePublish} disabled={saving} className={exam.status === 'Published' ? "bg-green-600 hover:bg-green-700 text-white" : ""}>
               {exam.status === 'Published' ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
