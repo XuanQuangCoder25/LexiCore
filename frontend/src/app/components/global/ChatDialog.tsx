@@ -149,7 +149,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
   // Lắng nghe realtime sự kiện cho cuộc trò chuyện hiện tại
   useEffect(() => {
     if (!open || !activeConversationId) return;
-    const socket = getChatSocket();
+    const socket = getChatSocket(currentUserId || undefined);
 
     const handleReceiveMessage = (payload: { message: MessageItem }) => {
       const msg = payload?.message;
@@ -278,7 +278,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
     setInputValue(val);
 
     if (!activeConversationId) return;
-    const socket = getChatSocket();
+    const socket = getChatSocket(currentUserId || undefined);
     const now = Date.now();
 
     if (now - lastTypingEmitRef.current > 500) {
@@ -302,7 +302,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
     setInputValue("");
 
     // Dừng typing indicator
-    const socket = getChatSocket();
+    const socket = getChatSocket(currentUserId || undefined);
     socket.emit("typing", { conversationId: activeConversationId, isTyping: false });
 
     const tempClientId = `client-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

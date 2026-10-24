@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { authService } from "../../services/auth-service";
+import { disconnectChatSocket } from "../social/chat-socket";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export function LoginPage() {
     setIsLoading(true);
     try {
       await authService.login({ email, password });
+      disconnectChatSocket();
       navigate("/");
     } catch (err: any) {
       if (err.status === 403) {

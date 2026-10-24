@@ -1,14 +1,21 @@
 import { io, Socket } from 'socket.io-client';
 
 let socketInstance: Socket | null = null;
+let boundUserId: string | null = null;
 
 /**
  * Lấy hoặc khởi tạo instance Socket.io kết nối đến namespace /chat.
  * Sử dụng withCredentials để tự động đính kèm cookie httpOnly (accessToken/token).
+ * Tự động ngắt và tái tạo kết nối nếu userId thay đổi (chuyển đổi tài khoản).
  */
-export function getChatSocket(): Socket {
+export function getChatSocket(userId?: string): Socket {
+  if (userId && boundUserId && boundUserId !== userId && socketInstance) {
+    socketInstance.disconnect();
+    socketInstance = null;
+  }
+
   if (!socketInstance) {
-    // Nếu có biến môi trường VITE_API_URL thì dùng URL đó, ngược lại dùng relative path qua Vite proxy
+    if (userId) boundUserId = userId;
     const apiUrl = import.meta.env.VITE_API_URL;
     const socketUrl = apiUrl ? `${apiUrl.replace(/\/+$/, '')}/chat` : '/chat';
 
@@ -35,11 +42,12 @@ export function getChatSocket(): Socket {
 }
 
 /**
- * Ngắt kết nối socket (dùng khi đăng xuất).
+ * Ngắt kết nối socket (dùng khi đăng xuất hoặc đổi tài khoản).
  */
 export function disconnectChatSocket(): void {
   if (socketInstance) {
     socketInstance.disconnect();
     socketInstance = null;
+    boundUserId = null;
   }
 }

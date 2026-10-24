@@ -19,7 +19,7 @@ import {
   MessageItem,
   SocialUserBrief,
 } from "../../services/social-service";
-import { getChatSocket } from "./chat-socket";
+import { getChatSocket, disconnectChatSocket } from "./chat-socket";
 
 const SUMMARY_POLL_MS = 30_000;
 
@@ -177,8 +177,11 @@ export function SocialProvider({ children }: { children: ReactNode }) {
 
   // WebSocket /chat integration (chỉ kết nối khi đã xác thực user)
   useEffect(() => {
-    if (!currentUserId) return;
-    const socket = getChatSocket();
+    if (!currentUserId) {
+      disconnectChatSocket();
+      return;
+    }
+    const socket = getChatSocket(currentUserId);
     if (!socket.connected) {
       socket.connect();
     }

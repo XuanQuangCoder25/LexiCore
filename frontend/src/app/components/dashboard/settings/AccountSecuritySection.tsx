@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 import { SettingsState } from "./settingsMock";
 import { authService } from "../../../services/auth-service";
+import { disconnectChatSocket } from "../../../features/social/chat-socket";
 
 interface AccountSecuritySectionProps {
   settings: SettingsState;
@@ -99,6 +100,7 @@ export function AccountSecuritySection({ settings }: AccountSecuritySectionProps
   const handleLogout = async () => {
     setIsProcessingAuthAction(true);
     try {
+      disconnectChatSocket();
       await authService.logout();
     } catch (error) {
       console.warn("Logout API warning:", error);
@@ -116,6 +118,7 @@ export function AccountSecuritySection({ settings }: AccountSecuritySectionProps
   const handleSwitchAccount = async () => {
     setIsProcessingAuthAction(true);
     try {
+      disconnectChatSocket();
       await authService.logout();
     } catch (error) {
       console.warn("Switch account logout API warning:", error);
