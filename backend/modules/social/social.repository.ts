@@ -48,11 +48,11 @@ export const socialRepository = {
                     OR (f.requester_id = u.id AND f.receiver_id = ?)
              WHERE u.id <> ?
                AND u.status = 'ACTIVE'
-               AND (u.full_name LIKE ? OR u.email = ?)
-               AND NOT (f.status = 'blocked' AND f.requester_id = u.id)
+               AND (u.full_name LIKE ? OR u.email LIKE ?)
+               AND (f.status IS NULL OR NOT (f.status = 'blocked' AND f.requester_id = u.id))
              ORDER BY u.full_name ASC
              LIMIT ?`,
-            [me, me, me, likePattern, keyword, String(limit)]
+            [me, me, me, likePattern, likePattern, String(limit)]
         );
         return rows as any[];
     },
