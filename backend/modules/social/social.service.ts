@@ -369,7 +369,7 @@ export const socialService = {
     },
 
     // Dùng chung cho REST và WebSocket (Phase 3)
-    async sendMessage(me: string, conversationId: string, rawContent: unknown) {
+    async sendMessage(me: string, conversationId: string, rawContent: unknown, clientId?: string) {
         if (typeof rawContent !== 'string') throw new AppError('Nội dung tin nhắn không hợp lệ.', 400);
         const content = rawContent.trim();
         if (content.length === 0) throw new AppError('Tin nhắn không được để trống.', 400);
@@ -390,11 +390,15 @@ export const socialService = {
                 content: message.content,
                 is_read: message.is_read,
                 created_at: message.created_at as Date,
+                clientId: clientId || undefined,
             },
             recipientId: otherUserId,
         };
         socialEvents.emit(SOCIAL_EVENTS.MESSAGE_CREATED, payload);
-        return message;
+        return {
+            ...message,
+            clientId: clientId || undefined,
+        };
     },
 
     async markConversationRead(me: string, conversationId: string) {

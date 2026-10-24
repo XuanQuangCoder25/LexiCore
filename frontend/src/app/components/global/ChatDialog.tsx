@@ -156,10 +156,27 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
       if (!msg || msg.conversation_id !== activeConversationId) return;
 
       setMessages((prev) => {
-        // Tránh trùng tin nhắn
-        if (prev.some((m) => m.id === msg.id || (m.clientId && m.clientId === msg.clientId))) {
-          return prev.map((m) => (m.clientId && m.clientId === msg.clientId ? msg : m));
+        // 1. Tránh trùng nếu đã có tin nhắn với ID thật này
+        if (prev.some((m) => m.id === msg.id)) {
+          return prev;
         }
+
+        // 2. Thay thế tin nhắn lạc quan (optimistic) của chính mình
+        const optIndex = prev.findIndex(
+          (m) =>
+            (msg.clientId && m.clientId === msg.clientId) ||
+            (m.sender_id === msg.sender_id &&
+              typeof m.id === "string" &&
+              m.id.startsWith("client-") &&
+              m.content === msg.content)
+        );
+
+        if (optIndex !== -1) {
+          const next = [...prev];
+          next[optIndex] = msg;
+          return next;
+        }
+
         return [...prev, msg];
       });
 
@@ -317,9 +334,14 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
           },
           (ack: any) => {
             if (ack?.ok && ack.message) {
-              setMessages((prev) =>
-                prev.map((m) => (m.clientId === tempClientId ? ack.message : m))
-              );
+              setMessages((prev) => {
+                // Nếu tin nhắn thật đã được thêm vào qua receive_message, chỉ cần lọc bỏ bản tạm
+                const realExists = prev.some((m) => m.id === ack.message.id);
+                if (realExists) {
+                  return prev.filter((m) => m.clientId !== tempClientId);
+                }
+                return prev.map((m) => (m.clientId === tempClientId ? ack.message : m));
+              });
               refreshConversations();
             } else {
               toast.error(ack?.error || "Không thể gửi tin nhắn.");
@@ -331,9 +353,13 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
       } else {
         // Fallback REST API nếu socket bị mất kết nối
         const realMsg = await socialService.sendMessage(activeConversationId, content);
-        setMessages((prev) =>
-          prev.map((m) => (m.clientId === tempClientId ? realMsg : m))
-        );
+        setMessages((prev) => {
+          const realExists = prev.some((m) => m.id === realMsg.id);
+          if (realExists) {
+            return prev.filter((m) => m.clientId !== tempClientId);
+          }
+          return prev.map((m) => (m.clientId === tempClientId ? realMsg : m));
+        });
         refreshConversations();
         setIsSending(false);
       }
@@ -367,7 +393,10 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl h-[680px] p-0 flex flex-col overflow-hidden sm:rounded-2xl border-border bg-card shadow-2xl">
+      <DialogContent
+        hideClose
+        className="w-[96vw] sm:w-[92vw] sm:max-w-4xl md:max-w-5xl h-[86vh] max-h-[740px] p-0 flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xl"
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>Tin nhắn trực tiếp</DialogTitle>
           <DialogDescription>Trò chuyện realtime và trao đổi học tập với bạn bè</DialogDescription>
@@ -376,7 +405,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
         <div className="flex flex-1 h-full min-h-0 overflow-hidden">
           {/* ======================= CỘT TRÁI: DANH SÁCH CUỘC TRÒ CHUYỆN ======================= */}
           <div
-            className={`w-full sm:w-80 md:w-84 border-r border-border flex flex-col shrink-0 bg-background/50 ${
+            className={`w-full sm:w-72 md:w-80 border-r border-border flex flex-col shrink-0 bg-background/50 ${
               !showMobileList ? "hidden sm:flex" : "flex"
             }`}
           >
@@ -540,20 +569,20 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
             {activeConversationId && activeFriend ? (
               <>
                 {/* Header cuộc trò chuyện */}
-                <div className="p-3.5 border-b border-border flex items-center justify-between bg-card/80 backdrop-blur-xs shrink-0">
+                <div className="h-16 px-4 border-b border-border flex items-center justify-between gap-3 shrink-0 bg-card/80 backdrop-blur-xs">
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Nút quay lại danh sách trên mobile */}
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 sm:hidden shrink-0"
+                      className="h-8 w-8 sm:hidden shrink-0 -ml-1 text-muted-foreground"
                       onClick={() => setShowMobileList(true)}
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
 
                     <div className="relative shrink-0">
-                      <Avatar className="h-10 w-10">
+                      <Avatar className="h-10 w-10 border border-border/60">
                         <AvatarImage src={activeFriend.avatar_url || ""} />
                         <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
                           {getInitials(activeFriend.full_name)}
@@ -565,32 +594,34 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
                     </div>
 
                     <div className="min-w-0">
-                      <h4 className="font-semibold text-sm truncate flex items-center gap-1.5">
-                        {activeFriend.full_name}
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-sm truncate text-foreground">
+                          {activeFriend.full_name}
+                        </h4>
                         {activeFriend.level && (
-                          <Badge variant="outline" className="text-[10px] h-4 px-1 font-medium">
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10">
                             Lv.{activeFriend.level}
                           </Badge>
                         )}
-                      </h4>
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
                         {isFriendOnline ? (
                           <>
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-emerald-600 font-medium">Đang hoạt động</span>
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Đang hoạt động</span>
                           </>
                         ) : (
                           <>
-                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
-                            <span>Ngoại tuyến</span>
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                            <span className="text-[11px] text-muted-foreground">Ngoại tuyến</span>
                           </>
                         )}
-                      </p>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Nút hành động nhanh: Thách đấu PvP Arena */}
-                  <div className="flex items-center gap-1">
+                  {/* Nút hành động nhanh: Thách đấu PvP Arena & Đóng */}
+                  <div className="flex items-center gap-2 shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
@@ -598,16 +629,17 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
                         onClose();
                         onChallenge();
                       }}
-                      className="h-8 text-xs font-semibold border-rose-500/40 text-rose-600 hover:bg-rose-500/10 hover:text-rose-600"
+                      className="h-8.5 px-3 text-xs font-semibold border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:text-rose-600 shadow-2xs whitespace-nowrap"
                     >
-                      <Swords className="h-3.5 w-3.5 mr-1" />
+                      <Swords className="h-3.5 w-3.5 mr-1.5 text-rose-500" />
                       Thách đấu
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      className="h-8.5 w-8.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
                       onClick={onClose}
+                      title="Đóng hộp thoại"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -684,10 +716,10 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
                             }`}
                           >
                             <div
-                              className={`max-w-[78%] sm:max-w-[70%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed shadow-xs break-words ${
+                              className={`max-w-[78%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl text-[13.5px] leading-relaxed shadow-xs break-words ${
                                 isMe
-                                  ? "bg-primary text-primary-foreground rounded-br-xs"
-                                  : "bg-muted text-foreground rounded-bl-xs"
+                                  ? "bg-indigo-600 text-white rounded-br-xs font-normal"
+                                  : "bg-muted/80 text-foreground border border-border/40 rounded-bl-xs"
                               }`}
                             >
                               {msg.content}
@@ -747,7 +779,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
                 {/* Form nhập và gửi tin nhắn */}
                 <form
                   onSubmit={handleSendMessage}
-                  className="p-3 border-t border-border bg-card/60 flex items-center gap-2 shrink-0"
+                  className="p-3 sm:p-4 border-t border-border bg-card/80 backdrop-blur-sm flex items-center gap-2.5 shrink-0"
                 >
                   <div className="relative flex-1">
                     <Input
@@ -757,7 +789,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
                       maxLength={2000}
                       autoFocus
                       disabled={isSending}
-                      className="pr-12 text-sm h-10 rounded-xl bg-background border-border/80"
+                      className="pr-14 text-sm h-11 rounded-xl bg-background border-border/80 focus-visible:ring-2 focus-visible:ring-indigo-500 shadow-2xs"
                     />
                     {inputValue.length > 1800 && (
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-mono">
@@ -770,7 +802,7 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
                     type="submit"
                     size="icon"
                     disabled={!inputValue.trim() || isSending}
-                    className="h-10 w-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
+                    className="h-11 w-11 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-transform shrink-0 shadow-xs"
                   >
                     {isSending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

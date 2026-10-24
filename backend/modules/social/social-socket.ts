@@ -270,12 +270,13 @@ export function initSocialSocket(io: SocketIOServer): void {
                     throw new AppError('Bạn gửi tin nhắn quá nhanh, vui lòng thử lại sau giây lát.', 429);
                 }
                 const conversationId = typeof payload?.conversationId === 'string' ? payload.conversationId : '';
-                const message = await socialService.sendMessage(userId, conversationId, payload?.content);
+                const clientId = typeof payload?.clientId === 'string' ? payload.clientId : undefined;
+                const message = await socialService.sendMessage(userId, conversationId, payload?.content, clientId);
                 // receive_message được phát từ event bus tới người nhận và các tab của người gửi
                 ack({
                     ok: true,
                     message,
-                    client_id: typeof payload?.clientId === 'string' ? payload.clientId : null,
+                    client_id: clientId ?? null,
                 });
             } catch (error) {
                 ack({ ...failure(error), client_id: typeof payload?.clientId === 'string' ? payload.clientId : null });
