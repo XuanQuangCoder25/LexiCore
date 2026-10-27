@@ -6,6 +6,10 @@
   "scripts": {
     "test": "tsc --noEmit",
     "test:social": "tsx tests/social_integration.test.ts",
+    "test:community": "tsx tests/community_integration.test.ts",
+    "test:community:cross": "tsx tests/community_cross_module.test.ts",
+    "test:community:socket": "tsx tests/community_socket.test.ts",
+    "test:community:all": "tsx tests/community_integration.test.ts && tsx tests/community_cross_module.test.ts && tsx tests/community_socket.test.ts",
     "test:socket": "tsx tests/social_socket.test.ts",
     "test:all": "tsx tests/social_integration.test.ts && tsx tests/social_socket.test.ts",
     "postinstall": "prisma skills sync || exit 0",

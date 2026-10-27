@@ -24,6 +24,7 @@ import {
   FolderHeart,
   RefreshCw,
   FolderLock,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { creatorService } from "../../services/creator-service";
@@ -31,6 +32,7 @@ import { FlashcardStudySession } from "./FlashcardStudySession";
 import { LearningWorkspace } from "./LearningWorkspace";
 import { ExamTakingView } from "./ExamView";
 import { ExamBuilder } from "./creator/ExamBuilder";
+import { ShareDeckModal } from "../../features/community/ShareDeckModal";
 
 interface PrivateSpaceViewProps {
   onNavigateTab?: (tab: string) => void;
@@ -67,6 +69,13 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
   const [takingExamId, setTakingExamId] = useState<string | null>(null);
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("flashcards");
+  const [sharingDeck, setSharingDeck] = useState<{
+    id: string;
+    title: string;
+    cardCount: number;
+    thumbnail?: string;
+    level?: string;
+  } | null>(null);
 
   const fetchPrivateContent = async () => {
     setLoading(true);
@@ -408,6 +417,23 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
                     <Button
                       variant="outline"
                       size="icon"
+                      className="text-pink-600 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/30"
+                      title="Chia sẻ lên Cộng đồng"
+                      onClick={() =>
+                        setSharingDeck({
+                          id: (deck._id || deck.id)?.toString(),
+                          title: deck.title,
+                          cardCount: deck.cardCount || 0,
+                          thumbnail: deck.thumbnail,
+                          level: deck.level,
+                        })
+                      }
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
                       title="Chỉnh sửa trong Creator Studio"
                       onClick={() => onNavigateTab?.("creator")}
                     >
@@ -627,6 +653,13 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Modal chia sẻ bộ thẻ lên Community */}
+      <ShareDeckModal
+        open={Boolean(sharingDeck)}
+        onClose={() => setSharingDeck(null)}
+        deck={sharingDeck}
+      />
     </div>
   );
 }

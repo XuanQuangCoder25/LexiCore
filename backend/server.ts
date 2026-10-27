@@ -24,6 +24,7 @@ import arenaRoute from './modules/arena/arena-word.route';
 import notificationRoute from './modules/notification/notification-route';
 import { initNotificationCron } from './modules/notification/notification-cron';
 import socialRoute from './modules/social/social.route';
+import communityRoute from './modules/community/community.route';
 import { initSocialSocket } from './modules/social/social-socket';
 import { initArenaSocket } from './modules/arena/arena-socket';
 import { createServer } from 'http';
@@ -86,6 +87,9 @@ const startServer = async () => {
 
         // --- Friends & Direct Messaging Routes ---
         app.use('/api/social', socialRoute);
+
+        // --- Community Routes ---
+        app.use('/api/community', communityRoute);
 
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);

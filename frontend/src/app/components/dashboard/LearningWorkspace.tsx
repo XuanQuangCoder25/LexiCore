@@ -338,6 +338,7 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
     <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-background">
       {courseCompletionStats && (
         <CourseCompletion
+          courseId={data.course._id}
           courseTitle={data.course.title}
           stats={courseCompletionStats}
           onClose={() => setCourseCompletionStats(null)}

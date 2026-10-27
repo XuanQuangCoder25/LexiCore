@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
-import { BookOpen, CalendarCheck, Clock, Layers, Trophy } from "lucide-react";
+import { BookOpen, CalendarCheck, Clock, Layers, Trophy, Sparkles, Loader2, Share2 } from "lucide-react";
 import { Confetti } from "./Confetti";
+import confetti from "canvas-confetti";
+import { toast } from "sonner";
+import { communityService, getCommunityErrorMessage } from "../../services/community-service";
 
 export interface CourseCompletionStats {
   totalChapters: number;
@@ -14,6 +17,7 @@ export interface CourseCompletionStats {
 }
 
 interface CourseCompletionProps {
+  courseId?: string;
   courseTitle: string;
   stats: CourseCompletionStats;
   onClose: () => void; // Ở lại xem lại khóa học
@@ -45,10 +49,37 @@ const useCountUp = (target: number, duration = 1200) => {
   return value;
 };
 
-export const CourseCompletion = ({ courseTitle, stats, onClose, onExit }: CourseCompletionProps) => {
+export const CourseCompletion = ({ courseId, courseTitle, stats, onClose, onExit }: CourseCompletionProps) => {
   const percent = useCountUp(stats.progressPercentage);
   const lessons = useCountUp(stats.completedLessons);
   const [ringFilled, setRingFilled] = useState(false);
+  const [sharingMilestone, setSharingMilestone] = useState(false);
+  const [hasShared, setHasShared] = useState(false);
+
+  const handleShareToCommunity = async () => {
+    if (!courseId) {
+      toast.info("Đã ghi nhận thành tích khóa học của bạn!");
+      return;
+    }
+    try {
+      setSharingMilestone(true);
+      await communityService.shareCourseMilestone({
+        courseId,
+        caption: `🎉 Mình vừa hoàn thành 100% khóa học "${courseTitle}"! Thật tự hào và hào hứng!`,
+      });
+      setHasShared(true);
+      toast.success("Đã đăng thành tích của bạn lên Community Hub!");
+      confetti({
+        particleCount: 100,
+        spread: 80,
+        origin: { y: 0.6 },
+      });
+    } catch (error) {
+      toast.error(getCommunityErrorMessage(error, "Không thể chia sẻ lên Community lúc này."));
+    } finally {
+      setSharingMilestone(false);
+    }
+  };
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setRingFilled(true));
@@ -145,7 +176,23 @@ export const CourseCompletion = ({ courseTitle, stats, onClose, onExit }: Course
               ))}
             </div>
 
-            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={handleShareToCommunity}
+                disabled={hasShared || sharingMilestone}
+                className="bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold gap-2 shadow-sm"
+              >
+                {sharingMilestone ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                )}
+                <span>
+                  {hasShared ? "Đã khoe lên Community ✓" : "Khoe lên Community (+Exp & Xu)"}
+                </span>
+              </Button>
               <Button variant="outline" size="lg" onClick={onClose}>
                 Xem lại khóa học
               </Button>
