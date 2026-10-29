@@ -19,11 +19,11 @@ export function Footer() {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-                <span className="text-white font-bold">EL</span>
+            <div className="flex items-center space-x-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#151515] text-white">
+                <span className="font-bold text-xs tracking-wider">LC</span>
               </div>
-              <span className="text-xl font-bold">EnglishLearn</span>
+              <span className="text-xl font-bold tracking-tight">LexiCore</span>
             </div>
             <p className="text-gray-400 leading-relaxed">
               Empowering millions of learners worldwide to master English through interactive, 

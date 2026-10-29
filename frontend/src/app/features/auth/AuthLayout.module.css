@@ -1,0 +1,263 @@
+.authRoot {
+  min-height: 100vh;
+  display: flex;
+  width: 100%;
+  font-family: var(--font-family, 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  background: #FFFFFF;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Glass Pill Back Button */
+.backHomeBtn {
+  position: fixed;
+  top: 24px;
+  left: 28px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.backHomeBtn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateX(-3px);
+  color: #FFFFFF;
+}
+
+.backIcon {
+  width: 15px;
+  height: 15px;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.backHomeBtn:hover .backIcon {
+  transform: translateX(-2px);
+}
+
+/* ===== LEFT COLUMN: 3D VISUAL SHOWCASE ===== */
+.showcaseCol {
+  flex: 1 1 54%;
+  max-width: 55%;
+  min-height: 100vh;
+  background: #151515;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 40px 52px;
+  color: #FFFFFF;
+  user-select: none;
+}
+
+/* Aurora background gradient */
+.auroraGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: 
+    radial-gradient(circle at 50% 48%, rgba(153, 182, 210, 0.18), transparent 60%),
+    radial-gradient(circle at 18% 85%, rgba(153, 182, 210, 0.09), transparent 45%),
+    radial-gradient(circle at 82% 15%, rgba(153, 182, 210, 0.06), transparent 40%);
+  z-index: 1;
+}
+
+/* Subtle background grid */
+.gridOverlay {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Giant Watermark */
+.watermark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 140%;
+  max-width: 900px;
+  height: auto;
+  opacity: 0.065;
+  pointer-events: none;
+  z-index: 1;
+  user-select: none;
+}
+
+/* Top brand identity in showcase */
+.showcaseBrand {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 120px; /* offset for back button */
+}
+
+.brandLogo {
+  height: 20px;
+  width: auto;
+}
+
+/* 3D Smart Card Interactive Stage */
+.cardStage {
+  position: relative;
+  z-index: 10;
+  perspective: 1200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 30px 10px;
+  margin: auto 0;
+}
+
+.cardTiltBox {
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  transform-style: preserve-3d;
+  will-change: transform;
+  cursor: grab;
+}
+
+.cardTiltBox:active {
+  cursor: grabbing;
+}
+
+.cardImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  border-radius: 18px;
+  filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 35px rgba(153, 182, 210, 0.2));
+  transform: translateZ(20px);
+  transition: filter 0.3s ease;
+}
+
+/* Dynamic glare over card */
+.cardGlare {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  pointer-events: none;
+  z-index: 5;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.22) 0%, transparent 65%);
+  mix-blend-mode: overlay;
+  opacity: 0.7;
+}
+
+/* Bottom Showcase Info */
+.showcaseBottom {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.showcaseBadge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  background: rgba(153, 182, 210, 0.1);
+  border: 1px solid rgba(153, 182, 210, 0.25);
+  color: #99B6D2;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #99B6D2;
+  box-shadow: 0 0 8px #99B6D2;
+}
+
+.showcaseQuote {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0;
+  max-width: 460px;
+  font-weight: 400;
+}
+
+.showcaseQuote strong {
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+/* ===== RIGHT COLUMN: AUTH FORM CONTAINER ===== */
+.formCol {
+  flex: 1 1 46%;
+  min-height: 100vh;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 56px 36px;
+  position: relative;
+  z-index: 20;
+}
+
+.formInner {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+@media (max-width: 1024px) {
+  .showcaseCol {
+    display: none;
+  }
+
+  .formCol {
+    flex: 1 1 100%;
+    padding: 84px 24px 40px 24px;
+  }
+
+  /* Adapt back button to light background on mobile */
+  .backHomeBtn {
+    top: 20px;
+    left: 20px;
+    background: rgba(21, 21, 21, 0.05);
+    border: 1px solid rgba(21, 21, 21, 0.12);
+    color: #151515;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .backHomeBtn:hover {
+    background: rgba(21, 21, 21, 0.09);
+    border-color: rgba(21, 21, 21, 0.2);
+    color: #151515;
+  }
+}

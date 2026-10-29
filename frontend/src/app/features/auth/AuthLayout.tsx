@@ -1,61 +1,119 @@
-import { Outlet } from "react-router-dom";
-import { Brain } from "lucide-react";
+import React, { useState, useRef, useCallback } from "react";
+import { Outlet, Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import styles from "./AuthLayout.module.css";
 
 export function AuthLayout() {
+  const [tilt, setTilt] = useState({ rx: 0, ry: 0, gx: 50, gy: 50 });
+  const [isHovering, setIsHovering] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const rafId = useRef<number | null>(null);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!stageRef.current) return;
+    const rect = stageRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const px = (x / rect.width) * 2 - 1; // -1 to 1
+    const py = (y / rect.height) * 2 - 1; // -1 to 1
+
+    const rx = -py * 14; // degrees
+    const ry = px * 16;  // degrees
+    const gx = (x / rect.width) * 100;
+    const gy = (y / rect.height) * 100;
+
+    if (rafId.current) cancelAnimationFrame(rafId.current);
+    rafId.current = requestAnimationFrame(() => {
+      setTilt({ rx, ry, gx, gy });
+      setIsHovering(true);
+    });
+  }, []);
+
+  const handlePointerLeave = useCallback(() => {
+    if (rafId.current) cancelAnimationFrame(rafId.current);
+    rafId.current = requestAnimationFrame(() => {
+      setTilt({ rx: 0, ry: 0, gx: 50, gy: 50 });
+      setIsHovering(false);
+    });
+  }, []);
+
   return (
-    <div className="min-h-screen flex" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className={styles.authRoot}>
+      {/* ===== GLOBAL GLASS PILL BACK BUTTON ===== */}
+      <Link to="/" className={styles.backHomeBtn} title="Quay về Trang chủ LexiCore">
+        <ArrowLeft className={styles.backIcon} />
+        <span>Trang chủ</span>
+      </Link>
 
-      {/* ===== LEFT PART: BRANDING ===== */}
+      {/* ===== LEFT COLUMN: 3D VISUAL SHOWCASE (DESKTOP ONLY) ===== */}
       <div
-        className="hidden md:flex flex-col w-1/2 p-12 text-white relative overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
-        }}
+        className={styles.showcaseCol}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
       >
-        {/* Decorative blur blobs */}
-        <div className="absolute top-[-100px] left-[-100px] w-80 h-80 rounded-full opacity-20 blur-3xl"
-          style={{ background: "radial-gradient(circle, #6366f1, transparent)" }} />
-        <div className="absolute bottom-[-80px] right-[-80px] w-72 h-72 rounded-full opacity-20 blur-3xl"
-          style={{ background: "radial-gradient(circle, #8b5cf6, transparent)" }} />
+        {/* Ambient Aurora Glow & Grid */}
+        <div className={styles.auroraGlow} aria-hidden="true" />
+        <div className={styles.gridOverlay} aria-hidden="true" />
 
-        {/* Logo */}
-        <div className="flex items-center gap-2 z-10">
-          <Brain className="h-8 w-8 text-indigo-400" />
-          <span className="text-2xl font-bold">
-            Lexi<span className="text-indigo-400">Core</span>
-          </span>
+        {/* Giant Background Wordmark */}
+        <img
+          src="/wordmark.svg"
+          alt=""
+          className={styles.watermark}
+          aria-hidden="true"
+        />
+
+        {/* Top Branding */}
+        <div className={styles.showcaseBrand}>
+          <img src="/logo.svg" alt="LexiCore" className={styles.brandLogo} />
         </div>
 
-        {/* Hero Text */}
-        <div className="flex-1 flex flex-col justify-center z-10 max-w-lg">
-          <div className="space-y-5 text-left">
-            <h1 className="text-5xl font-extrabold leading-tight tracking-tight">
-              Học tiếng Anh <br />
-              <span className="text-indigo-400">thông minh hơn</span> mỗi ngày.
-            </h1>
-            <p className="text-slate-300 text-lg leading-relaxed">
-              Nắm vững từ vựng với phương pháp Spaced Repetition khoa học.
-              Hàng nghìn người học đang tiến bộ từng ngày cùng LexiCore.
-            </p>
+        {/* Center 3D Interactive Smart Card Stage */}
+        <div className={styles.cardStage} ref={stageRef}>
+          <div
+            className={styles.cardTiltBox}
+            style={{
+              transform: isHovering
+                ? `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) scale(1.03)`
+                : `rotateX(0deg) rotateY(0deg) scale(1)`,
+              transition: isHovering
+                ? "transform 0.12s cubic-bezier(0.2, 0, 0, 1)"
+                : "transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)",
+              ["--mouse-x" as any]: `${tilt.gx}%`,
+              ["--mouse-y" as any]: `${tilt.gy}%`,
+            }}
+          >
+            <img
+              src="/lexicore-card.svg"
+              alt="LexiCore 3D Smart Card"
+              className={styles.cardImg}
+              draggable={false}
+            />
+            <div className={styles.cardGlare} />
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="text-sm text-slate-500 z-10">
-          © {new Date().getFullYear()} LexiCore Inc. All rights reserved.
+        {/* Bottom Feature Badge & Motivational Quote */}
+        <div className={styles.showcaseBottom}>
+          <div className={styles.showcaseBadge}>
+            <span className={styles.badgeDot} />
+            <span>AI-Powered SRS &amp; Real-time PvP Arena</span>
+          </div>
+          <p className={styles.showcaseQuote}>
+            <strong>Khai phóng năng lực ngôn ngữ</strong> cùng thuật toán lặp lại ngắt quãng thông minh và đấu trường từ vựng thời gian thực.
+          </p>
         </div>
       </div>
 
-      {/* ===== RIGHT PART: FORM ===== */}
-      <div
-        className="flex flex-1 items-center justify-center p-8"
-        style={{ background: "#111827" }}
-      >
-        <div className="w-full max-w-md">
+      {/* ===== RIGHT COLUMN: AUTH FORM CONTAINER ===== */}
+      <div className={styles.formCol}>
+        <div className={styles.formInner}>
           <Outlet />
         </div>
       </div>
-
     </div>
   );
 }
+
+export default AuthLayout;
