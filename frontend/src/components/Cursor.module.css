@@ -1,0 +1,21 @@
+.cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: calc(32 * var(--u));
+  height: calc(32 * var(--u));
+  border-radius: 50%;
+  border: 1px solid var(--cursor-edge);
+  background: var(--cursor-fill);
+  backdrop-filter: blur(4px) brightness(0.82);
+  -webkit-backdrop-filter: blur(4px) brightness(0.82);
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0;
+  transition: opacity 200ms linear;
+  will-change: transform, opacity;
+}
+
+.visible {
+  opacity: 1;
+}

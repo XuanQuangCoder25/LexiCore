@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 192" width="1400" height="192" fill="none">
+  <style>
+    .wordmark {
+      font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-weight: 800;
+      font-size: 138px;
+      letter-spacing: 0.22em;
+      fill: #99B6D2;
+      text-transform: uppercase;
+      dominant-baseline: central;
+    }
+  </style>
+  <text x="50%" y="54%" text-anchor="middle" class="wordmark">LEXICORE</text>
+</svg>

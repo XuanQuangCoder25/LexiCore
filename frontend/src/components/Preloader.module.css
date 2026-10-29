@@ -1,0 +1,42 @@
+.preloader {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wordmark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(1351 * var(--u));
+  height: auto;
+  opacity: 0.15;
+  user-select: none;
+}
+
+.counter {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-family);
+  font-size: var(--counter-size);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+  user-select: none;
+}
+
+@media (max-width: 1023px) {
+  .wordmark {
+    width: calc(100vw - 40px);
+  }
+}

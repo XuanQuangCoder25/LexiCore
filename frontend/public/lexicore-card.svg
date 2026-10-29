@@ -1,0 +1,251 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 810" width="1440" height="810" fill="none">
+  <defs>
+    <!-- Card Gradients -->
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1B2636"/>
+      <stop offset="45%" stop-color="#111823"/>
+      <stop offset="100%" stop-color="#0A0E15"/>
+    </linearGradient>
+
+    <linearGradient id="glassSheen" x1="0%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.14"/>
+      <stop offset="25%" stop-color="#99B6D2" stop-opacity="0.08"/>
+      <stop offset="60%" stop-color="#FFFFFF" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#99B6D2" stop-opacity="0.06"/>
+    </linearGradient>
+
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.6"/>
+      <stop offset="35%" stop-color="#99B6D2" stop-opacity="0.4"/>
+      <stop offset="70%" stop-color="#3A506B" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.3"/>
+    </linearGradient>
+
+    <linearGradient id="curveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5588B8"/>
+      <stop offset="30%" stop-color="#76A9D9"/>
+      <stop offset="70%" stop-color="#99B6D2"/>
+      <stop offset="100%" stop-color="#E2EEF9"/>
+    </linearGradient>
+
+    <linearGradient id="curveArea" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#99B6D2" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#99B6D2" stop-opacity="0.0"/>
+    </linearGradient>
+
+    <linearGradient id="flameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9E44"/>
+      <stop offset="100%" stop-color="#FF5252"/>
+    </linearGradient>
+
+    <linearGradient id="chipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D6E6F5"/>
+      <stop offset="100%" stop-color="#89A8C5"/>
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="135%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="28" stdDeviation="40" flood-color="#000000" flood-opacity="0.65"/>
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#4A759E" flood-opacity="0.25"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#99B6D2" flood-opacity="0.2"/>
+    </filter>
+
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Ambient Backdrop Glow behind the card -->
+  <ellipse cx="720" cy="405" rx="460" ry="270" fill="#99B6D2" fill-opacity="0.09" filter="url(#neonGlow)"/>
+  <ellipse cx="880" cy="330" rx="280" ry="160" fill="#5A82A6" fill-opacity="0.14" filter="url(#neonGlow)"/>
+
+  <!-- Main Card Container (Centered in 1440x810, 880w x 530h) -->
+  <g transform="translate(280, 140)">
+    <!-- Card Ambient & Specular Shadow Base -->
+    <rect x="0" y="0" width="880" height="530" rx="28" fill="url(#cardBg)" filter="url(#cardShadow)"/>
+    
+    <!-- Glass Sheen Layer -->
+    <rect x="0" y="0" width="880" height="530" rx="28" fill="url(#glassSheen)"/>
+
+    <!-- Subtle Tech Circuit Grid Texture in Background -->
+    <g opacity="0.08" stroke="#FFFFFF" stroke-width="1">
+      <line x1="40" y1="90" x2="840" y2="90"/>
+      <line x1="40" y1="440" x2="840" y2="440"/>
+      <line x1="560" y1="90" x2="560" y2="440"/>
+      <circle cx="560" cy="90" r="3" fill="#FFFFFF"/>
+      <circle cx="560" cy="440" r="3" fill="#FFFFFF"/>
+      <circle cx="40" cy="265" r="2" fill="#FFFFFF"/>
+      <circle cx="840" cy="265" r="2" fill="#FFFFFF"/>
+    </g>
+
+    <!-- Diagonal Glass Glare Reflection -->
+    <path d="M120 0 L340 0 L180 530 L0 530 Z" fill="#FFFFFF" fill-opacity="0.025"/>
+    <path d="M370 0 L420 0 L240 530 L190 530 Z" fill="#FFFFFF" fill-opacity="0.015"/>
+
+    <!-- TOP HEADER ROW -->
+    <g transform="translate(42, 34)">
+      <!-- Mini Brand Mark & Chip -->
+      <g transform="translate(0, 2)">
+        <rect x="0" y="0" width="28" height="28" rx="6" fill="rgba(153, 182, 210, 0.2)" stroke="#99B6D2" stroke-width="1.2"/>
+        <path d="M8 14H20M14 8V20" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="14" cy="14" r="2.5" fill="#FFFFFF"/>
+      </g>
+      
+      <!-- Deck Badge -->
+      <g transform="translate(38, 2)">
+        <rect x="0" y="0" width="220" height="28" rx="14" fill="rgba(255, 255, 255, 0.07)" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1"/>
+        <circle cx="14" cy="14" r="3.5" fill="#4ADE80" filter="url(#neonGlow)"/>
+        <text x="26" y="18.5" font-family="'Geist', system-ui, sans-serif" font-weight="600" font-size="11" letter-spacing="0.12em" fill="#E2EEF9">LEXICORE · SMART SRS DECK</text>
+      </g>
+
+      <!-- Right Pass Badge -->
+      <g transform="translate(564, 2)">
+        <rect x="0" y="0" width="232" height="28" rx="14" fill="rgba(153, 182, 210, 0.12)" stroke="rgba(153, 182, 210, 0.3)" stroke-width="1"/>
+        <text x="116" y="18.5" font-family="'Geist', system-ui, sans-serif" font-weight="600" font-size="11" letter-spacing="0.14em" fill="#99B6D2" text-anchor="middle">LEVEL C2 · SCHOLAR PASS</text>
+      </g>
+    </g>
+
+    <!-- CENTRAL CONTENT AREA (LEFT COLUMN: VOCABULARY HEADWORD & PHONETIC) -->
+    <g transform="translate(48, 118)">
+      <!-- Category Tag -->
+      <text x="0" y="0" font-family="'Geist', system-ui, sans-serif" font-weight="600" font-size="12" letter-spacing="0.16em" fill="#99B6D2">MASTERY LEVEL · TIER VI</text>
+      
+      <!-- Headword EPHEMERAL -->
+      <text x="0" y="58" font-family="'Geist', system-ui, -apple-system, sans-serif" font-weight="700" font-size="58" letter-spacing="-0.02em" fill="#FFFFFF">EPHEMERAL</text>
+      
+      <!-- Phonetic & grammatical class -->
+      <g transform="translate(0, 92)">
+        <text x="0" y="0" font-family="'Geist', monospace, system-ui" font-weight="400" font-size="20" fill="#99B6D2">/ɪˈfɛm.ər.əl/</text>
+        <rect x="135" y="-15" width="46" height="20" rx="10" fill="rgba(255, 255, 255, 0.1)"/>
+        <text x="158" y="-1" font-family="'Geist', system-ui" font-size="11" font-weight="500" fill="#E2EEF9" text-anchor="middle">adj.</text>
+      </g>
+
+      <!-- Short definition -->
+      <text x="0" y="132" font-family="'Geist', system-ui" font-weight="400" font-size="15" fill="#B0C4DE" letter-spacing="-0.01em">
+        Lasting for a very short time; fleeting or transient.
+      </text>
+      <text x="0" y="154" font-family="'Geist', system-ui" font-weight="400" font-size="13" fill="#758B9E">
+        "Fame in the digital era is intensely ephemeral."
+      </text>
+
+      <!-- AI Pronunciation Waveform Display -->
+      <g transform="translate(0, 190)">
+        <rect x="0" y="0" width="460" height="54" rx="12" fill="rgba(0, 0, 0, 0.25)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>
+        
+        <!-- Waveform Mic Icon -->
+        <g transform="translate(16, 17)">
+          <rect x="0" y="0" width="20" height="20" rx="10" fill="#99B6D2" fill-opacity="0.2"/>
+          <path d="M10 5V11M7 9C7 11 8.5 12.5 10 12.5C11.5 12.5 13 11 13 9M10 12.5V15" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round"/>
+        </g>
+
+        <!-- Waveform Bars -->
+        <g transform="translate(52, 27)" stroke="#99B6D2" stroke-linecap="round">
+          <line x1="0" y1="-4" x2="0" y2="4" stroke-width="2.5" stroke-opacity="0.4"/>
+          <line x1="8" y1="-8" x2="8" y2="8" stroke-width="2.5" stroke-opacity="0.6"/>
+          <line x1="16" y1="-14" x2="16" y2="14" stroke-width="2.5" stroke="#FFFFFF"/>
+          <line x1="24" y1="-7" x2="24" y2="7" stroke-width="2.5" stroke-opacity="0.8"/>
+          <line x1="32" y1="-18" x2="32" y2="18" stroke-width="2.5" stroke="#FFFFFF"/>
+          <line x1="40" y1="-10" x2="40" y2="10" stroke-width="2.5" stroke-opacity="0.7"/>
+          <line x1="48" y1="-16" x2="48" y2="16" stroke-width="2.5" stroke="#FFFFFF"/>
+          <line x1="56" y1="-5" x2="56" y2="5" stroke-width="2.5" stroke-opacity="0.5"/>
+          <line x1="64" y1="-12" x2="64" y2="12" stroke-width="2.5" stroke-opacity="0.8"/>
+          <line x1="72" y1="-4" x2="72" y2="4" stroke-width="2.5" stroke-opacity="0.4"/>
+        </g>
+
+        <text x="146" y="32" font-family="'Geist', system-ui" font-weight="500" font-size="12" fill="#E2EEF9">
+          AI Voice Match: <tspan fill="#4ADE80" font-weight="700">98.6%</tspan> (Native)
+        </text>
+
+        <!-- Speaker button -->
+        <g transform="translate(418, 16)">
+          <circle cx="11" cy="11" r="12" fill="rgba(255, 255, 255, 0.1)"/>
+          <path d="M8 9H10L13 6V16L10 13H8V9Z" fill="#FFFFFF"/>
+          <path d="M15 8C16 9.5 16 12.5 15 14" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/>
+        </g>
+      </g>
+    </g>
+
+    <!-- RIGHT COLUMN: SRS RETENTION GRAPH & METRICS -->
+    <g transform="translate(560, 116)">
+      <rect x="0" y="0" width="278" height="248" rx="18" fill="rgba(10, 16, 26, 0.5)" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1"/>
+      
+      <!-- Graph Header -->
+      <g transform="translate(18, 20)">
+        <text x="0" y="0" font-family="'Geist', system-ui" font-weight="600" font-size="11" letter-spacing="0.1em" fill="#99B6D2">SRS FORGETTING CURVE</text>
+        <text x="0" y="24" font-family="'Geist', system-ui" font-weight="700" font-size="22" fill="#FFFFFF">99.4%</text>
+        <text x="82" y="22" font-family="'Geist', system-ui" font-weight="500" font-size="11" fill="#4ADE80">RETENTION</text>
+      </g>
+
+      <!-- Graph Canvas -->
+      <g transform="translate(18, 76)">
+        <!-- Horizontal grid lines -->
+        <line x1="0" y1="20" x2="242" y2="20" stroke="rgba(255, 255, 255, 0.06)" stroke-dasharray="3 3"/>
+        <line x1="0" y1="60" x2="242" y2="60" stroke="rgba(255, 255, 255, 0.06)" stroke-dasharray="3 3"/>
+        <line x1="0" y1="100" x2="242" y2="100" stroke="rgba(255, 255, 255, 0.06)" stroke-dasharray="3 3"/>
+
+        <!-- Filled Gradient Area Under Retention Line -->
+        <path d="M 0 85 C 30 70, 50 25, 80 18 C 110 35, 140 12, 180 10 C 210 10, 230 8, 242 8 L 242 120 L 0 120 Z" fill="url(#curveArea)"/>
+
+        <!-- Retention Curve Line -->
+        <path d="M 0 85 C 30 70, 50 25, 80 18 C 110 35, 140 12, 180 10 C 210 10, 230 8, 242 8" stroke="url(#curveGrad)" stroke-width="2.8" stroke-linecap="round" fill="none" filter="url(#neonGlow)"/>
+
+        <!-- Spaced Review Target Dots -->
+        <circle cx="80" cy="18" r="4.5" fill="#111823" stroke="#99B6D2" stroke-width="2"/>
+        <circle cx="140" cy="12" r="4.5" fill="#111823" stroke="#99B6D2" stroke-width="2"/>
+        <circle cx="242" cy="8" r="5.5" fill="#E2EEF9" stroke="#99B6D2" stroke-width="2.5" filter="url(#neonGlow)"/>
+
+        <!-- X-axis labels (Review intervals) -->
+        <g transform="translate(0, 134)" font-family="'Geist', system-ui" font-size="9" fill="#758B9E">
+          <text x="0" y="0">1D</text>
+          <text x="44" y="0">3D</text>
+          <text x="96" y="0">7D</text>
+          <text x="156" y="0">30D</text>
+          <text x="220" y="0">128D</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- BOTTOM ROW BADGES & STATUS BAR -->
+    <g transform="translate(42, 452)">
+      <!-- Diamond Rank Badge -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="220" height="42" rx="12" fill="rgba(153, 182, 210, 0.1)" stroke="rgba(153, 182, 210, 0.25)" stroke-width="1"/>
+        <!-- Diamond Icon -->
+        <polygon points="22,12 30,21 22,30 14,21" fill="#99B6D2" stroke="#FFFFFF" stroke-width="1.2"/>
+        <text x="40" y="19" font-family="'Geist', system-ui" font-weight="700" font-size="11" letter-spacing="0.1em" fill="#FFFFFF">PVP ARENA</text>
+        <text x="40" y="32" font-family="'Geist', system-ui" font-weight="500" font-size="10" letter-spacing="0.08em" fill="#99B6D2">DIAMOND RANK · 2,480 ELO</text>
+      </g>
+
+      <!-- Streak Badge -->
+      <g transform="translate(236, 0)">
+        <rect x="0" y="0" width="180" height="42" rx="12" fill="rgba(255, 107, 0, 0.1)" stroke="rgba(255, 107, 0, 0.25)" stroke-width="1"/>
+        <!-- Flame Icon -->
+        <path d="M18 29C15 29 13 26.5 13 23.5C13 20.5 16 17 18 13C20 17 23 20.5 23 23.5C23 26.5 21 29 18 29Z" fill="url(#flameGrad)"/>
+        <text x="32" y="19" font-family="'Geist', system-ui" font-weight="700" font-size="11" letter-spacing="0.08em" fill="#FFB074">128 DAY STREAK</text>
+        <text x="32" y="32" font-family="'Geist', system-ui" font-weight="500" font-size="10" letter-spacing="0.06em" fill="#FFD0B0">SHADOWING &amp; SRS</text>
+      </g>
+
+      <!-- Memory Stability Badge -->
+      <g transform="translate(432, 0)">
+        <rect x="0" y="0" width="170" height="42" rx="12" fill="rgba(255, 255, 255, 0.06)" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1"/>
+        <text x="18" y="19" font-family="'Geist', system-ui" font-weight="600" font-size="10.5" letter-spacing="0.08em" fill="#E2EEF9">MEMORY STABILITY</text>
+        <text x="18" y="32" font-family="'Geist', system-ui" font-weight="500" font-size="10" fill="#99B6D2">S = 184.2 Days (High)</text>
+      </g>
+
+      <!-- Next Interval Pill -->
+      <g transform="translate(618, 0)">
+        <rect x="0" y="0" width="178" height="42" rx="12" fill="rgba(74, 222, 128, 0.09)" stroke="rgba(74, 222, 128, 0.25)" stroke-width="1"/>
+        <circle cx="20" cy="21" r="4" fill="#4ADE80"/>
+        <text x="32" y="19" font-family="'Geist', system-ui" font-weight="700" font-size="10.5" letter-spacing="0.08em" fill="#86EFAC">NEXT REVIEW IN 14H</text>
+        <text x="32" y="32" font-family="'Geist', system-ui" font-weight="500" font-size="9.5" fill="#4ADE80">OPTIMAL RETRIEVAL</text>
+      </g>
+    </g>
+
+    <!-- Outer 1.5px Metallic Rim & Border -->
+    <rect x="0" y="0" width="880" height="530" rx="28" fill="none" stroke="url(#borderGrad)" stroke-width="1.8"/>
+  </g>
+</svg>

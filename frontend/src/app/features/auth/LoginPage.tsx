@@ -23,8 +23,9 @@ export function LoginPage() {
     try {
       await authService.login({ email, password });
       disconnectChatSocket();
-      navigate("/");
+      navigate("/app");
     } catch (err: any) {
+
       if (err.status === 403) {
         navigate("/verify-otp", { state: { email, mode: "REGISTER" } });
         return;
