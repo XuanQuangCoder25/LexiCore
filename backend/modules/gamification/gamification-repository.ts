@@ -161,7 +161,7 @@ export const getAchievements = async (userId: string) => {
 
 export const getLeaderboard = async () => {
     const [rows] = await pool.execute(
-        `SELECT u.id, u.full_name, w.leaderboard_point, w.level
+        `SELECT u.id, u.full_name, w.leaderboard_point, w.leaderboard_point as rank_point, w.level
          FROM wallets w
          JOIN users u ON w.user_id = u.id
          WHERE w.leaderboard_point > 0

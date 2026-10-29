@@ -61,7 +61,8 @@ interface Achievement {
 interface LeaderboardUser {
   id: string;
   full_name: string;
-  rank_point: number;
+  rank_point?: number;
+  leaderboard_point?: number;
   level: number;
 }
 
@@ -544,17 +545,17 @@ export function AchievementsView() {
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
                                 <AvatarFallback className="bg-primary/5 text-primary font-bold">
-                                  {user.full_name.charAt(0).toUpperCase()}
+                                  {user.full_name ? user.full_name.charAt(0).toUpperCase() : "?"}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="font-medium text-foreground">{user.full_name}</span>
+                              <span className="font-medium text-foreground">{user.full_name || "Học viên"}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-center font-bold text-primary">
-                            {user.level}
+                            {user.level ?? 1}
                           </TableCell>
                           <TableCell className="text-right pr-8 font-bold text-primary">
-                            {user.rank_point.toLocaleString()}
+                            {(user.rank_point ?? user.leaderboard_point ?? 0).toLocaleString()}
                           </TableCell>
                         </TableRow>
                       );
