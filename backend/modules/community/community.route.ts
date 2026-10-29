@@ -10,6 +10,9 @@ const router = Router();
 // Lấy danh sách feed (hỗ trợ đọc khi chưa đăng nhập, nếu có token thì nạp isLiked)
 router.get('/posts', optionalAuth, communityController.getFeed);
 
+// Lấy danh sách chủ đề thịnh hành (Trending topics/tags thực tế)
+router.get('/trending', communityController.getTrending);
+
 // Lấy chi tiết 1 bài viết
 router.get('/posts/:id', optionalAuth, communityController.getPost);
 

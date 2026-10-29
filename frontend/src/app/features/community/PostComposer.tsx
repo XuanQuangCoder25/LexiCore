@@ -127,8 +127,8 @@ export const PostComposer: React.FC<PostComposerProps> = ({ onPostCreated, curre
         ) : (
           <div className="space-y-3 animate-in fade-in-50 duration-200">
             <div className="flex items-center justify-between border-b pb-2">
-              <span className="text-sm font-semibold flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-primary" /> Tạo bài thảo luận mới
+              <span className="text-sm font-semibold text-foreground">
+                Tạo bài thảo luận mới
               </span>
               <Button
                 variant="ghost"

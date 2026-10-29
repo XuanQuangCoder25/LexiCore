@@ -784,4 +784,8 @@ export const communityService = {
     const authorMap = await communityRepository.getUsersByIds([userId]);
     return formatPost(post, authorMap, new Set(), userId);
   },
+
+  async getTrending() {
+    return await communityRepository.getTrendingTags();
+  },
 };

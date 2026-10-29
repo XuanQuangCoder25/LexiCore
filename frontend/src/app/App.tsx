@@ -76,6 +76,17 @@ function AppContent() {
       .catch(() => { });
   }, []);
 
+  // Lắng nghe sự kiện chuyển hướng tab toàn cục (ví dụ từ Chat chuyển sang Community)
+  useEffect(() => {
+    const handleNavigateTab = (e: any) => {
+      if (e.detail?.tab) {
+        setActiveTab(e.detail.tab);
+      }
+    };
+    window.addEventListener("navigate-tab", handleNavigateTab);
+    return () => window.removeEventListener("navigate-tab", handleNavigateTab);
+  }, []);
+
   const handleChallenge = () => {
     setFriendsOpen(false);
     setIsChatOpen(false);

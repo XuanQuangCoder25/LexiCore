@@ -278,5 +278,18 @@ export const communityController: Record<string, Handler> = {
       next(error);
     }
   },
+
+  // GET /api/community/trending
+  async getTrending(_req, res, next) {
+    try {
+      const data = await communityService.getTrending();
+      res.status(200).json({
+        status: 'success',
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 

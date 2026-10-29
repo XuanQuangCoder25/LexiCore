@@ -228,4 +228,9 @@ export const communityService = {
     const res = await api.post('/milestone', data);
     return res.data?.data;
   },
+
+  getTrending: async (): Promise<Array<{ tag: string; count: number }>> => {
+    const res = await api.get('/trending');
+    return res.data?.data ?? [];
+  },
 };

@@ -368,4 +368,74 @@ export const communityRepository = {
 
     return new Set(reactions.map((r) => r.targetId.toString()));
   },
+
+  async getTrendingTags(limit = 6): Promise<Array<{ tag: string; count: number }>> {
+    try {
+      // 1. Tổng hợp từ mảng tags thực tế của các bài viết chưa bị xóa
+      const tagAgg = await CommunityPost.aggregate([
+        { $match: { isDeleted: false } },
+        { $unwind: '$tags' },
+        {
+          $group: {
+            _id: { $toLower: '$tags' },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { count: -1 } },
+        { $limit: limit },
+      ]);
+
+      const result: Array<{ tag: string; count: number }> = tagAgg.map((item) => ({
+        tag: item._id.startsWith('#') ? item._id : `#${item._id}`,
+        count: item.count,
+      }));
+
+      // 2. Nếu có ít hơn 5 tags, bổ sung thống kê theo các chủ đề (topics) có bài viết thực tế
+      if (result.length < 5) {
+        const topicAgg = await CommunityPost.aggregate([
+          { $match: { isDeleted: false } },
+          {
+            $group: {
+              _id: '$topic',
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { count: -1 } },
+        ]);
+
+        const topicLabelMap: Record<string, string> = {
+          ielts: '#IELTS',
+          grammar: '#NguPhap',
+          vocabulary: '#TuVung',
+          speaking: '#Speaking',
+          homework: '#HoiDap',
+          general: '#ThaoLuan',
+        };
+
+        for (const t of topicAgg) {
+          const label = topicLabelMap[t._id] || `#${t._id}`;
+          if (!result.some((r) => r.tag.toLowerCase() === label.toLowerCase())) {
+            result.push({ tag: label, count: t.count });
+          }
+          if (result.length >= limit) break;
+        }
+      }
+
+      // 3. Fallback danh mục mặc định nếu database chưa có bài viết
+      if (result.length === 0) {
+        return [
+          { tag: '#IELTS', count: 0 },
+          { tag: '#NguPhap', count: 0 },
+          { tag: '#TuVung', count: 0 },
+          { tag: '#Speaking', count: 0 },
+          { tag: '#HoiDap', count: 0 },
+        ];
+      }
+
+      return result;
+    } catch (error) {
+      console.error('[communityRepository] Lỗi getTrendingTags:', error);
+      return [];
+    }
+  },
 };

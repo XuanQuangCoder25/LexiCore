@@ -43,6 +43,7 @@ import {
 import { getInitials, formatRelativeTime } from '../social/utils';
 import { CommentSection } from './CommentSection';
 import { AuthorPopover } from './AuthorPopover';
+import { SharePostDialog } from './SharePostDialog';
 
 interface PostCardProps {
   post: PostItem;
@@ -53,14 +54,21 @@ interface PostCardProps {
     role?: string;
   } | null;
   onPostDeleted?: (postId: string) => void;
+  defaultShowComments?: boolean;
 }
 
-export const PostCard: React.FC<PostCardProps> = ({ post, currentUser, onPostDeleted }) => {
+export const PostCard: React.FC<PostCardProps> = ({
+  post,
+  currentUser,
+  onPostDeleted,
+  defaultShowComments = false,
+}) => {
   const [isLiked, setIsLiked] = useState(post.isLiked);
   const [likesCount, setLikesCount] = useState(post.stats.likesCount);
   const [commentsCount, setCommentsCount] = useState(post.stats.commentsCount);
   const [clonesCount, setClonesCount] = useState(post.stats.clonesCount || 0);
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultShowComments);
+  const [shareOpen, setShareOpen] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
 
   // States cho Phase 3: Pin, Poll, Solved
@@ -591,7 +599,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, currentUser, onPostDel
             variant="ghost"
             size="sm"
             className="h-8 px-2.5 gap-1.5 hover:text-foreground"
-            onClick={handleCopyLink}
+            onClick={() => setShareOpen(true)}
           >
             <Share2 className="w-4 h-4" />
             <span className="hidden sm:inline">Chia sẻ</span>
@@ -609,6 +617,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, currentUser, onPostDel
             onCommentsCountChange={(delta) => setCommentsCount((prev) => Math.max(0, prev + delta))}
           />
         )}
+
+        {/* Modal Chia sẻ bài viết cho Bạn bè */}
+        <SharePostDialog
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          post={post}
+        />
       </CardContent>
     </Card>
   );

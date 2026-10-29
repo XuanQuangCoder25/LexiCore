@@ -25,11 +25,14 @@ import {
   Swords,
   Users,
   X,
+  Eye,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSocial } from "../../features/social/SocialContext";
 import { getChatSocket } from "../../features/social/chat-socket";
 import { getInitials, formatRelativeTime } from "../../features/social/utils";
+import { PostDetailDialog } from "../../features/community/PostDetailDialog";
 import {
   socialService,
   getSocialErrorMessage,
@@ -102,6 +105,17 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingEmitRef = useRef<number>(0);
   const isNearBottomRef = useRef(true);
+
+  // Xem chi tiết bài viết cộng đồng khi bấm từ tin nhắn
+  const [viewingPostId, setViewingPostId] = useState<string | null>(null);
+
+  const handleNavigateToCommunity = (targetPostId?: string) => {
+    setViewingPostId(null);
+    onClose();
+    window.dispatchEvent(
+      new CustomEvent("navigate-tab", { detail: { tab: "community", postId: targetPostId } })
+    );
+  };
 
   // Khi có active conversation -> ẩn mobile list
   useEffect(() => {
@@ -747,7 +761,56 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
                                   : "bg-muted/80 text-foreground border border-border/40 rounded-bl-xs"
                               }`}
                             >
-                              {msg.content}
+                              {(() => {
+                                const matchPost = msg.content.match(/\[COMMUNITY_POST:([a-zA-Z0-9_-]+)\]/);
+                                if (!matchPost) {
+                                  return msg.content;
+                                }
+
+                                const targetPostId = matchPost[1];
+                                const textWithoutMarker = msg.content
+                                  .replace(/\[COMMUNITY_POST:([a-zA-Z0-9_-]+)\]/g, "")
+                                  .trim();
+
+                                return (
+                                  <div className="space-y-2">
+                                    {textWithoutMarker && (
+                                      <p className="whitespace-pre-wrap">{textWithoutMarker}</p>
+                                    )}
+                                    <div
+                                      onClick={() => setViewingPostId(targetPostId)}
+                                      className={`rounded-xl p-3 border transition-all cursor-pointer ${
+                                        isMe
+                                          ? "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+                                          : "bg-card hover:bg-card/90 border-border text-foreground shadow-2xs"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-1.5 text-[11px] font-semibold mb-1 opacity-90">
+                                        <MessageSquare className="w-3.5 h-3.5 text-primary" />
+                                        <span>Bài viết Cộng đồng LexiCore</span>
+                                      </div>
+                                      <p className="text-xs opacity-90">
+                                        Bạn bè đã chia sẻ bài thảo luận này với bạn.
+                                      </p>
+                                      <Button
+                                        size="sm"
+                                        className={`w-full mt-2 h-7 text-xs font-semibold gap-1.5 shadow-xs ${
+                                          isMe
+                                            ? "bg-white text-indigo-700 hover:bg-white/90"
+                                            : "bg-primary text-primary-foreground hover:bg-primary/90"
+                                        }`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setViewingPostId(targetPostId);
+                                        }}
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Xem bài viết ngay</span>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             {/* Thời gian & Trạng thái đã xem */}
@@ -853,6 +916,14 @@ export function ChatDialog({ open, onClose, onChallenge }: ChatDialogProps) {
             )}
           </div>
         </div>
+
+        {/* Modal xem chi tiết bài viết khi bấm từ tin nhắn */}
+        <PostDetailDialog
+          postId={viewingPostId}
+          open={!!viewingPostId}
+          onClose={() => setViewingPostId(null)}
+          onNavigateToCommunity={handleNavigateToCommunity}
+        />
       </DialogContent>
     </Dialog>
   );

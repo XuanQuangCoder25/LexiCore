@@ -22,6 +22,7 @@ import { TopicSidebar } from '../../features/community/TopicSidebar';
 import { RightWidgetSidebar } from '../../features/community/RightWidgetSidebar';
 import { PostComposer } from '../../features/community/PostComposer';
 import { PostCard } from '../../features/community/PostCard';
+import { PostDetailDialog } from '../../features/community/PostDetailDialog';
 
 export function CommunityView() {
   const [currentUser, setCurrentUser] = useState<{
@@ -40,6 +41,25 @@ export function CommunityView() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // Xem chi tiết bài viết được chia sẻ qua URL hoặc sự kiện
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('post');
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleNavigate = (e: any) => {
+      if (e.detail?.postId) {
+        setSelectedPostId(e.detail.postId);
+      }
+    };
+    window.addEventListener('navigate-tab', handleNavigate);
+    return () => window.removeEventListener('navigate-tab', handleNavigate);
+  }, []);
 
   // Lấy thông tin người dùng hiện tại
   useEffect(() => {
@@ -114,7 +134,7 @@ export function CommunityView() {
     COMMUNITY_TOPICS_LIST.find((t) => t.id === activeTopic)?.label || 'Tất cả chủ đề';
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Tiêu đề trang */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
         <div>
@@ -139,10 +159,10 @@ export function CommunityView() {
         </Button>
       </div>
 
-      {/* Bố cục 3 cột (Responsive 3-Column Layout) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* CỘT TRÁI: Navigation & Topics (lg: 3/12 cols) */}
-        <div className="lg:col-span-3 space-y-4">
+      {/* Bố cục 3 cột toàn màn hình (Full-Width Responsive 3-Column Layout) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
+        {/* CỘT TRÁI: Navigation & Topics (lg: 3 cols, 2xl: 2 cols) */}
+        <div className="lg:col-span-3 2xl:col-span-2 space-y-4">
           <TopicSidebar
             activeTab={activeTab}
             onTabChange={(tab) => {
@@ -155,8 +175,8 @@ export function CommunityView() {
           />
         </div>
 
-        {/* CỘT GIỮA: Central Feed Stream (lg: 6/12 cols hoặc 9/12 cols) */}
-        <div className="lg:col-span-9 xl:col-span-6 space-y-4">
+        {/* CỘT GIỮA: Central Feed Stream (lg: 9 cols, xl: 6 cols, 2xl: 7 cols) */}
+        <div className="lg:col-span-9 xl:col-span-6 2xl:col-span-7 space-y-4">
           {/* Smart Composer */}
           <PostComposer onPostCreated={handlePostCreated} currentUser={currentUser} />
 
@@ -267,16 +287,46 @@ export function CommunityView() {
           )}
         </div>
 
-        {/* CỘT PHẢI: Widgets & Guidelines (xl: 3/12 cols, ẩn trên màn hình vừa) */}
-        <div className="hidden xl:block xl:col-span-3 space-y-4">
+        {/* CỘT PHẢI: Widgets & Guidelines (xl: 3 cols, 2xl: 3 cols, ẩn trên màn hình vừa) */}
+        <div className="hidden xl:block xl:col-span-3 2xl:col-span-3 space-y-4">
           <RightWidgetSidebar
             onSelectTag={(tag) => {
-              // Lọc theo tag nếu click
-              setActiveTopic('all');
+              const clean = tag.toLowerCase().replace('#', '').trim();
+              const tagMap: Record<string, string> = {
+                ielts: 'ielts',
+                ieltsspeaking: 'ielts',
+                ieltswriting: 'ielts',
+                nguphap: 'grammar',
+                grammar: 'grammar',
+                tuvung: 'vocabulary',
+                vocabulary: 'vocabulary',
+                flashcard: 'vocabulary',
+                flashcards: 'vocabulary',
+                phrasalverbs: 'vocabulary',
+                speaking: 'speaking',
+                phatam: 'speaking',
+                shadowingtips: 'speaking',
+                hoidap: 'homework',
+                homework: 'homework',
+                grammarqna: 'homework',
+                thaoluan: 'general',
+                general: 'general',
+              };
+              const target = tagMap[clean] || 'all';
+              setActiveTopic(target);
+              setActiveTab('all');
             }}
           />
         </div>
       </div>
+
+      {/* Modal hiển thị chi tiết bài viết khi mở từ link chia sẻ */}
+      <PostDetailDialog
+        postId={selectedPostId}
+        open={!!selectedPostId}
+        onClose={() => setSelectedPostId(null)}
+        currentUser={currentUser}
+      />
     </div>
   );
 }
