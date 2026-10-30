@@ -4,9 +4,10 @@ import styles from "./Ready.module.css";
 
 interface ReadyProps {
   cardUrl: string;
+  onNavigate: (tabId?: string) => void;
 }
 
-export const Ready: React.FC<ReadyProps> = ({ cardUrl }) => {
+export const Ready: React.FC<ReadyProps> = ({ cardUrl, onNavigate }) => {
   return (
     <section className={styles.ready} data-ready="section">
       {/* Background Giant Wordmark */}
@@ -49,7 +50,15 @@ export const Ready: React.FC<ReadyProps> = ({ cardUrl }) => {
       </h2>
 
       {/* "SRS + AI" Pill */}
-      <a href="#" className={styles.srsPill} data-ready="pill">
+      <a
+        href="#flashcards"
+        className={styles.srsPill}
+        data-ready="pill"
+        onClick={(e) => {
+          e.preventDefault();
+          onNavigate("flashcards");
+        }}
+      >
         <img
           src="/icon-plus.svg"
           alt=""
@@ -67,7 +76,15 @@ export const Ready: React.FC<ReadyProps> = ({ cardUrl }) => {
       </p>
 
       {/* Dark Action CTA */}
-      <a href="#" className={styles.startBtn} data-ready="button">
+      <a
+        href="#start"
+        className={styles.startBtn}
+        data-ready="button"
+        onClick={(e) => {
+          e.preventDefault();
+          onNavigate("dashboard");
+        }}
+      >
         Start learning for free
       </a>
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { authService } from "../../services/auth-service";
 import { disconnectChatSocket } from "../social/chat-socket";
@@ -7,6 +7,7 @@ import styles from "./AuthCommon.module.css";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +27,12 @@ export function LoginPage() {
     try {
       await authService.login({ email, password });
       disconnectChatSocket();
-      navigate("/app");
+      const redirectTab = (location.state as any)?.redirectTab;
+      if (redirectTab) {
+        navigate("/dashboard", { state: { tab: redirectTab } });
+      } else {
+        navigate("/app");
+      }
     } catch (err: any) {
       if (err.status === 403) {
         navigate("/verify-otp", { state: { email, mode: "REGISTER" } });

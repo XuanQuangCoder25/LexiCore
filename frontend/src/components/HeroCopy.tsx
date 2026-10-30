@@ -4,9 +4,10 @@ import styles from "./HeroCopy.module.css";
 
 interface HeroCopyProps {
   style?: React.CSSProperties;
+  onNavigate: (tabId?: string) => void;
 }
 
-export const HeroCopy: React.FC<HeroCopyProps> = ({ style }) => {
+export const HeroCopy: React.FC<HeroCopyProps> = ({ style, onNavigate }) => {
   return (
     <div className={styles.heroCopy} style={style}>
       <div className={styles.heroColumn}>
@@ -35,10 +36,24 @@ export const HeroCopy: React.FC<HeroCopyProps> = ({ style }) => {
 
       {/* Buttons Row */}
       <div className={styles.buttonsRow} data-intro="buttons">
-        <a href="#" className={styles.btnPrimary}>
+        <a
+          href="#courses"
+          className={styles.btnPrimary}
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigate("courses");
+          }}
+        >
           Explore Courses
         </a>
-        <a href="#" className={styles.btnSecondary}>
+        <a
+          href="#arena"
+          className={styles.btnSecondary}
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigate("arena");
+          }}
+        >
           Try PvP Arena
         </a>
       </div>

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Portal, PortalState } from "./Portal";
@@ -8,6 +9,7 @@ import { Ready } from "./Ready";
 import { Nav } from "./Nav";
 import { loadAssets, LoadedImages } from "../lib/loadImages";
 import { segment } from "../lib/quad";
+import { authService } from "../app/services/auth-service";
 import styles from "./Page.module.css";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -19,9 +21,15 @@ const CARD_TILT_MAX_Y = 8; // degrees
 const CARD_TILT_MAX_X = 6; // degrees
 
 export const Page: React.FC = () => {
+  const navigate = useNavigate();
   const [images, setImages] = useState<LoadedImages | null>(null);
   const [counterProgress, setCounterProgress] = useState(0);
   const [navTheme, setNavTheme] = useState<"light" | "dark">("light");
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isNavigatingRef = useRef(false);
+  const authCheckPromiseRef = useRef<Promise<boolean> | null>(null);
 
   const portalStateRef = useRef<PortalState>({
     scale: 0,
@@ -32,6 +40,119 @@ export const Page: React.FC = () => {
 
   const mainRef = useRef<HTMLElement>(null);
   const heroCopyWrapRef = useRef<HTMLDivElement>(null);
+
+  // Background auth check on mount
+  useEffect(() => {
+    let isCurrent = true;
+    authCheckPromiseRef.current = (async () => {
+      try {
+        await authService.getMe();
+        if (isCurrent) setIsAuthenticated(true);
+        return true;
+      } catch {
+        try {
+          await authService.refreshToken();
+          await authService.getMe();
+          if (isCurrent) setIsAuthenticated(true);
+          return true;
+        } catch {
+          if (isCurrent) setIsAuthenticated(false);
+          return false;
+        }
+      }
+    })();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  // Seamless Exit Transition & Auth-aware Routing
+  const handleNavigate = useCallback(
+    async (actionOrTab?: string) => {
+      if (isNavigatingRef.current) return;
+      isNavigatingRef.current = true;
+
+      // 1. Kiểm tra trạng thái auth (chờ tối đa 250ms nếu đang check ngầm)
+      let loggedIn = isAuthenticated === true;
+      if (isAuthenticated === null && authCheckPromiseRef.current) {
+        try {
+          loggedIn = await Promise.race([
+            authCheckPromiseRef.current,
+            new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 250)),
+          ]);
+        } catch {
+          loggedIn = false;
+        }
+      }
+
+      // 2. Xác định đích đến và tab
+      let targetPath = "/dashboard";
+      let targetTab: string | undefined = undefined;
+
+      if (actionOrTab === "account") {
+        if (loggedIn) {
+          targetPath = "/dashboard";
+          targetTab = "profile";
+        } else {
+          targetPath = "/login";
+        }
+      } else if (actionOrTab === "start" || actionOrTab === "dashboard" || !actionOrTab) {
+        if (loggedIn) {
+          targetPath = "/dashboard";
+          targetTab = "dashboard";
+        } else {
+          targetPath = "/login";
+        }
+      } else {
+        // courses, arena, flashcards, community, creator, etc.
+        targetTab = actionOrTab;
+        if (loggedIn) {
+          targetPath = "/dashboard";
+        } else {
+          targetPath = "/login";
+        }
+      }
+
+      // 3. Critical Cleanup: Mở khóa cuộn trang & khôi phục con trỏ chuột hệ thống ngay lập tức
+      document.documentElement.removeAttribute("data-locked");
+      document.documentElement.removeAttribute("data-landing-active");
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+
+      // 4. GSAP Exit Transition (0.35s, ease: power2.inOut)
+      const targetElement = containerRef.current;
+      const executeNavigation = () => {
+        // Dọn dẹp triệt để ScrollTrigger và pin-spacers
+        ScrollTrigger.getAll().forEach((t) => t.kill());
+        window.scrollTo(0, 0);
+
+        if (targetPath === "/login") {
+          navigate("/login", {
+            state: targetTab ? { redirectTab: targetTab } : undefined,
+          });
+        } else {
+          navigate(targetPath, {
+            state: { tab: targetTab || "dashboard" },
+          });
+        }
+      };
+
+      if (targetElement) {
+        gsap.to(targetElement, {
+          opacity: 0,
+          filter: "blur(8px)",
+          scale: 0.98,
+          duration: 0.35,
+          ease: "power2.inOut",
+          onComplete: executeNavigation,
+        });
+      } else {
+        executeNavigation();
+      }
+    },
+    [isAuthenticated, navigate]
+  );
 
   // Asset loading & initial scroll lock
   useEffect(() => {
@@ -65,14 +186,14 @@ export const Page: React.FC = () => {
             desert: "https://assets.uberdesigner.ai/portale/desert.webp",
             card: "/lexicore-card.svg",
           });
-
-
         }
       });
 
     return () => {
       isMounted = false;
       document.documentElement.removeAttribute("data-locked");
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
     };
   }, []);
 
@@ -86,14 +207,6 @@ export const Page: React.FC = () => {
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    // Prevent default on click of any anchor with href="#"
-    const onHashClick = (e: MouseEvent) => {
-      const anchor = (e.target as HTMLElement).closest('a[href="#"]');
-      if (anchor) {
-        e.preventDefault();
-      }
-    };
-    document.addEventListener("click", onHashClick);
 
     const ctx = gsap.context((self) => {
       const state = portalStateRef.current;
@@ -513,15 +626,20 @@ export const Page: React.FC = () => {
     });
 
     return () => {
-      document.removeEventListener("click", onHashClick);
       ctx.revert();
+      ScrollTrigger.getAll().forEach((t) => t.kill());
+      document.documentElement.removeAttribute("data-locked");
+      document.documentElement.removeAttribute("data-landing-active");
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+      window.scrollTo(0, 0);
     };
   }, [images]);
 
   return (
-    <div className={styles.pageContainer}>
+    <div className={styles.pageContainer} ref={containerRef}>
       {/* Fixed Navigation Bar */}
-      <Nav theme={navTheme} />
+      <Nav theme={navTheme} onNavigate={handleNavigate} />
 
       {/* Outer wrapper to shield React from ScrollTrigger pin spacer */}
       <div>
@@ -547,14 +665,16 @@ export const Page: React.FC = () => {
               pointerEvents: "none",
             }}
           >
-            <HeroCopy />
+            <HeroCopy onNavigate={handleNavigate} />
           </div>
 
-
           {/* Ready Layer: Second Screen (z-index 4) */}
-          {images && <Ready cardUrl={images.card} />}
+          {images && (
+            <Ready cardUrl={images.card} onNavigate={handleNavigate} />
+          )}
         </main>
       </div>
     </div>
   );
 };
+

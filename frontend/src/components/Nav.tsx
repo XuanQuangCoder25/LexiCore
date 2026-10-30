@@ -3,6 +3,7 @@ import styles from "./Nav.module.css";
 
 interface NavProps {
   theme: "light" | "dark";
+  onNavigate: (tabId?: string) => void;
 }
 
 const LINKS = [
@@ -13,11 +14,19 @@ const LINKS = [
   { id: "creator", label: "Creator" },
 ];
 
-export const Nav: React.FC<NavProps> = ({ theme }) => {
+export const Nav: React.FC<NavProps> = ({ theme, onNavigate }) => {
   return (
     <header className={styles.nav} data-theme={theme} data-intro="nav">
       {/* Brand Logo Mask */}
-      <a href="#" className={styles.logo} aria-label="LexiCore home" />
+      <a
+        href="/"
+        className={styles.logo}
+        aria-label="LexiCore home"
+        onClick={(e) => {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+      />
 
       {/* Centre Glass Navigation Pill */}
       <nav className={styles.centrePill} aria-label="Main navigation">
@@ -27,7 +36,15 @@ export const Nav: React.FC<NavProps> = ({ theme }) => {
             (theme === "dark" && link.id === "flashcards");
 
           return (
-            <a key={link.id} href="#" className={styles.navLink}>
+            <a
+              key={link.id}
+              href={`#${link.id}`}
+              className={styles.navLink}
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate(link.id);
+              }}
+            >
               {link.label}
               <span
                 className={`${styles.activeBar} ${
@@ -42,7 +59,14 @@ export const Nav: React.FC<NavProps> = ({ theme }) => {
 
       {/* Right Account & Action CTA */}
       <div className={styles.rightRow}>
-        <a href="#" className={styles.accountPill}>
+        <a
+          href="#account"
+          className={styles.accountPill}
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigate("account");
+          }}
+        >
           <img
             src="/icon-account.svg"
             alt=""
@@ -52,10 +76,18 @@ export const Nav: React.FC<NavProps> = ({ theme }) => {
           <span className={styles.uiText}>Account</span>
         </a>
 
-        <a href="#" className={styles.startBtn}>
+        <a
+          href="#start"
+          className={styles.startBtn}
+          onClick={(e) => {
+            e.preventDefault();
+            onNavigate("start");
+          }}
+        >
           <span className={styles.uiText}>Start Learning</span>
         </a>
       </div>
     </header>
   );
 };
+

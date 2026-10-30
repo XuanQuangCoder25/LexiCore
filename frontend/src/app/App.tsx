@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
 import { DashboardView } from "./components/dashboard/DashboardView";
@@ -53,11 +54,26 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const initialTab =
+    (location.state as any)?.tab ||
+    searchParams.get("tab") ||
+    "dashboard";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [coins, setCoins] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("Guest");
+
+  // Sync tab khi location state hoặc search params thay đổi
+  useEffect(() => {
+    const tabFromState = (location.state as any)?.tab || searchParams.get("tab");
+    if (tabFromState && TAB_LABELS[tabFromState]) {
+      setActiveTab(tabFromState);
+    }
+  }, [location.state, searchParams]);
+
 
   const { isChatOpen, setIsChatOpen, openChatWithFriend } = useSocial();
 
