@@ -1,44 +1,50 @@
 @import "./tokens.css";
 
-/* Base Reset & Box Sizing */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-html {
-  font-family: var(--font-family);
-  background-color: var(--white);
-  color: var(--ink);
+/* Base Reset & Box Sizing - Scoped strictly to .lexicore-landing-scope */
+.lexicore-landing-scope {
+  width: 100%;
+  min-height: 100%;
+  font-family: var(--font-family, 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  background-color: var(--white, #FFFFFF);
+  color: var(--ink, #151515);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-html[data-locked="true"],
-html[data-locked="true"] body {
-  overflow: hidden !important;
-  height: 100% !important;
+.lexicore-landing-scope,
+.lexicore-landing-scope *,
+.lexicore-landing-scope *::before,
+.lexicore-landing-scope *::after {
+  box-sizing: border-box;
 }
 
-/* Custom cursor reset for pointer fine */
-@media (hover: hover) and (pointer: fine) {
-  html[data-landing-active="true"],
-  html[data-landing-active="true"] body,
-  html[data-landing-active="true"] a,
-  html[data-landing-active="true"] button {
-    cursor: none !important;
-  }
-}
-
-a {
+/* Scoped links and buttons inside landing page only */
+.lexicore-landing-scope a {
   color: inherit;
   text-decoration: none;
 }
 
-button {
+.lexicore-landing-scope button {
   background: none;
   border: none;
   font: inherit;
   color: inherit;
   cursor: pointer;
   padding: 0;
+}
+
+/* Lock scrolling ONLY when landing page is active and data-locked is true */
+html[data-landing-active="true"][data-locked="true"],
+html[data-landing-active="true"][data-locked="true"] body {
+  overflow: hidden !important;
+  height: 100% !important;
+}
+
+/* Custom cursor reset for pointer fine ONLY on landing page */
+@media (hover: hover) and (pointer: fine) {
+  html[data-landing-active="true"] .lexicore-landing-scope,
+  html[data-landing-active="true"] .lexicore-landing-scope a,
+  html[data-landing-active="true"] .lexicore-landing-scope button {
+    cursor: none !important;
+  }
 }

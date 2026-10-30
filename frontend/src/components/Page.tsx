@@ -119,6 +119,8 @@ export const Page: React.FC = () => {
       document.documentElement.removeAttribute("data-landing-active");
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
+      document.body.style.filter = "";
+      document.documentElement.style.filter = "";
 
       // 4. GSAP Exit Transition (0.35s, ease: power2.inOut)
       const targetElement = containerRef.current;
@@ -632,6 +634,8 @@ export const Page: React.FC = () => {
       document.documentElement.removeAttribute("data-landing-active");
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
+      document.body.style.filter = "";
+      document.documentElement.style.filter = "";
       window.scrollTo(0, 0);
     };
   }, [images]);

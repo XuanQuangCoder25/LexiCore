@@ -1,4 +1,4 @@
-:root {
+.lexicore-landing-scope {
   /* Scale units */
   --u: min(100vw / 1440, 100svh / 760);
 
@@ -13,7 +13,6 @@
   --glass-edge: rgba(255, 255, 255, 0.2);
   --glass-shine: rgba(255, 255, 255, 0.25);
   --sky-tint: rgba(126, 25, 12, 0.4);
-
 
   --cursor-fill: rgba(255, 255, 255, 0.2);
   --cursor-edge: rgba(255, 255, 255, 0.6);
@@ -41,7 +40,7 @@
 }
 
 @media (max-width: 1023px) {
-  :root {
+  .lexicore-landing-scope {
     --u: min(100vw / 415, 100svh / 760);
     --display-size: calc(48 * var(--fit-display) * var(--u));
     --display-leading: calc(45.75 * var(--u));

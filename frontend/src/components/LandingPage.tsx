@@ -6,10 +6,10 @@ import "../styles/global.css";
 
 export const LandingPage: React.FC = () => {
   return (
-    <>
+    <div className="lexicore-landing-scope">
       <Page />
       <Cursor />
-    </>
+    </div>
   );
 };
 
