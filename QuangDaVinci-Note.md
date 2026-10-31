@@ -1,275 +1,398 @@
-### Quy trình CI/CD của Dự án
-
-Dự án áp dụng tự động hóa thông qua GitHub Actions. Hệ thống tự động nhận diện Pipeline thông qua 2 file `frontend-ci.yml` và `backend-ci.yml` nằm trong thư mục `.github/workflows/`. 
-
-Để tối ưu tài nguyên, hệ thống được thiết lập **chỉ chạy CI của phần có sự thay đổi** (Frontend hoặc Backend).
-
-*   **CI (Continuous Integration - Tích hợp liên tục):** 
-    *   Mỗi khi có code mới được `push` lên GitHub, hệ thống sẽ tự động chạy Test. 
-    *   Nếu code chạy tốt (xanh), code được chấp nhận. Nếu có lỗi (đỏ), hệ thống sẽ cảnh báo. 
-    *   *Xem chi tiết quá trình này ở tab **Actions** trên GitHub.*
-
-*   **CD (Continuous Deployment - Triển khai liên tục):** 
-    *   Chỉ khi bước CI báo trạng thái xanh, quá trình CD mới được kích hoạt.
-    *   CD sẽ tự động mang đoạn code đạt chuẩn đưa thẳng lên máy chủ (Server) thật.
+# LexiCore - Tài Liệu Hệ Thống (System Reference)
 
 ---
 
-# 🛒 MODULE: GAMIFICATION & ECONOMY (CỬA HÀNG VẬT PHẨM)
+## 1. Tổng Quan Kiến Trúc
 
-**Phân quyền (RBAC):** Chỉ có `ADMIN` mới được quyền Thêm/Sửa/Xóa vật phẩm. Người dùng bình thường (`USER`) chỉ được phép Xem và Mua.
+- Monorepo với 2 thư mục chính: `backend/` và `frontend/`
+- Backend: Node.js + Express.js + TypeScript, chạy port 5000
+- Frontend: React + Vite + TypeScript + TailwindCSS v4, chạy port 5173
+- Database chính (quan hệ): MySQL - lưu users, items, gamification
+- Database phụ (document): MongoDB - lưu nội dung bài học/flashcard
+- Cache: Redis
+- File storage: Cloudinary (ảnh vật phẩm, avatar, cover photo)
+- AI: OpenAI Whisper (speech-to-text), Google Gemini (contextual explanation, vocabulary summary)
+- Real-time: Socket.IO (Arena PvP)
+- CI/CD: GitHub Actions - kiểm tra riêng cho frontend hoặc backend khi có thay đổi tương ứng
 
-## 🛠 Giai đoạn 1: Thiết kế Kho lưu trữ (Database Schema)
-1. **`wallets` (Quản lý kinh tế ảo):** Chứa số dư xu (`coin_balance`) và chuỗi ngày học.
-2. **`billing_transactions` (Lịch sử giao dịch):** Sổ cái ghi nhận mọi biến động số dư (Ai, mua gì, trừ bao nhiêu xu, vào lúc nào). Đảm bảo tính minh bạch.
-3. **`items` (Cửa hàng):** Lưu thông tin vật phẩm (Tên, Loại, Giá). 
-   * **Lưu ý (Soft Delete):** Đã bổ sung cột `is_active BOOLEAN DEFAULT TRUE`. Khi Admin xóa vật phẩm, ta chỉ cập nhật `is_active = false` (Tạm ngưng bán) để không làm hỏng lịch sử túi đồ của người dùng đã mua trước đó.
-4. **`user_items` (Túi đồ - Inventory):** Bảng trung gian (Many-to-Many). Lưu danh sách những món đồ user đang sở hữu và số lượng (`quantity`).
+### Route Prefix (API Endpoints)
 
-## ⚙️ Giai đoạn 2: API Quản lý Cửa hàng (Admin CRUD)
-*Lưu ý: Các API này bắt buộc phải đi qua middleware `requireAdmin` để bảo mật.*
-*   `GET    /api/store/admin/items` (Xem tất cả items, kể cả đã ngưng bán)
-*   `POST   /api/store/admin/items` (Thêm vật phẩm mới)
-*   `PUT    /api/store/admin/items/:id` (Sửa thông tin vật phẩm)
-*   `DELETE /api/store/admin/items/:id` (Ngưng bán - Soft Delete, `is_active = false`)
-*   `PATCH  /api/store/admin/items/:id/activate` (Kích hoạt lại vật phẩm đã ngưng bán)
-
-## 💳 Giai đoạn 3: API Trải nghiệm Mua sắm (User Flow)
-*   `GET  /api/store/items` (Cửa hàng): Trả về danh sách các vật phẩm đang được bán (`is_active = true`).
-*   `GET  /api/store/inventory` (Túi đồ): Trả về danh sách vật phẩm user đang có.
-*   `POST /api/store/buy/:itemId`: Nút thắt cổ chai của hệ thống. Bắt buộc dùng **Database Transaction** (`BEGIN`, `COMMIT`, `ROLLBACK`) để thực hiện nguyên tử 3 bước:
-    1. Kiểm tra ví (`wallets`) có đủ tiền không? Nếu đủ thì trừ tiền.
-    2. Ghi log hóa đơn vào `billing_transactions`.
-    3. Thêm vật phẩm vào `user_items` (Hoặc tăng `quantity` lên +1 nếu đã có).
-    *(Bảo mật bổ sung: Dùng `SELECT ... FOR UPDATE` (Row-locking) để chống spam click mua hàng 2 lần cùng lúc).*
-
-## 🖥 Giai đoạn 4: Frontend UI (Cửa hàng & Túi đồ)
-*   **Store UI (`StoreView.tsx`):** Hiển thị dạng Grid các thẻ (Card) vật phẩm kèm giá xu. Khi bấm "Mua", bật `Modal` xác nhận: *"Bạn có chắc muốn mua vật phẩm này với giá 50 xu không?"* để chống bấm nhầm.
-*   **Inventory UI:** (Chưa có trên thiết kế gốc của đồng đội) Cần bổ sung một Tab hoặc một trang nhỏ liệt kê các vật phẩm user đang sở hữu kèm nút "Trang bị" (Equip) hoặc "Sử dụng" (Use).
-
-## 🎯 Giai đoạn 5: Nhiệm vụ (Goals) & Thành tựu (Achievements)
-*   **Backend (`gamification-repository.ts`):** Quản lý logic Nhiệm vụ (Daily/Weekly) và Thành tựu. Tích hợp các hàm `updateGoalProgress()` và `updateAchievementProgress()` chạy ngầm.
-*   **Tích hợp Event Trigger:** Gọi các hàm cập nhật tiến trình vào bên trong logic học tập (`streak.ts`, `shadowing-service.ts`) và mua sắm.
-*   **Quy tắc Admin:** Quản trị viên chỉ được phép kích hoạt tối đa 3 nhiệm vụ cùng lúc để người dùng tập trung hoàn thành.
-
-## 🖼 Giai đoạn 6: Media & Upload
-*   Tích hợp API `POST /api/upload/image` sử dụng `multer` và `Cloudinary` để lưu trữ ảnh của vật phẩm, avatar, và cover photo trực tiếp từ Admin Dashboard.
+```text
+/api/auth               -> Auth module
+/api/store              -> Economy (Store, Inventory)
+/api/gamification       -> Gamification (Goals, Achievements, Collections, Leaderboard)
+/api/admin              -> Admin HR (Users, Creator Applications)
+/api/admin/gamification -> Admin Economy (Items, Collections, Goals, Achievements)
+/api/shadowing          -> Shadowing module
+/api/upload             -> Cloudinary upload
+/api/arena              -> PvP Arena
+/api/courses            -> Creator/Admin course management
+/api/exams              -> Exam module
+```
 
 ---
 
-# 🎙️ MODULE: AI VOICE ANALYSIS (SHADOWING)
+## 2. Phân Quyền (RBAC)
 
-## Giai đoạn 1: Database & Auto-fetch Transcript
+| Role | Quyền |
+|---|---|
+| USER | Tạo nội dung riêng tư, mua/trang bị vật phẩm, học, PvP |
+| CONTENT_CREATOR | Được duyệt bởi Admin, có quyền xuất bản nội dung ra cộng đồng |
+| ADMIN | Quản trị toàn bộ: duyệt Creator, ban user, quản lý Economy |
 
-- Tạo 3 bảng MySQL: `shadowing_videos`, `shadowing_segments`, `user_shadowing_history`.
-- API `POST /api/shadowing/videos`: nhận URL YouTube → gọi `youtube-transcript` kéo phụ đề tự động, gọi YouTube oEmbed API lấy title & channel thật → lưu vào DB.
-- API `GET /api/shadowing/videos` và `GET /api/shadowing/videos/:id`.
-- Frontend: card "Thêm video" với ô nhập URL, chọn độ khó, loading state, thông báo lỗi rõ ràng.
+Cơ chế Shadow Ban: Creator bị cấm mất quyền tạo mới, nhưng nội dung cũ vẫn giữ lại để học viên cũ tiếp tục học.
 
-## Giai đoạn 2: Tích hợp AI (Whisper + So sánh text)
-
-- Backend nhận file ghi âm qua `multer` (memory buffer).
-- Gọi **OpenAI Whisper API** (`whisper-1`) để chuyển giọng nói thành text.
-- Hàm `compareWords(reference, spoken)` trong `shadowing-service.ts`: normalize (lowercase, bỏ dấu câu), so sánh word-by-word, trả về `{ text, status }`.
-- Trả về `{ accuracy, spokenText, referenceText, feedback }` cho Frontend.
-- *Nâng cấp sau:* Thay bằng **Azure Pronunciation Assessment** để có IPA từng âm tiết.
-
-## Giai đoạn 3: Frontend WebRTC & Hoàn thiện
-
-- Tích hợp `react-youtube`: phát video, bắt sự kiện `onReady`, `onStateChange`.
-- Phụ đề đồng bộ: `setInterval` 500ms → `getCurrentTime()` → so sánh `start_time`/`end_time` → highlight câu đang phát.
-- WebRTC: `getUserMedia` xin quyền mic, `MediaRecorder` ghi âm, tổng hợp `Blob`, gửi qua `FormData`.
-- Từ sai bôi đỏ dạng gạch chân lượn sóng, hover thấy gợi ý.
-- Lưu lịch sử vào `user_shadowing_history` sau mỗi lần phân tích.
-- Cập nhật Streak dùng hàm chung `updateStreak(userId)` (`backend/utils/streak.ts`).
-
-## Giai đoạn 4: Custom Video Player & Giao diện học tập
-
-- **Bố cục (Layout):** Chia layout 60/40. Bên trái là khu vực thực hành (Video, Control Bar, Voice Analysis). Bên phải là hệ thống tab dữ liệu (Transcript, Gemini Vocab, Notebook).
-- **Thanh điều khiển tuỳ chỉnh (Control Bar):** 
-  - Thay thế các control mặc định của YouTube bằng các nút custom (Play/Pause, Tua lùi 5s, Tốc độ).
-  - Thuật toán `Auto-Pause`: Tự động dừng video khi người dùng nghe xong một câu (dựa trên mốc `end_time` của segment hiện tại).
-  - Thuật toán `Loop`: Liên tục lặp lại một câu (kết hợp `seekTo` và `start_time`, `end_time`).
-- **Context Menu & Sổ tay:** 
-  - Bắt sự kiện chuột phải (`onContextMenu`) trên từng câu phụ đề ở Tab Transcript.
-  - Các chức năng: Lưu câu vào thẻ Notebook, Kích hoạt Loop câu đó, hoặc Copy text vào clipboard. Mọi thao tác lưu diễn ra âm thầm để không gián đoạn luồng học.
-
-## Giai đoạn 5: Interactive Subtitles & AI Dictionary
-
-- **Tokenization:** Phụ đề không còn là văn bản tĩnh mà được chẻ (split) thành từng từ vựng riêng biệt và render thông qua các thẻ `<span>` có sự kiện `onClick`.
-- **Làm sạch chuỗi (String Cleaning):** Áp dụng Regex để lọc các ký tự đặc biệt, dấu câu dính vào từ, ép kiểu `toLowerCase()` trước khi gửi lên API để tránh lỗi 400/404.
-- **Tích hợp API Tra từ:**
-  - Chuyển sang sử dụng **Wiktionary REST API** (`en.wiktionary.org`) để đảm bảo tính ổn định, tốc độ phản hồi nhanh và không bị lỗi CORS/Rate Limit. Dữ liệu HTML trả về được lọc (strip tags) trước khi hiển thị.
-  - Sử dụng Web Speech API tích hợp sẵn của trình duyệt (`window.speechSynthesis`) để đọc từ vựng thay vì tải file MP3, giúp đảm bảo 100% từ nào cũng có thể phát âm được mà không bị trễ.
-- **Tích hợp Gemini AI Contextual Explanation:**
-  - Gửi cả từ vựng và toàn bộ câu chứa từ đó lên Backend. 
-  - Backend gọi **Gemini API** với prompt được tối ưu (yêu cầu trả về dạng text thuần dưới 40 chữ) để giải thích chính xác ý nghĩa của từ đó trong ngữ cảnh của câu.
-- **UI/UX Popup:** Khung từ điển nổi (Dictionary Popup) áp dụng kỹ thuật Drag & Drop thuần React (sử dụng `useRef` và `pointer events`), cho phép người dùng thoải mái nắm kéo thả khung từ điển khắp màn hình để không bị che khuất video hay transcript.
+Middleware bảo vệ:
+- `requireAuth`: Kiểm tra JWT cookie hợp lệ, gán `req.user`.
+- `requireRole(['admin'])`: Chặn request nếu không phải Admin.
+- `optionalAuth`: Gán user nếu có token, không bắt buộc (dùng cho các API công khai như leaderboard).
 
 ---
 
-## Streak Logic — Dùng chung (`backend/utils/streak.ts`)
+## 3. Module Gamification & Economy (Cửa hàng vật phẩm)
 
-Cập nhật `wallets`: `current_streak`, `longest_streak`, `last_study_date` sau mỗi lần học:
-- **Chưa học hôm nay, ngày cuối là hôm qua:** `streak += 1` → chuỗi tiếp tục.
-- **Đã học hôm nay rồi:** Không thay đổi (idempotent — tránh tăng 2 lần).
-- **Bỏ học ≥ 1 ngày** (học ngày 1, bỏ ngày 2, học lại ngày 3): `streak = 1` (reset về đầu).
-- `longest_streak` luôn được cập nhật nếu `current_streak` vượt kỷ lục.
-*Nâng cấp tương lai: dùng Azure Pronunciation Assessment để có phiên âm IPA từng âm tiết.*
+Các file quan trọng:
+- `backend/modules/economy/economy-repository.ts` - Logic mua và trang bị
+- `backend/modules/economy/economy-route.ts` - Routes user
+- `backend/modules/admin/gamification-admin.route.ts` - Routes admin
+- `backend/modules/admin/gamification-admin.controller.ts` - Controller CRUD admin
+- `frontend/src/app/components/dashboard/StoreView.tsx` - Giao diện cửa hàng và túi đồ
 
----
+### Database Schema (MySQL)
 
-# 🛡️ MODULE: ADMIN PANEL & RBAC (PHÂN QUYỀN VÀ QUẢN TRỊ)
+| Bảng | Mô tả |
+|---|---|
+| `wallets` | Số dư `coin_balance`, `diamond_balance`, `exp`, `level`, `current_streak`, `longest_streak`, `last_study_date`, `arena_rank`, `leaderboard_point` |
+| `billing_transactions` | Sổ cái giao dịch (ai mua gì, trừ bao nhiêu xu/kim cương, thời gian nào) |
+| `items` | Vật phẩm: `name`, `type` (AVATAR/COVER_PHOTO/STREAK_FREEZE), `price`, `price_type` (COIN/DIAMOND), `image_url`, `required_level`, `collection_id`, `is_active` (Soft delete) |
+| `collections` | Nhóm vật phẩm: `name`, `unlock_level`, `theme_color`, `image_url`, `description` |
+| `user_items` | Túi đồ user: `user_id`, `item_id`, `quantity`, `is_active` |
 
-Chúng ta đã tái cấu trúc và mở rộng khu vực Admin thành một phân hệ quản trị toàn diện, bao gồm các tab và logic phân quyền nâng cao.
+Lưu ý Soft Delete: Dùng `is_active = false` thay vì xoá cứng khỏi database để bảo toàn lịch sử túi đồ của người dùng.
 
-## 1. Giao diện Quản trị (Admin Dashboard)
-Dashboard được chia thành nhiều View riêng biệt để quản lý:
-- **AdminHRView (Nhân sự & Báo cáo):** Quản lý hệ thống đơn từ, duyệt/từ chối role `CONTENT_CREATOR`, đình chỉ tài khoản vi phạm, và xử lý các báo cáo lạm dụng (Report) từ người dùng.
-- **AdminEconomyView (Kinh tế & Gamification):** Tab chuyên sâu để vận hành nền kinh tế ảo. 
-  - *Cửa hàng (Items):* Quản lý vật phẩm, giá cả (Coin/Diamond), ảnh đại diện (kết nối Cloudinary).
-  - *Bộ sưu tập (Collections):* Quản lý nhóm vật phẩm, màu sắc chủ đề.
-  - *Nhiệm vụ (Goals):* Bảng điều khiển Nhiệm vụ Hàng ngày/Tuần (giới hạn kích hoạt 3 nhiệm vụ/lúc).
-  - *Thành tựu (Achievements):* Phân loại thành tựu với phần thưởng đa dạng (Coin, Kim cương, EXP).
+### API Endpoints
 
-## 2. Phân quyền Hybrid RBAC (Content Creator)
-LexiCore áp dụng mô hình Lai (Hybrid) cho việc tạo nội dung:
-1. Mọi `USER` đều có thể tạo khóa học/bộ từ vựng riêng tư (Resource-level RBAC).
-2. Chỉ những người có role `CONTENT_CREATOR` (đã được duyệt) mới có quyền xuất bản nội dung ra Public (Cộng đồng).
-3. Admin có quyền phê duyệt/từ chối đơn xin làm Creator và có quyền Cấm (Suspend) Creator nếu vi phạm. Creator bị cấm sẽ rơi vào trạng thái "Shadow Ban": mất quyền tạo mới, nhưng nội dung cũ vẫn tồn tại cho học viên cũ tiếp tục học.
+Dành cho User (`/api/store`):
+```text
+GET  /api/store/items           -> Danh sách vật phẩm đang bán (kèm is_owned cho user hiện tại)
+GET  /api/store/inventory       -> Túi đồ của user
+POST /api/store/buy/:itemId     -> Mua vật phẩm (dùng Database Transaction + Row Locking)
+POST /api/store/equip/:itemId   -> Trang bị avatar/cover (cập nhật users.avatar_url / users.cover_url)
+```
 
----
+Dành cho Admin (`/api/admin/gamification`):
+```text
+GET/POST     /items              -> Xem danh sách / thêm vật phẩm mới
+PUT          /items/:id          -> Sửa vật phẩm
+PUT          /items/:id/toggle   -> Bật/Tắt trạng thái is_active
 
-# 🎨 THIẾT KẾ & BẢNG MÀU (DESIGN SYSTEM)
+GET/POST     /collections        -> Xem / thêm bộ sưu tập
+PUT          /collections/:id    -> Sửa bộ sưu tập
+DELETE       /collections/:id    -> Xoá bộ sưu tập
 
-Hiện tại dự án sử dụng 2 bộ màu được gán trực tiếp (Inline Style) qua Object `L` (Light) và `D` (Dark) kết hợp với class `isDark` trên root để thay đổi thay vì dùng class chuẩn của Tailwind. Kiến trúc này giúp giữ nguyên thiết kế kính mờ (glassmorphism) đặc thù và không bị ảnh hưởng bởi layout bên ngoài.
+GET/POST     /goals              -> Xem / thêm nhiệm vụ
+PUT          /goals/:id          -> Sửa nhiệm vụ
+PUT          /goals/:id/toggle   -> Bật/Tắt trạng thái
 
-Các View mới (`StoreView`, `ArenaView`, v.v.) sẽ áp dụng cùng một cấu trúc `const L` và `const D` này để đồng bộ.
+GET/POST     /achievements       -> Xem / thêm thành tựu
+PUT          /achievements/:id   -> Sửa thành tựu
+PUT          /achievements/:id/toggle -> Bật/Tắt trạng thái
+```
 
-## ☀️ Light Mode: "Soft Blue Mist"
-- **Nền trang:** Gradient xanh dương nhạt (`linear-gradient(135deg, #f3f7ff 0%, #eef3ff 50%, #f7f3ff 100%)`)
-- **Card/Panel:** Trắng trong mờ `rgba(255,255,255, 0.88)`
-- **Viền Card:** Xanh mờ `rgba(37,99,235, 0.12)`
-- **Tiêu đề (Title):** Đen xám `#0f172a`
-- **Chữ nhấn/Sub-text:** Xanh dương `#2563eb`
-- **Màu phụ (Muted):** Xám `#64748b`
-- **Nút bấm (Button):** Gradient `#0b5cff → #1f58ff → #7c3aed`
+### Logic mua hàng (`purchaseItem`)
 
-## 🌙 Dark Mode: "Deep Space" (Dựa trên commit cb37607)
-- **Nền trang:** Đen tím sâu `#080714`
-- **Card/Panel:** Tím thẫm `#100e24` (hoặc `#0d0c1e` cho Modal)
-- **Viền Card:** Tím mờ `rgba(167,139,250, 0.18)`
-- **Tiêu đề (Title):** Trắng ngà `#f8fafc`
-- **Chữ nhấn/Sub-text:** Lavender `#c4b5fd`
-- **Màu phụ (Muted):** Xám nhạt `#94a3b8`
-- **Nút bấm (Button):** Gradient `#7c3aed → #4f46e5`
+Sử dụng Database Transaction: `BEGIN -> COMMIT / ROLLBACK`.
 
----
+1. Kiểm tra đã sở hữu chưa (AVATAR và COVER_PHOTO chỉ mua 1 lần).
+2. Dùng `SELECT ... FOR UPDATE` (Row-locking) để chống spam click 2 lần cùng lúc gây trừ tiền trùng.
+3. Trừ `coin_balance` hoặc `diamond_balance` trong bảng `wallets`.
+4. Insert vào `user_items` (dùng `ON DUPLICATE KEY UPDATE quantity = quantity + 1`).
+5. Ghi log vào `billing_transactions`.
+6. Sau khi commit: kích hoạt Gamification Events (`total_coin_spent`, `collection_completed`).
 
-# 🏆 THU THẬP & DANH SÁCH BỘ SƯU TẬP (ACHIEVEMENTS & COLLECTIONS)
+### Logic trang bị (`equipItemInDb`)
 
-## 🏜️ Collection 1: Kẻ Du Mục Sa Mạc (Desert Nomads)
-*Đây là vùng đất khởi đầu, khô cằn nhưng ẩn chứa sức sống mãnh liệt.*
-- **Cặp 1 (Tier 1 - Cơ bản):** Lạc đà (Camel) — Ốc đảo xanh mát giữa biển cát (Desert Oasis).
-- **Cặp 2 (Tier 2 - Khá):** Cáo Fennec tai to (Fennec Fox) — Đồi cát vàng ươm kéo dài bất tận dưới ánh hoàng hôn (Golden Dunes at Sunset).
-- **Cặp 3 (Tier 3 - Hiếm):** Rắn đuôi chuông (Rattlesnake) — Hẻm núi đá đỏ khô cằn (Red Rock Canyon).
-- **Cặp 4 (Tier 4 - Siêu hiếm):** Đại bàng sa mạc (Desert Falcon) — Tàn tích đền thờ cổ đại bị bão cát vùi lấp một nửa (Sand-buried Ancient Ruins).
+- Kiểm tra user có sở hữu item trong `user_items` không, nếu không trả về `NOT_OWNED`.
+- Nếu item là `AVATAR`: `UPDATE users SET avatar_url = item.image_url WHERE id = userId`
+- Nếu item là `COVER_PHOTO`: `UPDATE users SET cover_url = item.image_url WHERE id = userId`
 
-## 🌊 Collection 2: Đại Dương Sâu Thẳm (Deep Ocean)
-*Chủ đề khám phá từ mặt nước xuống tận đáy biển sâu.*
-- **Cặp 1 (Tier 1 - Cơ bản):** Rùa biển (Sea Turtle) — Rạn san hô rực rỡ dưới ánh nắng (Coral Reef).
-- **Cặp 2 (Tier 2 - Khá):** Cá voi xanh (Blue Whale) — Khung cảnh: Mặt biển mở (Open Sea) đang dậy sóng, xa xa là một bầu trời bão táp vĩ đại (Dramatic Stormy Sky).
-- **Cặp 3 (Tier 3 - Hiếm):** Cá heo (Dolphin) — Rừng tảo bẹ khổng lồ dưới đáy biển lấp lánh tia nắng mặt trời (Kelp Forest).
-- **Cặp 4 (Tier 4 - Siêu hiếm):** Cá voi sát thủ (Orca) — Rãnh đại dương sâu thẳm, đen kịt nhưng được thắp sáng bởi hàng ngàn rặng san hô sinh học (Abyssal Trench).
+### Hiển thị Avatar và Ảnh bìa trên Profile
 
-## 🌲 Collection 3: Thâm Sơn Cùng Cốc (Mystic Jungle)
-*Một khu rừng nhiệt đới đầy bí ẩn và hoang dã.*
-- **Cặp 1 (Tier 1 - Cơ bản):** Vẹt Macaw (Macaw) — Vòm cây cổ thụ rậm rạp đâm xuyên tầng mây (Canopy of Ancient Trees).
-- **Cặp 2 (Tier 2 - Khá):** Ếch phi tiêu độc (Poison Dart Frog) — Thảm thực vật nhiệt đới với những cây nấm khổng lồ, sặc sỡ (Giant Flora).
-- **Cặp 3 (Tier 3 - Hiếm):** Hổ vằn Bengal (Bengal Tiger) — Một thác nước hùng vĩ giấu mình sâu trong rừng rậm (Hidden Jungle Waterfall).
-- **Cặp 4 (Tier 4 - Siêu hiếm):** Báo đen (Black Panther) — Ngôi đền cổ của người Maya/Inca bị rễ cây cổ thụ nuốt chửng (Overgrown Mayan Temple).
+- Trang Profile (`ProfileView.tsx`) đọc `avatar_url` và `cover_url` từ API `/api/auth/me`.
+- Nếu có `avatar_url`: thay ảnh chữ cái mặc định bằng ảnh đại diện thật.
+- Nếu có `cover_url`: phủ lên gradient nền mặc định bằng ảnh bìa.
 
-## ❄️ Collection 4: Kỷ Băng Hà (Arctic Tundra)
-*Thế giới của tuyết trắng, băng giá và những hiện tượng kỳ ảo.*
-- **Cặp 1 (Tier 1 - Cơ bản):** Chim Cánh Cụt (Penguin) — Vách băng khổng lồ sừng sững trên mặt biển (Giant Ice Cliffs).
-- **Cặp 2 (Tier 2 - Khá):** Cú Tuyết (Snowy Owl) — Cánh đồng tuyết trắng xóa bất tận dưới bầu trời đêm (Endless White Tundra).
-- **Cặp 3 (Tier 3 - Hiếm):** Chó Husky/Malamute — Rừng thông phủ đầy tuyết trắng xóa (Snowy Pine Forest).
-- **Cặp 4 (Tier 4 - Siêu hiếm):** Sói Tuyết (Arctic Wolf) — Đỉnh núi tuyết rực sáng dưới dải ánh sáng Cực quang (Aurora Borealis).
+### Tối ưu ảnh Cloudinary
 
-## 🔮 Collection 5: Vương Quốc Pha Lê (Crystal Caverns)
-*Để dành cho những Level siêu cao, mang hơi hướng Fantasy (Viễn tưởng).*
-- **Cặp 1 (Tier 1 - Cơ bản):** Kỳ Giông (Axolotl) — Sông ngầm thạch anh tím (Amethyst Underground River).
-- **Cặp 2 (Tier 2 - Khá):** Dơi Bạch Tạng (Albino Bat) — Vòm hang động lấp lánh tinh thể lưu huỳnh vàng (Yellow Sulfur Cave Vault).
-- **Cặp 3 (Tier 3 - Hiếm):** Cua Đá Mù (Blind Cave Crab) — Rừng cột thạch nhũ pha lê khổng lồ chĩa từ dưới lên (Crystal Stalagmite Forest).
-- **Cặp 4 (Tier 4 - Siêu hiếm):** Thằn Lằn Dung Nham (Lava Salamander) — Hồ dung nham xanh rực sáng dưới đáy hang (Glowing Blue Lava Lake).
+File `frontend/src/app/services/arena-service.ts` cung cấp 2 hàm:
 
-## ☁️ Collection 6: Bầu Trời (Sky Realm)
-*Môi trường của mây trắng, các tầng không khí, bão tố và ánh sáng mặt trời.*
-- **Cặp 1 (Tier 1 - Cơ bản):** Chim Nhạn (Swallow) — Những đám mây trắng xốp bồng bềnh (Fluffy Cumulus Clouds).
-- **Cặp 2 (Tier 2 - Khá):** Bồ Nông (Pelican) — Quần đảo lơ lửng trên không trung (Floating Islands).
-- **Cặp 3 (Tier 3 - Hiếm):** Đại bàng hói (Bald Eagle) — Biển mây rực rỡ dưới ánh hoàng hôn (Sunset Sea of Clouds).
-- **Cặp 4 (Tier 4 - Siêu Hiếm):** Chim Cắt Lớn (Peregrine Falcon) — Tâm bão sét với những đám mây đen cuồn cuộn cuộn xoáy (Eye of a Thunderstorm).
+```ts
+optimizeImageUrl(url, { width, aspectRatio })  // Chèn thông số transform vào giữa URL Cloudinary
+optimizeAvatarUrl(url, size)                   // Shorthand cho avatar tỉ lệ 1:1
+```
 
-## 🐊 Collection 7: Đầm Lầy (Misty Swamplands)
-*Môi trường hoang dã, ẩm ướt, đầy sương mù, bí ẩn và rêu phong.*
-- **Cặp 1 (Tier 1 - Cơ bản):** Cò Trắng (Egret) — Cánh đồng cỏ lau bên bờ lạch (Reed Field).
-- **Cặp 2 (Tier 2 - Khá):** Rùa Cá Sấu (Snapping Turtle) — Rừng ngập mặn với hệ thống rễ cây đan chằng chịt (Mangrove Roots).
-- **Cặp 3 (Tier 3 - Hiếm):** Cóc Khổng Lồ (Goliath Frog) — Khu đầm lầy âm u phủ kín sương mù dày đặc (Misty Swamp).
-- **Cặp 4 (Tier 4 - Siêu Hiếm):** Cá Sấu Mõm Ngắn (Alligator / Crocodile) — Tàn tích một chiếc thuyền hơi nước hoen gỉ bị bỏ hoang giữa đầm lầy rêu phong (Abandoned Sunken Steamboat).
-
-## 🦁 Collection 8: Thảo Nguyên Châu Phi (African Savanna)
-*Vùng đất của ánh hoàng hôn rực rỡ, những cây cổ thụ bao báp và nhịp sống hoang dã hùng vĩ.*
-- **Cặp 1 (Tier 1 - Cơ bản):** Hươu Cao Cổ (Giraffe) — Cây bao-báp khổng lồ sừng sững giữa thảo nguyên (Giant Baobab Tree).
-- **Cặp 2 (Tier 2 - Khá):** Ngựa Vằn (Zebra) — Dòng sông Serengeti mùa thú di cư vượt lũ (Serengeti River Crossing).
-- **Cặp 3 (Tier 3 - Hiếm):** Báo Săn Cheetah (Cheetah) — Cánh đồng cỏ savanna vàng xào xạc trong gió chiều tà (Golden Savanna at Sunset).
-- **Cặp 4 (Tier 4 - Siêu hiếm):** Sư Tử Bờm Đen (Black-maned Lion) — Mỏm đá vương quyền nhìn bao quát toàn bộ thảo nguyên lúc chạng vạng (Pride Rock at Twilight).
-
---- 
-
-# ⚔️ HỆ THỐNG HUY HIỆU XẾP HẠNG PVP (PVP ARENA RANK BADGES)
-
-**Vị trí lưu trữ:** `frontend/public/assets/ranks/` (Core UI Asset, định dạng PNG tách nền trong suốt, tỉ lệ 1:1, tải tức thì không phụ thuộc CDN).
-
-### Danh mục 13 Huy hiệu Xếp hạng chính thức:
-
-| STT | Cấp Rank | Bậc | File UI (`/assets/ranks/`) | Linh vật đại diện | Chất liệu & Kiểu dáng Khiên | Ý nghĩa / Biểu trưng |
-| :---: | :--- | :---: | :--- | :--- | :--- | :--- |
-| 1 | **Đồng (Bronze)** | — | `rank-bronze.png` | **Chiến Binh Spartan** | Đồng đỏ & đồng cổ nguyên khối / Khiên tam giác tối giản | Tinh thần chiến binh sơ khởi, dũng cảm bước vào đấu trường. |
-| 2 | **Bạc (Silver)** | — | `rank-silver.png` | **Đại Bàng Bạc** | Bạc 925 & bạch kim phay xước / Khiên tam giác dứt khoát | Tầm nhìn sắc bén, sự nhanh nhạy và đôi cánh vươn cao. |
-| 3 | **Vàng (Gold)** | — | `rank-gold.png` | **Bò Tót Vàng** | Vàng ròng 24k cơ bắp nguyên khối / Khiên tam giác vàng | Sức mạnh kiên định, sự vững chãi và năng lượng hừng hực. |
-| 4 | **Bạch Kim (Platinum)** | — | `rank-platinum.png` | **Sói Đầu Đàn** | Bạch kim sáng bóng + 1 rãnh vi mạch neon cyan / Khiên ngũ giác | Bản lĩnh thủ lĩnh, sắc lạnh và tư duy chiến thuật đỉnh cao. |
-| 5 | **Lam Ngọc (Sapphire)** | **Bậc 1** | `rank-sapphire-1.png` | **Báo Săn Lam Ngọc** | Tinh thể Sapphire xanh hoàng gia / Khiên lục giác tinh thể | Tốc độ phản xạ thần tốc, dứt khoát trong từng câu hỏi. |
-| 6 | | **Bậc 2** | `rank-sapphire-2.png` | **Hổ Xanh Lam Ngọc** | Tinh thể Sapphire gầm vang / Khiên lục giác tinh thể | Uy lực bộc phá mãnh liệt, áp đảo đấu trường. |
-| 7 | **Lục Bảo (Emerald)** | **Bậc 1** | `rank-emerald-1.png` | **Sư Tử Hoàng Gia** | Ngọc Lục Bảo + vương miện vàng / Khiên bát giác Emerald-cut | Chúa sơn lâm làm chủ đấu trường, phong thái vương giả. |
-| 8 | | **Bậc 2** | `rank-emerald-2.png` | **Bảo Tượng Hoàng Gia** | Ngọc Lục Bảo + đôi ngà ngọc & vương miện / Khiên bát giác Emerald-cut | Trí tuệ uyên bác, ký ức siêu phàm ("An Elephant Never Forgets"). |
-| 9 | **Kim Cương (Diamond)** | **Bậc 1** | `rank-diamond-1.png` | **Kỳ Lân Pegasus Pha Lê** | Kim cương giác cắt tinh khiết / Khiên thoi kim cương (Rhombus) | Sự thuần khiết, thanh cao và khí phách kiêu hãnh. |
-| 10 | | **Bậc 2** | `rank-diamond-2.png` | **Phượng Hoàng Pha Lê** | Kim cương tán sắc cầu vồng / Khiên giác cắt kim cương đa diện | Sự hoàn mỹ, bất tử và hào quang tỏa sáng rực rỡ. |
-| 11 | **Đại Sư (Master)** | **Bậc 1** | `rank-master-1.png` | **Đại Pháp Sư Vũ Trụ** | Hắc diện thạch (Obsidian) & Vàng thần thoại / Vương Huy 8 cánh | Đỉnh cao tri thức nhân loại, làm chủ ma pháp ngôn từ. |
-| 12 | | **Bậc 2** | `rank-master-2.png` | **Thần Long Phương Đông** | Rồng châu Á uốn lượn ngậm ngọc vũ trụ / Vương Huy 8 cánh | Linh khí trời đất, trí tuệ thần thánh và sự trường tồn. |
-| 13 | | **Bậc 3** | `rank-master-3.png` | **Hắc Long Phương Tây** | Rồng khổng lồ sải cánh 4 chân thở lửa / Vương Huy 8 cánh | Đỉnh cao tối thượng của PvP Arena, biểu tượng kẻ bất bại! |
+Nguyên tắc: Chèn cụm `w_{width},h_{height},c_fill,q_auto,f_auto` vào sau `/upload/` trong URL Cloudinary.
+Gọi hàm này ở mọi nơi render ảnh từ Cloudinary để tránh vỡ nét và giảm dung lượng tải.
 
 ---
 
-Your suggest
-Dạng câu hỏi trong Arena (mở rộng):
+## 4. Module Gamification (Goals, Achievements, Collections)
 
-Thay vì chỉ "biết nghĩa từ" có thể có 2-3 mode:
-* 🔤 Word → Meaning (tiếng Anh ra tiếng Việt)
-* 📝 Fill in the blank (dùng example + 4 lựa chọn)
-* 🇻🇳 Meaning → Word (tiếng Việt ra tiếng Anh)
-cho giao diện nhập chữ từng ô (như Wordle), mỗi ô 1 chữ cái, ô đầu tiên đã điền sẵn. Vừa thân thiện vừa chống typo.
+Các file quan trọng:
+- `backend/modules/gamification/gamification-repository.ts` - Toàn bộ logic nghiệp vụ
+- `backend/modules/gamification/gamification-route.ts` - Routes user
+- `backend/modules/gamification/gamification-controller.ts` - Controller
 
-🌐 Nguồn từ vựng theo chủ đề + độ khó
-Trang tôi thực sự khuyên dùng:
+### Database Schema (MySQL)
 
-- Oxford Learner's Word Lists — Phân loại theo topic VÀ CEFR level sẵn, chính xác nhất cho mục đích này.
-- Cambridge English Vocabulary Lists — Cũng có CEFR.
-- Vocabulary.com — Có difficulty score cho từng từ, rất tiện.
-IELTS Vocabulary by topic (British Council) — Phân chia theo topic chuẩn IELTS.
-Về độ khó: Oxford và Cambridge đã map sẵn CEFR (A1→C2) cho từng từ, không cần tự đánh giá. Bạn chỉ cần tra và nhập.
+| Bảng | Mô tả |
+|---|---|
+| `daily_goal_definitions` | Định nghĩa nhiệm vụ: `title`, `metric_key`, `target_value`, `type` (DAILY/WEEKLY), `is_active`, `reward_coin`, `reward_exp` |
+| `user_daily_goals` | Tiến độ nhiệm vụ: `user_id`, `goal_id`, `date`, `current_progress`, `is_completed`, `is_claimed` |
+| `achievement_definitions` | Định nghĩa thành tựu: `title`, `metric_key`, `target_value`, `category` (LEARNING/STREAK/PVP/COLLECTION), `reward_coin`, `reward_diamond`, `reward_exp` |
+| `user_achievements` | Tiến độ thành tựu: `user_id`, `achievement_id`, `current_progress`, `is_unlocked`, `unlocked_at` |
 
-🤔 Từ "chung chung" không có topic (manipulate, delay, postpone...)
-Đây là câu hỏi hay nhất và tôi đồng ý là ý tưởng "chỉ random topic" có lỗ hổng. Giải pháp tôi đề xuất: 2 loại topic đặc biệt:
+### API Endpoints (User)
 
-- general — Từ như manipulate, delay, postpone, establish... (thường = Academic Word List). Áp dụng cho mọi trận đấu bất kể topic được chọn là gì.
-- academic — Academic collocation, phrase kiểu "carry out research", "draw a conclusion"...
+```text
+GET  /api/gamification/daily-goals                     -> Nhiệm vụ hôm nay (tự động tạo nếu chưa có)
+POST /api/gamification/daily-goals/claim/:goalId       -> Nhận thưởng nhiệm vụ đã hoàn thành
+GET  /api/gamification/achievements                    -> Toàn bộ thành tựu kèm tiến độ user
+GET  /api/gamification/collections                     -> Danh sách bộ sưu tập và tiến độ sở hữu
+GET  /api/gamification/collections/:collectionId/items -> Vật phẩm trong collection kèm is_owned, is_equipped
+GET  /api/gamification/leaderboard                     -> Bảng xếp hạng top 50 user theo leaderboard_point (public)
+```
+
+### Hàm cập nhật tiến độ (Background Events)
+
+```ts
+// Cộng dồn (coin_spent, lessons_completed, ...)
+updateAchievementProgress(userId, metricKey, incrementValue)
+updateGoalProgress(userId, metricKey, incrementValue)
+
+// Đặt giá trị tuyệt đối - chỉ tăng, không giảm (dùng cho current_streak)
+setAchievementProgress(userId, metricKey, absoluteValue)
+```
+
+Bảng các sự kiện kích hoạt tiến độ:
+
+| Sự kiện | Metric key | Nơi gọi |
+|---|---|---|
+| Học Shadowing 1 câu | `shadowing_minutes_studied` | `shadowing-service.ts -> analyzeAudio()` |
+| Mua vật phẩm | `total_coin_spent` | `economy-repository.ts -> purchaseItem()` |
+| Hoàn thành bộ sưu tập | `collection_completed` | `economy-repository.ts -> purchaseItem()` |
+| Học ngày mới | `total_active_days`, `current_streak` | `utils/streak.ts -> updateStreak()` |
+
+### Logic xác định trạng thái is_equipped
+
+Trong database không có cột `is_equipped`. Trạng thái này được suy ra trực tiếp qua câu lệnh SQL:
+
+```sql
+CASE WHEN i.type = 'AVATAR' AND u.avatar_url = i.image_url THEN 1
+     WHEN i.type = 'COVER_PHOTO' AND u.cover_url = i.image_url THEN 1
+     ELSE 0 END as is_equipped
+```
+
+### Giao diện AchievementsView.tsx (Frontend)
+
+Bao gồm 4 tab chính: Nhiệm vụ, Thành tựu, Bộ Sưu Tập, Bảng Xếp Hạng.
+
+Tab Bộ Sưu Tập:
+- Màn hình danh sách: Grid các thẻ collection, click vào thẻ để xem chi tiết.
+- Màn hình chi tiết: Banner trên cùng kèm thanh tiến độ sở hữu, chia làm 2 khu vực rõ ràng:
+  - Ảnh Bìa: Tỉ lệ 16:9 (grid 2 cột)
+  - Avatar: Tỉ lệ 1:1 (grid 6 cột)
+- Nút "Trang bị" gọi `POST /api/store/equip/:itemId`, cập nhật giao diện optimistic.
+- Avatar đang trang bị: Glow xanh viền `shadow-[0_0_15px_rgba(16,185,129,0.65)]` + nút "Đang dùng" màu xanh emerald với chấm ping nhấp nháy.
+
+---
+
+## 5. Logic Chuỗi Ngày Học (Streak) - `backend/utils/streak.ts`
+
+Hàm `updateStreak(userId)` được gọi sau mỗi lần học thành công.
+
+| Tình huống | Kết quả xử lý |
+|---|---|
+| Đã học hôm nay rồi | Giữ nguyên chuỗi (idempotent) |
+| Học ngày hôm qua rồi học tiếp hôm nay | `current_streak += 1` |
+| Bỏ 1 ngày trở lên nhưng còn vật phẩm `STREAK_FREEZE` | Trừ 1 Freeze, giữ nguyên chuỗi |
+| Bỏ học từ 1 ngày trở lên, không có Freeze | `current_streak = 1` (reset về đầu) |
+
+Giá trị `longest_streak` chỉ tăng hoặc giữ nguyên, không bao giờ bị giảm.
+
+---
+
+## 6. Hệ Thống Cấp Độ & EXP (`backend/utils/level.ts`)
+
+Công thức lên cấp: EXP cần để lên từ Level `n` lên `n+1` = `100 + (n - 1) * 20`
+
+```text
+Level 1 -> 2: cần 100 EXP
+Level 2 -> 3: cần 120 EXP
+Level 5 -> 6: cần 180 EXP
+```
+
+Hàm `addExp(userId, expToAdd)`: Cộng EXP trực tiếp và tự động xử lý lên cấp nhiều lần nếu EXP vượt ngưỡng.
+
+---
+
+## 7. Module Shadowing (Phân tích giọng nói)
+
+Các file quan trọng:
+- `backend/modules/shadowing/shadowing-service.ts` - Toàn bộ business logic
+- `backend/modules/shadowing/shadowing-route.ts` - Routes API
+- `frontend/src/app/components/dashboard/ShadowingView.tsx` - Giao diện người dùng
+
+### Database Schema (MySQL)
+
+| Bảng | Mô tả |
+|---|---|
+| `shadowing_videos` | `youtube_id`, `title`, `channel`, `duration`, `thumbnail_url`, `ai_summary` (JSON cache) |
+| `shadowing_segments` | `video_id`, `start_time`, `end_time`, `transcript`, `order_index` |
+| `user_shadowing_history` | `user_id`, `video_id`, `segment_id`, `accuracy`, `created_at` |
+
+### API Endpoints
+
+```text
+GET  /api/shadowing/videos               -> Thư viện video
+GET  /api/shadowing/videos/:id           -> Chi tiết video kèm các đoạn segment
+POST /api/shadowing/check-sub            -> Kiểm tra phụ đề thủ công TRƯỚC khi add
+POST /api/shadowing/videos               -> Thêm video vào hệ thống (sau khi đã check-sub)
+POST /api/shadowing/analyze/:segmentId   -> Gửi audio để phân tích Whisper và chấm điểm
+GET  /api/shadowing/videos/:id/summary   -> Gemini AI Summary (lazy-load, cached DB)
+GET  /api/shadowing/notes/:videoId       -> Lấy ghi chú cá nhân của user
+PUT  /api/shadowing/notes/:videoId       -> Lưu ghi chú cá nhân
+POST /api/shadowing/dictionary/explain   -> Gemini giải thích từ theo đúng ngữ cảnh
+```
+
+### Flow thêm video (checkManualSub -> addVideo)
+
+1. Frontend gọi `POST /check-sub` với URL YouTube khi user bấm nút "Thêm video".
+2. Backend thực thi `checkManualSub()`:
+   - Parse YouTube ID từ URL (hỗ trợ nhiều định dạng URL rút gọn, thường hoặc raw ID).
+   - Kiểm tra đã có trong DB chưa, nếu có trả về `ALREADY_EXISTS`.
+   - Gọi YouTube InnerTube API để lấy danh sách caption tracks.
+   - Fallback crawl HTML trang YouTube nếu InnerTube bị chặn.
+   - Lọc track tiếng Anh (`languageCode: 'en'`).
+   - Phân biệt phụ đề thủ công và tự động: `kind !== 'asr'` và `vssId` không bắt đầu bằng `'a.'`.
+   - Chỉ cho phép phụ đề thủ công. Nếu là auto-generated sẽ trả về lỗi `AUTO_GENERATED`.
+3. Nếu hợp lệ, frontend hiển thị thông tin video (title, channel) để user bấm xác nhận -> gọi `POST /videos`.
+4. Backend `addVideo()` tải XML phụ đề từ `track.baseUrl` -> parse -> insert vào `shadowing_segments`.
+5. Link `thumbnail_url` được lưu theo cú pháp: `https://img.youtube.com/vi/{youtubeId}/maxresdefault.jpg` (không cần API key).
+
+### Flow phân tích giọng nói
+
+1. Frontend dùng WebRTC (`getUserMedia` + `MediaRecorder`) ghi âm giọng đọc của user.
+2. Đóng gói thành `Blob`, gửi `FormData` qua endpoint `POST /analyze/:segmentId`.
+3. Backend nhận buffer qua `multer.memoryStorage()`.
+4. Gửi buffer lên OpenAI Whisper API (`whisper-1`, `language: 'en'`) để nhận `spokenText`.
+5. Hàm `compareWords(referenceText, spokenText)`: Chuẩn hoá chuỗi, so sánh word-by-word -> trả về `[{ text, status: 'correct'|'wrong' }]`.
+6. Tính điểm: `accuracy = (correct / total) * 100`.
+7. Lưu lịch sử học, gọi `updateStreak()` và cập nhật tiến độ Achievement/Goal.
+
+### Giao diện học tập (Layout 60/40)
+
+- Bên trái (60%): Trình phát video (react-youtube, ẩn controls gốc), Custom Control Bar, khu vực thu âm và phân tích giọng.
+- Bên phải (40%): Tab Transcript (phụ đề tương tác từng từ), Tab Từ vựng Gemini, Tab Sổ tay ghi chú.
+
+Custom Control Bar:
+- Tự động dừng (Auto-Pause): Dừng video khi phát qua `end_time` của segment hiện tại.
+- Lặp lại (Loop): Lặp lại segment (`seekTo(start_time)`).
+- Tua lùi 5 giây, điều chỉnh tốc độ phát.
+
+Phụ đề tương tác (Interactive Subtitles):
+- Mỗi từ là 1 thẻ `<span>` có `onClick` để mở Dictionary Popup.
+- Popup hỗ trợ kéo thả tự do bằng pointer events thuần React (`useRef`).
+- Tra từ điển bằng Wiktionary REST API (ổn định, không dính CORS, không rate limit).
+- Phát âm bằng Web Speech API (`window.speechSynthesis`), không cần file MP3.
+- Giải thích ngữ cảnh bằng Gemini API (`/api/shadowing/dictionary/explain`).
+
+Quy tắc màu sắc điểm số:
+- `accuracy >= 80%`: Màu xanh lá (chuẩn).
+- `accuracy` từ 50% đến 79%: Màu vàng (cảnh báo nhẹ).
+- `accuracy < 50%`: Màu đỏ (cần luyện tập thêm).
+- Từ đọc sai được gạch chân thẳng màu đỏ bên dưới.
+
+---
+
+## 8. Module Admin Panel
+
+Các file quan trọng:
+- `backend/modules/admin/admin.route.ts` + `admin.controller.ts`
+- `backend/modules/admin/gamification-admin.route.ts` + `gamification-admin.controller.ts`
+- `frontend/src/app/components/dashboard/AdminHRView.tsx`
+- `frontend/src/app/components/dashboard/AdminEconomyView.tsx`
+
+### AdminHRView - Quản Lý Nhân Sự
+
+- Xem, phê duyệt hoặc từ chối đơn xin làm Content Creator.
+- Đình chỉ (Suspend) hoặc kích hoạt lại (Reactivate) Creator vi phạm.
+- Quản lý danh sách Users, khoá hoặc mở khoá tài khoản.
+- Badge thông báo số lượng đơn chờ duyệt: `GET /api/admin/stats/pending`.
+
+### AdminEconomyView - Quản Lý Kinh Tế & Gamification
+
+Bao gồm 4 tab: Cửa hàng (Items), Bộ sưu tập (Collections), Nhiệm vụ (Goals), Thành tựu (Achievements).
+
+Upload ảnh Cloudinary:
+- Admin dán trực tiếp URL hoặc upload file qua nút "Tải ảnh lên".
+- Upload gọi `POST /api/upload/image` (multer + Cloudinary SDK).
+- Khung preview ảnh tự động tối ưu qua `optimizeImageUrl()`.
+- Tỉ lệ preview chuẩn: COVER_PHOTO -> 16:9 (`w-36 h-20`), AVATAR -> 1:1 (`w-20 h-20`).
+
+Ô nhập Level và Giá bán:
+- Ô "Yêu cầu Level" và "Giá bán" không đặt số mặc định cố định để tránh bị kẹt không xoá được.
+- Hiển thị qua placeholder; nếu để trống khi submit thì hệ thống mặc định coi như `required_level = 1` và `price = 0`.
+
+---
+
+## 9. Cấu Trúc File Chính
+
+```text
+backend/
+├── server.ts                          # Entry point, dang ky tat ca routes
+├── utils/
+│   ├── streak.ts                      # updateStreak() dung chung
+│   ├── level.ts                       # calculateNewLevel(), addExp()
+│   └── gemini.ts                      # callGeminiWithRetry() goi Gemini kem retry
+└── modules/
+    ├── auth/                          # Dang ky, dang nhap, JWT, OTP, doi mat khau
+    ├── economy/                       # Store, Inventory, Buy, Equip
+    ├── gamification/                  # Goals, Achievements, Collections, Leaderboard
+    ├── shadowing/                     # Video library, phan tich giong noi, AI summary
+    ├── admin/                         # Admin HR va Admin Gamification
+    ├── upload/                        # Upload anh Cloudinary
+    ├── arena/                         # Dau truong PvP (Socket.IO)
+    ├── course/                        # Khoa hoc (Creator, Admin, Student)
+    ├── srs/                           # Spaced Repetition System (Flashcard)
+    └── exam/                          # Module kiem tra
+
+frontend/src/app/
+├── services/
+│   └── arena-service.ts               # optimizeImageUrl(), optimizeAvatarUrl(), getRankBadgeUrl()
+└── components/dashboard/
+    ├── StoreView.tsx                  # Cua hang va tui do
+    ├── AchievementsView.tsx           # Nhiem vu, thanh tuu, bo suu tap, bang xep hang
+    ├── ShadowingView.tsx              # Toan bo UI module Shadowing
+    ├── AdminEconomyView.tsx           # Admin quan ly kinh te va gamification
+    ├── AdminHRView.tsx                # Admin quan ly nhan su
+    └── ProfileView.tsx                # Trang ho so ca nhan (avatar_url, cover_url)
+```
+
+---
+
+## 10. Lưu Ý Kỹ Thuật Quan Trọng
+
+1. Tailwind v4: Dự án dùng TailwindCSS v4. Tuyệt đối không dùng `bg-opacity-*`, thay bằng cú pháp slash như `bg-black/40`, `bg-emerald-500/10`.
+
+2. Cấu trúc URL Cloudinary: Hàm `optimizeImageUrl` chỉ hoạt động với URL chứa `res.cloudinary.com` và `/upload/`. URL ngoài Cloudinary được trả về nguyên bản.
+
+3. Kiểm tra is_equipped: Không tạo cột `is_equipped` trong database. Trạng thái trang bị được xác định bằng cách so khớp `item.image_url` với `users.avatar_url` hoặc `users.cover_url`.
+
+4. Transaction khi giao dịch: Luôn dùng `pool.getConnection()` kết hợp `beginTransaction()` và `FOR UPDATE` cho các thao tác đọc ghi liên quan đến số dư ví và vật phẩm.
+
+5. Tự động tạo Goals: Khi user gọi `GET /daily-goals`, nếu chưa có dữ liệu của ngày hoặc tuần hiện tại, hệ thống sẽ tự động khởi tạo từ các `daily_goal_definitions` đang kích hoạt.
+
+6. Shadowing chỉ nhận phụ đề thủ công: Phụ đề tự động (ASR) bị chặn tại hàm `checkManualSub`. Điều kiện nhận diện là `kind !== 'asr'` và `!vssId.startsWith('a.')`.
+
+7. Ảnh thumbnail Shadowing: Lấy trực tiếp từ YouTube theo định dạng `https://img.youtube.com/vi/{youtubeId}/maxresdefault.jpg` mà không cần Google API key.

@@ -245,11 +245,13 @@ export function AdminView() {
       const payload = {
         name: editFields.name,
         type: editFields.type || 'AVATAR',
-        price: editFields.price || 0,
+        price: (editFields.price !== undefined && !isNaN(editFields.price)) ? Math.max(0, editFields.price) : 0,
         price_type: editFields.price_type || 'COIN',
         description: editFields.description || '',
         image_url: editFields.image_url || '',
-        required_level: editFields.required_level || 1,
+        required_level: (editFields.required_level && !isNaN(editFields.required_level) && editFields.required_level > 0)
+          ? editFields.required_level
+          : 1,
         collection_id: editFields.collection_id || null,
       };
 
@@ -320,7 +322,9 @@ export function AdminView() {
         body: JSON.stringify({
           name: editCollectionFields.name,
           description: editCollectionFields.description,
-          unlock_level: editCollectionFields.unlock_level || 1,
+          unlock_level: (editCollectionFields.unlock_level && !isNaN(editCollectionFields.unlock_level) && editCollectionFields.unlock_level > 0)
+            ? editCollectionFields.unlock_level
+            : 1,
           theme_color: editCollectionFields.theme_color || "#3b82f6",
         }),
       });
@@ -886,7 +890,10 @@ export function AdminView() {
                     : "h-36 w-full",
                 ].join(" ")}>
                   <img
-                    src={editFields.image_url}
+                    src={optimizeImageUrl(editFields.image_url, {
+                      width: imgAspect === 'square' ? 240 : 480,
+                      aspectRatio: imgAspect === 'square' ? '1:1' : '16:9'
+                    })}
                     alt={selectedItem.name}
                     className="w-full h-full object-cover"
                     onLoad={(e) => {
@@ -1095,9 +1102,13 @@ export function AdminView() {
                 <input
                   type="number"
                   min="1"
+                  placeholder="1 (Mặc định)"
                   className="w-full p-2 rounded-md border bg-background text-sm"
-                  value={editCollectionFields.unlock_level || 1}
-                  onChange={e => setEditCollectionFields(f => ({ ...f, unlock_level: Number(e.target.value) }))}
+                  value={editCollectionFields.unlock_level !== undefined ? editCollectionFields.unlock_level : ""}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setEditCollectionFields(f => ({ ...f, unlock_level: val === "" ? undefined : parseInt(val, 10) }));
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -1619,9 +1630,13 @@ export function AdminView() {
                 <input
                   type="number"
                   min="1"
+                  placeholder="1 (Mặc định)"
                   className="w-full p-2 rounded-md border bg-background text-sm"
-                  value={editFields.required_level || 1}
-                  onChange={e => setEditFields(f => ({ ...f, required_level: Number(e.target.value) }))}
+                  value={editFields.required_level !== undefined ? editFields.required_level : ""}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setEditFields(f => ({ ...f, required_level: val === "" ? undefined : parseInt(val, 10) }));
+                  }}
                 />
               </div>
             </div>
@@ -1644,20 +1659,32 @@ export function AdminView() {
                 <input
                   type="number"
                   min="0"
-                  required
+                  placeholder="0 (Mặc định)"
                   className="w-full p-2 rounded-md border bg-background text-sm"
-                  value={editFields.price !== undefined ? editFields.price : 0}
-                  onChange={e => setEditFields(f => ({ ...f, price: Number(e.target.value) }))}
+                  value={editFields.price !== undefined ? editFields.price : ""}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setEditFields(f => ({ ...f, price: val === "" ? undefined : parseInt(val, 10) }));
+                  }}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Image URL</label>
-              <div className="flex gap-2 items-start">
+              <div className="flex gap-3 items-start">
                 {editFields.image_url && (
-                  <div className="w-20 h-20 rounded-md border shrink-0 overflow-hidden bg-primary/5">
-                    <img src={editFields.image_url} alt="Preview" className="w-full h-full object-cover" />
+                  <div className={`rounded-lg border shrink-0 overflow-hidden bg-primary/5 shadow-xs transition-all ${
+                    editFields.type === 'COVER_PHOTO' ? 'w-36 h-20 aspect-video' : 'w-20 h-20 aspect-square'
+                  }`}>
+                    <img
+                      src={optimizeImageUrl(editFields.image_url, {
+                        width: editFields.type === 'COVER_PHOTO' ? 320 : 160,
+                        aspectRatio: editFields.type === 'COVER_PHOTO' ? '16:9' : '1:1'
+                      })}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 )}
                 <div className="flex-1 space-y-2">

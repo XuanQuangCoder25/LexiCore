@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Separator } from "../ui/separator";
 import { CircleDollarSign, ShoppingBag, Shield, Flame, Star, Frame, CheckCircle2, Lock, Store, Loader2 } from "lucide-react";
+import { optimizeImageUrl } from "../../services/arena-service";
 
 interface StoreItem {
   id: string;
@@ -204,7 +205,14 @@ export function StoreView() {
                       <div className={`rounded-2xl bg-secondary/30 border flex items-center justify-center overflow-hidden shrink-0 mb-3 group mx-auto ${item.type === 'AVATAR' ? 'aspect-square w-40 max-w-[85%]' : 'w-full aspect-video'
                         }`}>
                         {item.image_url ? (
-                          <img src={item.image_url} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                          <img
+                            src={optimizeImageUrl(item.image_url, {
+                              width: item.type === 'COVER_PHOTO' ? 440 : 220,
+                              aspectRatio: item.type === 'COVER_PHOTO' ? '16:9' : '1:1'
+                            })}
+                            alt={item.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
                         ) : (
                           <Icon className="h-10 w-10 text-muted-foreground/30" />
                         )}
@@ -261,7 +269,14 @@ export function StoreView() {
                     <div className={`rounded-lg bg-secondary/30 border flex items-center justify-center shrink-0 overflow-hidden ${item.type === 'AVATAR' ? 'aspect-square h-14' : 'aspect-video h-14'
                       }`}>
                       {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                        <img
+                          src={optimizeImageUrl(item.image_url, {
+                            width: item.type === 'COVER_PHOTO' ? 220 : 120,
+                            aspectRatio: item.type === 'COVER_PHOTO' ? '16:9' : '1:1'
+                          })}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <Icon className="h-6 w-6 text-muted-foreground/50" />
                       )}
@@ -310,13 +325,26 @@ export function StoreView() {
           </DialogHeader>
           {confirmItem && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 rounded-lg bg-muted">
-                <div className="h-12 w-12 rounded-lg bg-background flex items-center justify-center">
-                  {(() => { const Icon = typeConfig[confirmItem.type]?.icon ?? Star; return <Icon className="h-6 w-6" />; })()}
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/60 border">
+                <div className={`rounded-xl bg-background border flex items-center justify-center overflow-hidden shrink-0 shadow-xs ${
+                  confirmItem.type === 'COVER_PHOTO' ? 'w-24 h-14 aspect-video' : 'w-14 h-14 aspect-square'
+                }`}>
+                  {confirmItem.image_url ? (
+                    <img
+                      src={optimizeImageUrl(confirmItem.image_url, {
+                        width: confirmItem.type === 'COVER_PHOTO' ? 240 : 140,
+                        aspectRatio: confirmItem.type === 'COVER_PHOTO' ? '16:9' : '1:1'
+                      })}
+                      alt={confirmItem.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    (() => { const Icon = typeConfig[confirmItem.type]?.icon ?? Star; return <Icon className="h-6 w-6 text-muted-foreground" />; })()
+                  )}
                 </div>
-                <div>
-                  <p className="font-semibold">{confirmItem.name}</p>
-                  <p className="text-sm text-muted-foreground">{confirmItem.description}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-base truncate">{confirmItem.name}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{confirmItem.description}</p>
                 </div>
               </div>
               <Separator />

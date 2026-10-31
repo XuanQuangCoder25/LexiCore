@@ -576,84 +576,7 @@ export function AchievementsView() {
                 </div>
               ) : (
                 <div className="space-y-10">
-                  {/* ─── PHẦN 1: ẢNH BÌA (COVER PHOTOS) - TỈ LỆ 16:9 ─── */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 border-b pb-2.5">
-                      <BookImage className="w-5 h-5 text-primary" />
-                      <h3 className="text-lg font-bold">Ảnh Bìa Bộ Sưu Tập (Cover Photos)</h3>
-                      <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">Tỉ lệ 16:9</Badge>
-                      <Badge variant="secondary" className="ml-auto text-xs font-semibold">
-                        {collectionItems.filter(i => i.type === 'COVER_PHOTO').length} ảnh bìa
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {collectionItems.filter(i => i.type === 'COVER_PHOTO').map(cover => (
-                        <Card
-                          key={cover.id}
-                          className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${
-                            cover.is_equipped === 1 ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-                          }`}
-                        >
-                          {/* 16:9 Widescreen Container */}
-                          <div className="relative aspect-video w-full overflow-hidden bg-muted group">
-                            <img
-                              src={cover.image_url}
-                              alt={cover.name}
-                              referrerPolicy="no-referrer"
-                              className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
-                                cover.is_owned === 0 ? 'grayscale contrast-75 opacity-70' : ''
-                              }`}
-                            />
-                            {cover.is_owned === 0 && (
-                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
-                                <div className="bg-background/90 text-foreground p-3 rounded-full shadow-lg">
-                                  <Lock className="w-6 h-6 text-muted-foreground" />
-                                </div>
-                              </div>
-                            )}
-                            {cover.is_equipped === 1 && (
-                              <div className="absolute top-3 left-3">
-                                <Badge className="bg-primary text-primary-foreground shadow-md text-xs font-semibold px-2.5 py-0.5">
-                                  Đang sử dụng
-                                </Badge>
-                              </div>
-                            )}
-                          </div>
-
-                          <CardContent className="p-4 flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <h4 className="font-bold text-base truncate">{cover.name}</h4>
-                              <p className="text-xs text-muted-foreground truncate">{cover.description}</p>
-                            </div>
-                            <div className="shrink-0">
-                              {cover.is_equipped === 1 ? (
-                                <Button size="sm" disabled variant="outline" className="text-xs font-semibold opacity-70">
-                                  Đang dùng
-                                </Button>
-                              ) : cover.is_owned === 1 ? (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleEquipItem(cover)}
-                                  disabled={equippingItemId === cover.id}
-                                  className="text-xs font-semibold shadow-sm"
-                                >
-                                  {equippingItemId === cover.id ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-                                  Trang bị
-                                </Button>
-                              ) : (
-                                <Badge variant="outline" className="text-xs text-muted-foreground bg-muted/40">
-                                  {cover.price} {cover.price_type}
-                                </Badge>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* ─── PHẦN 2: ẢNH ĐẠI DIỆN (AVATARS) - TỈ LỆ 1:1 ─── */}
+                  {/* ─── PHẦN 1: ẢNH ĐẠI DIỆN (AVATARS) - TỈ LỆ 1:1 ─── */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 border-b pb-2.5">
                       <Users className="w-5 h-5 text-primary" />
@@ -668,32 +591,27 @@ export function AchievementsView() {
                       {collectionItems.filter(i => i.type === 'AVATAR').map(avatar => (
                         <Card
                           key={avatar.id}
-                          className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md flex flex-col justify-between ${
-                            avatar.is_equipped === 1 ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-                          }`}
+                          className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md flex flex-col justify-between ${avatar.is_equipped === 1 ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : 'border-border'
+                            }`}
                         >
                           <div className="p-3 flex flex-col items-center text-center">
                             {/* Square 1:1 Aspect Container */}
-                            <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-muted/30 p-2 flex items-center justify-center group">
+                            <div className={`relative aspect-square w-full rounded-xl overflow-hidden bg-muted/30 p-2 flex items-center justify-center group ${avatar.is_equipped === 1 ? 'bg-emerald-500/10' : ''
+                              }`}>
                               <img
                                 src={avatar.image_url}
                                 alt={avatar.name}
                                 referrerPolicy="no-referrer"
-                                className={`w-full h-full object-cover rounded-lg transition-transform duration-300 group-hover:scale-105 ${
-                                  avatar.is_owned === 0 ? 'grayscale opacity-60' : ''
-                                }`}
+                                className={`w-full h-full object-cover rounded-lg transition-all duration-300 group-hover:scale-105 ${avatar.is_owned === 0
+                                  ? 'grayscale opacity-60'
+                                  : avatar.is_equipped === 1
+                                    ? 'ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.65)]'
+                                    : ''
+                                  }`}
                               />
                               {avatar.is_owned === 0 && (
                                 <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
                                   <Lock className="w-5 h-5 text-white/80" />
-                                </div>
-                              )}
-                              {avatar.is_equipped === 1 && (
-                                <div className="absolute top-1.5 right-1.5">
-                                  <span className="flex h-2.5 w-2.5 relative">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
-                                  </span>
                                 </div>
                               )}
                             </div>
@@ -702,14 +620,23 @@ export function AchievementsView() {
                               {avatar.name}
                             </h5>
                             <p className="text-[11px] text-muted-foreground truncate w-full mt-0.5">
-                              {avatar.is_owned === 1 ? 'Đã sở hữu' : `${avatar.price} ${avatar.price_type}`}
+                              {avatar.is_owned === 1 ? 'Đã sở hữu' : `Chưa sở hữu`}
                             </p>
                           </div>
 
                           <div className="p-2 border-t bg-muted/10">
                             {avatar.is_equipped === 1 ? (
-                              <Button size="sm" disabled variant="outline" className="w-full text-xs h-7 opacity-70">
-                                Đang dùng
+                              <Button
+                                size="sm"
+                                disabled
+                                variant="outline"
+                                className="w-full text-xs h-7 opacity-95 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/30 font-medium flex items-center justify-center gap-1.5"
+                              >
+                                <span className="flex h-2 w-2 relative shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <span>Đang dùng</span>
                               </Button>
                             ) : avatar.is_owned === 1 ? (
                               <Button
@@ -727,6 +654,82 @@ export function AchievementsView() {
                               </Button>
                             )}
                           </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                  {/* ─── PHẦN 2: ẢNH BÌA (COVER PHOTOS) - TỈ LỆ 16:9 ─── */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 border-b pb-2.5">
+                      <BookImage className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-bold">Ảnh Bìa Bộ Sưu Tập (Cover Photos)</h3>
+                      <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">Tỉ lệ 16:9</Badge>
+                      <Badge variant="secondary" className="ml-auto text-xs font-semibold">
+                        {collectionItems.filter(i => i.type === 'COVER_PHOTO').length} ảnh bìa
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {collectionItems.filter(i => i.type === 'COVER_PHOTO').map(cover => (
+                        <Card
+                          key={cover.id}
+                          className={`overflow-hidden border-2 transition-all duration-300 hover:shadow-md ${cover.is_equipped === 1 ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+                            }`}
+                        >
+                          {/* 16:9 Widescreen Container */}
+                          <div className="relative aspect-video w-full overflow-hidden bg-muted group">
+                            <img
+                              src={cover.image_url}
+                              alt={cover.name}
+                              referrerPolicy="no-referrer"
+                              className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${cover.is_owned === 0 ? 'grayscale contrast-75 opacity-70' : ''
+                                }`}
+                            />
+                            {cover.is_owned === 0 && (
+                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                                <div className="bg-background/90 text-foreground p-3 rounded-full shadow-lg">
+                                  <Lock className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <CardContent className="p-4 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-base truncate">{cover.name}</h4>
+                              <p className="text-xs text-muted-foreground truncate">{cover.description}</p>
+                            </div>
+                            <div className="shrink-0">
+                              {cover.is_equipped === 1 ? (
+                                <Button
+                                  size="sm"
+                                  disabled
+                                  variant="outline"
+                                  className="text-xs font-semibold opacity-95 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/30 flex items-center gap-1.5"
+                                >
+                                  <span className="flex h-2 w-2 relative shrink-0">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                  </span>
+                                  <span>Đang dùng</span>
+                                </Button>
+                              ) : cover.is_owned === 1 ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleEquipItem(cover)}
+                                  disabled={equippingItemId === cover.id}
+                                  className="text-xs font-semibold shadow-sm"
+                                >
+                                  {equippingItemId === cover.id ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                                  Trang bị
+                                </Button>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-muted-foreground bg-muted/40">
+                                  Chưa sở hữu
+                                </Badge>
+                              )}
+                            </div>
+                          </CardContent>
                         </Card>
                       ))}
                     </div>
