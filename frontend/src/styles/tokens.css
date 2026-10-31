@@ -1,0 +1,51 @@
+.lexicore-landing-scope {
+  /* Scale units */
+  --u: min(100vw / 1440, 100svh / 760);
+
+  /* Colors */
+  --white: #FFFFFF;
+  --ink: #151515;
+  --ink-button: #161616;
+  --ink-header: #161515;
+  --grey: #717171;
+  --steel: #99B6D2;
+  --glass: rgba(168, 168, 168, 0.2);
+  --glass-edge: rgba(255, 255, 255, 0.2);
+  --glass-shine: rgba(255, 255, 255, 0.25);
+  --sky-tint: rgba(126, 25, 12, 0.4);
+
+  --cursor-fill: rgba(255, 255, 255, 0.2);
+  --cursor-edge: rgba(255, 255, 255, 0.6);
+
+  /* Typography fits */
+  --fit-display: 0.93;
+  --fit: 0.915;
+  --cap: 0.71;
+
+  /* Font sizing & leading (Desktop) */
+  --font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --display-size: calc(96 * var(--fit-display) * var(--u));
+  --display-leading: calc(91.5 * var(--u));
+  --body-size: calc(20 * var(--fit) * var(--u));
+  --body-leading: calc(23 * var(--u));
+  --small-size: calc(16 * var(--fit) * var(--u));
+  --nav-size: calc(14 * var(--fit) * var(--u));
+  --ui-size: calc(16 * var(--fit) * var(--u));
+  --counter-size: calc(28 * var(--fit) * var(--u));
+  --card-text-size: calc(40px * var(--fit));
+
+  /* Literal pixels */
+  --radius-pill: 100px;
+  --radius-sm: 2px;
+}
+
+@media (max-width: 1023px) {
+  .lexicore-landing-scope {
+    --u: min(100vw / 415, 100svh / 760);
+    --display-size: calc(48 * var(--fit-display) * var(--u));
+    --display-leading: calc(45.75 * var(--u));
+    --body-size: calc(18 * var(--fit) * var(--u));
+    --body-leading: calc(20.7 * var(--u));
+    --ui-size: calc(14 * var(--fit) * var(--u));
+  }
+}

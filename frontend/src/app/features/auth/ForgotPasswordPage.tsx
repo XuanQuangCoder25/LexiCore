@@ -1,7 +1,8 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, ArrowLeft } from "lucide-react";
+import { Mail, ArrowLeft, AlertCircle } from "lucide-react";
 import { authService } from "../../services/auth-service";
+import styles from "./AuthCommon.module.css";
 
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -9,8 +10,10 @@ export function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setError("");
+
     if (!email) {
       setError("Vui lòng nhập email.");
       return;
@@ -27,65 +30,91 @@ export function ForgotPasswordPage() {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSubmit();
+    }
+  };
+
   return (
-    <div className="space-y-8">
-      {/* Back Button */}
-      <div>
+    <div className="auth-form-container">
+      {/* Back to login */}
+      <div style={{ marginBottom: "20px" }}>
         <Link
           to="/login"
-          className="inline-flex items-center text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "13.5px",
+            color: "#717171",
+            textDecoration: "none",
+            fontWeight: 500,
+            transition: "color 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#151515")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#717171")}
         >
-          <ArrowLeft className="h-4 w-4 mr-2 text-indigo-400 hover:text-indigo-300" />
-          Quay lại đăng nhập
+          <ArrowLeft size={16} />
+          <span>Quay lại đăng nhập</span>
         </Link>
       </div>
 
-      {/* Heading */}
-      <div className="space-y-2">
-        <h2 className="text-4xl font-bold text-white">Quên mật khẩu?</h2>
-        <p className="text-slate-400">
-          Đừng lo lắng! Nhập email của bạn và chúng tôi sẽ gửi mã OTP để đặt lại mật khẩu.
+      {/* Header */}
+      <div className={styles.authHeader}>
+        <h1 className={styles.authTitle}>Quên mật khẩu?</h1>
+        <p className={styles.authSubtitle}>
+          Đừng lo! Nhập email của bạn và chúng tôi sẽ gửi mã OTP để thiết lập lại mật khẩu mới.
         </p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-          {error}
+        <div className={styles.errorAlert} role="alert">
+          <AlertCircle className={styles.errorIcon} />
+          <span>{error}</span>
         </div>
       )}
 
       {/* Form */}
-      <div className="space-y-5">
-        {/* Email Field */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300">Email đã đăng ký</label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+      <form onSubmit={handleSubmit} className={styles.formBody}>
+        <div className={styles.fieldGroup}>
+          <label htmlFor="email" className={styles.fieldLabel}>
+            Email đã đăng ký
+          </label>
+          <div className={styles.inputWrapper}>
+            <Mail className={styles.inputIcon} />
             <input
               id="email"
               type="email"
-              placeholder="davinci@gmail.com"
+              autoComplete="email"
+              placeholder="tenban@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              style={{ background: "#1f2937", border: "1px solid #374151" }}
+              onKeyDown={handleKeyDown}
+              className={styles.inputField}
+              required
             />
           </div>
         </div>
 
-        {/* Submit Button */}
         <button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           disabled={isLoading}
-          className="w-full py-3 rounded-lg font-semibold text-white text-sm transition hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+          className={styles.submitBtn}
         >
-          {isLoading ? "Đang gửi..." : "Gửi mã OTP"}
+          {isLoading ? (
+            <>
+              <span className={styles.spinner} />
+              <span>Đang gửi mã...</span>
+            </>
+          ) : (
+            <span>Gửi mã xác thực OTP</span>
+          )}
         </button>
-      </div>
+      </form>
     </div>
   );
 }
 
+export default ForgotPasswordPage;

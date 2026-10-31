@@ -19,4 +19,9 @@ export const creatorService = {
   createFlashcard: async (data: any) => (await api.post('/flashcards', data)).data,
   updateFlashcard: async (id: string, data: any) => (await api.put(`/flashcards/${id}`, data)).data,
   deleteFlashcard: async (id: string) => (await api.delete(`/flashcards/${id}`)).data,
+
+  getExams: async () => (await api.get('/exams')).data,
+  createExam: async (data: any) => (await api.post('/exams', data)).data,
+  updateExam: async (id: string, data: any) => (await api.put(`/exams/${id}`, data)).data,
+  deleteExam: async (id: string) => (await api.delete(`/exams/${id}`)).data,
 };

@@ -6,6 +6,7 @@ import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
 import { toast } from "sonner";
 import { srsService } from "../../services/srs-service";
+import { creatorService } from "../../services/creator-service";
 import { 
   ArrowLeft, 
   RotateCcw, 
@@ -15,7 +16,9 @@ import {
   XCircle, 
   Clock, 
   Sparkles,
-  BookOpen
+  BookOpen,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface FlashcardStudySessionProps {
@@ -40,13 +43,51 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
     setShowAnswer(false);
     try {
       const res = await srsService.getDueCards(deckId);
-      if (res.success) {
-        setDueCards(res.data.cards || []);
-        setTotalDue(res.data.totalDue || (res.data.cards ? res.data.cards.length : 0));
+      if (res.success && Array.isArray(res.data?.cards) && res.data.cards.length > 0) {
+        setDueCards(res.data.cards);
+        setTotalDue(res.data.totalDue || res.data.cards.length);
         setCardStartTime(Date.now());
+      } else {
+        // Fallback: nếu srs không có thẻ nào, lấy danh sách trực tiếp từ creatorService
+        const fallbackRes = await creatorService.getFlashcards(deckId);
+        if (fallbackRes.success && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
+          const cards = fallbackRes.data.map((fc: any) => ({
+            _id: fc._id,
+            cardId: fc._id,
+            courseId: fc.courseId,
+            front: fc.front,
+            back: fc.back,
+            status: 'Practice'
+          }));
+          setDueCards(cards);
+          setTotalDue(cards.length);
+          setCardStartTime(Date.now());
+        } else {
+          setDueCards([]);
+          setTotalDue(0);
+        }
       }
     } catch (error) {
-      toast.error("Không thể tải thẻ từ vựng");
+      try {
+        const fallbackRes = await creatorService.getFlashcards(deckId);
+        if (fallbackRes.success && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
+          const cards = fallbackRes.data.map((fc: any) => ({
+            _id: fc._id,
+            cardId: fc._id,
+            courseId: fc.courseId,
+            front: fc.front,
+            back: fc.back,
+            status: 'Practice'
+          }));
+          setDueCards(cards);
+          setTotalDue(cards.length);
+          setCardStartTime(Date.now());
+        } else {
+          toast.error("Không thể tải thẻ từ vựng");
+        }
+      } catch {
+        toast.error("Không thể tải thẻ từ vựng");
+      }
     } finally {
       setLoading(false);
     }
@@ -68,6 +109,25 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
     window.speechSynthesis.speak(utterance);
   };
 
+  const handlePrevCard = () => {
+    if (currentCardIndex > 0) {
+      setShowAnswer(false);
+      setCardStartTime(Date.now());
+      setCurrentCardIndex(prev => prev - 1);
+    }
+  };
+
+  const handleNextCard = () => {
+    if (currentCardIndex + 1 < dueCards.length) {
+      setShowAnswer(false);
+      setCardStartTime(Date.now());
+      setCurrentCardIndex(prev => prev + 1);
+    } else {
+      setIsFinished(true);
+      toast.success("Tuyệt vời! Bạn đã hoàn thành phiên ôn tập thẻ!");
+    }
+  };
+
   const handleNext = useCallback(async (quality: number) => {
     if (!dueCards[currentCardIndex]) return;
     
@@ -81,18 +141,18 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
         quality: quality,
         responseTimeMs
       });
-      
-      setShowAnswer(false);
-      setCardStartTime(Date.now());
-      
-      if (currentCardIndex + 1 < dueCards.length) {
-        setCurrentCardIndex(prev => prev + 1);
-      } else {
-        setIsFinished(true);
-        toast.success("Tuyệt vời! Bạn đã hoàn thành phiên ôn tập thẻ!");
-      }
     } catch (error) {
-      toast.error("Lỗi khi đồng bộ kết quả ôn tập");
+      console.warn("Lỗi khi đồng bộ kết quả ôn tập:", error);
+    }
+    
+    setShowAnswer(false);
+    setCardStartTime(Date.now());
+    
+    if (currentCardIndex + 1 < dueCards.length) {
+      setCurrentCardIndex(prev => prev + 1);
+    } else {
+      setIsFinished(true);
+      toast.success("Tuyệt vời! Bạn đã hoàn thành phiên ôn tập thẻ!");
     }
   }, [dueCards, currentCardIndex, cardStartTime, deckId]);
 
@@ -100,9 +160,15 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isFinished) return;
-      if (!showAnswer && e.code === "Space") {
+      if (e.code === "Space") {
         e.preventDefault();
-        setShowAnswer(true);
+        setShowAnswer(prev => !prev);
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        handlePrevCard();
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        handleNextCard();
       } else if (showAnswer) {
         switch (e.key) {
           case "1": handleNext(0); break;
@@ -115,7 +181,7 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showAnswer, handleNext, isFinished]);
+  }, [showAnswer, handleNext, isFinished, currentCardIndex, dueCards.length]);
 
   if (loading) {
     return (
@@ -317,6 +383,33 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
             <Eye className="w-4 h-4" /> Xem đáp án (Space)
           </Button>
         )}
+      </div>
+
+      {/* Navigation Controls */}
+      <div className="flex items-center justify-between gap-4 pt-3 border-t">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePrevCard}
+          disabled={currentCardIndex === 0}
+          className="gap-1.5"
+        >
+          <ChevronLeft className="w-4 h-4" /> Thẻ trước (←)
+        </Button>
+
+        <span className="text-xs text-muted-foreground font-medium hidden sm:inline">
+          Dùng phím ← / → để chuyển thẻ, Space để lật thẻ
+        </span>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleNextCard}
+          disabled={currentCardIndex + 1 >= dueCards.length}
+          className="gap-1.5"
+        >
+          Thẻ tiếp theo (→) <ChevronRight className="w-4 h-4" />
+        </Button>
       </div>
     </div>
   );

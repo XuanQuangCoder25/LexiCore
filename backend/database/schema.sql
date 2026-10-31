@@ -405,3 +405,77 @@ CREATE TABLE arena_match_words (
     FOREIGN KEY (word_id) REFERENCES arena_words (id) ON DELETE CASCADE,
     INDEX idx_match_words_match (match_id)
 );
+
+-- D. NOTIFICATIONS & SETTINGS
+-- 1. Bảng Cài đặt người dùng (Nhắc nhở học tập)
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id VARCHAR(36) PRIMARY KEY,
+    enable_email_reminder BOOLEAN DEFAULT TRUE,
+    enable_in_app_reminder BOOLEAN DEFAULT TRUE,
+    reminder_time VARCHAR(10) DEFAULT '20:00',
+    timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- 2. Bảng Thông báo trong ứng dụng (In-app notifications)
+CREATE TABLE IF NOT EXISTS notifications (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    type VARCHAR(50) DEFAULT 'reminder',
+    title VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    INDEX idx_notifications_user (user_id),
+    INDEX idx_notifications_created (created_at)
+);
+
+-- E. FRIENDS & DIRECT MESSAGING
+-- 1. Quan hệ kết bạn (pair_key = "<id nhỏ>:<id lớn>" do service tính, chặn trùng hai chiều)
+-- Với status 'blocked', requester_id là người chặn.
+CREATE TABLE IF NOT EXISTS friendships (
+    id VARCHAR(36) PRIMARY KEY,
+    requester_id VARCHAR(36) NOT NULL,
+    receiver_id VARCHAR(36) NOT NULL,
+    pair_key VARCHAR(73) NOT NULL,
+    status ENUM('pending', 'accepted', 'rejected', 'blocked') NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_friendship_pair (pair_key),
+    INDEX idx_friendships_receiver (receiver_id, status),
+    INDEX idx_friendships_requester (requester_id, status),
+    FOREIGN KEY (requester_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- 2. Phòng chat 1-1 (luôn lưu user1_id < user2_id)
+CREATE TABLE IF NOT EXISTS conversations (
+    id VARCHAR(36) PRIMARY KEY,
+    user1_id VARCHAR(36) NOT NULL,
+    user2_id VARCHAR(36) NOT NULL,
+    last_message_at TIMESTAMP(3) NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_conversation_pair (user1_id, user2_id),
+    INDEX idx_conversations_user2 (user2_id),
+    INDEX idx_conversations_last_message (last_message_at),
+    FOREIGN KEY (user1_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (user2_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+-- 3. Tin nhắn (id BIGINT tăng dần để phân trang cursor-based)
+CREATE TABLE IF NOT EXISTS messages (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    conversation_id VARCHAR(36) NOT NULL,
+    sender_id VARCHAR(36) NOT NULL,
+    content TEXT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    read_at TIMESTAMP(3) NULL DEFAULT NULL,
+    created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX idx_messages_conversation_id (conversation_id, id),
+    INDEX idx_messages_unread (conversation_id, sender_id, is_read),
+    FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE
+);

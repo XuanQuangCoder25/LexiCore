@@ -35,7 +35,7 @@ const ProtectedRoute = () => {
           tokenStore.setToken(newToken);
         }
         setIsAuthenticated(true);
-      } catch {
+} catch {
         // refreshToken cũng hết hạn → yêu cầu đăng nhập lại
         tokenStore.clear();
         setIsAuthenticated(false);

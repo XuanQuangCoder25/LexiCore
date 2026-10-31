@@ -1,19 +1,24 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import React, { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { authService } from "../../services/auth-service";
 import { tokenStore } from "../../services/tokenStore";
+import { disconnectChatSocket } from "../social/chat-socket";
+import styles from "./AuthCommon.module.css";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setError("");
+
     if (!email || !password) {
       setError("Vui lòng nhập email và mật khẩu.");
       return;
@@ -26,7 +31,13 @@ export function LoginPage() {
       if (data?.accessToken || data?.token) {
         tokenStore.setToken(data.accessToken || data.token);
       }
-      navigate("/");
+      disconnectChatSocket();
+      const redirectTab = (location.state as any)?.redirectTab;
+      if (redirectTab) {
+        navigate("/dashboard", { state: { tab: redirectTab } });
+      } else {
+        navigate("/app");
+      }
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string };
       if (e.status === 403) {
@@ -39,66 +50,97 @@ export function LoginPage() {
     }
   };
 
+const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSubmit();
+    }
+  };
 
   return (
-    <div className="space-y-8">
-      {/* Heading */}
-      <div className="space-y-2">
-        <h2 className="text-4xl font-bold text-white">Đăng nhập</h2>
-        <p className="text-slate-400">Chào mừng trở lại! Vui lòng nhập thông tin của bạn.</p>
+    <div className="auth-form-container">
+      {/* Segmented Pill Switcher */}
+      <div className={styles.segmentedControl}>
+        <button
+          type="button"
+          className={`${styles.segmentBtn} ${styles.segmentBtnActive}`}
+          aria-current="page"
+        >
+          Đăng nhập
+        </button>
+        <Link to="/register" className={styles.segmentBtn}>
+          Đăng ký
+        </Link>
+      </div>
+
+      {/* Header */}
+      <div className={styles.authHeader}>
+        <h1 className={styles.authTitle}>Chào mừng trở lại</h1>
+        <p className={styles.authSubtitle}>
+          Đăng nhập để tiếp tục lộ trình học từ vựng cùng LexiCore.
+        </p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-          {error}
+        <div className={styles.errorAlert} role="alert">
+          <AlertCircle className={styles.errorIcon} />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Form */}
-      <div className="space-y-5">
-
+      {/* Form Body */}
+      <form onSubmit={handleSubmit} className={styles.formBody}>
         {/* Email Field */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300">Email</label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <div className={styles.fieldGroup}>
+          <label htmlFor="email" className={styles.fieldLabel}>
+            Email
+          </label>
+          <div className={styles.inputWrapper}>
+            <Mail className={styles.inputIcon} />
             <input
               id="email"
               type="email"
-              placeholder="davinci@gmail.com"
+              autoComplete="email"
+              placeholder="tenban@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              style={{ background: "#1f2937", border: "1px solid #374151" }}
+              onKeyDown={handleKeyDown}
+              className={styles.inputField}
+              required
             />
           </div>
         </div>
 
         {/* Password Field */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300">Mật khẩu</label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <div className={styles.fieldGroup}>
+          <label htmlFor="password" className={styles.fieldLabel}>
+            Mật khẩu
+          </label>
+          <div className={styles.inputWrapper}>
+            <Lock className={styles.inputIcon} />
             <input
               id="password"
               type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              style={{ background: "#1f2937", border: "1px solid #374151" }}
+              onKeyDown={handleKeyDown}
+              className={`${styles.inputField} ${styles.inputFieldWithAction}`}
+              required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+              className={styles.eyeBtn}
+              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              tabIndex={-1}
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          <div className="flex justify-end pt-1">
-            <Link to="/forgot-password" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition">
+          <div className={styles.fieldExtra}>
+            <Link to="/forgot-password" className={styles.forgotLink}>
               Quên mật khẩu?
             </Link>
           </div>
@@ -106,24 +148,30 @@ export function LoginPage() {
 
         {/* Submit Button */}
         <button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           disabled={isLoading}
-          className="w-full py-3 rounded-lg font-semibold text-white text-sm transition hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+          className={styles.submitBtn}
         >
-          {isLoading ? "Đang xử lý..." : "Đăng nhập"}
+          {isLoading ? (
+            <>
+              <span className={styles.spinner} />
+              <span>Đang xử lý...</span>
+            </>
+          ) : (
+            <span>Đăng nhập</span>
+          )}
         </button>
-      </div>
+      </form>
 
-      {/* Signup Link */}
-      <p className="text-center text-sm text-slate-400">
+      {/* Footer Switcher */}
+      <p className={styles.footerText}>
         Chưa có tài khoản?{" "}
-        <Link to="/register" className="text-indigo-400 font-semibold hover:text-indigo-300 transition">
-          Tạo ngay
+        <Link to="/register" className={styles.footerLink}>
+          Tạo tài khoản ngay
         </Link>
       </p>
     </div>
   );
 }
 
+export default LoginPage;

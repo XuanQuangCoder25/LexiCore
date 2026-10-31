@@ -65,12 +65,13 @@ interface Achievement {
 
 interface LeaderboardUser {
   id: string;
-  full_name?: string | null;
+full_name?: string | null;
   fullName?: string | null;
   avatar_url?: string | null;
   avatarUrl?: string | null;
   leaderboard_point?: number;
   leaderboardPoint?: number;
+  rank_point?: number;
   level?: number;
   arena_rank?: string;
   arenaRank?: string;
@@ -902,6 +903,7 @@ export function AchievementsView() {
                           {/* Cột 2: Avatar thật + Tên học viên */}
                           <TableCell>
                             <div className="flex items-center gap-3">
+
                               <Avatar className="h-9 w-9 border border-border shadow-xs">
                                 {avatarUrl && (
                                   <AvatarImage src={optimizeAvatarUrl(avatarUrl, 100)} alt={fullName} className="object-cover" />
@@ -950,6 +952,7 @@ export function AchievementsView() {
                               {points.toLocaleString()}
                             </span>
                             <span className="text-xs font-semibold text-muted-foreground ml-1">LP</span>
+
                           </TableCell>
                         </TableRow>
                       );

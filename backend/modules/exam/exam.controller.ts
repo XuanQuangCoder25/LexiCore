@@ -135,7 +135,7 @@ export const getExamById = async (req: Request, res: Response) => {
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
 
     console.log(`Fetching exam with id: ${id}`);
-    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(id) }).sort({ order: 1 }).lean();
+    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(String(id)) }).sort({ order: 1 }).lean();
     console.log(`Found ${questions.length} questions for exam ${id}`);
     
     // Ẩn đáp án đúng khỏi Client
@@ -161,7 +161,7 @@ export const submitExam = async (req: Request, res: Response) => {
 
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(id) }).lean();
+    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(String(id)) }).lean();
     if (!questions.length) return res.status(404).json({ success: false, message: 'No questions found for this exam' });
 
     let correctCount = 0;
@@ -253,7 +253,7 @@ export const reportExam = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Bạn đã báo cáo bài thi này rồi.' });
     }
 
-    await ExamReport.create({ examId: id, userId, reason });
+    await ExamReport.create({ examId: String(id) as any, userId, reason });
 
     // Tự động Suspend nếu bị report >= 5 lần
     const reportCount = await ExamReport.countDocuments({ examId: id });
@@ -285,7 +285,7 @@ export const rateExam = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Bạn đã đánh giá bài thi này rồi.' });
     }
 
-    await ExamRating.create({ examId: id, userId, rating, review });
+    await ExamRating.create({ examId: String(id) as any, userId, rating, review });
 
     // Update average rating
     const allRatings = await ExamRating.find({ examId: id });

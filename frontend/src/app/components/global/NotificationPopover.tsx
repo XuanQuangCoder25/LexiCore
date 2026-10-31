@@ -1,120 +1,294 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Separator } from "../ui/separator";
 import { ScrollArea } from "../ui/scroll-area";
 import {
   Bell,
   Swords,
-  TrendingDown,
   Brain,
   CheckCircle2,
   X,
+  Flame,
+  Clock,
+  Info,
+  RefreshCw,
+  UserCheck,
+  UserPlus,
 } from "lucide-react";
+import { notificationService, InAppNotification } from "../../services/notification-service";
+import { toast } from "sonner";
 
-interface Notification {
-  id: number;
-  type: "challenge" | "leaderboard" | "srs" | "achievement";
-  title: string;
-  body: string;
-  time: string;
-  read: boolean;
+// Hàm tính thời gian hiển thị tương đối
+function formatRelativeTime(dateString: string): string {
+  if (!dateString) return "Vừa xong";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "Vừa xong";
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  // Nếu vừa tạo trong vòng 2 phút hoặc sai số đồng hồ máy tính
+  if (diffSec < 120) return "Vừa xong";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} phút trước`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours} giờ trước`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} ngày trước`;
+
+  return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
 }
 
-const mockNotifications: Notification[] = [
-  { id: 1, type: "challenge", title: "Challenge Received!", body: "Alex Kim challenged you to a PvP battle. Accept now!", time: "2 min ago", read: false },
-  { id: 2, type: "leaderboard", title: "Leaderboard Drop", body: "You dropped to #4 on the Weekly Leaderboard. Study more to reclaim your spot!", time: "1 hour ago", read: false },
-  { id: 3, type: "srs", title: "Review Reminder", body: "Time to review: 50 words are about to be forgotten (SRS Algorithm). Don't break your streak!", time: "3 hours ago", read: false },
-  { id: 4, type: "achievement", title: "Achievement Unlocked", body: "You earned the 'Grammar Master' badge. Visit your achievements page!", time: "1 day ago", read: true },
-  { id: 5, type: "srs", title: "Review Reminder", body: "23 cards are due for review today. Keep your retention high!", time: "2 days ago", read: true },
-];
-
-const notificationIcons = {
-  challenge: Swords,
-  leaderboard: TrendingDown,
-  srs: Brain,
-  achievement: CheckCircle2,
-};
-
 export function NotificationPopover() {
-  const [notifications, setNotifications] = useState(mockNotifications);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  const isInitialLoadRef = useRef(true);
+  const isUnauthorizedRef = useRef(false);
 
-  const markRead = (id: number) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  // Fetch danh sách thông báo từ API
+  const fetchNotifications = useCallback(async () => {
+    if (isUnauthorizedRef.current) return;
+    try {
+      const data = await notificationService.getNotifications(25);
+      const list = data.notifications || [];
+      const newUnreadCount = data.unreadCount || 0;
+
+      // Kiểm tra có thông báo mới tinh chưa đọc không
+      if (!isInitialLoadRef.current) {
+        const brandNewUnread = list.filter(
+          (n) => !n.is_read && !knownIdsRef.current.has(n.id)
+        );
+
+        brandNewUnread.forEach((n) => {
+          toast(n.title, {
+            description: n.body,
+            icon: <Flame className="w-5 h-5 text-amber-500" />,
+            duration: 8000,
+          });
+        });
+      }
+
+      // Cập nhật tập ID đã biết
+      list.forEach((n) => knownIdsRef.current.add(n.id));
+      isInitialLoadRef.current = false;
+
+      setNotifications(list);
+      setUnreadCount(newUnreadCount);
+    } catch (error: any) {
+      if (error?.response?.status === 401 || error?.status === 401) {
+        isUnauthorizedRef.current = true;
+      }
+    }
+  }, []);
+
+  // Lần đầu mount & Polling định kỳ mỗi 10 giây để cập nhật tức thì
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  // Khi mở Popover thì refresh lại dữ liệu
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      fetchNotifications();
+    }
   };
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  // Đánh dấu 1 thông báo là đã đọc
+  const handleMarkRead = async (id: string, isRead: boolean) => {
+    if (isRead) return;
+    try {
+      await notificationService.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error("Không thể đánh dấu đã đọc:", error);
+    }
   };
 
-  const dismiss = (id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  // Đánh dấu tất cả là đã đọc
+  const handleMarkAllRead = async () => {
+    if (unreadCount === 0) return;
+    try {
+      await notificationService.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+      toast.success("Đã đánh dấu tất cả thông báo là đã đọc");
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi cập nhật thông báo.");
+    }
+  };
+
+  // Xóa thông báo
+  const handleDismiss = async (e: React.MouseEvent, id: string, wasRead: boolean) => {
+    e.stopPropagation();
+    try {
+      await notificationService.deleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (!wasRead) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      toast.error("Không thể xóa thông báo này.");
+    }
+  };
+
+  // Icon theo phân loại thông báo
+  const renderIcon = (type: string, isRead: boolean) => {
+    const iconClass = "h-4 w-4";
+    let Icon = Bell;
+    let bgClass = "bg-primary/10 text-primary";
+
+    if (type === "reminder") {
+      Icon = Flame;
+      bgClass = "bg-amber-500/15 text-amber-500";
+    } else if (type === "srs") {
+      Icon = Brain;
+      bgClass = "bg-pink-500/15 text-pink-500";
+    } else if (type === "challenge") {
+      Icon = Swords;
+      bgClass = "bg-rose-500/15 text-rose-500";
+    } else if (type === "achievement") {
+      Icon = CheckCircle2;
+      bgClass = "bg-emerald-500/15 text-emerald-500";
+    } else if (type === "friend_request") {
+      Icon = UserPlus;
+      bgClass = "bg-indigo-500/15 text-indigo-500";
+    } else if (type === "friend_accepted") {
+      Icon = UserCheck;
+      bgClass = "bg-teal-500/15 text-teal-500";
+    } else {
+      Icon = Info;
+      bgClass = "bg-blue-500/15 text-blue-500";
+    }
+
+    return (
+      <div
+        className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+          !isRead ? bgClass : "bg-muted text-muted-foreground"
+        }`}
+      >
+        <Icon className={iconClass} />
+      </div>
+    );
   };
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button variant="ghost" size="sm" className="relative h-9 w-9 p-0 rounded-lg">
+          <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-bold">
-              {unreadCount}
+            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+
+      <PopoverContent className="w-84 sm:w-96 p-0 shadow-2xl border-border" align="end">
+        {/* Header Popover */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
           <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            <span className="font-semibold">Notifications</span>
+            <Bell className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-sm">Thông báo</span>
             {unreadCount > 0 && (
-              <Badge variant="secondary" className="text-xs">{unreadCount} new</Badge>
+              <Badge variant="default" className="text-[10px] h-4 px-1.5 bg-primary text-primary-foreground font-bold">
+                {unreadCount} mới
+              </Badge>
             )}
           </div>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={markAllRead}>
-              Mark all read
+
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground font-medium"
+                onClick={handleMarkAllRead}
+              >
+                Đã đọc tất cả
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={fetchNotifications}
+              title="Làm mới"
+            >
+              <RefreshCw className="h-3 w-3" />
             </Button>
-          )}
+          </div>
         </div>
 
-        <ScrollArea className="max-h-96">
+        {/* Danh sách thông báo */}
+        <ScrollArea className="max-h-[380px] overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              <Bell className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              No notifications
+            <div className="py-12 text-center text-sm text-muted-foreground space-y-2">
+              <div className="w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground">
+                <Bell className="h-6 w-6 opacity-40" />
+              </div>
+              <p className="font-medium">Chưa có thông báo nào</p>
+              <p className="text-xs text-muted-foreground/80 max-w-[200px] mx-auto">
+                Các nhắc nhở học tập và cập nhật quan trọng sẽ hiển thị ở đây.
+              </p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-border/60">
               {notifications.map((n) => {
-                const Icon = notificationIcons[n.type];
+                const isRead = n.is_read;
                 return (
                   <div
                     key={n.id}
-                    className={`flex gap-3 p-4 hover:bg-muted/50 transition-colors cursor-pointer ${!n.read ? "bg-muted/30" : ""}`}
-                    onClick={() => markRead(n.id)}
+                    className={`flex items-start gap-3 p-3.5 transition-colors cursor-pointer group ${
+                      !isRead
+                        ? "bg-primary/5 hover:bg-primary/10"
+                        : "hover:bg-muted/40 opacity-80 hover:opacity-100"
+                    }`}
+                    onClick={() => handleMarkRead(n.id, isRead)}
                   >
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${!n.read ? "bg-foreground text-background" : "bg-muted"}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
+                    {renderIcon(n.type, isRead)}
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-1">
-                        <p className={`text-sm ${!n.read ? "font-semibold" : "font-medium"}`}>{n.title}</p>
+                        <p
+                          className={`text-xs leading-snug truncate ${
+                            !isRead
+                              ? "font-bold text-foreground"
+                              : "font-semibold text-foreground/80"
+                          }`}
+                        >
+                          {n.title}
+                        </p>
                         <button
-                          className="shrink-0 text-muted-foreground hover:text-foreground mt-0.5"
-                          onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
+                          type="button"
+                          className="shrink-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                          onClick={(e) => handleDismiss(e, n.id, isRead)}
+                          title="Xóa thông báo"
                         >
                           <X className="h-3 w-3" />
                         </button>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{n.body}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
+
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">
+                        {n.body}
+                      </p>
+
+                      <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted-foreground font-mono">
+                        <Clock className="w-3 h-3 opacity-60" />
+                        <span>{formatRelativeTime(n.created_at)}</span>
+                      </div>
                     </div>
-                    {!n.read && (
-                      <div className="h-2 w-2 rounded-full bg-foreground shrink-0 mt-2" />
+
+                    {!isRead && (
+                      <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5 animate-pulse" />
                     )}
                   </div>
                 );
@@ -123,8 +297,11 @@ export function NotificationPopover() {
           )}
         </ScrollArea>
 
-        <div className="border-t px-4 py-2">
-          <Button variant="ghost" size="sm" className="w-full text-xs">View all notifications</Button>
+        {/* Footer Popover */}
+        <div className="border-t px-4 py-2 bg-muted/20 text-center">
+          <p className="text-[11px] text-muted-foreground">
+            Thông báo được tự động đồng bộ theo thời gian thực
+          </p>
         </div>
       </PopoverContent>
     </Popover>

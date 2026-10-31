@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "../../components/ui/input-otp";
 import { authService } from "../../services/auth-service";
+import styles from "./AuthCommon.module.css";
 
 export function VerifyOtpPage() {
   const navigate = useNavigate();
@@ -79,49 +80,60 @@ export function VerifyOtpPage() {
   const backLink = mode === "REGISTER" ? "/register" : "/forgot-password";
 
   return (
-    <div className="space-y-8">
+    <div className="auth-form-container">
       {/* Back Button */}
-      <div>
+      <div style={{ marginBottom: "20px" }}>
         <Link
           to={backLink}
-          className="inline-flex items-center text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "13.5px",
+            color: "#717171",
+            textDecoration: "none",
+            fontWeight: 500,
+            transition: "color 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#151515")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#717171")}
         >
-          <ArrowLeft className="h-4 w-4 mr-2 text-indigo-400 hover:text-indigo-300" />
-          Quay lại
+          <ArrowLeft size={16} />
+          <span>Quay lại</span>
         </Link>
       </div>
 
       {/* Heading */}
-      <div className="space-y-2">
-        <h2 className="text-4xl font-bold text-white">Xác thực OTP</h2>
-        <p className="text-slate-400">
-          Vui lòng nhập mã gồm 6 chữ số vừa được gửi đến{" "}
-          <span className="text-indigo-400 font-medium">{email}</span>.
+      <div className={styles.authHeader}>
+        <h1 className={styles.authTitle}>Xác thực OTP</h1>
+        <p className={styles.authSubtitle}>
+          Vui lòng nhập mã xác thực gồm 6 chữ số đã được gửi đến{" "}
+          <strong style={{ color: "#151515", fontWeight: 600 }}>{email}</strong>.
         </p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-          {error}
+        <div className={styles.errorAlert} role="alert">
+          <AlertCircle className={styles.errorIcon} />
+          <span>{error}</span>
         </div>
       )}
 
       {/* Form */}
-      <div className="space-y-6">
+      <div className={styles.formBody}>
         {/* OTP Input */}
-        <div className="flex flex-col gap-2 pt-2">
-          <label className="text-sm font-medium text-slate-300">
-            Mã xác thực
-          </label>
-          <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode} containerClassName="w-full gap-3">
-            <InputOTPGroup className="w-full gap-3">
-              <InputOTPSlot index={0} className="flex-1 h-14 text-lg font-bold text-white rounded-lg border border-slate-700 bg-slate-800 first:rounded-l-lg last:rounded-r-lg" />
-              <InputOTPSlot index={1} className="flex-1 h-14 text-lg font-bold text-white rounded-lg border border-slate-700 bg-slate-800 first:rounded-l-lg last:rounded-r-lg" />
-              <InputOTPSlot index={2} className="flex-1 h-14 text-lg font-bold text-white rounded-lg border border-slate-700 bg-slate-800 first:rounded-l-lg last:rounded-r-lg" />
-              <InputOTPSlot index={3} className="flex-1 h-14 text-lg font-bold text-white rounded-lg border border-slate-700 bg-slate-800 first:rounded-l-lg last:rounded-r-lg" />
-              <InputOTPSlot index={4} className="flex-1 h-14 text-lg font-bold text-white rounded-lg border border-slate-700 bg-slate-800 first:rounded-l-lg last:rounded-r-lg" />
-              <InputOTPSlot index={5} className="flex-1 h-14 text-lg font-bold text-white rounded-lg border border-slate-700 bg-slate-800 first:rounded-l-lg last:rounded-r-lg" />
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>Mã xác thực</label>
+          <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode} containerClassName="w-full gap-2.5">
+            <InputOTPGroup className="w-full gap-2.5 flex justify-between">
+              {[0, 1, 2, 3, 4, 5].map((idx) => (
+                <InputOTPSlot
+                  key={idx}
+                  index={idx}
+                  className="flex-1 h-13 text-xl font-semibold text-[#151515] rounded-xl border border-[rgba(21,21,21,0.14)] bg-[#F9FAFB] transition-all focus:border-[#151515] focus:bg-white focus:ring-4 focus:ring-[rgba(153,182,210,0.25)] first:rounded-l-xl last:rounded-r-xl"
+                />
+              ))}
             </InputOTPGroup>
           </InputOTP>
         </div>
@@ -130,29 +142,38 @@ export function VerifyOtpPage() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isLoading}
-          className="w-full py-3 rounded-lg font-semibold text-white text-sm transition hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+          disabled={isLoading || otpCode.length !== 6}
+          className={styles.submitBtn}
         >
-          {isLoading ? "Đang xác thực..." : "Xác nhận"}
+          {isLoading ? (
+            <>
+              <span className={styles.spinner} />
+              <span>Đang xác thực...</span>
+            </>
+          ) : (
+            <span>Xác nhận mã OTP</span>
+          )}
         </button>
       </div>
 
       {/* Resend Link */}
-      <p className="text-center text-sm text-slate-400">
+      <p className={styles.footerText}>
         Chưa nhận được mã?{" "}
         {canResend ? (
           <button
+            type="button"
             onClick={handleResend}
-            className="text-indigo-400 font-semibold hover:text-indigo-300 transition"
+            className={styles.footerLink}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
           >
-            Gửi lại
+            Gửi lại ngay
           </button>
         ) : (
-          <span className="text-slate-500">Gửi lại sau {countdown}s</span>
+          <span style={{ color: "#9CA3AF" }}>Gửi lại sau {countdown}s</span>
         )}
       </p>
     </div>
   );
 }
 
+export default VerifyOtpPage;

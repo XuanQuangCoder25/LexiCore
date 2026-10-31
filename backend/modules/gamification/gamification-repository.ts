@@ -161,8 +161,9 @@ export const getAchievements = async (userId: string) => {
 
 export const getLeaderboard = async () => {
     const [rows] = await pool.execute(
-        `SELECT u.id, u.full_name, u.avatar_url,
+`SELECT u.id, u.full_name, u.avatar_url,
                 COALESCE(w.leaderboard_point, 0) as leaderboard_point,
+                COALESCE(w.leaderboard_point, 0) as rank_point,
                 COALESCE(w.level, 1) as level,
                 COALESCE(w.arena_rank, 'BRONZE') as arena_rank
          FROM wallets w

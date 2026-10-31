@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
 import { DashboardView } from "./components/dashboard/DashboardView";
@@ -22,9 +23,12 @@ import { ProfileView } from "./components/dashboard/ProfileView";
 import { SettingsView } from "./components/dashboard/SettingsView";
 import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
-import { Button } from "./components/ui/button";
+import { FriendsButton } from "./components/global/FriendsButton";
+import { ChatButton } from "./components/global/ChatButton";
+import { ChatDialog } from "./components/global/ChatDialog";
+import { SocialProvider, useSocial } from "./features/social/SocialContext";
 import { Badge } from "./components/ui/badge";
-import { CircleDollarSign, Users } from "lucide-react";
+import { CircleDollarSign } from "lucide-react";
 
 const TAB_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -49,17 +53,38 @@ const TAB_LABELS: Record<string, string> = {
   settings: "Settings",
 };
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+function AppContent() {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const initialTab =
+    (location.state as any)?.tab ||
+    searchParams.get("tab") ||
+    "dashboard";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [coins, setCoins] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("Guest");
 
+  // Sync tab khi location state hoặc search params thay đổi
+  useEffect(() => {
+    const tabFromState = (location.state as any)?.tab || searchParams.get("tab");
+    if (tabFromState && TAB_LABELS[tabFromState]) {
+      setActiveTab(tabFromState);
+    }
+  }, [location.state, searchParams]);
+
+
+  const { isChatOpen, setIsChatOpen, openChatWithFriend } = useSocial();
+
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
+        if (!data) return;
         if (data?.coin_balance !== undefined) setCoins(data.coin_balance);
         if (data?.role) setUserRole(data.role.toLowerCase());
         if (data?.full_name) setUserName(data.full_name);
@@ -67,9 +92,26 @@ export default function App() {
       .catch(() => { });
   }, []);
 
+  // Lắng nghe sự kiện chuyển hướng tab toàn cục (ví dụ từ Chat chuyển sang Community)
+  useEffect(() => {
+    const handleNavigateTab = (e: any) => {
+      if (e.detail?.tab) {
+        setActiveTab(e.detail.tab);
+      }
+    };
+    window.addEventListener("navigate-tab", handleNavigateTab);
+    return () => window.removeEventListener("navigate-tab", handleNavigateTab);
+  }, []);
+
   const handleChallenge = () => {
     setFriendsOpen(false);
+    setIsChatOpen(false);
     setActiveTab("arena");
+  };
+
+  const handleOpenChatWithFriend = (friend: { id: string; full_name: string; avatar_url: string | null }) => {
+    setFriendsOpen(false);
+    openChatWithFriend(friend);
   };
 
   const renderContent = () => {
@@ -118,10 +160,9 @@ export default function App() {
                 <span className="text-sm font-bold">{coins.toLocaleString()}</span>
               </div>
               {/* Friends Button */}
-              <Button variant="ghost" size="sm" onClick={() => setFriendsOpen(true)} className="relative">
-                <Users className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-green-500 text-white text-xs flex items-center justify-center font-bold">3</span>
-              </Button>
+              <FriendsButton onClick={() => setFriendsOpen(true)} />
+              {/* Chat Button */}
+              <ChatButton onClick={() => setIsChatOpen(true)} />
               {/* Notifications */}
               <NotificationPopover />
               {/* User badge */}
@@ -142,7 +183,22 @@ export default function App() {
         open={friendsOpen}
         onClose={() => setFriendsOpen(false)}
         onChallenge={handleChallenge}
+        onMessage={handleOpenChatWithFriend}
+      />
+
+      <ChatDialog
+        open={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onChallenge={handleChallenge}
       />
     </SidebarProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <SocialProvider>
+      <AppContent />
+    </SocialProvider>
   );
 }

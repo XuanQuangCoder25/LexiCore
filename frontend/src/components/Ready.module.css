@@ -1,0 +1,269 @@
+.ready {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: var(--white);
+  color: var(--ink);
+  opacity: 0;
+  visibility: hidden;
+  font-family: var(--font-family);
+  overflow: hidden;
+}
+
+/* Giant background wordmark wrapper */
+.wordmarkWrapper {
+  position: absolute;
+  left: calc(40 * var(--u));
+  right: calc(40 * var(--u));
+  top: calc(410 * var(--u));
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0; /* M4 fades wrapper in */
+  z-index: 0;
+}
+
+.wordmarkImg {
+  width: 100%;
+  max-width: calc(1300 * var(--u));
+  height: auto;
+  opacity: 0.07;
+  user-select: none;
+}
+
+/* 3D Smart Card Box - perfectly proportioned and centered */
+.cardBox {
+  position: absolute;
+  left: 50%;
+  top: calc(385 * var(--u));
+  transform: translate(-50%, -50%);
+  width: min(calc(960 * var(--u)), 70vw);
+  aspect-ratio: 16 / 9;
+  perspective: 1200px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0; /* M4 fades in */
+}
+
+.floatWrapper {
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  will-change: transform, filter;
+}
+
+.cardImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  will-change: transform;
+  filter: drop-shadow(0 20px 40px rgba(10, 25, 45, 0.22));
+}
+
+/* Upper Headline: "Fluency Unlocked" */
+.headlineUnlocked {
+  position: absolute;
+  left: calc(48 * var(--u));
+  top: calc(125 * var(--u));
+  font-size: calc(72 * var(--fit-display) * var(--u));
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  z-index: 2;
+  margin: 0;
+}
+
+/* Lower Headline: "Before You Speak" */
+.headlineSpeak {
+  position: absolute;
+  right: calc(48 * var(--u));
+  bottom: calc(68 * var(--u));
+  font-size: calc(72 * var(--fit-display) * var(--u));
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-align: right;
+  z-index: 3;
+  margin: 0;
+}
+
+
+.readyWord {
+  display: inline-block;
+  opacity: 0;
+  will-change: transform, filter, opacity;
+}
+
+/* "SRS + AI" Pill */
+.srsPill {
+  position: absolute;
+  right: calc(48 * var(--u));
+  top: calc(125 * var(--u));
+  height: calc(39 * var(--u));
+  padding: 0 calc(14 * var(--u)) 0 calc(10 * var(--u));
+  gap: calc(8 * var(--u));
+  display: flex;
+  align-items: center;
+  background: var(--steel);
+  color: var(--white);
+  border-radius: var(--radius-pill);
+  z-index: 3;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 0; /* M4 */
+}
+
+.srsPill:hover {
+  transform: scale(1.03);
+}
+
+.plusIcon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.srsText {
+  font-size: var(--ui-size);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  display: block;
+  text-box: trim-both cap alphabetic;
+}
+
+@supports not (text-box: trim-both cap alphabetic) {
+  .srsText {
+    margin-block: calc(-0.6em + 0.35em) calc(-0.6em + 0.36em);
+  }
+}
+
+/* Lead text on Screen 2 */
+.readyText {
+  position: absolute;
+  left: calc(48 * var(--u));
+  bottom: calc(88 * var(--u));
+  width: calc(380 * var(--u));
+  font-size: var(--body-size);
+  font-weight: 400;
+  line-height: var(--body-leading);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  z-index: 3;
+  margin: 0;
+  display: block;
+  text-box: trim-both cap alphabetic;
+  opacity: 0; /* M4 */
+}
+
+@supports not (text-box: trim-both cap alphabetic) {
+  .readyText {
+    margin-block: calc(-0.575em + 0.35em) calc(-0.575em + 0.36em);
+  }
+}
+
+/* CTA Button: Start learning for free */
+.startBtn {
+  position: absolute;
+  left: calc(48 * var(--u));
+  bottom: calc(24 * var(--u));
+  height: calc(47 * var(--u));
+  padding: 0 calc(20 * var(--u));
+  background: var(--ink-button);
+  color: var(--white);
+  border-radius: var(--radius-pill);
+  font-size: var(--small-size);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  text-box: trim-both cap alphabetic;
+  opacity: 0; /* M4 */
+}
+
+@supports not (text-box: trim-both cap alphabetic) {
+  .startBtn {
+    margin-block: calc(-0.6em + 0.35em) calc(-0.6em + 0.36em);
+  }
+}
+
+.startBtn:hover {
+  transform: scale(1.03);
+}
+
+/* Scroll indicator */
+.scrollMore {
+  position: absolute;
+  right: calc(48 * var(--u));
+  bottom: calc(24 * var(--u));
+  font-size: var(--body-size);
+  color: var(--grey);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  display: block;
+  text-box: trim-both cap alphabetic;
+  opacity: 0; /* M4 */
+  z-index: 3;
+}
+
+
+@supports not (text-box: trim-both cap alphabetic) {
+  .scrollMore {
+    margin-block: calc(-0.5em + 0.35em) calc(-0.5em + 0.36em);
+  }
+}
+
+/* Mobile Overrides (width < 1024px) */
+@media (max-width: 1023px) {
+  .wordmarkWrapper {
+    top: calc(380 * var(--u));
+  }
+
+  .cardBox {
+    top: calc(380 * var(--u));
+    width: min(calc(370 * var(--u)), 92vw);
+  }
+
+  .headlineUnlocked {
+    top: calc(90 * var(--u));
+    left: calc(20 * var(--u));
+    font-size: calc(36 * var(--fit-display) * var(--u));
+  }
+
+  .srsPill {
+    top: calc(90 * var(--u));
+    right: calc(20 * var(--u));
+  }
+
+  .headlineSpeak {
+    right: calc(20 * var(--u));
+    bottom: calc(180 * var(--u));
+    font-size: calc(36 * var(--fit-display) * var(--u));
+  }
+
+  .readyText {
+    left: calc(20 * var(--u));
+    right: calc(20 * var(--u));
+    width: auto;
+    bottom: calc(105 * var(--u));
+    font-size: calc(15 * var(--fit) * var(--u));
+    line-height: 1.35;
+  }
+
+  .startBtn {
+    left: calc(20 * var(--u));
+    right: calc(20 * var(--u));
+    bottom: calc(30 * var(--u));
+  }
+
+  .scrollMore {
+    display: none;
+  }
+}

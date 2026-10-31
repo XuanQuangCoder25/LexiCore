@@ -1,7 +1,8 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { Eye, EyeOff, Lock, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Lock, ArrowLeft, AlertCircle } from "lucide-react";
 import { authService } from "../../services/auth-service";
+import styles from "./AuthCommon.module.css";
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -21,7 +22,8 @@ export function ResetPasswordPage() {
     return <Navigate to="/login" replace />;
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setError("");
 
     if (!newPassword || !confirmPassword) {
@@ -52,96 +54,133 @@ export function ResetPasswordPage() {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSubmit();
+    }
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="auth-form-container">
       {/* Back Button */}
-      <div>
+      <div style={{ marginBottom: "20px" }}>
         <Link
           to="/login"
-          className="inline-flex items-center text-sm font-medium text-indigo-400 hover:text-indigo-300 transition"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "13.5px",
+            color: "#717171",
+            textDecoration: "none",
+            fontWeight: 500,
+            transition: "color 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#151515")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#717171")}
         >
-          <ArrowLeft className="h-4 w-4 mr-2 text-indigo-400 hover:text-indigo-300" />
-          Quay lại đăng nhập
+          <ArrowLeft size={16} />
+          <span>Quay lại đăng nhập</span>
         </Link>
       </div>
 
       {/* Heading */}
-      <div className="space-y-2">
-        <h2 className="text-4xl font-bold text-white">Đặt lại mật khẩu</h2>
-        <p className="text-slate-400">
+      <div className={styles.authHeader}>
+        <h1 className={styles.authTitle}>Đặt lại mật khẩu</h1>
+        <p className={styles.authSubtitle}>
           Nhập mật khẩu mới cho tài khoản{" "}
-          <span className="text-indigo-400 font-medium">{email}</span>.
+          <strong style={{ color: "#151515", fontWeight: 600 }}>{email}</strong>.
         </p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-          {error}
+        <div className={styles.errorAlert} role="alert">
+          <AlertCircle className={styles.errorIcon} />
+          <span>{error}</span>
         </div>
       )}
 
       {/* Form */}
-      <div className="space-y-5">
+      <form onSubmit={handleSubmit} className={styles.formBody}>
         {/* New Password Field */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300">Mật khẩu mới</label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <div className={styles.fieldGroup}>
+          <label htmlFor="newPassword" className={styles.fieldLabel}>
+            Mật khẩu mới
+          </label>
+          <div className={styles.inputWrapper}>
+            <Lock className={styles.inputIcon} />
             <input
               id="newPassword"
               type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
+              autoComplete="new-password"
+              placeholder="Ít nhất 6 ký tự"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              style={{ background: "#1f2937", border: "1px solid #374151" }}
+              onKeyDown={handleKeyDown}
+              className={`${styles.inputField} ${styles.inputFieldWithAction}`}
+              required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+              className={styles.eyeBtn}
+              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              tabIndex={-1}
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
         </div>
 
         {/* Confirm Password Field */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-300">Xác nhận mật khẩu</label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <div className={styles.fieldGroup}>
+          <label htmlFor="confirmPassword" className={styles.fieldLabel}>
+            Xác nhận mật khẩu
+          </label>
+          <div className={styles.inputWrapper}>
+            <Lock className={styles.inputIcon} />
             <input
               id="confirmPassword"
               type={showConfirmPassword ? "text" : "password"}
-              placeholder="••••••••"
+              autoComplete="new-password"
+              placeholder="Nhập lại mật khẩu mới"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 rounded-lg text-white placeholder-slate-500 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              style={{ background: "#1f2937", border: "1px solid #374151" }}
+              onKeyDown={handleKeyDown}
+              className={`${styles.inputField} ${styles.inputFieldWithAction}`}
+              required
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+              className={styles.eyeBtn}
+              aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              tabIndex={-1}
             >
-              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
         </div>
 
         {/* Submit Button */}
         <button
-          type="button"
-          onClick={handleSubmit}
+          type="submit"
           disabled={isLoading}
-          className="w-full py-3 rounded-lg font-semibold text-white text-sm transition hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+          className={styles.submitBtn}
         >
-          {isLoading ? "Đang xử lý..." : "Đặt lại mật khẩu"}
+          {isLoading ? (
+            <>
+              <span className={styles.spinner} />
+              <span>Đang xử lý...</span>
+            </>
+          ) : (
+            <span>Lưu mật khẩu mới</span>
+          )}
         </button>
-      </div>
+      </form>
     </div>
   );
 }
+
+export default ResetPasswordPage;

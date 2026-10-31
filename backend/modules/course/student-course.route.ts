@@ -13,5 +13,7 @@ router.use(requireAuth);
 router.post('/:id/enroll', studentCourseController.enrollCourse);
 router.get('/:courseId/lessons/:lessonId', studentCourseController.getLessonContent);
 router.post('/:courseId/lessons/:lessonId/complete', studentCourseController.completeLesson);
+router.post('/:courseId/chapters/:chapterId/complete', studentCourseController.completeChapter);
+router.post('/:courseId/complete', studentCourseController.completeCourse);
 
 export default router;

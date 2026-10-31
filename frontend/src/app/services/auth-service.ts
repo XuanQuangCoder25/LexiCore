@@ -11,6 +11,11 @@ export const authService = {
     return res.data;
   },
 
+  logout: async () => {
+    const res = await httpClient.post('/api/auth/logout');
+    return res.data;
+  },
+
   verifyEmail: async (data: { email: string; otp_code: string }) => {
     const res = await httpClient.post('/api/auth/verify-email', data);
     return res.data;
@@ -18,6 +23,11 @@ export const authService = {
 
   getMe: async () => {
     const res = await httpClient.get('/api/auth/me');
+    return res.data;
+  },
+
+  refreshToken: async () => {
+    const res = await httpClient.post('/api/auth/refresh-token');
     return res.data;
   },
 

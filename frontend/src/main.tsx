@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { Toaster } from "./app/components/ui/sonner";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -9,25 +10,33 @@ import { ForgotPasswordPage } from "./app/features/auth/ForgotPasswordPage";
 import { VerifyOtpPage } from "./app/features/auth/VerifyOtpPage";
 import { ResetPasswordPage } from "./app/features/auth/ResetPasswordPage";
 import ProtectedRoute from "./app/components/ProtectedRoute";
+import { LandingPage } from "./components/LandingPage";
 import "./styles/index.css";
 
 createRoot(document.getElementById("root")!).render(
-  <BrowserRouter>
-    <Routes>
-      {/* Route Dashboard - Bảo vệ bởi ProtectedRoute */}
-      <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<App />} />
-      </Route>
+  <StrictMode>
+    <BrowserRouter>
+      <Routes>
+        {/* LexiCore Two-Screen High-Craft Landing Page */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/landing" element={<LandingPage />} />
 
-      {/* Các Route dành cho Auth */}
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/verify-otp" element={<VerifyOtpPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-      </Route>
-    </Routes>
-    <Toaster position="top-right" />
-  </BrowserRouter>
+        {/* Route Dashboard - Bảo vệ bởi ProtectedRoute */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/app" element={<App />} />
+          <Route path="/dashboard" element={<App />} />
+        </Route>
+
+        {/* Các Route dành cho Auth */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/verify-otp" element={<VerifyOtpPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+        </Route>
+      </Routes>
+      <Toaster position="top-right" />
+    </BrowserRouter>
+  </StrictMode>
 );

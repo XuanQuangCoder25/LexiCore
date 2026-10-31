@@ -27,5 +27,13 @@ export const studentCourseService = {
   
   completeLesson: async (courseId: string, lessonId: string) => {
     return (await api.post(`/${courseId}/lessons/${lessonId}/complete`)).data;
+  },
+
+  completeChapter: async (courseId: string, chapterId: string) => {
+    return (await api.post(`/${courseId}/chapters/${chapterId}/complete`)).data;
+  },
+
+  completeCourse: async (courseId: string) => {
+    return (await api.post(`/${courseId}/complete`)).data;
   }
 };

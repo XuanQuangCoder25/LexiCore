@@ -1,20 +1,12 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../../ui/card";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Label } from "../../ui/label";
 import { Badge } from "../../ui/badge";
-import { Switch } from "../../ui/switch";
 import { Separator } from "../../ui/separator";
 import { Progress } from "../../ui/progress";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,27 +18,30 @@ import {
   AlertDialogTitle,
 } from "../../ui/alert-dialog";
 import {
-  ShieldCheck,
   KeyRound,
   Mail,
   CheckCircle2,
-  Smartphone,
-  Laptop,
-  LogOut,
   AlertTriangle,
   Lock,
   Eye,
   EyeOff,
+  LogOut,
+  Users,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SettingsState } from "./settingsMock";
+import { authService } from "../../../services/auth-service";
+import { disconnectChatSocket } from "../../../features/social/chat-socket";
 
 interface AccountSecuritySectionProps {
   settings: SettingsState;
-  updateSetting: <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => void;
+  updateSetting?: <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => void;
 }
 
-export function AccountSecuritySection({ settings, updateSetting }: AccountSecuritySectionProps) {
+export function AccountSecuritySection({ settings }: AccountSecuritySectionProps) {
+  const navigate = useNavigate();
+
   // Password Change state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -54,13 +49,14 @@ export function AccountSecuritySection({ settings, updateSetting }: AccountSecur
   const [showPassword, setShowPassword] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // Email Change Dialog
-  const [showEmailDialog, setShowEmailDialog] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-
   // Danger Zone Dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+
+  // Logout & Switch Account Dialogs
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showSwitchAccountDialog, setShowSwitchAccountDialog] = useState(false);
+  const [isProcessingAuthAction, setIsProcessingAuthAction] = useState(false);
 
   // Password strength calculator
   const calculateStrength = (pwd: string) => {
@@ -100,21 +96,40 @@ export function AccountSecuritySection({ settings, updateSetting }: AccountSecur
     }, 600);
   };
 
-  const handleEmailChange = () => {
-    if (!newEmail || !newEmail.includes("@")) {
-      toast.error("Vui lòng nhập địa chỉ email hợp lệ");
-      return;
+  // Xử lý Đăng xuất
+  const handleLogout = async () => {
+    setIsProcessingAuthAction(true);
+    try {
+      disconnectChatSocket();
+      await authService.logout();
+    } catch (error) {
+      console.warn("Logout API warning:", error);
+    } finally {
+      localStorage.clear();
+      sessionStorage.clear();
+      setIsProcessingAuthAction(false);
+      setShowLogoutDialog(false);
+      toast.success("Đã đăng xuất khỏi tài khoản thành công!");
+      navigate("/login", { replace: true });
     }
-    updateSetting("email", newEmail);
-    setShowEmailDialog(false);
-    setNewEmail("");
-    toast.success("Mã xác minh đã được gửi đến email mới của bạn!");
   };
 
-  const handleRevokeOtherSessions = () => {
-    const updated = settings.activeSessions.filter((s) => s.isCurrent);
-    updateSetting("activeSessions", updated);
-    toast.success("Đã đăng xuất khỏi tất cả các thiết bị khác!");
+  // Xử lý Đổi tài khoản
+  const handleSwitchAccount = async () => {
+    setIsProcessingAuthAction(true);
+    try {
+      disconnectChatSocket();
+      await authService.logout();
+    } catch (error) {
+      console.warn("Switch account logout API warning:", error);
+    } finally {
+      localStorage.clear();
+      sessionStorage.clear();
+      setIsProcessingAuthAction(false);
+      setShowSwitchAccountDialog(false);
+      toast.info("Vui lòng đăng nhập với tài khoản mới của bạn.");
+      navigate("/login", { replace: true, state: { switchAccount: true } });
+    }
   };
 
   return (
@@ -143,9 +158,6 @@ export function AccountSecuritySection({ settings, updateSetting }: AccountSecur
               </div>
               <p className="text-xs text-muted-foreground">Email chính của tài khoản LexiCore</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setShowEmailDialog(true)}>
-              Thay đổi Email
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -228,88 +240,59 @@ export function AccountSecuritySection({ settings, updateSetting }: AccountSecur
         </CardContent>
       </Card>
 
-      {/* 3. Two-Factor Authentication (2FA) */}
-      <Card>
+      {/* 3. Session & Account Actions (Đổi tài khoản & Đăng xuất) */}
+      <Card className="border-border">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-emerald-500" />
-              <div>
-                <CardTitle className="text-lg">Xác thực 2 yếu tố (2FA)</CardTitle>
-                <CardDescription>Bảo vệ tài khoản bằng mã bảo mật bổ sung mỗi khi đăng nhập trên thiết bị lạ.</CardDescription>
-              </div>
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            <div>
+              <CardTitle className="text-lg">Phiên đăng nhập & Tài khoản</CardTitle>
+              <CardDescription>
+                Quản lý trạng thái đăng nhập, chuyển đổi giữa các tài khoản học tập hoặc kết thúc phiên làm việc.
+              </CardDescription>
             </div>
-            <Switch
-              checked={settings.twoFactorEnabled}
-              onCheckedChange={(checked) => {
-                updateSetting("twoFactorEnabled", checked);
-                toast.success(checked ? "Đã bật xác thực 2 bước (2FA)" : "Đã tắt xác thực 2 bước");
-              }}
-            />
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-xs text-muted-foreground p-3 bg-muted/40 rounded-lg border">
-            Khi bật 2FA, hệ thống sẽ tự động gửi mã OTP gồm 6 chữ số đến email <strong>{settings.email}</strong> để xác minh danh tính trước khi cấp quyền truy cập.
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 4. Active Sessions */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Laptop className="w-5 h-5 text-blue-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Nút Đổi tài khoản */}
+            <div className="p-4 rounded-xl border bg-muted/20 flex flex-col justify-between gap-3">
               <div>
-                <CardTitle className="text-lg">Phiên đăng nhập đang hoạt động</CardTitle>
-                <CardDescription>Danh sách các thiết bị hiện đang đăng nhập vào tài khoản của bạn.</CardDescription>
+                <p className="font-semibold text-sm text-foreground">Đổi tài khoản khác</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Đăng xuất tài khoản hiện tại và chuyển hướng đến trang đăng nhập để vào tài khoản khác.
+                </p>
               </div>
-            </div>
-            {settings.activeSessions.length > 1 && (
-              <Button variant="outline" size="sm" onClick={handleRevokeOtherSessions} className="gap-1.5 text-xs text-destructive hover:bg-destructive/10">
-                <LogOut className="w-3.5 h-3.5" /> Đăng xuất thiết bị khác
+              <Button
+                variant="outline"
+                onClick={() => setShowSwitchAccountDialog(true)}
+                className="w-full sm:w-auto gap-2 text-xs font-semibold self-start"
+              >
+                <Users className="w-3.5 h-3.5" /> Đổi tài khoản
               </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="divide-y border rounded-xl overflow-hidden">
-            {settings.activeSessions.map((session) => (
-              <div key={session.id} className="p-4 flex items-center justify-between gap-4 bg-card hover:bg-muted/30 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                    {session.device.includes("iPhone") || session.device.includes("Mobile") ? (
-                      <Smartphone className="w-5 h-5 text-muted-foreground" />
-                    ) : (
-                      <Laptop className="w-5 h-5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm">{session.device}</p>
-                      {session.isCurrent && (
-                        <Badge variant="default" className="text-[10px] bg-emerald-600 text-white">
-                          Thiết bị này
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {session.browser} • {session.location} ({session.ip})
-                    </p>
-                  </div>
-                </div>
+            </div>
 
-                <div className="text-right shrink-0">
-                  <span className="text-xs text-muted-foreground block">{session.lastActive}</span>
-                </div>
+            {/* Nút Đăng xuất */}
+            <div className="p-4 rounded-xl border border-destructive/20 bg-destructive/5 flex flex-col justify-between gap-3">
+              <div>
+                <p className="font-semibold text-sm text-destructive">Đăng xuất</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Đóng phiên làm việc trên thiết bị này và xóa thông tin phiên xác thực an toàn.
+                </p>
               </div>
-            ))}
+              <Button
+                variant="destructive"
+                onClick={() => setShowLogoutDialog(true)}
+                className="w-full sm:w-auto gap-2 text-xs font-semibold self-start"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Đăng xuất ngay
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 5. Danger Zone */}
+      {/* 4. Danger Zone */}
       <Card className="border-destructive/30 bg-destructive/5">
         <CardHeader>
           <div className="flex items-center gap-2 text-destructive">
@@ -345,31 +328,53 @@ export function AccountSecuritySection({ settings, updateSetting }: AccountSecur
         </CardContent>
       </Card>
 
-      {/* Change Email Dialog */}
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Thay đổi Email tài khoản</DialogTitle>
-            <DialogDescription>Nhập địa chỉ email mới. Hệ thống sẽ gửi mã xác minh OTP để hoàn tất thay đổi.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="new-email-input">Email mới</Label>
-              <Input
-                id="new-email-input"
-                type="email"
-                placeholder="example@lexicore.edu.vn"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>Hủy</Button>
-            <Button onClick={handleEmailChange} disabled={!newEmail}>Gửi mã xác minh</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Confirm Logout Dialog */}
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <LogOut className="w-5 h-5" /> Xác nhận đăng xuất
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn đăng xuất khỏi tài khoản <strong>{settings.email}</strong>? Bạn sẽ cần đăng nhập lại để tiếp tục học tập.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessingAuthAction}>Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLogout}
+              disabled={isProcessingAuthAction}
+              className="bg-destructive hover:bg-destructive/90 text-white"
+            >
+              {isProcessingAuthAction ? "Đang xử lý..." : "Đăng xuất"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Switch Account Dialog */}
+      <AlertDialog open={showSwitchAccountDialog} onOpenChange={setShowSwitchAccountDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" /> Chuyển sang tài khoản khác?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Hệ thống sẽ lưu lại phiên làm việc hiện tại và đưa bạn về màn hình Đăng nhập để sử dụng tài khoản khác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessingAuthAction}>Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSwitchAccount}
+              disabled={isProcessingAuthAction}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
+              {isProcessingAuthAction ? "Đang xử lý..." : "Đồng ý chuyển"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Deactivate Account Alert Dialog */}
       <AlertDialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
@@ -399,7 +404,7 @@ export function AccountSecuritySection({ settings, updateSetting }: AccountSecur
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-destructive" /> Cảnh báo: Xóa vĩnh viễn tài khoản
+              <ShieldAlert className="w-5 h-5 text-destructive" /> Cảnh báo: Xóa vĩnh viễn tài khoản
             </AlertDialogTitle>
             <AlertDialogDescription>
               Hành động này <strong>KHÔNG THỂ HOÀN TÁC</strong>. Toàn bộ chuỗi Streak, điểm PvP Arena, khóa học đã lưu và các bộ Flashcard cá nhân sẽ bị xóa vĩnh viễn khỏi máy chủ.

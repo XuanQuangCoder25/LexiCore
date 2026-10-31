@@ -52,7 +52,7 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
     }
   };
 
-  const handleSaveDraft = async () => {
+  const handleSaveDraft = async (exitAfterSave = false) => {
     setSaving(true);
     try {
       // 1. Update general info
@@ -70,6 +70,9 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
       }, { withCredentials: true });
 
       toast.success("Đã lưu nháp thành công");
+      if (exitAfterSave) {
+        onBack();
+      }
     } catch (err) {
       toast.error("Lỗi khi lưu bài kiểm tra");
     } finally {
@@ -176,8 +179,11 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
         </Button>
 
         <div className="mt-auto pt-6 border-t flex flex-col gap-2">
-           <Button onClick={handleSaveDraft} disabled={saving} variant="secondary">
+           <Button onClick={() => handleSaveDraft(false)} disabled={saving} variant="secondary">
               <Save className="h-4 w-4 mr-2" /> Lưu nháp
+           </Button>
+           <Button onClick={() => handleSaveDraft(true)} disabled={saving} variant="outline" className="border-indigo-400/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Lưu & Trở về
            </Button>
            <Button onClick={handlePublish} disabled={saving} className={exam.status === 'Published' ? "bg-green-600 hover:bg-green-700 text-white" : ""}>
               {exam.status === 'Published' ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
@@ -267,6 +273,44 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
           </div>
         </div>
       </div>
+
+      <Dialog open={showPublishRestrictedModal} onOpenChange={setShowPublishRestrictedModal}>
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
+              <Crown className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-center text-xl">Tính năng dành cho Creator</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-2 text-sm text-muted-foreground space-y-2">
+            <p>
+              Tính năng xuất bản bài kiểm tra công khai chỉ dành riêng cho <strong className="text-foreground">Creator chính thức</strong>.
+            </p>
+            <p>
+              Bài kiểm tra của bạn vẫn được lưu an toàn trong <strong className="text-foreground">Private Space</strong> để bạn tự luyện tập bất kỳ lúc nào.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium pt-1">
+              Hãy đăng ký làm Creator để chia sẻ bài thi với học viên trên LexiCore!
+            </p>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row sm:justify-center gap-2 pt-2">
+            <Button variant="outline" onClick={() => setShowPublishRestrictedModal(false)}>
+              Để sau
+            </Button>
+            <Button
+              className="bg-amber-500 hover:bg-amber-600 text-white font-medium gap-2 shadow-sm"
+              onClick={() => {
+                setShowPublishRestrictedModal(false);
+                if (onNavigateTab) {
+                  onNavigateTab("profile");
+                }
+              }}
+            >
+              <Crown className="w-4 h-4" /> Đăng ký làm Creator ngay
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -563,44 +607,6 @@ function MediaForm({ question, onUpload, onChange }: { question: any, onUpload: 
           </Card>
         ))}
       </div>
-
-      <Dialog open={showPublishRestrictedModal} onOpenChange={setShowPublishRestrictedModal}>
-        <DialogContent className="max-w-md" aria-describedby={undefined}>
-          <DialogHeader>
-            <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
-              <Crown className="w-6 h-6" />
-            </div>
-            <DialogTitle className="text-center text-xl">Tính năng dành cho Creator</DialogTitle>
-          </DialogHeader>
-          <div className="text-center py-2 text-sm text-muted-foreground space-y-2">
-            <p>
-              Tính năng xuất bản bài kiểm tra công khai chỉ dành riêng cho <strong className="text-foreground">Creator chính thức</strong>.
-            </p>
-            <p>
-              Bài kiểm tra của bạn vẫn được lưu an toàn trong <strong className="text-foreground">Private Space</strong> để bạn tự luyện tập bất kỳ lúc nào.
-            </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium pt-1">
-              Hãy đăng ký làm Creator để chia sẻ bài thi với học viên trên LexiCore!
-            </p>
-          </div>
-          <DialogFooter className="flex flex-col sm:flex-row sm:justify-center gap-2 pt-2">
-            <Button variant="outline" onClick={() => setShowPublishRestrictedModal(false)}>
-              Để sau
-            </Button>
-            <Button
-              className="bg-amber-500 hover:bg-amber-600 text-white font-medium gap-2 shadow-sm"
-              onClick={() => {
-                setShowPublishRestrictedModal(false);
-                if (onNavigateTab) {
-                  onNavigateTab("profile");
-                }
-              }}
-            >
-              <Crown className="w-4 h-4" /> Đăng ký làm Creator ngay
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

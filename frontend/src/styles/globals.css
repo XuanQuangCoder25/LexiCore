@@ -126,6 +126,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 }
 
@@ -186,4 +187,24 @@
 
 html {
   font-size: var(--font-size);
+}
+
+/* Sidebar scrollbar & overflow cleanup */
+[data-slot="sidebar"],
+[data-slot="sidebar-inner"],
+[data-slot="sidebar-content"],
+[data-slot="sidebar-footer"] {
+  overflow-x: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  box-sizing: border-box !important;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar,
+[data-slot="sidebar"]::-webkit-scrollbar,
+[data-slot="sidebar-inner"]::-webkit-scrollbar,
+[data-slot="sidebar-footer"]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }

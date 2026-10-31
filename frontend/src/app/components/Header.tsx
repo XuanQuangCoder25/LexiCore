@@ -7,11 +7,11 @@ export function Header() {
       <div className="container mx-auto px-4 lg:px-6">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-              <span className="text-white font-bold">EL</span>
+          <div className="flex items-center space-x-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#151515] text-white">
+              <span className="font-bold text-xs tracking-wider">LC</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">EnglishLearn</span>
+            <span className="text-xl font-bold text-gray-900 tracking-tight">LexiCore</span>
           </div>
 
           {/* Desktop Navigation */}

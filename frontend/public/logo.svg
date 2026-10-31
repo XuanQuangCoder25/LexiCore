@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 118 16" width="118" height="16" fill="none">
+  <!-- LexiCore Crystal / Core Glyph -->
+  <g fill="#FFFFFF">
+    <path d="M7 1L12.5 4.5V11.5L7 15L1.5 11.5V4.5L7 1Z" fill-opacity="0.3"/>
+    <path d="M7 3.5L10.5 5.8V10.2L7 12.5L3.5 10.2V5.8L7 3.5Z" fill-opacity="0.6"/>
+    <circle cx="7" cy="8" r="1.8" fill="#FFFFFF"/>
+    <!-- Path connecting nodes -->
+    <path d="M7 1V3.5M7 12.5V15M1.5 4.5L3.5 5.8M10.5 5.8L12.5 4.5M1.5 11.5L3.5 10.2M10.5 10.2L12.5 11.5" stroke="#FFFFFF" stroke-width="0.8"/>
+  </g>
+  <!-- Geometric LEXICORE typography -->
+  <text x="21" y="12.2" font-family="'Geist', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-weight="700" font-size="11.5" letter-spacing="0.16em" fill="#FFFFFF">LEXICORE</text>
+</svg>

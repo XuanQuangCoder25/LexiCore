@@ -1,0 +1,171 @@
+.media {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+  transform: scale(0); /* Intro M1 scales to 1 */
+  will-change: transform;
+}
+
+.over {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+  transform: scale(0); /* Intro M1 scales to 1 */
+  pointer-events: none;
+  will-change: transform;
+}
+
+.photoBox {
+  position: absolute;
+  aspect-ratio: 4096 / 2640;
+  /* Desktop defaults */
+  --img-w: max(calc(1612 * var(--u)), 100vw, calc(100svh * 1.154 * 4096 / 2640));
+  width: var(--img-w);
+  left: calc(50% - var(--img-w) / 2);
+  top: calc(49.87% - var(--img-w) * 2640 / 4096 * 0.5657);
+  will-change: transform;
+}
+
+.photoImg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+/* Mobile Overrides (width < 1024px) */
+@media (max-width: 1023px) {
+  .photoBox {
+    --img-w: max(
+      calc(1462 * min(calc(100vw / 415), calc(100svh / 900))),
+      100vw,
+      calc(100svh * 1.049 * 4096 / 2640)
+    );
+    width: var(--img-w);
+    left: calc(50% + 8.5 * var(--u) - var(--img-w) / 2);
+    top: calc(54.43% - var(--img-w) * 2640 / 4096 * 0.5657);
+  }
+
+  .photoBox::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--sky-tint) 3.99%, transparent 33.78%);
+  }
+}
+
+
+
+/* The Flat 652 × 1024 Plane */
+.plane {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 652px;
+  height: 1024px;
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+}
+
+/* The Card's Light */
+.cardLightPlane {
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.95))
+          drop-shadow(0 0 14px rgba(255, 255, 255, 0.55));
+  mask-image: linear-gradient(to bottom left, #000 20%, rgba(0, 0, 0, 0.45) 60%, transparent 92%);
+  -webkit-mask-image: linear-gradient(to bottom left, #000 20%, rgba(0, 0, 0, 0.45) 60%, transparent 92%);
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+/* 1024 × 652 landscape face turned upright */
+.cardLandscapeFace {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1024px;
+  height: 652px;
+  transform-origin: 0 0;
+  transform: translateX(652px) rotate(90deg);
+}
+
+.cardLandscapeFace::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid #FFFFFF;
+  border-radius: 28px;
+  pointer-events: none;
+}
+
+.cardLogo {
+  position: absolute;
+  left: 517.15px;
+  top: 42.15px;
+  width: 448.557px;
+  height: 78.1889px;
+}
+
+.cardChip {
+  position: absolute;
+  left: 58px;
+  top: 270px;
+  width: 115.912px;
+  height: 111.796px;
+}
+
+.cardTextLeft {
+  position: absolute;
+  left: 59px;
+  top: 565px;
+  font-family: var(--font-family);
+  font-size: var(--card-text-size);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+
+.cardTextRight {
+  position: absolute;
+  right: 58px;
+  top: 565px;
+  font-family: var(--font-family);
+  font-size: var(--card-text-size);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+
+/* Over Layer Portal Elements */
+.portalPlane {
+  will-change: transform;
+}
+
+.portalFill {
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  background: #FFFFFF;
+  opacity: 0;
+  will-change: opacity;
+}
+
+.portalRim {
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  border: 16px solid #FFFFFF;
+  box-shadow: 0 0 36px 8px rgba(255, 255, 255, 0.85),
+              inset 0 0 28px 6px rgba(255, 255, 255, 0.7);
+  opacity: 0;
+  will-change: opacity;
+}

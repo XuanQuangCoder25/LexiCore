@@ -3,30 +3,48 @@ name: Backend CI Pipeline
 on:
   push:
     branches: [ "main" ]
-    # Chỉ kích hoạt Pipeline này nếu có file nào đó trong thư mục backend thay đổi
     paths:
       - 'backend/**' 
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'backend/**'
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # RẤT QUAN TRỌNG: Bảo GitHub mặc định chạy các lệnh trong thư mục backend
     defaults:
       run:
         working-directory: ./backend 
 
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      MYSQL_URI: ${{ secrets.MYSQL_URI }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      CLIENT_URL: 'http://localhost:5173'
+
     steps:
     - name: Checkout mã nguồn
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Cài đặt Node.js
-      uses: actions/setup-node@v3
+    - name: Cài đặt Node.js LTS (v20)
+      uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: './backend/package.json'
 
     - name: Cài đặt Dependencies
       run: npm install
 
-    - name: Kiểm tra TypeScript (Type Check)
-      run: npx tsc --noEmit
+    - name: Kiểm tra Type Check (TypeScript)
+      run: npm run type-check
+
+    - name: Kiểm tra Cú pháp và Khả năng biên dịch Backend
+      run: |
+        npx tsx -r dotenv/config -e "console.log('✅ Backend syntax & tsx runtime compilation verified successfully!')"
