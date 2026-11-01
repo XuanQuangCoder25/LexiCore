@@ -16,6 +16,7 @@ import { creatorService } from '../../services/creator-service';
 import { courseBuilderService } from '../../services/course-builder-service';
 import { ExamBuilder } from "./creator/ExamBuilder";
 import { CourseBuilder } from "./creator/CourseBuilder";
+import { FlashcardBuilder } from "./creator/FlashcardBuilder";
 import { LayoutList, 
   Plus,
   Edit,
@@ -60,7 +61,8 @@ interface CreatorStudioViewProps {
 export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorStudioViewProps) {
   const isCreatorOrAdmin = userRole?.toLowerCase() === "content_creator" || userRole?.toLowerCase() === "admin";
   const [showPublishRestrictedModal, setShowPublishRestrictedModal] = useState(false);
-  const [view, setView] = useState<"list" | "editor" | "course_builder">("list");
+  const [view, setView] = useState<"list" | "editor" | "course_builder" | "flashcard_builder">("list");
+  const [selectedFlashcardDeckId, setSelectedFlashcardDeckId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
@@ -426,6 +428,21 @@ const handleOpenEditor = (course: Course) => {
   );
 
   // --- DECK EDITOR (Flashcards) ---
+  if (view === "flashcard_builder") {
+    return (
+      <FlashcardBuilder
+        deckId={selectedFlashcardDeckId}
+        onBack={() => {
+          setSelectedFlashcardDeckId(null);
+          setView("list");
+          fetchCourses();
+        }}
+        userRole={userRole}
+        onNavigateTab={onNavigateTab}
+      />
+    );
+  }
+
   if (view === "editor" && selectedCourse) {
     return (
       <div className="space-y-6">
@@ -712,7 +729,7 @@ const handleOpenEditor = (course: Course) => {
 
         <TabsContent value="flashcards" className="space-y-6">
           <div className="flex justify-end">
-            <Button onClick={() => setShowNewCourseDialog(true)}>
+            <Button onClick={() => { setSelectedFlashcardDeckId(null); setView("flashcard_builder"); }}>
               <Plus className="h-4 w-4 mr-2" /> Tạo bộ thẻ
             </Button>
           </div>
@@ -780,7 +797,7 @@ const handleOpenEditor = (course: Course) => {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       
-                      <Button size="sm" variant="outline" onClick={() => handleOpenEditor(course)}>
+                      <Button size="sm" variant="outline" onClick={() => { setSelectedFlashcardDeckId(course._id); setView("flashcard_builder"); }}>
                         <Edit className="h-4 w-4 mr-2" /> Quản lý thẻ
                       </Button>
                       <DropdownMenu>

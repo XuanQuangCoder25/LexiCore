@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Course from '../../database/models/Course';
 import Flashcard from '../../database/models/Flashcard';
+import CardReview from '../../database/models/CardReview';
 import Exam from '../../database/models/Exam';
 import Question from '../../database/models/Question';
 import ExamResult from '../../database/models/ExamResult';
@@ -149,6 +150,364 @@ export const getFlashcards = async (req: Request, res: Response) => {
     res.json({ success: true, data: flashcards });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+// --- FLASHCARD DECK MANAGEMENT (ATOMIC SAVE & DETAIL) ---
+export const getDeckById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID bộ thẻ không hợp lệ' });
+    }
+
+    const deck = await Course.findOne({ 
+      _id: id, 
+      type: 'flashcard',
+      $or: [
+        { creatorId: userId },
+        { isPublished: true }
+      ]
+    });
+
+    if (!deck) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy bộ thẻ hoặc bạn không có quyền truy cập.' });
+    }
+
+    const cards = await Flashcard.find({ courseId: id }).sort({ order: 1 });
+    return res.json({
+      success: true,
+      data: {
+        deck,
+        cards
+      }
+    });
+  } catch (error) {
+    console.error('Lỗi khi lấy chi tiết bộ thẻ:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi lấy chi tiết bộ thẻ' });
+  }
+};
+
+export const saveFullDeck = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const { deck: deckInput, cards: cardsInput = [] } = req.body;
+    if (!deckInput || !deckInput.title || !deckInput.title.trim()) {
+      return res.status(400).json({ success: false, message: 'Tiêu đề bộ thẻ là bắt buộc' });
+    }
+
+    const isPublished = Boolean(deckInput.isPublished);
+
+    // Chặn role user xuất bản ra ngoài cộng đồng
+    if (isPublished && !canPublishContent(req)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bộ thẻ ra cộng đồng.',
+        requires_creator: true
+      });
+    }
+
+    // Không cho phép xuất bản bộ thẻ không có thẻ nào
+    if (isPublished && (!Array.isArray(cardsInput) || cardsInput.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bộ thẻ cần có ít nhất 1 thẻ từ vựng trước khi xuất bản ra cộng đồng.'
+      });
+    }
+
+    let targetDeck: any = null;
+
+    if (deckInput.id && mongoose.Types.ObjectId.isValid(deckInput.id)) {
+      targetDeck = await Course.findOne({ _id: deckInput.id, creatorId: userId, type: 'flashcard' });
+      if (!targetDeck) {
+        return res.status(404).json({ success: false, message: 'Bộ thẻ không tồn tại hoặc bạn không có quyền chỉnh sửa.' });
+      }
+
+      targetDeck.title = deckInput.title.trim();
+      targetDeck.description = (deckInput.description || '').trim();
+      targetDeck.thumbnail = (deckInput.thumbnail || '').trim();
+      targetDeck.level = deckInput.level || targetDeck.level || 'ALL';
+      targetDeck.tags = Array.isArray(deckInput.tags) ? deckInput.tags : targetDeck.tags || [];
+      targetDeck.allowClone = deckInput.allowClone !== undefined ? Boolean(deckInput.allowClone) : (targetDeck.allowClone !== false);
+      targetDeck.isPublished = isPublished;
+      targetDeck.status = isPublished ? 'published' : 'draft';
+      if (isPublished && !targetDeck.publishedAt) {
+        targetDeck.publishedAt = new Date();
+      }
+      targetDeck.cardCount = cardsInput.length;
+      await targetDeck.save();
+    } else {
+      targetDeck = new Course({
+        title: deckInput.title.trim(),
+        description: (deckInput.description || '').trim(),
+        thumbnail: (deckInput.thumbnail || '').trim(),
+        level: deckInput.level || 'ALL',
+        tags: Array.isArray(deckInput.tags) ? deckInput.tags : [],
+        allowClone: deckInput.allowClone !== false,
+        isPublished: isPublished,
+        status: isPublished ? 'published' : 'draft',
+        publishedAt: isPublished ? new Date() : null,
+        creatorId: userId,
+        type: 'flashcard',
+        cardCount: cardsInput.length
+      });
+      await targetDeck.save();
+    }
+
+    const deckId = targetDeck._id;
+
+    // --- ĐỒNG BỘ DANH SÁCH THẺ (ATOMIC CARDS SYNC) ---
+    const existingCards = await Flashcard.find({ courseId: deckId });
+    const existingCardMap = new Map(existingCards.map(c => [c._id.toString(), c]));
+    const retainedCardIds: mongoose.Types.ObjectId[] = [];
+    const savedCards: any[] = [];
+
+    for (let i = 0; i < cardsInput.length; i++) {
+      const cardData = cardsInput[i];
+      const front = (cardData.front || '').trim();
+      const back = (cardData.back || '').trim();
+      if (!front || !back) continue; // Bỏ qua thẻ trống
+
+      const order = typeof cardData.order === 'number' ? cardData.order : i;
+      const partOfSpeech = cardData.partOfSpeech || 'noun';
+      const phonetic = (cardData.phonetic || '').trim();
+      const audioUrl = (cardData.audioUrl || '').trim();
+      const example = (cardData.example || '').trim();
+      const exampleMeaning = (cardData.exampleMeaning || '').trim();
+      const synonyms = Array.isArray(cardData.synonyms) ? cardData.synonyms : [];
+      const note = (cardData.note || '').trim();
+      const imageUrl = (cardData.imageUrl || '').trim();
+
+      if (cardData.id && mongoose.Types.ObjectId.isValid(cardData.id) && existingCardMap.has(cardData.id)) {
+        const existingCard = existingCardMap.get(cardData.id)!;
+        existingCard.front = front;
+        existingCard.back = back;
+        existingCard.order = order;
+        existingCard.partOfSpeech = partOfSpeech;
+        existingCard.phonetic = phonetic;
+        existingCard.audioUrl = audioUrl;
+        existingCard.example = example;
+        existingCard.exampleMeaning = exampleMeaning;
+        existingCard.synonyms = synonyms;
+        existingCard.note = note;
+        existingCard.imageUrl = imageUrl;
+        await existingCard.save();
+        retainedCardIds.push(existingCard._id);
+        savedCards.push(existingCard);
+      } else {
+        const newCard = new Flashcard({
+          courseId: deckId,
+          front,
+          back,
+          order,
+          partOfSpeech,
+          phonetic,
+          audioUrl,
+          example,
+          exampleMeaning,
+          synonyms,
+          note,
+          imageUrl,
+          initialEaseFactor: 2.5,
+          initialInterval: 0,
+          initialRepetitions: 0
+        });
+        await newCard.save();
+        retainedCardIds.push(newCard._id);
+        savedCards.push(newCard);
+      }
+    }
+
+    // Xóa những thẻ không còn tồn tại trong danh sách mới
+    await Flashcard.deleteMany({
+      courseId: deckId,
+      _id: { $nin: retainedCardIds }
+    });
+
+    // Cập nhật lại cardCount chính xác
+    targetDeck.cardCount = retainedCardIds.length;
+    await targetDeck.save();
+
+    // --- TỰ ĐỘNG KHỞI TẠO SRS (SPACED REPETITION) CHO TÁC GIẢ ---
+    for (const cardDoc of savedCards) {
+      await CardReview.findOneAndUpdate(
+        { userId, cardId: cardDoc._id },
+        {
+          $setOnInsert: {
+            userId,
+            cardId: cardDoc._id,
+            courseId: deckId,
+            easeFactor: 2.5,
+            interval: 0,
+            repetitions: 0,
+            nextReviewDate: new Date(),
+            status: 'New',
+            reviewHistory: []
+          }
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    // Xóa CardReview của những thẻ đã bị xóa
+    await CardReview.deleteMany({
+      courseId: deckId,
+      cardId: { $nin: retainedCardIds }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Đã lưu bộ thẻ thành công',
+      data: {
+        deck: targetDeck,
+        cards: savedCards
+      }
+    });
+  } catch (error) {
+    console.error('Lỗi khi lưu bộ thẻ:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi lưu bộ thẻ' });
+  }
+};
+
+export const publishDeck = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    if (!canPublishContent(req)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bộ thẻ ra cộng đồng.',
+        requires_creator: true
+      });
+    }
+
+    const deck = await Course.findOne({ _id: id, creatorId: userId, type: 'flashcard' });
+    if (!deck) return res.status(404).json({ success: false, message: 'Không tìm thấy bộ thẻ.' });
+
+    const cardCount = await Flashcard.countDocuments({ courseId: id });
+    if (cardCount === 0) {
+      return res.status(400).json({ success: false, message: 'Bộ thẻ cần có ít nhất 1 thẻ từ vựng trước khi xuất bản.' });
+    }
+
+    deck.isPublished = true;
+    deck.status = 'published';
+    deck.publishedAt = new Date();
+    deck.cardCount = cardCount;
+    await deck.save();
+
+    return res.json({ success: true, message: 'Đã xuất bản bộ thẻ ra cộng đồng thành công', data: deck });
+  } catch (error) {
+    console.error('Lỗi khi xuất bản bộ thẻ:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi xuất bản bộ thẻ' });
+  }
+};
+
+export const unpublishDeck = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const deck = await Course.findOne({ _id: id, creatorId: userId, type: 'flashcard' });
+    if (!deck) return res.status(404).json({ success: false, message: 'Không tìm thấy bộ thẻ.' });
+
+    deck.isPublished = false;
+    deck.status = 'draft';
+    await deck.save();
+
+    return res.json({ success: true, message: 'Đã chuyển bộ thẻ về bản nháp', data: deck });
+  } catch (error) {
+    console.error('Lỗi khi hủy xuất bản bộ thẻ:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi hủy xuất bản bộ thẻ' });
+  }
+};
+
+export const cloneDirectDeck = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const sourceDeck = await Course.findOne({
+      _id: id,
+      type: 'flashcard',
+      $or: [{ creatorId: userId }, { isPublished: true }]
+    });
+
+    if (!sourceDeck) return res.status(404).json({ success: false, message: 'Không tìm thấy bộ thẻ gốc.' });
+
+    if (sourceDeck.creatorId !== userId && sourceDeck.allowClone === false) {
+      return res.status(403).json({ success: false, message: 'Tác giả không cho phép nhân bản bộ thẻ này.' });
+    }
+
+    const clonedDeck = new Course({
+      title: `${sourceDeck.title} (Bản sao)`,
+      description: sourceDeck.description || '',
+      thumbnail: sourceDeck.thumbnail || '',
+      level: sourceDeck.level || 'ALL',
+      tags: sourceDeck.tags || [],
+      price: 0,
+      creatorId: userId,
+      type: 'flashcard',
+      isPublished: false,
+      status: 'draft',
+      allowClone: true,
+      cardCount: 0
+    });
+    await clonedDeck.save();
+
+    const sourceCards = await Flashcard.find({ courseId: id }).sort({ order: 1 }).lean();
+    if (sourceCards.length > 0) {
+      const newCards = sourceCards.map(c => ({
+        courseId: clonedDeck._id,
+        front: c.front,
+        back: c.back,
+        order: c.order,
+        partOfSpeech: c.partOfSpeech || 'noun',
+        phonetic: c.phonetic || '',
+        audioUrl: c.audioUrl || '',
+        example: c.example || '',
+        exampleMeaning: c.exampleMeaning || '',
+        synonyms: c.synonyms || [],
+        note: c.note || '',
+        imageUrl: c.imageUrl || '',
+        initialEaseFactor: c.initialEaseFactor || 2.5,
+        initialInterval: c.initialInterval || 0,
+        initialRepetitions: c.initialRepetitions || 0
+      }));
+      const inserted = await Flashcard.insertMany(newCards);
+      clonedDeck.cardCount = inserted.length;
+      await clonedDeck.save();
+
+      const reviews = inserted.map(c => ({
+        userId,
+        cardId: c._id,
+        courseId: clonedDeck._id,
+        easeFactor: 2.5,
+        interval: 0,
+        repetitions: 0,
+        nextReviewDate: new Date(),
+        status: 'New',
+        reviewHistory: []
+      }));
+      await CardReview.insertMany(reviews);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Nhân bản bộ thẻ vào Private Space thành công!',
+      data: clonedDeck
+    });
+  } catch (error) {
+    console.error('Lỗi khi nhân bản bộ thẻ:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi nhân bản bộ thẻ' });
   }
 };
 

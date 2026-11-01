@@ -20,6 +20,13 @@ export const creatorService = {
   updateFlashcard: async (id: string, data: any) => (await api.put(`/flashcards/${id}`, data)).data,
   deleteFlashcard: async (id: string) => (await api.delete(`/flashcards/${id}`)).data,
 
+  // Flashcard Decks (Full & Atomic)
+  getDeckById: async (id: string) => (await api.get(`/decks/${id}`)).data,
+  saveFullDeck: async (payload: { deck: any; cards: any[] }) => (await api.post('/decks/save-full', payload)).data,
+  publishDeck: async (id: string) => (await api.post(`/decks/${id}/publish`)).data,
+  unpublishDeck: async (id: string) => (await api.post(`/decks/${id}/unpublish`)).data,
+  cloneDirectDeck: async (id: string) => (await api.post(`/decks/${id}/clone`)).data,
+
   getExams: async () => (await api.get('/exams')).data,
   createExam: async (data: any) => (await api.post('/exams', data)).data,
   updateExam: async (id: string, data: any) => (await api.put(`/exams/${id}`, data)).data,

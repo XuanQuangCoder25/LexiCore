@@ -33,6 +33,7 @@ import { LearningWorkspace } from "./LearningWorkspace";
 import { ExamTakingView } from "./ExamView";
 import { ExamBuilder } from "./creator/ExamBuilder";
 import { CourseBuilder } from "./creator/CourseBuilder";
+import { FlashcardBuilder } from "./creator/FlashcardBuilder";
 import { ShareDeckModal } from "../../features/community/ShareDeckModal";
 
 interface PrivateSpaceViewProps {
@@ -64,8 +65,9 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "private" | "published">("all");
 
-  // State to switch into study / test workspaces
+  // State to switch into study / test workspaces / builders
   const [studyingDeck, setStudyingDeck] = useState<{ id: string; title: string } | null>(null);
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
   const [learningCourseId, setLearningCourseId] = useState<string | null>(null);
   const [takingExamId, setTakingExamId] = useState<string | null>(null);
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
@@ -163,6 +165,22 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
         onBack={() => {
           setEditingCourseId(null);
           setActiveTab("courses");
+          fetchPrivateContent();
+        }}
+        userRole={userRole}
+        onNavigateTab={onNavigateTab}
+      />
+    );
+  }
+
+  // --- Sub-view: Flashcard Builder ---
+  if (editingDeckId) {
+    return (
+      <FlashcardBuilder
+        deckId={editingDeckId === "new" ? undefined : editingDeckId}
+        onBack={() => {
+          setEditingDeckId(null);
+          setActiveTab("flashcards");
           fetchPrivateContent();
         }}
         userRole={userRole}
@@ -346,6 +364,19 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
 
         {/* ---------------- 1. FLASHCARDS TAB ---------------- */}
         <TabsContent value="flashcards" className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+            <p className="text-sm text-muted-foreground">
+              Quản lý và ôn luyện các bộ thẻ từ vựng cá nhân với thuật toán ghi nhớ ngắt quãng (SRS)
+            </p>
+            <Button
+              size="sm"
+              onClick={() => setEditingDeckId("new")}
+              className="gap-1.5 bg-pink-600 hover:bg-pink-700 text-white shadow-sm w-fit"
+            >
+              <Plus className="w-4 h-4" /> Tạo bộ thẻ mới
+            </Button>
+          </div>
+
           {loading ? (
             <div className="flex justify-center py-16">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -360,7 +391,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
                 <p className="text-sm text-muted-foreground max-w-sm mb-4">
                   Bạn có thể tạo bộ thẻ từ vựng riêng để ôn luyện ghi nhớ ngắt quãng (Spaced Repetition).
                 </p>
-                <Button onClick={() => onNavigateTab?.("creator")} className="gap-2">
+                <Button onClick={() => setEditingDeckId("new")} className="gap-2 bg-pink-600 hover:bg-pink-700 text-white">
                   <Plus className="w-4 h-4" /> Tạo bộ thẻ ngay
                 </Button>
               </CardContent>
@@ -427,10 +458,21 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
 
                   <div className="p-4 pt-0 flex items-center gap-2">
                     <Button
+                      id={`btn-study-deck-${deck._id || deck.id}`}
                       className="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-medium shadow-sm gap-2"
                       onClick={() => setStudyingDeck({ id: (deck._id || deck.id)?.toString(), title: deck.title })}
                     >
                       <Play className="w-4 h-4 fill-white" /> Ôn tập ngay
+                    </Button>
+                    <Button
+                      id={`btn-edit-deck-${deck._id || deck.id}`}
+                      variant="outline"
+                      size="icon"
+                      className="text-pink-600 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/30"
+                      title="Chỉnh sửa bộ thẻ"
+                      onClick={() => setEditingDeckId((deck._id || deck.id)?.toString())}
+                    >
+                      <Edit3 className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="outline"

@@ -20,6 +20,8 @@ export interface ICourse extends Document {
   objectives: string[]; // Danh sách mục tiêu đầu ra (Learning Objectives)
   price: number; // 0 for free, > 0 for coins (Economy)
   type: 'course' | 'flashcard';
+  allowClone?: boolean; // Cho phép clone về Private Space (mặc định: true)
+  cardCount?: number;   // Số thẻ trong bộ flashcard
   stats?: ICourseStats;
 }
 
@@ -37,6 +39,8 @@ const CourseSchema = new Schema<ICourse>({
   objectives: [{ type: String }],
   price: { type: Number, default: 0 },
   type: { type: String, enum: ['course', 'flashcard'], default: 'course' },
+  allowClone: { type: Boolean, default: true },
+  cardCount: { type: Number, default: 0 },
   stats: {
     totalChapters: { type: Number, default: 0 },
     totalLessons: { type: Number, default: 0 },

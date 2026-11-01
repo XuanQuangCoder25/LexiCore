@@ -57,6 +57,14 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
             courseId: fc.courseId,
             front: fc.front,
             back: fc.back,
+            partOfSpeech: fc.partOfSpeech,
+            phonetic: fc.phonetic,
+            audioUrl: fc.audioUrl,
+            example: fc.example,
+            exampleMeaning: fc.exampleMeaning,
+            synonyms: fc.synonyms,
+            note: fc.note,
+            imageUrl: fc.imageUrl,
             status: 'Practice'
           }));
           setDueCards(cards);
@@ -77,6 +85,14 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
             courseId: fc.courseId,
             front: fc.front,
             back: fc.back,
+            partOfSpeech: fc.partOfSpeech,
+            phonetic: fc.phonetic,
+            audioUrl: fc.audioUrl,
+            example: fc.example,
+            exampleMeaning: fc.exampleMeaning,
+            synonyms: fc.synonyms,
+            note: fc.note,
+            imageUrl: fc.imageUrl,
             status: 'Practice'
           }));
           setDueCards(cards);
@@ -106,7 +122,21 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
+    utterance.rate = 0.95;
     window.speechSynthesis.speak(utterance);
+  };
+
+  const playAudioOrSpeak = (text: string, audioUrl?: string) => {
+    if (audioUrl) {
+      try {
+        const audio = new Audio(audioUrl);
+        audio.play().catch(() => speakText(text));
+        return;
+      } catch {
+        // fallback
+      }
+    }
+    speakText(text);
   };
 
   const handlePrevCard = () => {
@@ -264,7 +294,8 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
       {/* 3D Flipping Card */}
       <div className="flex justify-center perspective-1000 py-4">
         <motion.div 
-          className="w-full min-h-[340px] cursor-pointer relative select-none"
+          id="study-card-flipper"
+          className="w-full min-h-[360px] cursor-pointer relative select-none"
           onClick={handleFlip}
           animate={{ rotateX: showAnswer ? 180 : 0 }}
           transition={{ duration: 0.5, type: "spring", stiffness: 260, damping: 22 }}
@@ -272,68 +303,134 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
         >
           {/* Mặt trước (Front) */}
           <Card 
-            className="absolute inset-0 w-full h-full border-2 hover:border-primary/50 shadow-lg rounded-2xl overflow-hidden transition-all bg-card"
+            className="absolute inset-0 w-full h-full border-2 hover:border-pink-500/50 shadow-xl rounded-2xl overflow-hidden transition-all bg-card flex flex-col"
             style={{ backfaceVisibility: "hidden" }}
           >
-            <CardContent className="p-8 h-full flex flex-col justify-between items-center text-center relative">
+            <CardContent className="p-6 sm:p-8 h-full flex flex-col justify-between items-center text-center relative overflow-y-auto">
               <div className="w-full flex justify-between items-center text-xs text-muted-foreground">
-                <span className="font-semibold uppercase tracking-wider text-primary">Từ vựng (Front)</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold uppercase tracking-wider text-pink-600 dark:text-pink-400">Từ vựng (Front)</span>
+                  {activeCard?.partOfSpeech && (
+                    <Badge variant="secondary" className="text-[11px] font-medium bg-pink-100 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border-pink-200">
+                      {activeCard.partOfSpeech}
+                    </Badge>
+                  )}
+                </div>
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => { e.stopPropagation(); speakText(activeCard?.front); }}
+                  className="h-8 w-8 text-pink-600 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/40 rounded-full"
+                  onClick={(e) => { e.stopPropagation(); playAudioOrSpeak(activeCard?.front, activeCard?.audioUrl); }}
                   title="Phát âm"
                 >
                   <Volume2 className="h-4 w-4" />
                 </Button>
               </div>
 
-              <div className="my-auto py-6">
-                <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground whitespace-pre-wrap leading-relaxed">
+              <div className="my-auto py-6 space-y-3 max-w-lg w-full">
+                {activeCard?.imageUrl && (
+                  <div className="w-full max-h-40 flex justify-center mb-3">
+                    <img src={activeCard.imageUrl} alt={activeCard.front} className="max-h-36 object-contain rounded-lg border shadow-sm" />
+                  </div>
+                )}
+                <h3 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground whitespace-pre-wrap leading-tight">
                   {activeCard?.front}
                 </h3>
+                {activeCard?.phonetic && (
+                  <p className="text-base sm:text-lg font-mono text-muted-foreground tracking-wide">
+                    {activeCard.phonetic}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Eye className="h-3.5 w-3.5" />
-                <span>Bấm vào thẻ hoặc phím Space để xem nghĩa</span>
+                <span>Bấm vào thẻ hoặc nhấn phím Space để xem nghĩa</span>
               </div>
             </CardContent>
           </Card>
 
           {/* Mặt sau (Back) */}
           <Card 
-            className="absolute inset-0 w-full h-full border-2 border-primary/40 shadow-lg rounded-2xl overflow-hidden bg-gradient-to-br from-card to-primary/5"
+            className="absolute inset-0 w-full h-full border-2 border-pink-500/40 shadow-xl rounded-2xl overflow-hidden bg-gradient-to-br from-card via-card to-pink-500/5 flex flex-col"
             style={{ backfaceVisibility: "hidden", transform: "rotateX(180deg)" }}
           >
-            <CardContent className="p-8 h-full flex flex-col justify-between items-center text-center relative">
+            <CardContent className="p-6 sm:p-8 h-full flex flex-col justify-between items-center text-center relative overflow-y-auto">
               <div className="w-full flex justify-between items-center text-xs text-muted-foreground">
-                <span className="font-semibold uppercase tracking-wider text-primary">Ý nghĩa & Giải thích (Back)</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold uppercase tracking-wider text-pink-600 dark:text-pink-400">Ý nghĩa & Ngữ cảnh (Back)</span>
+                  {activeCard?.partOfSpeech && (
+                    <Badge variant="secondary" className="text-[11px] font-medium bg-pink-100 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border-pink-200">
+                      {activeCard.partOfSpeech}
+                    </Badge>
+                  )}
+                </div>
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={(e) => { e.stopPropagation(); speakText(activeCard?.front); }}
+                  className="h-8 w-8 text-pink-600 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/40 rounded-full"
+                  onClick={(e) => { e.stopPropagation(); playAudioOrSpeak(activeCard?.front, activeCard?.audioUrl); }}
                   title="Phát âm"
                 >
                   <Volume2 className="h-4 w-4" />
                 </Button>
               </div>
 
-              <div className="my-auto py-4 space-y-3 w-full max-w-md">
-                <h4 className="text-2xl font-bold text-primary">
-                  {activeCard?.front}
-                </h4>
-                <div className="pt-3 border-t">
-                  <p className="text-xl sm:text-2xl font-semibold text-foreground whitespace-pre-wrap leading-relaxed">
+              <div className="my-auto py-3 space-y-4 w-full max-w-xl text-left">
+                {/* Word & IPA summary */}
+                <div className="text-center pb-2 border-b">
+                  <div className="flex items-center justify-center gap-2.5">
+                    <span className="text-2xl font-bold text-pink-600 dark:text-pink-400">{activeCard?.front}</span>
+                    {activeCard?.phonetic && (
+                      <span className="text-sm font-mono text-muted-foreground">{activeCard.phonetic}</span>
+                    )}
+                  </div>
+                  <p className="text-xl sm:text-2xl font-semibold text-foreground mt-1.5 whitespace-pre-wrap">
                     {activeCard?.back}
                   </p>
                 </div>
+
+                {/* Example sentence & meaning */}
+                {(activeCard?.example || activeCard?.exampleMeaning) && (
+                  <div className="bg-muted/40 rounded-xl p-3.5 border border-border/70 space-y-1 text-sm">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-primary" /> Câu ví dụ:
+                    </div>
+                    {activeCard?.example && (
+                      <p className="italic text-foreground font-medium">"{activeCard.example}"</p>
+                    )}
+                    {activeCard?.exampleMeaning && (
+                      <p className="text-muted-foreground text-xs">→ {activeCard.exampleMeaning}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Synonyms */}
+                {activeCard?.synonyms && activeCard.synonyms.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-muted-foreground font-medium">Từ đồng nghĩa:</span>
+                    {activeCard.synonyms.map((s: string, idx: number) => (
+                      <span key={idx} className="bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Note / Mnemonics */}
+                {activeCard?.note && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                    <div>
+                      <span className="font-semibold">Ghi chú ghi nhớ: </span>
+                      {activeCard.note}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="text-xs text-muted-foreground">
-                Đánh giá mức độ ghi nhớ của bạn bên dưới
+              <div className="text-xs text-muted-foreground pt-1">
+                Đánh giá mức độ ghi nhớ của bạn bên dưới (1 - 4)
               </div>
             </CardContent>
           </Card>
@@ -375,6 +472,7 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
           </div>
         ) : (
           <Button 
+            id="btn-show-answer"
             size="lg" 
             variant="secondary" 
             onClick={handleFlip} 

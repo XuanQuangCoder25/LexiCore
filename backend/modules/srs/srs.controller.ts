@@ -29,7 +29,16 @@ export const getDueCards = async (req: Request, res: Response) => {
         ...rev,
         _id: rev.cardId,
         front: fc?.front || 'Thẻ đã bị xóa',
-        back: fc?.back || 'Thẻ đã bị xóa'
+        back: fc?.back || 'Thẻ đã bị xóa',
+        partOfSpeech: fc?.partOfSpeech || 'noun',
+        phonetic: fc?.phonetic || '',
+        audioUrl: fc?.audioUrl || '',
+        example: fc?.example || '',
+        exampleMeaning: fc?.exampleMeaning || '',
+        synonyms: fc?.synonyms || [],
+        note: fc?.note || '',
+        imageUrl: fc?.imageUrl || '',
+        order: fc?.order || 0
       };
     }));
 
@@ -49,6 +58,15 @@ export const getDueCards = async (req: Request, res: Response) => {
         courseId: fc.courseId,
         front: fc.front,
         back: fc.back,
+        partOfSpeech: fc.partOfSpeech || 'noun',
+        phonetic: fc.phonetic || '',
+        audioUrl: fc.audioUrl || '',
+        example: fc.example || '',
+        exampleMeaning: fc.exampleMeaning || '',
+        synonyms: fc.synonyms || [],
+        note: fc.note || '',
+        imageUrl: fc.imageUrl || '',
+        order: fc.order || 0,
         status: 'New'
       }));
 
@@ -70,6 +88,15 @@ export const getDueCards = async (req: Request, res: Response) => {
         courseId: fc.courseId,
         front: fc.front,
         back: fc.back,
+        partOfSpeech: fc.partOfSpeech || 'noun',
+        phonetic: fc.phonetic || '',
+        audioUrl: fc.audioUrl || '',
+        example: fc.example || '',
+        exampleMeaning: fc.exampleMeaning || '',
+        synonyms: fc.synonyms || [],
+        note: fc.note || '',
+        imageUrl: fc.imageUrl || '',
+        order: fc.order || 0,
         status: 'Practice'
       }));
 

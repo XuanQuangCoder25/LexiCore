@@ -4,6 +4,7 @@ import { requireCreator } from '../../middlewares/requireCreator';
 import {
   createCourse, updateCourse, deleteCourse, getCourses,
   createFlashcard, updateFlashcard, deleteFlashcard, getFlashcards,
+  getDeckById, saveFullDeck, publishDeck, unpublishDeck, cloneDirectDeck,
   createExam, updateExam, deleteExam, saveExamQuestions, getCreatorExams, getCreatorExamById, bulkActionExams, getExamRatings,
   getPrivateSpaceContent
 } from './creator.controller';
@@ -23,7 +24,13 @@ router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.delete('/courses/:id', deleteCourse);
 
-// Flashcards routes
+// Flashcards & Decks routes
+router.get('/decks/:id', getDeckById);
+router.post('/decks/save-full', saveFullDeck);
+router.post('/decks/:id/publish', publishDeck);
+router.post('/decks/:id/unpublish', unpublishDeck);
+router.post('/decks/:id/clone', cloneDirectDeck);
+
 router.get('/courses/:courseId/flashcards', getFlashcards);
 router.post('/flashcards', createFlashcard);
 router.put('/flashcards/:id', updateFlashcard);

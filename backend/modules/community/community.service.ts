@@ -650,7 +650,6 @@ export const communityService = {
     const sampleCards = await Flashcard.find({ courseId: deck._id })
       .sort({ order: 1 })
       .limit(5)
-      .select('front back')
       .lean();
 
     const rawTopic = (topic || 'vocabulary').trim().toLowerCase();
@@ -677,11 +676,20 @@ export const communityService = {
       tags: ['flashcard', 'vocabulary', ...(deck.tags || [])],
       referenceId: deck._id,
       referenceMeta: {
+        deckId: deck._id,
         title: deck.title,
         thumbnail: deck.thumbnail,
         cardCount,
         level: deck.level,
-        sampleCards: sampleCards.map((c) => ({ front: c.front, back: c.back })),
+        allowClone: deck.allowClone !== false,
+        sampleCards: sampleCards.map((c: any) => ({
+          front: c.front,
+          back: c.back,
+          partOfSpeech: c.partOfSpeech || 'noun',
+          phonetic: c.phonetic || '',
+          example: c.example || '',
+          audioUrl: c.audioUrl || ''
+        })),
       },
     });
 
@@ -700,6 +708,10 @@ export const communityService = {
       throw new AppError('Bộ thẻ gốc không còn tồn tại trên hệ thống.', 404);
     }
 
+    if (sourceDeck.allowClone === false) {
+      throw new AppError('Tác giả không cho phép nhân bản bộ thẻ này.', 403);
+    }
+
     // Nhân bản bộ thẻ vào Private Space của người clone
     const clonedDeck = new Course({
       title: `${sourceDeck.title} (Bản sao)`,
@@ -707,14 +719,17 @@ export const communityService = {
       thumbnail: sourceDeck.thumbnail || '',
       creatorId: userId,
       isPublished: false,
+      status: 'draft',
       level: sourceDeck.level || 'All Levels',
       tags: sourceDeck.tags || [],
       price: 0,
       type: 'flashcard',
+      allowClone: true,
+      cardCount: 0,
     });
     const savedDeck = await clonedDeck.save();
 
-    // Sao chép toàn bộ các thẻ từ vựng sang bộ thẻ mới
+    // Sao chép toàn bộ các thẻ từ vựng với đầy đủ trường ngôn ngữ
     const sourceCards = await Flashcard.find({ courseId: sourceDeck._id }).sort({ order: 1 }).lean();
     if (sourceCards.length > 0) {
       const newCards = sourceCards.map((card) => ({
@@ -722,8 +737,38 @@ export const communityService = {
         front: card.front,
         back: card.back,
         order: card.order,
+        partOfSpeech: card.partOfSpeech || 'noun',
+        phonetic: card.phonetic || '',
+        audioUrl: card.audioUrl || '',
+        example: card.example || '',
+        exampleMeaning: card.exampleMeaning || '',
+        synonyms: card.synonyms || [],
+        note: card.note || '',
+        imageUrl: card.imageUrl || '',
+        initialEaseFactor: card.initialEaseFactor || 2.5,
+        initialInterval: card.initialInterval || 0,
+        initialRepetitions: card.initialRepetitions || 0,
       }));
-      await Flashcard.insertMany(newCards);
+      const insertedCards = await Flashcard.insertMany(newCards);
+
+      // Cập nhật cardCount trên savedDeck
+      savedDeck.cardCount = insertedCards.length;
+      await savedDeck.save();
+
+      // Tự động khởi tạo dữ liệu CardReview cho người dùng mới
+      const CardReview = (await import('../../database/models/CardReview')).default;
+      const reviews = insertedCards.map((c) => ({
+        userId,
+        cardId: c._id,
+        courseId: savedDeck._id,
+        easeFactor: 2.5,
+        interval: 0,
+        repetitions: 0,
+        nextReviewDate: new Date(),
+        status: 'New',
+        reviewHistory: []
+      }));
+      await CardReview.insertMany(reviews);
     }
 
     // Tăng số lượt clone trên bài viết
