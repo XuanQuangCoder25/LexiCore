@@ -189,10 +189,9 @@ html {
   font-size: var(--font-size);
 }
 
-/* Sidebar scrollbar & overflow cleanup */
+/* Sidebar scrollbar & overflow styling */
 [data-slot="sidebar"],
 [data-slot="sidebar-inner"],
-[data-slot="sidebar-content"],
 [data-slot="sidebar-footer"] {
   overflow-x: hidden !important;
   scrollbar-width: none !important;
@@ -200,11 +199,37 @@ html {
   box-sizing: border-box !important;
 }
 
-[data-slot="sidebar-content"]::-webkit-scrollbar,
 [data-slot="sidebar"]::-webkit-scrollbar,
 [data-slot="sidebar-inner"]::-webkit-scrollbar,
 [data-slot="sidebar-footer"]::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
+}
+
+/* Elegant slim scrollbar for SidebarContent */
+[data-slot="sidebar-content"] {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(155, 155, 155, 0.35) transparent;
+  box-sizing: border-box !important;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar {
+  width: 5px;
+  display: block !important;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-thumb {
+  background: rgba(155, 155, 155, 0.3);
+  border-radius: 9999px;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(155, 155, 155, 0.55);
 }
