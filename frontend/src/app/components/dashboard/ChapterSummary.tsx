@@ -102,6 +102,43 @@ export const ChapterSummary = ({
         </div>
       </div>
 
+      {/* Chapter Summary & Key Takeaways Card */}
+      {(chapter.summary || (chapter.keyTakeaways && chapter.keyTakeaways.length > 0)) && (
+        <Card className="border border-border/80 shadow-sm overflow-hidden bg-gradient-to-br from-card via-card/90 to-primary/5">
+          <CardContent className="p-6 space-y-4">
+            {chapter.summary && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
+                  <FileText className="w-4 h-4" /> Tóm tắt kiến thức chương
+                </div>
+                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                  {chapter.summary}
+                </p>
+              </div>
+            )}
+
+            {chapter.keyTakeaways && chapter.keyTakeaways.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border/40">
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  <Sparkles className="w-4 h-4" /> Các điểm cốt lõi bạn đã làm chủ (Key Takeaways)
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {chapter.keyTakeaways.map((point: string, idx: number) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl border border-border/60 bg-background/60 flex items-start gap-2.5 text-xs"
+                    >
+                      <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      <span className="leading-relaxed font-medium">{point}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {stats.map((s) => (

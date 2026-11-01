@@ -6,18 +6,13 @@ export const requireCreator = (req: Request, res: Response, next: NextFunction):
 
     const isAdmin = role === 'admin';
     const isUser = role === 'user';
-    const isActiveCreator = role === 'content_creator' && creatorStatus === 'ACTIVE';
+    const isSuspended = role === 'content_creator' && creatorStatus === 'SUSPENDED';
+    const isCreator = role === 'content_creator' && !isSuspended;
 
-    if (role === 'content_creator' && creatorStatus === 'SUSPENDED') {
-        res.status(403).json({
-            status: 'error',
-            message: 'Tài khoản Creator của bạn đang bị đình chỉ. Vui lòng liên hệ Admin.'
-        });
-        return;
-    }
-
-    if (!isAdmin && !isActiveCreator && !isUser) {
-        res.status(403).json({
+    // Cho phép user, creator và admin tạo & quản lý nội dung cá nhân (Private Space)
+    // Chỉ chặn nếu tài khoản không hợp lệ
+    if (!isAdmin && !isCreator && !isUser && !isSuspended) {
+        res.status(401).json({
             status: 'error',
             message: 'Vui lòng đăng nhập để sử dụng tính năng này.'
         });

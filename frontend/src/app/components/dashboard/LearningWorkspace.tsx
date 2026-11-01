@@ -3,7 +3,7 @@ import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Progress } from "../ui/progress";
 import { Badge } from "../ui/badge";
-import { ArrowLeft, PlayCircle, FileText, CheckCircle, Circle, Mic, BookOpen, Sparkles, Lock, ListChecks } from "lucide-react";
+import { ArrowLeft, PlayCircle, FileText, CheckCircle, Circle, Mic, BookOpen, Sparkles, Lock, ListChecks, RotateCw, HelpCircle, CheckCircle2, Languages, AlertCircle } from "lucide-react";
 import { studentCourseService } from "../../services/student-course-service";
 import { toast } from "sonner";
 import { ScrollArea } from "../ui/scroll-area";
@@ -136,6 +136,216 @@ const InteractiveBlock = ({ block }: { block: any }) => {
   }
 
   return null;
+};
+
+
+const InlineVocabPlayer = ({ vocabulary }: { vocabulary: any[] }) => {
+  const [index, setIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  if (!vocabulary || vocabulary.length === 0) return null;
+  const current = vocabulary[index];
+
+  return (
+    <Card className="border-2 border-purple-500/20 bg-gradient-to-br from-purple-500/5 via-background to-card shadow-sm my-6 overflow-hidden">
+      <CardContent className="p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <Badge variant="secondary" className="bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold border-purple-200">
+            <Languages className="w-3.5 h-3.5 mr-1" /> Thẻ từ vựng trọng tâm ({vocabulary.length} từ)
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            Từ {index + 1} / {vocabulary.length}
+          </span>
+        </div>
+
+        {current && (
+          <div
+            id="card-vocab-flashcard"
+            onClick={() => setIsFlipped(!isFlipped)}
+            className="aspect-[16/8] max-h-56 rounded-2xl border-2 border-purple-500/30 bg-card shadow-sm flex flex-col items-center justify-center p-6 text-center cursor-pointer select-none transition-all hover:border-purple-500/50"
+          >
+            {!isFlipped ? (
+              <div className="space-y-2">
+                <h3 className="text-3xl font-extrabold text-foreground tracking-wide">
+                  {current.term}
+                </h3>
+                {current.phonetic && (
+                  <p className="text-sm font-mono text-muted-foreground">{current.phonetic}</p>
+                )}
+                {current.partOfSpeech && (
+                  <Badge variant="outline" className="text-xs">
+                    {current.partOfSpeech}
+                  </Badge>
+                )}
+                <p className="text-[11px] text-muted-foreground pt-2 flex items-center justify-center gap-1">
+                  <RotateCw className="w-3 h-3" /> Nhấn để lật xem nghĩa
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                  Định nghĩa & Ví dụ
+                </span>
+                <h4 className="text-xl font-bold text-foreground">
+                  {current.meaning}
+                </h4>
+                {current.example && (
+                  <p className="text-xs text-muted-foreground italic max-w-md">
+                    "{current.example}"
+                  </p>
+                )}
+                <p className="text-[11px] text-muted-foreground pt-2 flex items-center justify-center gap-1">
+                  <RotateCw className="w-3 h-3" /> Nhấn để lật lại
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-1">
+          <Button
+            id="btn-vocab-prev"
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={index === 0}
+            onClick={() => { setIndex(i => Math.max(0, i - 1)); setIsFlipped(false); }}
+          >
+            Từ trước
+          </Button>
+          <Button
+            id="btn-vocab-next"
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={index === vocabulary.length - 1}
+            onClick={() => { setIndex(i => i + 1); setIsFlipped(false); }}
+          >
+            Từ tiếp theo
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const InlineQuizPlayer = ({ quiz }: { quiz: any[] }) => {
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  if (!quiz || quiz.length === 0) return null;
+
+  return (
+    <Card className="border-2 border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-background to-card shadow-sm my-6 overflow-hidden">
+      <CardContent className="p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <Badge className="bg-amber-500 hover:bg-amber-500 text-white font-medium">
+            <HelpCircle className="w-3.5 h-3.5 mr-1" /> Câu hỏi củng cố ({quiz.length} câu)
+          </Badge>
+          {isSubmitted && (
+            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+              Đã hoàn thành kiểm tra
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {quiz.map((q: any, qIdx: number) => {
+            const chosen = selectedAnswers[qIdx];
+            const isCorrect = isSubmitted && chosen === q.correctIndex;
+
+            return (
+              <div key={q.id || qIdx} className="p-4 rounded-xl border bg-card/60 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="text-sm font-semibold">
+                    <span className="text-amber-500 mr-2">Câu {qIdx + 1}:</span>
+                    {q.question}
+                  </h4>
+                  {isSubmitted && (
+                    <span className="text-xs font-semibold shrink-0">
+                      {isCorrect ? (
+                        <span className="text-emerald-500 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Đúng
+                        </span>
+                      ) : (
+                        <span className="text-destructive flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" /> Sai
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  {q.options?.map((opt: string, optIdx: number) => {
+                    const isSelected = chosen === optIdx;
+                    const isRight = q.correctIndex === optIdx;
+
+                    let btnStyle = 'border-border/60 hover:bg-muted/40';
+                    if (isSubmitted) {
+                      if (isRight) {
+                        btnStyle = 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold';
+                      } else if (isSelected && !isRight) {
+                        btnStyle = 'border-destructive bg-destructive/10 text-destructive line-through';
+                      }
+                    } else if (isSelected) {
+                      btnStyle = 'border-primary bg-primary/10 text-primary font-semibold';
+                    }
+
+                    return (
+                      <button
+                        key={optIdx}
+                        type="button"
+                        disabled={isSubmitted}
+                        onClick={() => setSelectedAnswers(prev => ({ ...prev, [qIdx]: optIdx }))}
+                        className={`w-full text-left p-2.5 rounded-lg border text-xs flex items-center gap-3 transition-colors ${btnStyle}`}
+                      >
+                        <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center font-bold text-[10px] shrink-0">
+                          {String.fromCharCode(65 + optIdx)}
+                        </span>
+                        <span className="flex-1">{opt}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {isSubmitted && q.explanation && (
+                  <div className="p-2.5 rounded-lg bg-muted/40 text-xs text-muted-foreground border mt-2">
+                    <strong className="text-foreground">Giải thích: </strong>
+                    {q.explanation}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-end pt-2">
+          {isSubmitted ? (
+            <Button
+              id="btn-reset-quiz"
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => { setIsSubmitted(false); setSelectedAnswers({}); }}
+            >
+              Làm lại câu hỏi
+            </Button>
+          ) : (
+            <Button
+              id="btn-check-quiz"
+              type="button"
+              size="sm"
+              onClick={() => setIsSubmitted(true)}
+              disabled={Object.keys(selectedAnswers).length === 0}
+            >
+              Kiểm tra kết quả
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 };
 
 export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBack: () => void }) => {
@@ -473,6 +683,28 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                      <div className="whitespace-pre-wrap">{lessonContent.content}</div>
                   </CardContent>
                 </Card>
+              )}
+
+              {/* Ghi chú bài giảng (Lesson Notes) */}
+              {lessonContent.notes && (
+                <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-2 my-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                    <FileText className="w-4 h-4" /> Ghi chú bài giảng
+                  </div>
+                  <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                    {lessonContent.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Từ vựng Inline (Vocabulary Flashcards) */}
+              {lessonContent.vocabulary && lessonContent.vocabulary.length > 0 && (
+                <InlineVocabPlayer vocabulary={lessonContent.vocabulary} />
+              )}
+
+              {/* Câu hỏi trắc nghiệm Inline (Mini Quiz) */}
+              {lessonContent.quiz && lessonContent.quiz.length > 0 && (
+                <InlineQuizPlayer quiz={lessonContent.quiz} />
               )}
 
               {/* Đính kèm Bài kiểm tra (Attached Exam) */}

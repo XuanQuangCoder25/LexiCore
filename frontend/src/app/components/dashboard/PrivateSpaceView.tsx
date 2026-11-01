@@ -32,6 +32,7 @@ import { FlashcardStudySession } from "./FlashcardStudySession";
 import { LearningWorkspace } from "./LearningWorkspace";
 import { ExamTakingView } from "./ExamView";
 import { ExamBuilder } from "./creator/ExamBuilder";
+import { CourseBuilder } from "./creator/CourseBuilder";
 import { ShareDeckModal } from "../../features/community/ShareDeckModal";
 
 interface PrivateSpaceViewProps {
@@ -68,6 +69,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
   const [learningCourseId, setLearningCourseId] = useState<string | null>(null);
   const [takingExamId, setTakingExamId] = useState<string | null>(null);
   const [editingExamId, setEditingExamId] = useState<string | null>(null);
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("flashcards");
   const [sharingDeck, setSharingDeck] = useState<{
     id: string;
@@ -149,6 +151,22 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
           setTakingExamId(null);
           fetchPrivateContent();
         }}
+      />
+    );
+  }
+
+  // --- Sub-view: Course Builder ---
+  if (editingCourseId) {
+    return (
+      <CourseBuilder
+        courseId={editingCourseId}
+        onBack={() => {
+          setEditingCourseId(null);
+          setActiveTab("courses");
+          fetchPrivateContent();
+        }}
+        userRole={userRole}
+        onNavigateTab={onNavigateTab}
       />
     );
   }
@@ -431,14 +449,6 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
                     >
                       <Share2 className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      title="Chỉnh sửa trong Creator Studio"
-                      onClick={() => onNavigateTab?.("creator")}
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </Button>
                   </div>
                 </Card>
               ))}
@@ -538,8 +548,8 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
                     <Button
                       variant="outline"
                       size="icon"
-                      title="Chỉnh sửa trong Creator Studio"
-                      onClick={() => onNavigateTab?.("creator")}
+                      title="Chỉnh sửa khóa học"
+                      onClick={() => setEditingCourseId(course._id)}
                     >
                       <Edit3 className="w-4 h-4" />
                     </Button>

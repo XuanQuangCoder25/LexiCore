@@ -94,23 +94,6 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
         const chapters = await Chapter.find({ courseId: id }).sort({ order: 1 }).lean();
         const lessons = await Lesson.find({ courseId: id }).sort({ order: 1 }).lean();
 
-        const chaptersWithLessons = chapters.map(chapter => {
-            return {
-                ...chapter,
-                lessons: lessons.filter(lesson => lesson.chapterId.toString() === chapter._id.toString())
-                    // Chỉ trả về các trường cần thiết, giấu content/video để bắt buộc enroll
-                    .map(l => ({ 
-                        _id: l._id, 
-                        title: l.title, 
-                        durationMinutes: l.durationMinutes, 
-                        order: l.order,
-                        attachedExamId: l.attachedExamId,
-                        attachedFlashcardId: l.attachedFlashcardId,
-                        isRequiredToPassExam: l.isRequiredToPassExam
-                    }))
-            };
-        });
-
         let isEnrolled = false;
         let progress = 0;
         let completedLessons: string[] = [];
@@ -119,12 +102,37 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
         let completedAt: Date | null = null;
         
         if (userId) {
-            if (course.creatorId?.toString() === userId?.toString()) {
-                isEnrolled = true;
+            // Tự động đồng bộ và ghi nhận enrollment cho chủ sở hữu / admin để học thử mượt mà
+            let user = await User.findById(userId);
+            if (!user) {
+                const mysqlUser = await findUserById(userId);
+                if (mysqlUser) {
+                    user = await User.create({
+                        _id: mysqlUser.id,
+                        email: mysqlUser.email,
+                        username: mysqlUser.full_name || 'User',
+                        passwordHash: 'synced_from_mysql',
+                        role: (mysqlUser.role || 'user').toLowerCase() as any
+                    });
+                }
             }
-            const user = await User.findById(userId);
+
             if (user) {
-                const enrollment = user.enrolledCourses.find(e => e.courseId.toString() === id);
+                if (isOwner || isAdmin) {
+                    const hasEnrollment = user.enrolledCourses.some(e => e.courseId.toString() === String(id));
+                    if (!hasEnrollment) {
+                        user.enrolledCourses.push({
+                            courseId: new mongoose.Types.ObjectId(String(id)),
+                            progressPercentage: 0,
+                            completedChapters: [],
+                            isCompleted: false,
+                            completedAt: null
+                        });
+                        await user.save();
+                    }
+                }
+
+                const enrollment = user.enrolledCourses.find(e => e.courseId.toString() === String(id));
                 if (enrollment) {
                     isEnrolled = true;
                     progress = enrollment.progressPercentage;
@@ -132,9 +140,29 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
                     isCompleted = !!enrollment.isCompleted;
                     completedAt = enrollment.completedAt ?? null;
                 }
-                completedLessons = user.completedLessons.map(id => id.toString());
+                completedLessons = user.completedLessons.map(cid => cid.toString());
             }
         }
+
+        const chaptersWithLessons = chapters.map(chapter => {
+            return {
+                ...chapter,
+                summary: chapter.summary || '',
+                keyTakeaways: chapter.keyTakeaways || [],
+                lessons: lessons.filter(lesson => lesson.chapterId.toString() === chapter._id.toString())
+                    // Trả về đầy đủ trường cho học viên / xem trước
+                    .map(l => ({ 
+                        _id: l._id, 
+                        title: l.title, 
+                        type: l.type || 'reading',
+                        durationMinutes: l.durationMinutes, 
+                        order: l.order,
+                        attachedExamId: l.attachedExamId,
+                        attachedFlashcardId: l.attachedFlashcardId,
+                        isRequiredToPassExam: l.isRequiredToPassExam
+                    }))
+            };
+        });
 
         res.status(200).json({
             status: 'success',
@@ -165,8 +193,11 @@ export const enrollCourse = async (req: Request, res: Response): Promise<void> =
         const userId = req.user?.id;
 
         const course = await Course.findById(id);
-        if (!course || !course.isPublished) {
-            res.status(404).json({ status: 'error', message: 'Khóa học không hợp lệ.' });
+        const isOwner = userId && course?.creatorId?.toString() === userId.toString();
+        const isAdmin = req.user?.role?.toLowerCase() === 'admin';
+
+        if (!course || (!course.isPublished && !isOwner && !isAdmin)) {
+            res.status(404).json({ status: 'error', message: 'Khóa học không hợp lệ hoặc đang ở chế độ riêng tư.' });
             return;
         }
 
@@ -271,7 +302,19 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
         const { courseId, lessonId } = req.params;
         const userId = req.user?.id;
 
-        const user = await User.findById(userId);
+        let user = await User.findById(userId);
+        if (!user && userId) {
+            const mysqlUser = await findUserById(userId);
+            if (mysqlUser) {
+                user = await User.create({
+                    _id: mysqlUser.id,
+                    email: mysqlUser.email,
+                    username: mysqlUser.full_name || 'User',
+                    passwordHash: 'synced_from_mysql',
+                    role: (mysqlUser.role || 'user').toLowerCase() as any
+                });
+            }
+        }
         if (!user) {
              res.status(404).json({ status: 'error', message: 'Người dùng không tồn tại' });
              return;
@@ -282,6 +325,10 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
             return;
         }
 
+        const course = await Course.findById(courseId);
+        const isOwner = userId && course?.creatorId?.toString() === userId.toString();
+        const isAdmin = req.user?.role?.toLowerCase() === 'admin';
+
         // Bài học phải thuộc đúng khóa học này
         const lesson = await Lesson.findOne({ _id: lessonId, courseId }).select('_id chapterId').lean();
         if (!lesson) {
@@ -289,14 +336,26 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        // User phải đã đăng ký khóa học
-        const enrollmentOfLesson = getEnrollment(user, String(courseId));
+        // Tự động ghi nhận enrollment cho owner/admin nếu chưa có (Sửa lỗi D7)
+        let enrollmentOfLesson = getEnrollment(user, String(courseId));
+        if (!enrollmentOfLesson && (isOwner || isAdmin)) {
+            user.enrolledCourses.push({
+                courseId: new mongoose.Types.ObjectId(String(courseId)),
+                progressPercentage: 0,
+                completedChapters: [],
+                isCompleted: false,
+                completedAt: null
+            });
+            await user.save();
+            enrollmentOfLesson = getEnrollment(user, String(courseId));
+        }
+
         if (!enrollmentOfLesson) {
             res.status(403).json({ status: 'error', message: 'Vui lòng đăng ký khóa học trước khi học.' });
             return;
         }
 
-        // Chương chứa bài học phải đã được mở khóa
+        // Chương chứa bài học phải đã được mở khóa (owner/admin được miễn kiểm tra để xem trước)
         const structure = await loadCourseStructure(String(courseId));
         const unlockedIds = computeUnlockedChapterIds(
             structure.chapters,
@@ -304,7 +363,7 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
             new Set((enrollmentOfLesson.completedChapters ?? []).map((cid: any) => cid.toString())),
             new Set(user.completedLessons.map(l => l.toString()))
         );
-        if (!unlockedIds.includes(lesson.chapterId.toString())) {
+        if (!isOwner && !isAdmin && !unlockedIds.includes(lesson.chapterId.toString())) {
             res.status(403).json({ status: 'error', message: 'Chương này chưa được mở khóa.' });
             return;
         }
@@ -363,13 +422,41 @@ export const completeChapter = async (req: Request, res: Response): Promise<void
             return;
         }
 
-        const user = await User.findById(userId);
+        let user = await User.findById(userId);
+        if (!user && userId) {
+            const mysqlUser = await findUserById(userId);
+            if (mysqlUser) {
+                user = await User.create({
+                    _id: mysqlUser.id,
+                    email: mysqlUser.email,
+                    username: mysqlUser.full_name || 'User',
+                    passwordHash: 'synced_from_mysql',
+                    role: (mysqlUser.role || 'user').toLowerCase() as any
+                });
+            }
+        }
         if (!user) {
             res.status(404).json({ status: 'error', message: 'Người dùng không tồn tại' });
             return;
         }
 
-        const enrollment = getEnrollment(user, courseId);
+        const course = await Course.findById(courseId);
+        const isOwner = userId && course?.creatorId?.toString() === userId.toString();
+        const isAdmin = req.user?.role?.toLowerCase() === 'admin';
+
+        let enrollment = getEnrollment(user, courseId);
+        if (!enrollment && (isOwner || isAdmin)) {
+            user.enrolledCourses.push({
+                courseId: new mongoose.Types.ObjectId(String(courseId)),
+                progressPercentage: 0,
+                completedChapters: [],
+                isCompleted: false,
+                completedAt: null
+            });
+            await user.save();
+            enrollment = getEnrollment(user, courseId);
+        }
+
         if (!enrollment) {
             res.status(403).json({ status: 'error', message: 'Vui lòng đăng ký khóa học trước khi học.' });
             return;
@@ -457,13 +544,41 @@ export const completeCourse = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const user = await User.findById(userId);
+        let user = await User.findById(userId);
+        if (!user && userId) {
+            const mysqlUser = await findUserById(userId);
+            if (mysqlUser) {
+                user = await User.create({
+                    _id: mysqlUser.id,
+                    email: mysqlUser.email,
+                    username: mysqlUser.full_name || 'User',
+                    passwordHash: 'synced_from_mysql',
+                    role: (mysqlUser.role || 'user').toLowerCase() as any
+                });
+            }
+        }
         if (!user) {
             res.status(404).json({ status: 'error', message: 'Người dùng không tồn tại' });
             return;
         }
 
-        const enrollment = getEnrollment(user, courseId);
+        const course = await Course.findById(courseId);
+        const isOwner = userId && course?.creatorId?.toString() === userId.toString();
+        const isAdmin = req.user?.role?.toLowerCase() === 'admin';
+
+        let enrollment = getEnrollment(user, courseId);
+        if (!enrollment && (isOwner || isAdmin)) {
+            user.enrolledCourses.push({
+                courseId: new mongoose.Types.ObjectId(String(courseId)),
+                progressPercentage: 0,
+                completedChapters: [],
+                isCompleted: false,
+                completedAt: null
+            });
+            await user.save();
+            enrollment = getEnrollment(user, courseId);
+        }
+
         if (!enrollment) {
             res.status(403).json({ status: 'error', message: 'Vui lòng đăng ký khóa học trước khi học.' });
             return;

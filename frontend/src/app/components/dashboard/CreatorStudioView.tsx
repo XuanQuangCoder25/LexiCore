@@ -60,7 +60,7 @@ interface CreatorStudioViewProps {
 export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorStudioViewProps) {
   const isCreatorOrAdmin = userRole?.toLowerCase() === "content_creator" || userRole?.toLowerCase() === "admin";
   const [showPublishRestrictedModal, setShowPublishRestrictedModal] = useState(false);
-  const [view, setView] = useState<"list" | "editor">("list");
+  const [view, setView] = useState<"list" | "editor" | "course_builder">("list");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
@@ -191,15 +191,21 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
       return;
     }
     try {
-      const res = await courseBuilderService.updateCourse(course._id, { isPublished: !course.isPublished });
+      const res = course.isPublished
+        ? await courseBuilderService.unpublishCourse(course._id)
+        : await courseBuilderService.publishCourse(course._id);
       if (res.status === 'success') {
         setActualCourses((prev) =>
           prev.map((c) => c._id === course._id ? { ...c, isPublished: !course.isPublished } : c)
         );
         toast.success(course.isPublished ? "Đã chuyển về bản nháp" : "Đã xuất bản khóa học thành công");
       }
-    } catch (error) {
-      toast.error("Lỗi cập nhật trạng thái khóa học");
+    } catch (error: any) {
+      if (error?.response?.status === 403) {
+        setShowPublishRestrictedModal(true);
+      } else {
+        toast.error(error?.response?.data?.message || "Lỗi cập nhật trạng thái khóa học");
+      }
     }
   };
 const handleOpenEditor = (course: Course) => {
@@ -279,6 +285,8 @@ const handleOpenEditor = (course: Course) => {
         setNewActualCourseThumb("");
         setShowNewActualCourseDialog(false);
         toast.success("Đã tạo khóa học mới");
+        setSelectedCourse(res.data);
+        setView("course_builder");
       }
     } catch (error) {
       toast.error("Lỗi khi tạo khóa học");
@@ -517,7 +525,17 @@ const handleOpenEditor = (course: Course) => {
   }
 
   if (view === "course_builder" && selectedCourse) {
-    return <CourseBuilder courseId={selectedCourse._id} onBack={() => setView("list")} />;
+    return (
+      <CourseBuilder
+        courseId={selectedCourse._id}
+        onBack={() => {
+          setView("list");
+          fetchCourses();
+        }}
+        userRole={userRole}
+        onNavigateTab={onNavigateTab}
+      />
+    );
   }
 
   if (builderExamId) {
