@@ -102,10 +102,10 @@ export const CourseCompletion = ({ courseId, courseTitle, stats, onClose, onExit
     : null;
 
   const items = [
-    { icon: BookOpen, label: "Bài học đã hoàn thành", value: `${lessons}/${stats.totalLessons}`, tone: "text-emerald-600 bg-emerald-500/10" },
-    { icon: Layers, label: "Chương đã hoàn thành", value: `${stats.totalChapters}/${stats.totalChapters}`, tone: "text-indigo-600 bg-indigo-500/10" },
-    { icon: Clock, label: "Tổng thời lượng", value: formatDuration(stats.totalDurationMinutes), tone: "text-sky-600 bg-sky-500/10" },
-    { icon: CalendarCheck, label: "Ngày hoàn thành", value: completedDate ?? "Hôm nay", tone: "text-amber-600 bg-amber-500/10" },
+    { icon: BookOpen, label: "Bài học đã hoàn thành", value: `${lessons}/${stats.totalLessons}` },
+    { icon: Layers, label: "Chương đã hoàn thành", value: `${stats.totalChapters}/${stats.totalChapters}` },
+    { icon: Clock, label: "Tổng thời lượng", value: formatDuration(stats.totalDurationMinutes) },
+    { icon: CalendarCheck, label: "Ngày hoàn thành", value: completedDate ?? "Hôm nay" },
   ];
 
   return (
@@ -116,25 +116,22 @@ export const CourseCompletion = ({ courseId, courseTitle, stats, onClose, onExit
         role="dialog"
         aria-modal="true"
         aria-labelledby="course-completion-title"
-        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-background/80 p-4 backdrop-blur-md animate-in fade-in duration-300"
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-zinc-950/60 p-4 backdrop-blur-sm animate-in fade-in duration-300"
       >
-        <Card className="relative w-full max-w-2xl overflow-hidden border-2 border-primary/20 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-6 duration-500">
-          <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl" />
-
+        <Card className="relative w-full max-w-2xl overflow-hidden border border-zinc-200/80 bg-white shadow-2xl rounded-2xl animate-in zoom-in-95 duration-300">
           <CardContent className="relative space-y-8 p-8 text-center">
             {/* Vòng tròn 100% */}
-            <div className="relative mx-auto h-40 w-40">
+            <div className="relative mx-auto h-36 w-36">
               <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-                <circle cx="60" cy="60" r={radius} fill="none" strokeWidth="8" className="stroke-muted" />
+                <circle cx="60" cy="60" r={radius} fill="none" strokeWidth="6" className="stroke-zinc-100" />
                 <circle
                   cx="60"
                   cy="60"
                   r={radius}
                   fill="none"
-                  strokeWidth="8"
+                  strokeWidth="6"
                   strokeLinecap="round"
-                  className="stroke-emerald-500"
+                  className="stroke-zinc-900"
                   style={{
                     strokeDasharray: circumference,
                     strokeDashoffset: offset,
@@ -143,19 +140,19 @@ export const CourseCompletion = ({ courseId, courseTitle, stats, onClose, onExit
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Trophy className="mb-1 h-8 w-8 text-amber-500 drop-shadow" />
-                <span className="text-3xl font-extrabold leading-none">{percent}%</span>
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Hoàn thành</span>
+                <Trophy className="mb-0.5 h-6 w-6 text-zinc-900" />
+                <span className="text-3xl font-extrabold text-zinc-900 leading-none">{percent}%</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mt-1">Hoàn thành</span>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <h2 id="course-completion-title" className="text-3xl font-bold tracking-tight">
-                🎉 Chúc mừng bạn đã hoàn thành khóa học!
+            <div className="space-y-1.5">
+              <h2 id="course-completion-title" className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900">
+                Chúc mừng bạn đã hoàn thành khóa học!
               </h2>
-              <p className="mx-auto max-w-md text-muted-foreground">
-                Bạn đã chinh phục toàn bộ nội dung của <span className="font-semibold text-foreground">{courseTitle}</span>.
-                Một hành trình tuyệt vời!
+              <p className="mx-auto max-w-md text-xs sm:text-sm text-zinc-500 leading-relaxed">
+                Bạn đã chinh phục toàn bộ nội dung của <span className="font-semibold text-zinc-800">{courseTitle}</span>.
+                Một hành trình học tập xuất sắc!
               </p>
             </div>
 
@@ -163,44 +160,46 @@ export const CourseCompletion = ({ courseId, courseTitle, stats, onClose, onExit
               {items.map((item) => (
                 <div
                   key={item.label}
-                  className="flex items-center gap-3 rounded-xl border bg-muted/30 p-3 transition-transform hover:-translate-y-0.5"
+                  className="flex items-center gap-3 rounded-xl border border-zinc-200/60 bg-zinc-50/60 p-3 transition-transform hover:-translate-y-0.5"
                 >
-                  <div className={`rounded-lg p-2 ${item.tone}`}>
-                    <item.icon className="h-5 w-5" />
+                  <div className="rounded-lg p-2 bg-zinc-100 text-zinc-800 border border-zinc-200/60">
+                    <item.icon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-lg font-bold leading-tight">{item.value}</div>
-                    <div className="text-xs text-muted-foreground">{item.label}</div>
+                    <div className="truncate text-base font-bold text-zinc-900 leading-tight">{item.value}</div>
+                    <div className="text-[11px] text-zinc-500">{item.label}</div>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:justify-center pt-2">
               <Button
-                variant="secondary"
-                size="lg"
+                variant="outline"
                 onClick={handleShareToCommunity}
                 disabled={hasShared || sharingMilestone}
-                className="bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-semibold gap-2 shadow-sm"
+                className="bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 border border-zinc-200 text-xs sm:text-sm font-medium gap-2 shadow-none rounded-xl h-11 px-4 active:scale-[0.98]"
               >
                 {sharingMilestone ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <Sparkles className="w-4 h-4 text-zinc-700" />
                 )}
                 <span>
                   {hasShared ? "Đã khoe lên Community ✓" : "Khoe lên Community (+Exp & Xu)"}
                 </span>
               </Button>
-              <Button variant="outline" size="lg" onClick={onClose}>
+              <Button 
+                variant="outline" 
+                onClick={onClose}
+                className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98] rounded-xl text-xs sm:text-sm font-medium h-11 px-4"
+              >
                 Xem lại khóa học
               </Button>
               <Button
                 id="course-completion-exit"
-                size="lg"
                 onClick={onExit}
-                className="bg-gradient-to-r from-primary to-emerald-600 font-semibold shadow-md hover:shadow-lg"
+                className="bg-[#161616] text-white hover:bg-zinc-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-150 rounded-xl font-medium text-xs sm:text-sm h-11 px-5"
               >
                 Về danh sách khóa học
               </Button>

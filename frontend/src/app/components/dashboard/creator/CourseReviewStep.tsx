@@ -96,14 +96,14 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Overview Header Card */}
-      <Card className="border-border/60 shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 border-b border-border/40">
+      <Card className="border border-zinc-200/80 shadow-xs rounded-2xl overflow-hidden bg-white">
+        <div className="bg-zinc-50/80 p-6 border-b border-zinc-200/80">
           <div className="flex flex-col md:flex-row gap-5 items-start">
-            <div className="w-32 h-20 md:w-40 md:h-24 rounded-xl overflow-hidden border border-border/60 bg-muted shrink-0 shadow-sm">
+            <div className="w-32 h-20 md:w-40 md:h-24 rounded-xl overflow-hidden border border-zinc-200/80 bg-zinc-100 shrink-0 shadow-xs">
               {course.thumbnail ? (
                 <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                <div className="w-full h-full flex items-center justify-center text-xs text-zinc-400">
                   Chưa có ảnh bìa
                 </div>
               )}
@@ -111,26 +111,26 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
 
             <div className="space-y-2 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={course.isPublished ? 'default' : 'secondary'} className="text-xs">
+                <Badge variant={course.isPublished ? 'default' : 'secondary'} className="text-xs rounded-full border-zinc-200">
                   {course.isPublished ? (
-                    <><Globe className="w-3 h-3 mr-1" /> Đã xuất bản (Công khai)</>
+                    <><Globe className="w-3 h-3 mr-1 text-emerald-600" /> Đã xuất bản (Công khai)</>
                   ) : (
-                    <><Lock className="w-3 h-3 mr-1" /> Bản nháp (Private Space)</>
+                    <><Lock className="w-3 h-3 mr-1 text-zinc-500" /> Bản nháp (Private Space)</>
                   )}
                 </Badge>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-xs rounded-full border-zinc-200 bg-white text-zinc-700">
                   Level: {course.level || 'ALL'}
                 </Badge>
                 {course.tags?.map((t) => (
-                  <Badge key={t} variant="secondary" className="text-[11px] py-0 px-2">
+                  <Badge key={t} variant="secondary" className="text-[11px] py-0 px-2 rounded-full border-zinc-200 bg-zinc-100 text-zinc-700">
                     #{t}
                   </Badge>
                 ))}
               </div>
-              <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight text-zinc-900">
                 {course.title || 'Khóa học chưa đặt tên'}
               </h2>
-              <p className="text-xs text-muted-foreground line-clamp-2">
+              <p className="text-xs text-zinc-500 line-clamp-2">
                 {course.shortDescription || course.description || 'Chưa có mô tả cho khóa học này.'}
               </p>
             </div>
@@ -357,12 +357,12 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
       </Card>
 
       {/* Action Footer */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-border/40">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-zinc-200/80">
         <Button
           type="button"
           variant="outline"
           onClick={onBackToStep2}
-          className="w-full sm:w-auto gap-2"
+          className="w-full sm:w-auto gap-2 rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-700"
         >
           <ArrowLeft className="w-4 h-4" />
           Quay lại: Chỉnh sửa khung chương trình
@@ -371,10 +371,10 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             onClick={onSaveDraft}
             disabled={isSaving}
-            className="flex-1 sm:flex-none gap-2"
+            className="flex-1 sm:flex-none gap-2 rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-800"
           >
             <Save className="w-4 h-4" />
             {isSaving ? 'Đang lưu nháp...' : 'Lưu vào Private Space (Bản nháp)'}
@@ -382,10 +382,9 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
 
           <Button
             type="button"
-            variant="default"
             onClick={onPublish}
             disabled={isPublishing || hasBlockingErrors}
-            className="flex-1 sm:flex-none gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm"
+            className="flex-1 sm:flex-none gap-2 bg-[#161616] hover:bg-black text-white shadow-xs rounded-xl active:scale-[0.99] transition-all font-semibold"
           >
             <Rocket className="w-4 h-4" />
             {isPublishing ? 'Đang xuất bản...' : 'Xuất bản khóa học (Public)'}

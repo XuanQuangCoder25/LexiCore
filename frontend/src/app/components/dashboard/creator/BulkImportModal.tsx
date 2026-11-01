@@ -138,13 +138,13 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-6 overflow-hidden">
         <DialogHeader>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-900 border border-zinc-200/80 flex items-center justify-center shrink-0 shadow-xs">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold">Nhập Thẻ Hàng Loạt (Bulk Import)</DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <DialogTitle className="text-xl font-bold tracking-tight text-zinc-900">Nhập Thẻ Hàng Loạt (Bulk Import)</DialogTitle>
+              <p className="text-xs text-zinc-500 mt-0.5">
                 Dán danh sách từ vựng từ Excel, Google Sheets, Quizlet hoặc Anki để tạo hàng chục thẻ trong 1 giây.
               </p>
             </div>
@@ -153,11 +153,11 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
           {/* Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-muted/40 rounded-xl border text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-zinc-50 rounded-xl border border-zinc-200/80 text-xs">
             <div className="flex items-center gap-2">
-              <Label className="text-xs font-medium">Ký tự phân cách:</Label>
+              <Label className="text-xs font-medium text-zinc-700">Ký tự phân cách:</Label>
               <Select value={delimiter} onValueChange={(val: any) => setDelimiter(val)}>
-                <SelectTrigger className="h-8 w-36 text-xs">
+                <SelectTrigger className="h-8 w-36 text-xs bg-white border-zinc-200 focus:ring-zinc-900/5 focus:border-zinc-900">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -174,7 +174,7 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
               variant="ghost"
               size="sm"
               onClick={() => setRawText(sampleTemplate)}
-              className="h-8 text-xs text-primary gap-1.5"
+              className="h-8 text-xs text-zinc-800 hover:text-zinc-950 hover:bg-zinc-100 gap-1.5 transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5" /> Dán dữ liệu mẫu
             </Button>
@@ -182,16 +182,16 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
 
           {/* Textarea */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Cú pháp: <code className="bg-muted px-1 py-0.5 rounded text-[11px]">Từ vựng | Loại từ | Phiên âm | Nghĩa tiếng Việt | Câu ví dụ</code></span>
-              <span>(hoặc đơn giản: <code className="bg-muted px-1 py-0.5 rounded text-[11px]">Từ vựng | Nghĩa</code>)</span>
+            <div className="flex items-center justify-between text-xs text-zinc-500">
+              <span>Cú pháp: <code className="bg-zinc-100 text-zinc-800 px-1 py-0.5 rounded text-[11px] font-mono border border-zinc-200/60">Từ vựng | Loại từ | Phiên âm | Nghĩa tiếng Việt | Câu ví dụ</code></span>
+              <span>(hoặc đơn giản: <code className="bg-zinc-100 text-zinc-800 px-1 py-0.5 rounded text-[11px] font-mono border border-zinc-200/60">Từ vựng | Nghĩa</code>)</span>
             </div>
             <Textarea
               rows={7}
               placeholder={`Dán danh sách từ của bạn vào đây...\nVí dụ:\n${sampleTemplate}`}
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
-              className="font-mono text-xs leading-relaxed"
+              className="font-mono text-xs leading-relaxed border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl"
             />
           </div>
 
@@ -199,19 +199,19 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
           {parsedResults.cards.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4" /> Đã phân tích thành công: {parsedResults.cards.length} thẻ
+                <span className="text-xs font-semibold flex items-center gap-1.5 text-zinc-900">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Đã phân tích thành công: {parsedResults.cards.length} thẻ
                 </span>
                 {parsedResults.invalidCount > 0 && (
-                  <span className="text-xs text-amber-500 flex items-center gap-1">
+                  <span className="text-xs text-amber-600 flex items-center gap-1 font-medium">
                     <AlertCircle className="w-3.5 h-3.5" /> Bỏ qua {parsedResults.invalidCount} dòng không hợp lệ
                   </span>
                 )}
               </div>
 
-              <div className="max-h-48 overflow-y-auto rounded-lg border bg-card text-xs">
+              <div className="max-h-48 overflow-y-auto rounded-xl border border-zinc-200/80 bg-white text-xs shadow-xs">
                 <table className="w-full border-collapse">
-                  <thead className="bg-muted/70 sticky top-0 border-b">
+                  <thead className="bg-zinc-50 sticky top-0 border-b border-zinc-200 text-zinc-600">
                     <tr>
                       <th className="p-2 text-left font-semibold w-10">#</th>
                       <th className="p-2 text-left font-semibold">Từ vựng (Front)</th>
@@ -221,19 +221,19 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
                       <th className="p-2 text-left font-semibold">Câu ví dụ</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-zinc-100">
                     {parsedResults.cards.map((c, i) => (
-                      <tr key={i} className="hover:bg-muted/30">
-                        <td className="p-2 text-muted-foreground text-[11px]">{i + 1}</td>
-                        <td className="p-2 font-medium text-foreground">{c.front}</td>
+                      <tr key={i} className="hover:bg-zinc-50/80 transition-colors">
+                        <td className="p-2 text-zinc-400 text-[11px]">{i + 1}</td>
+                        <td className="p-2 font-medium text-zinc-900">{c.front}</td>
                         <td className="p-2">
-                          <Badge variant="outline" className="text-[10px] font-normal capitalize">
+                          <Badge variant="outline" className="text-[10px] font-normal capitalize border-zinc-200 bg-zinc-50 text-zinc-700">
                             {c.partOfSpeech}
                           </Badge>
                         </td>
-                        <td className="p-2 font-mono text-[11px] text-muted-foreground">{c.phonetic || '-'}</td>
-                        <td className="p-2 text-foreground font-medium">{c.back}</td>
-                        <td className="p-2 text-muted-foreground italic text-[11px] max-w-xs truncate">
+                        <td className="p-2 font-mono text-[11px] text-zinc-500">{c.phonetic || '-'}</td>
+                        <td className="p-2 text-zinc-900 font-medium">{c.back}</td>
+                        <td className="p-2 text-zinc-500 italic text-[11px] max-w-xs truncate">
                           {c.example || '-'}
                         </td>
                       </tr>
@@ -246,8 +246,8 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
 
           {/* Import Mode Options */}
           {currentCount > 0 && parsedResults.cards.length > 0 && (
-            <div className="p-3 bg-muted/30 rounded-xl border space-y-2">
-              <Label className="text-xs font-semibold">Tùy chọn nhập:</Label>
+            <div className="p-3.5 bg-zinc-50 rounded-xl border border-zinc-200/80 space-y-2">
+              <Label className="text-xs font-semibold text-zinc-800">Tùy chọn nhập:</Label>
               <RadioGroup
                 value={importMode}
                 onValueChange={(val: any) => setImportMode(val)}
@@ -255,13 +255,13 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="append" id="import-append" />
-                  <Label htmlFor="import-append" className="cursor-pointer text-xs">
+                  <Label htmlFor="import-append" className="cursor-pointer text-xs text-zinc-700">
                     Thêm vào tiếp sau {currentCount} thẻ hiện có
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="replace" id="import-replace" />
-                  <Label htmlFor="import-replace" className="cursor-pointer text-xs text-destructive font-medium">
+                  <Label htmlFor="import-replace" className="cursor-pointer text-xs text-rose-600 font-medium">
                     Thay thế toàn bộ danh sách cũ
                   </Label>
                 </div>
@@ -270,14 +270,14 @@ pragmatic | adjective | /præɡˈmæt.ɪk/ | thực tế, thực dụng | We nee
           )}
         </div>
 
-        <DialogFooter className="pt-3 border-t flex items-center justify-between sm:justify-between w-full">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="pt-3 border-t border-zinc-200/80 flex items-center justify-between sm:justify-between w-full">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl border-zinc-200 hover:bg-zinc-50">
             Hủy
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={parsedResults.cards.length === 0}
-            className="bg-pink-600 hover:bg-pink-700 text-white gap-2 font-semibold shadow-sm"
+            className="bg-[#161616] hover:bg-black text-white gap-2 font-semibold shadow-xs rounded-xl transition-all duration-200 active:scale-[0.99]"
           >
             Nhập {parsedResults.cards.length} Thẻ Ngay <ArrowRight className="w-4 h-4" />
           </Button>

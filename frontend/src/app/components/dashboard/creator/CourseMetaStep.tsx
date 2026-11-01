@@ -336,7 +336,7 @@ export const CourseMetaStep: React.FC<CourseMetaStepProps> = ({
           type="button"
           size="lg"
           onClick={handleContinue}
-          className="gap-2 px-6"
+          className="gap-2 px-6 bg-[#161616] hover:bg-black text-white shadow-xs rounded-xl active:scale-[0.99] transition-all font-semibold"
         >
           Tiếp tục: Xây dựng khung chương trình
           <ArrowRight className="w-4 h-4" />

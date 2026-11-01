@@ -42,23 +42,23 @@ export const ChapterDetailEditor: React.FC<ChapterDetailEditorProps> = ({
 
   return (
     <div className="space-y-6">
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader className="pb-3 border-b border-border/40">
+      <Card className="border border-zinc-200/80 shadow-xs rounded-2xl bg-white overflow-hidden">
+        <CardHeader className="pb-3 border-b border-zinc-200/80 bg-zinc-50/70">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-primary/10 text-primary">
+              <span className="p-1.5 rounded-lg bg-zinc-100 text-zinc-900 border border-zinc-200/80">
                 <FolderTree className="w-4 h-4" />
               </span>
-              <CardTitle className="text-base">Thiết lập Chương học</CardTitle>
+              <CardTitle className="text-base text-zinc-900 font-bold">Thiết lập Chương học</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               {lessonCount === 0 ? (
-                <Badge variant="destructive" className="text-xs gap-1 py-0.5">
+                <Badge variant="destructive" className="text-xs gap-1 py-0.5 rounded-full">
                   <AlertTriangle className="w-3 h-3" /> Chưa có bài học nào
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="text-xs gap-1 py-0.5 font-normal">
-                  <CheckCircle className="w-3 h-3 text-emerald-500" /> {lessonCount} bài học
+                <Badge variant="secondary" className="text-xs gap-1 py-0.5 font-normal rounded-full border-zinc-200 bg-white text-zinc-700">
+                  <CheckCircle className="w-3 h-3 text-emerald-600" /> {lessonCount} bài học
                 </Badge>
               )}
               <Button
@@ -66,7 +66,7 @@ export const ChapterDetailEditor: React.FC<ChapterDetailEditorProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="h-8 text-xs text-zinc-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1" /> Xóa chương
               </Button>

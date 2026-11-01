@@ -382,8 +382,8 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-24 space-y-4">
-        <div className="w-10 h-10 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-muted-foreground text-sm">Đang tải bộ thẻ từ vựng...</p>
+        <div className="w-10 h-10 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-zinc-500 text-sm">Đang tải bộ thẻ từ vựng...</p>
       </div>
     );
   }
@@ -391,25 +391,25 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* ---------------- 1. TOP HEADER BAR ---------------- */}
-      <div className="sticky top-0 z-30 backdrop-blur-md bg-background/80 border-b pb-4 pt-2 -mx-4 px-4 sm:-mx-6 sm:px-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="sticky top-0 z-30 backdrop-blur-md bg-white/90 border-b border-zinc-200/80 pb-4 pt-2 -mx-4 px-4 sm:-mx-6 sm:px-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 text-zinc-600 hover:text-zinc-900 rounded-xl hover:bg-zinc-100">
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight line-clamp-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight line-clamp-1 text-zinc-900">
                 {deckTitle || 'Tạo Bộ Thẻ Mới'}
               </h1>
-              <Badge variant={isPublished ? 'default' : 'secondary'} className="text-[11px] gap-1">
-                {isPublished ? <Globe className="w-3 h-3 text-emerald-500" /> : <Lock className="w-3 h-3" />}
+              <Badge variant={isPublished ? 'default' : 'secondary'} className="text-[11px] gap-1 rounded-full border-zinc-200">
+                {isPublished ? <Globe className="w-3 h-3 text-emerald-600" /> : <Lock className="w-3 h-3 text-zinc-500" />}
                 {isPublished ? 'Công khai' : 'Private (Bản nháp)'}
               </Badge>
               {isDirty && (
                 <span className="w-2 h-2 rounded-full bg-amber-500" title="Chưa lưu thay đổi" />
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-zinc-500">
               {cards.length} thẻ từ vựng • Cấp độ {deckLevel}
             </p>
           </div>
@@ -421,7 +421,7 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
             variant="outline"
             size="sm"
             onClick={() => setShowBulkImport(true)}
-            className="gap-1.5 border-dashed border-pink-500/40 text-pink-600 dark:text-pink-400 hover:bg-pink-500/10"
+            className="gap-1.5 border-dashed border-zinc-300 text-zinc-800 hover:border-zinc-900 hover:bg-zinc-50 rounded-xl transition-all"
           >
             <FileSpreadsheet className="w-4 h-4" /> Nhập hàng loạt
           </Button>
@@ -430,7 +430,7 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
             variant="outline"
             size="sm"
             onClick={() => setShowPreviewPane(!showPreviewPane)}
-            className="gap-1.5"
+            className="gap-1.5 rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-700"
           >
             {showPreviewPane ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             {showPreviewPane ? 'Ẩn xem thử' : 'Hiện xem thử'}
@@ -441,7 +441,7 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
             size="sm"
             onClick={() => handleSaveDeck(false)}
             disabled={isSaving}
-            className="gap-1.5"
+            className="gap-1.5 rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-800"
           >
             <Save className="w-4 h-4" /> Lưu bản nháp
           </Button>
@@ -450,7 +450,7 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
             size="sm"
             onClick={() => handleSaveDeck(true)}
             disabled={isSaving}
-            className="gap-1.5 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white shadow-sm"
+            className="gap-1.5 bg-[#161616] hover:bg-black text-white shadow-xs rounded-xl active:scale-[0.99] transition-all duration-200"
           >
             <Globe className="w-4 h-4" /> {isPublished ? 'Cập nhật Công khai' : 'Xuất bản ra Cộng đồng'}
           </Button>
@@ -458,17 +458,17 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
       </div>
 
       {/* ---------------- 2. DECK METADATA SECTION ---------------- */}
-      <Card className="border-border/80 shadow-sm overflow-hidden">
-        <CardHeader className="py-4 px-6 bg-muted/20 border-b flex flex-row items-center justify-between">
+      <Card className="border-zinc-200/80 shadow-xs rounded-2xl overflow-hidden bg-white">
+        <CardHeader className="py-4 px-6 bg-zinc-50/80 border-b border-zinc-200/80 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <Settings2 className="w-4 h-4 text-pink-500" />
-            <CardTitle className="text-sm font-semibold">Thông Tin Bộ Thẻ (Deck Information)</CardTitle>
+            <Settings2 className="w-4 h-4 text-zinc-700" />
+            <CardTitle className="text-sm font-semibold text-zinc-900">Thông Tin Bộ Thẻ (Deck Information)</CardTitle>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowMetaSettings(!showMetaSettings)}
-            className="text-xs text-muted-foreground h-8"
+            className="text-xs text-zinc-500 hover:text-zinc-900 h-8 rounded-lg"
           >
             {showMetaSettings ? 'Thu gọn' : 'Chỉnh sửa chi tiết'}
           </Button>
@@ -606,14 +606,14 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
         <div className={`${showPreviewPane ? 'lg:col-span-7 xl:col-span-8' : 'col-span-1'} space-y-4`}>
           <div className="flex items-center justify-between pb-1">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-pink-500" />
-              <h2 className="text-base font-bold">Danh Sách Thẻ Từ Vựng ({cards.length})</h2>
+              <Layers className="w-4 h-4 text-zinc-900" />
+              <h2 className="text-base font-bold text-zinc-900">Danh Sách Thẻ Từ Vựng ({cards.length})</h2>
             </div>
             <Button
               size="sm"
               variant="outline"
               onClick={() => handleAddCard()}
-              className="gap-1.5 text-xs text-primary border-primary/40 hover:bg-primary/5"
+              className="gap-1.5 text-xs text-zinc-900 border-zinc-200 hover:border-zinc-900 hover:bg-zinc-50 rounded-xl transition-all"
             >
               <Plus className="w-3.5 h-3.5" /> Thêm thẻ mới
             </Button>
@@ -628,18 +628,18 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
                 <Card
                   key={card.id || idx}
                   onClick={() => setActiveCardIndex(idx)}
-                  className={`transition-all duration-200 border-2 ${
+                  className={`transition-all duration-200 rounded-2xl overflow-hidden border ${
                     isActive
-                      ? 'border-pink-500/60 shadow-md ring-1 ring-pink-500/20 bg-card'
-                      : 'border-border/70 hover:border-border/90 bg-card/60'
+                      ? 'border-zinc-900 shadow-sm ring-2 ring-zinc-900/5 bg-white'
+                      : 'border-zinc-200/80 hover:border-zinc-300 bg-white'
                   }`}
                 >
-                  <CardHeader className="py-2.5 px-4 bg-muted/20 border-b flex flex-row items-center justify-between">
+                  <CardHeader className="py-3 px-4 bg-zinc-50/70 border-b border-zinc-200/80 flex flex-row items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 font-bold text-xs flex items-center justify-center">
+                      <span className="w-6 h-6 rounded-lg bg-zinc-100 text-zinc-900 border border-zinc-200/80 font-bold text-xs flex items-center justify-center shadow-xs">
                         {idx + 1}
                       </span>
-                      <span className="text-xs font-semibold truncate max-w-[200px]">
+                      <span className="text-xs font-semibold text-zinc-900 truncate max-w-[200px]">
                         {card.front || 'Chưa nhập từ vựng'}
                       </span>
                       {card.partOfSpeech && (
@@ -698,30 +698,30 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
 
                   <CardContent className="p-4 sm:p-5 space-y-4">
                     {/* Front Section */}
-                    <div className="p-3.5 rounded-xl border border-pink-500/20 bg-pink-500/[0.02] space-y-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-pink-600 dark:text-pink-400 uppercase tracking-wider">
+                    <div className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/50 space-y-3">
+                      <div className="flex items-center justify-between text-xs font-semibold text-zinc-900 uppercase tracking-wider">
                         <span>Mặt Trước (Front)</span>
-                        <span className="text-[10px] font-normal lowercase text-muted-foreground">từ vựng / cụm từ cốt lõi</span>
+                        <span className="text-[10px] font-normal lowercase text-zinc-500">từ vựng / cụm từ cốt lõi</span>
                       </div>
 
                       <div className="grid sm:grid-cols-12 gap-3">
                         <div className="sm:col-span-6 space-y-1">
-                          <Label className="text-xs font-medium">Từ vựng (Headword) *</Label>
+                          <Label className="text-xs font-medium text-zinc-700">Từ vựng (Headword) *</Label>
                           <Input
                             placeholder="Ví dụ: serendipity, ubiquitous..."
                             value={card.front}
                             onChange={(e) => handleUpdateCard(idx, { front: e.target.value })}
-                            className="font-semibold text-sm"
+                            className="font-semibold text-sm border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
                           />
                         </div>
 
                         <div className="sm:col-span-3 space-y-1">
-                          <Label className="text-xs font-medium">Loại từ</Label>
+                          <Label className="text-xs font-medium text-zinc-700">Loại từ</Label>
                           <Select
                             value={card.partOfSpeech}
                             onValueChange={(val) => handleUpdateCard(idx, { partOfSpeech: val })}
                           >
-                            <SelectTrigger className="text-xs">
+                            <SelectTrigger className="text-xs bg-white border-zinc-200">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -739,12 +739,12 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
                         </div>
 
                         <div className="sm:col-span-3 space-y-1">
-                          <Label className="text-xs font-medium">Phiên âm IPA</Label>
+                          <Label className="text-xs font-medium text-zinc-700">Phiên âm IPA</Label>
                           <Input
                             placeholder="/.../"
                             value={card.phonetic}
                             onChange={(e) => handleUpdateCard(idx, { phonetic: e.target.value })}
-                            className="font-mono text-xs"
+                            className="font-mono text-xs border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
                           />
                         </div>
                       </div>
@@ -755,7 +755,7 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
                           placeholder="Link audio phát âm (tùy chọn)..."
                           value={card.audioUrl}
                           onChange={(e) => handleUpdateCard(idx, { audioUrl: e.target.value })}
-                          className="text-xs flex-1 h-8"
+                          className="text-xs flex-1 h-8 border-zinc-200 bg-white rounded-lg"
                         />
                         <Button
                           type="button"
@@ -763,57 +763,57 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
                           size="sm"
                           onClick={() => speakWord(card.front)}
                           disabled={!card.front.trim()}
-                          className="h-8 gap-1.5 text-xs shrink-0"
+                          className="h-8 gap-1.5 text-xs shrink-0 rounded-lg border-zinc-200 hover:bg-zinc-100 text-zinc-800"
                           title="Phát âm thử bằng Web Speech API"
                         >
-                          <Volume2 className="w-3.5 h-3.5 text-primary" /> Nghe thử
+                          <Volume2 className="w-3.5 h-3.5 text-zinc-700" /> Nghe thử
                         </Button>
                       </div>
                     </div>
 
                     {/* Back Section */}
-                    <div className="p-3.5 rounded-xl border border-purple-500/20 bg-purple-500/[0.02] space-y-3">
-                      <div className="flex items-center justify-between text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                    <div className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/50 space-y-3">
+                      <div className="flex items-center justify-between text-xs font-semibold text-zinc-900 uppercase tracking-wider">
                         <span>Mặt Sau (Back)</span>
-                        <span className="text-[10px] font-normal lowercase text-muted-foreground">định nghĩa & ngữ cảnh</span>
+                        <span className="text-[10px] font-normal lowercase text-zinc-500">định nghĩa & ngữ cảnh</span>
                       </div>
 
                       <div className="space-y-1">
-                        <Label className="text-xs font-medium">Nghĩa tiếng Việt (Definition) *</Label>
+                        <Label className="text-xs font-medium text-zinc-700">Nghĩa tiếng Việt (Definition) *</Label>
                         <Textarea
                           rows={2}
                           placeholder="Nhập nghĩa cốt lõi, giải thích ngắn gọn..."
                           value={card.back}
                           onChange={(e) => handleUpdateCard(idx, { back: e.target.value })}
-                          className="text-xs"
+                          className="text-xs border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
                         />
                       </div>
 
                       <div className="grid sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs font-medium">Câu ví dụ tiếng Anh</Label>
+                          <Label className="text-xs font-medium text-zinc-700">Câu ví dụ tiếng Anh</Label>
                           <Input
                             placeholder="Ví dụ: Smartphones have become ubiquitous..."
                             value={card.example}
                             onChange={(e) => handleUpdateCard(idx, { example: e.target.value })}
-                            className="text-xs italic"
+                            className="text-xs italic border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
                           />
                         </div>
 
                         <div className="space-y-1">
-                          <Label className="text-xs font-medium">Dịch nghĩa câu ví dụ</Label>
+                          <Label className="text-xs font-medium text-zinc-700">Dịch nghĩa câu ví dụ</Label>
                           <Input
                             placeholder="Dịch nghĩa tiếng Việt của câu ví dụ..."
                             value={card.exampleMeaning}
                             onChange={(e) => handleUpdateCard(idx, { exampleMeaning: e.target.value })}
-                            className="text-xs"
+                            className="text-xs border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
                           />
                         </div>
                       </div>
 
                       <div className="grid sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs font-medium">Từ đồng nghĩa (Cách nhau bằng dấu phẩy)</Label>
+                          <Label className="text-xs font-medium text-zinc-700">Từ đồng nghĩa (Cách nhau bằng dấu phẩy)</Label>
                           <Input
                             placeholder="omnipresent, universal..."
                             value={card.synonyms.join(', ')}
@@ -822,17 +822,17 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
                                 synonyms: e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
                               })
                             }
-                            className="text-xs"
+                            className="text-xs border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
                           />
                         </div>
 
                         <div className="space-y-1">
-                          <Label className="text-xs font-medium">Mẹo ghi nhớ (Mnemonic Note)</Label>
+                          <Label className="text-xs font-medium text-zinc-700">Mẹo ghi nhớ (Mnemonic Note)</Label>
                           <Input
                             placeholder="Mẹo nhớ từ hoặc nguồn gốc từ..."
                             value={card.note}
                             onChange={(e) => handleUpdateCard(idx, { note: e.target.value })}
-                            className="text-xs"
+                            className="text-xs border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
                           />
                         </div>
                       </div>
@@ -848,9 +848,9 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
             type="button"
             variant="outline"
             onClick={() => handleAddCard()}
-            className="w-full py-6 border-dashed border-2 border-pink-500/30 hover:border-pink-500 hover:bg-pink-500/5 text-pink-600 dark:text-pink-400 gap-2 font-medium"
+            className="w-full py-5 border-dashed border-2 border-zinc-300 hover:border-zinc-900 hover:bg-zinc-50 text-zinc-800 gap-2 font-medium rounded-2xl transition-all duration-200"
           >
-            <Plus className="w-5 h-5" /> Thêm thẻ từ vựng tiếp theo
+            <Plus className="w-4 h-4" /> Thêm thẻ từ vựng tiếp theo
           </Button>
         </div>
 
@@ -858,15 +858,15 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
         {showPreviewPane && (
           <div className="lg:col-span-5 xl:col-span-4">
             <div className="sticky top-24 space-y-4">
-              <Card className="border-pink-500/30 shadow-lg bg-card/90 overflow-hidden">
-                <CardHeader className="py-3 px-4 bg-gradient-to-r from-pink-500/10 via-purple-500/5 to-transparent border-b flex flex-row items-center justify-between">
+              <Card className="border border-zinc-200/80 shadow-xs bg-white overflow-hidden rounded-2xl">
+                <CardHeader className="py-3 px-4 bg-zinc-50 border-b border-zinc-200 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-pink-500" />
-                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-pink-600 dark:text-pink-400">
+                    <Sparkles className="w-4 h-4 text-zinc-900" />
+                    <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-900">
                       Xem Thử Học Viên (Live Flip)
                     </CardTitle>
                   </div>
-                  <span className="text-[11px] text-muted-foreground font-mono">
+                  <span className="text-[11px] text-zinc-500 font-mono">
                     Thẻ {activeCardIndex + 1} / {cards.length}
                   </span>
                 </CardHeader>
@@ -875,20 +875,20 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
                   {/* 3D Interactive Card Preview */}
                   <div
                     onClick={() => setIsPreviewFlipped(!isPreviewFlipped)}
-                    className="min-h-[260px] p-6 rounded-2xl border-2 border-pink-500/30 bg-gradient-to-br from-card via-pink-500/[0.03] to-purple-500/[0.03] hover:border-pink-500/50 shadow-sm cursor-pointer select-none flex flex-col justify-between transition-all"
+                    className="min-h-[260px] p-6 rounded-2xl border-2 border-zinc-200/80 bg-zinc-50/50 hover:border-zinc-900 hover:shadow-xs cursor-pointer select-none flex flex-col justify-between transition-all duration-200"
                   >
                     {!isPreviewFlipped ? (
                       /* FRONT PREVIEW */
                       <div className="space-y-4 text-center my-auto">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <Badge variant="outline" className="text-[10px] capitalize font-medium">
+                        <div className="flex items-center justify-between text-xs text-zinc-500">
+                          <Badge variant="outline" className="text-[10px] capitalize font-medium border-zinc-200 bg-white text-zinc-800">
                             {activeCard?.partOfSpeech || 'noun'}
                           </Badge>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-primary hover:bg-primary/10"
+                            className="h-7 w-7 text-zinc-800 hover:bg-zinc-200/70 rounded-lg"
                             onClick={(e) => {
                               e.stopPropagation();
                               speakWord(activeCard?.front);
@@ -899,53 +899,53 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
                         </div>
 
                         <div>
-                          <h3 className="text-3xl font-extrabold tracking-tight text-foreground whitespace-pre-wrap">
+                          <h3 className="text-3xl font-extrabold tracking-tight text-zinc-900 whitespace-pre-wrap">
                             {activeCard?.front || 'Từ vựng'}
                           </h3>
                           {activeCard?.phonetic && (
-                            <p className="text-sm font-mono text-muted-foreground mt-1">
+                            <p className="text-sm font-mono text-zinc-500 mt-1">
                               {activeCard.phonetic}
                             </p>
                           )}
                         </div>
 
-                        <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1 pt-2">
+                        <p className="text-[11px] text-zinc-400 flex items-center justify-center gap-1 pt-2">
                           <RotateCw className="w-3 h-3" /> Nhấn để lật xem nghĩa
                         </p>
                       </div>
                     ) : (
                       /* BACK PREVIEW */
                       <div className="space-y-3 text-center my-auto">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-pink-600 dark:text-pink-400">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">
                           Định nghĩa & Ngữ cảnh
                         </span>
-                        <h4 className="text-xl font-bold text-foreground">
+                        <h4 className="text-xl font-bold text-zinc-900">
                           {activeCard?.back || 'Nghĩa tiếng Việt'}
                         </h4>
 
                         {activeCard?.example && (
-                          <div className="p-2.5 rounded-lg bg-muted/40 text-xs border text-left space-y-1">
-                            <p className="italic text-foreground font-medium">"{activeCard.example}"</p>
+                          <div className="p-2.5 rounded-xl bg-white text-xs border border-zinc-200 text-left space-y-1">
+                            <p className="italic text-zinc-900 font-medium">"{activeCard.example}"</p>
                             {activeCard.exampleMeaning && (
-                              <p className="text-muted-foreground text-[11px]">{activeCard.exampleMeaning}</p>
+                              <p className="text-zinc-500 text-[11px]">{activeCard.exampleMeaning}</p>
                             )}
                           </div>
                         )}
 
                         {activeCard?.synonyms && activeCard.synonyms.length > 0 && (
-                          <div className="text-[11px] text-muted-foreground text-left">
-                            <span className="font-semibold text-foreground">Đồng nghĩa: </span>
+                          <div className="text-[11px] text-zinc-600 text-left">
+                            <span className="font-semibold text-zinc-900">Đồng nghĩa: </span>
                             {activeCard.synonyms.join(', ')}
                           </div>
                         )}
 
                         {activeCard?.note && (
-                          <p className="text-[11px] text-pink-600 dark:text-pink-400 italic text-left bg-pink-500/5 p-2 rounded border border-pink-500/10">
+                          <p className="text-[11px] text-zinc-700 italic text-left bg-zinc-100 p-2.5 rounded-xl border border-zinc-200">
                             💡 Mẹo nhớ: {activeCard.note}
                           </p>
                         )}
 
-                        <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1 pt-2">
+                        <p className="text-[11px] text-zinc-400 flex items-center justify-center gap-1 pt-2">
                           <RotateCw className="w-3 h-3" /> Nhấn để lật lại mặt trước
                         </p>
                       </div>

@@ -298,10 +298,10 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
                   key={step}
                   type="button"
                   onClick={() => dispatch({ type: 'SET_STEP', step: step as 1 | 2 | 3 })}
-                  className={`text-xs font-medium px-2.5 py-1.5 rounded-lg transition-all ${
+                  className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all ${
                     isActive
-                      ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      ? 'bg-[#161616] text-white shadow-xs font-semibold'
+                      : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                   }`}
                 >
                   {label}
@@ -317,9 +317,9 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
               variant="outline"
               size="sm"
               onClick={() => setShowPreviewModal(true)}
-              className="h-8 text-xs gap-1.5 shrink-0"
+              className="h-8 text-xs gap-1.5 shrink-0 rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-700"
             >
-              <Eye className="w-3.5 h-3.5 text-emerald-500" />
+              <Eye className="w-3.5 h-3.5 text-zinc-700" />
               Xem trước
             </Button>
 
@@ -329,7 +329,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
               size="sm"
               onClick={handleSaveDraft}
               disabled={isSaving}
-              className="h-9 text-xs gap-1.5"
+              className="h-9 text-xs gap-1.5 rounded-xl border-zinc-200 hover:bg-zinc-50 text-zinc-800"
             >
               <Save className="w-3.5 h-3.5" />
               {isSaving ? 'Đang lưu...' : 'Lưu nháp'}
@@ -340,7 +340,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
                 type="button"
                 size="sm"
                 onClick={() => dispatch({ type: 'SET_STEP', step: (state.activeStep + 1) as 2 | 3 })}
-                className="h-9 text-xs gap-1"
+                className="h-9 text-xs gap-1 bg-[#161616] hover:bg-black text-white shadow-xs rounded-xl active:scale-[0.99] transition-all"
               >
                 Tiếp tục
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -351,7 +351,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
                 size="sm"
                 onClick={handlePublish}
                 disabled={isPublishing}
-                className="h-9 text-xs gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs hover:from-emerald-700 hover:to-teal-700"
+                className="h-9 text-xs gap-1.5 bg-[#161616] hover:bg-black text-white shadow-xs rounded-xl active:scale-[0.99] transition-all duration-200 font-semibold"
               >
                 <Rocket className="w-3.5 h-3.5" />
                 {isPublishing ? 'Đang xuất bản...' : 'Xuất bản (Public)'}
@@ -375,19 +375,19 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl mx-auto w-full items-start">
           {/* LEFT COLUMN: CURRICULUM TREE NAV (4/12 columns) */}
           <div className="lg:col-span-4 space-y-4">
-            <Card className="border-border/60 shadow-sm sticky top-16">
-              <CardHeader className="p-4 pb-3 border-b border-border/40">
+            <Card className="border border-zinc-200/80 shadow-xs rounded-2xl bg-white overflow-hidden sticky top-16">
+              <CardHeader className="p-4 pb-3 border-b border-zinc-200/80 bg-zinc-50/70">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <FolderTree className="w-4 h-4 text-primary" />
-                    <CardTitle className="text-sm font-semibold">Khung chương trình</CardTitle>
+                    <FolderTree className="w-4 h-4 text-zinc-900" />
+                    <CardTitle className="text-sm font-semibold text-zinc-900">Khung chương trình</CardTitle>
                   </div>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     onClick={() => setShowAddChapterModal(true)}
-                    className="h-7 text-xs px-2 gap-1"
+                    className="h-7 text-xs px-2.5 gap-1 rounded-lg border-zinc-200 hover:border-zinc-900 hover:bg-zinc-50 text-zinc-800"
                   >
                     <Plus className="w-3 h-3" /> Thêm chương
                   </Button>
@@ -399,26 +399,26 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
                   onClick={() => dispatch({ type: 'SELECT_ITEM', selection: { type: 'course' } })}
                   className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between text-xs ${
                     state.selection.type === 'course'
-                      ? 'border-primary bg-primary/5 text-primary font-semibold'
-                      : 'border-border/40 hover:bg-muted/40 text-muted-foreground'
+                      ? 'border-zinc-900 bg-zinc-900/[0.04] text-zinc-900 font-semibold shadow-xs'
+                      : 'border-zinc-200/80 hover:bg-zinc-50 text-zinc-600'
                   }`}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <Settings className="w-3.5 h-3.5" />
+                    <Settings className="w-3.5 h-3.5 text-zinc-700" />
                     <span className="truncate">{state.course.title || 'Thông tin khóa học'}</span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-normal">Tổng quan</span>
+                  <span className="text-[10px] text-zinc-400 font-normal">Tổng quan</span>
                 </div>
 
                 {state.chapters.length === 0 ? (
-                  <div className="text-center py-8 px-4 border border-dashed border-border/60 rounded-xl space-y-2">
-                    <p className="text-xs text-muted-foreground">Chưa có chương nào trong khóa học.</p>
+                  <div className="text-center py-8 px-4 border border-dashed border-zinc-200 rounded-xl space-y-2 bg-zinc-50/50">
+                    <p className="text-xs text-zinc-500">Chưa có chương nào trong khóa học.</p>
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       onClick={() => setShowAddChapterModal(true)}
-                      className="text-xs h-7"
+                      className="text-xs h-7 rounded-lg border-zinc-200 hover:border-zinc-900"
                     >
                       <Plus className="w-3 h-3 mr-1" /> Thêm chương đầu tiên
                     </Button>
@@ -434,14 +434,14 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
                         key={ch.id}
                         className={`rounded-xl border transition-all overflow-hidden ${
                           isSelected
-                            ? 'border-primary ring-1 ring-primary/20 bg-card'
-                            : 'border-border/60 bg-card/60'
+                            ? 'border-zinc-900 ring-2 ring-zinc-900/5 bg-white shadow-xs'
+                            : 'border-zinc-200/80 bg-white hover:border-zinc-300'
                         }`}
                       >
                         {/* Chapter Title Bar */}
                         <div
                           className={`p-2.5 flex items-center justify-between gap-1 text-xs cursor-pointer select-none ${
-                            isSelected ? 'bg-primary/5' : 'hover:bg-muted/40'
+                            isSelected ? 'bg-zinc-50' : 'hover:bg-zinc-50/60'
                           }`}
                           onClick={() => dispatch({ type: 'SELECT_ITEM', selection: { type: 'chapter', chapterId: ch.id } })}
                         >

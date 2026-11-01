@@ -4,6 +4,10 @@ export interface IExamResult extends Document {
   userId: string;
   examId: Types.ObjectId;
   score: number;
+  passed: boolean;
+  correctCount: number;
+  totalQuestions: number;
+  durationSpentSeconds: number;
   progress: number;
   status: 'InProgress' | 'Completed';
   completedAt?: Date;
@@ -14,10 +18,16 @@ const ExamResultSchema = new Schema<IExamResult>({
   userId: { type: String, required: true }, // Referencing MySQL User ID
   examId: { type: Schema.Types.ObjectId, ref: 'Exam', required: true },
   score: { type: Number, default: 0 },
+  passed: { type: Boolean, default: false },
+  correctCount: { type: Number, default: 0 },
+  totalQuestions: { type: Number, default: 0 },
+  durationSpentSeconds: { type: Number, default: 0 },
   progress: { type: Number, default: 0 },
   status: { type: String, enum: ['InProgress', 'Completed'], default: 'InProgress' },
   completedAt: { type: Date },
   answers: { type: Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
+
+ExamResultSchema.index({ userId: 1, examId: 1 });
 
 export default mongoose.model<IExamResult>('ExamResult', ExamResultSchema);

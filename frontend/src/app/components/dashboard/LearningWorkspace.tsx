@@ -55,24 +55,36 @@ const InteractiveBlock = ({ block }: { block: any }) => {
   if (block.type === 'fill_in_the_blank') {
     return (
       <div className="flex flex-col gap-3">
-        <span className="text-sm font-semibold text-primary uppercase tracking-wider">Bài tập: Điền từ</span>
-        <div className="p-4 bg-background rounded-lg border border-border leading-relaxed text-lg">
+        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Bài tập: Điền từ</span>
+        <div className="p-4 bg-white rounded-xl border border-zinc-200/80 leading-relaxed text-base shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
           {block.content.split(/(\[.*?\])/g).map((part: string, i: number) => {
             if (part.startsWith('[') && part.endsWith(']')) {
               return (
                 <input
                   key={i}
                   type="text"
-                  className={`inline-block mx-1 px-2 py-1 w-24 bg-muted font-mono text-sm rounded border-b-2 outline-none focus:border-primary transition-colors ${showResult ? (isCorrect(i, answers[i] || '') ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600') : 'border-primary/50'}`}
+                  className={`inline-block mx-1 px-2.5 py-1 w-28 bg-zinc-50 font-mono text-sm rounded-lg border outline-none transition-all duration-150 ${
+                    showResult 
+                      ? (isCorrect(i, answers[i] || '') 
+                          ? 'border-emerald-600 bg-emerald-50/50 text-emerald-900 font-semibold' 
+                          : 'border-red-600 bg-red-50/50 text-red-900') 
+                      : 'border-zinc-200 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/5'
+                  }`}
                   value={answers[i] || ''}
                   onChange={(e) => { setAnswers({ ...answers, [i]: e.target.value }); setShowResult(false); }}
                 />
               );
             }
-            return <span key={i}>{part}</span>;
+            return <span key={i} className="text-zinc-800">{part}</span>;
           })}
         </div>
-        <Button variant="outline" className="self-end" onClick={checkAnswers}>Kiểm tra</Button>
+        <Button 
+          variant="outline" 
+          className="self-end bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-400 active:scale-[0.98] rounded-xl text-xs font-medium h-9" 
+          onClick={checkAnswers}
+        >
+          Kiểm tra kết quả
+        </Button>
       </div>
     );
   }
@@ -80,24 +92,24 @@ const InteractiveBlock = ({ block }: { block: any }) => {
   if (block.type === 'drag_drop') {
     return (
       <div className="flex flex-col gap-3">
-        <span className="text-sm font-semibold text-primary uppercase tracking-wider">Bài tập: Kéo thả từ</span>
+        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Bài tập: Kéo thả từ</span>
         
-        <div className="flex flex-wrap gap-2 mb-4 p-4 bg-muted/30 rounded-lg min-h-[60px]">
+        <div className="flex flex-wrap gap-2 mb-2 p-3 bg-zinc-50/70 border border-zinc-200/60 rounded-xl min-h-[52px]">
           {availableWords.map((word, i) => (
             <div 
               key={i} 
               draggable 
               onDragStart={(e) => { e.dataTransfer.setData('text/plain', word); setDraggedWord(word); }}
               onDragEnd={() => setDraggedWord(null)}
-              className="px-3 py-1 bg-white border shadow-sm rounded cursor-grab active:cursor-grabbing hover:border-primary select-none font-medium text-primary"
+              className="px-3 py-1 bg-white border border-zinc-200 shadow-sm rounded-lg cursor-grab active:cursor-grabbing hover:border-zinc-900 select-none font-medium text-xs text-zinc-900 transition-all duration-150"
             >
               {word}
             </div>
           ))}
-          {availableWords.length === 0 && <span className="text-muted-foreground italic text-sm">Tuyệt vời! Bạn đã ghép xong.</span>}
+          {availableWords.length === 0 && <span className="text-zinc-400 italic text-xs my-auto">Tuyệt vời! Bạn đã hoàn thành ghép từ.</span>}
         </div>
 
-        <div className="p-4 bg-background rounded-lg border border-border leading-relaxed text-lg">
+        <div className="p-4 bg-white rounded-xl border border-zinc-200/80 leading-relaxed text-base shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
           {block.content.split(/(\[.*?\])/g).map((part: string, i: number) => {
             if (part.startsWith('[') && part.endsWith(']')) {
               const answered = answers[i];
@@ -121,16 +133,32 @@ const InteractiveBlock = ({ block }: { block: any }) => {
                       setAvailableWords(prev => [...prev, answered]);
                     }
                   }}
-                  className={`inline-flex items-center justify-center mx-1 min-w-[80px] h-8 px-2 bg-muted font-mono text-sm rounded border-b-2 transition-colors cursor-pointer ${answered ? 'bg-primary/10 text-primary border-primary' : 'border-dashed border-muted-foreground/50 text-transparent'} ${showResult ? (isCorrect(i, answers[i] || '') ? 'border-green-500 text-green-600 bg-green-50' : 'border-red-500 text-red-600 bg-red-50') : ''}`}
+                  className={`inline-flex items-center justify-center mx-1 min-w-[84px] h-8 px-2.5 font-mono text-xs rounded-lg border transition-all duration-150 cursor-pointer ${
+                    answered 
+                      ? 'bg-zinc-100 text-zinc-900 border-zinc-900 font-semibold shadow-xs' 
+                      : 'border-dashed border-zinc-300 bg-zinc-50 text-transparent hover:border-zinc-400'
+                  } ${
+                    showResult 
+                      ? (isCorrect(i, answers[i] || '') 
+                          ? 'border-emerald-600 bg-emerald-50/50 text-emerald-900 font-semibold' 
+                          : 'border-red-600 bg-red-50/50 text-red-900 line-through') 
+                      : ''
+                  }`}
                 >
                   {answered || part.slice(1,-1)}
                 </span>
               );
             }
-            return <span key={i}>{part}</span>;
+            return <span key={i} className="text-zinc-800">{part}</span>;
           })}
         </div>
-        <Button variant="outline" className="self-end" onClick={checkAnswers}>Kiểm tra</Button>
+        <Button 
+          variant="outline" 
+          className="self-end bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-400 active:scale-[0.98] rounded-xl text-xs font-medium h-9" 
+          onClick={checkAnswers}
+        >
+          Kiểm tra kết quả
+        </Button>
       </div>
     );
   }
@@ -147,14 +175,14 @@ const InlineVocabPlayer = ({ vocabulary }: { vocabulary: any[] }) => {
   const current = vocabulary[index];
 
   return (
-    <Card className="border-2 border-purple-500/20 bg-gradient-to-br from-purple-500/5 via-background to-card shadow-sm my-6 overflow-hidden">
-      <CardContent className="p-6 space-y-5">
+    <Card className="border border-zinc-200/80 bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] my-6 overflow-hidden">
+      <CardContent className="p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <Badge variant="secondary" className="bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold border-purple-200">
-            <Languages className="w-3.5 h-3.5 mr-1" /> Thẻ từ vựng trọng tâm ({vocabulary.length} từ)
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            Từ {index + 1} / {vocabulary.length}
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 bg-zinc-100 px-2.5 py-1 rounded-md border border-zinc-200/60">
+            <Languages className="w-3.5 h-3.5" /> Thẻ từ vựng trọng tâm ({vocabulary.length} từ)
+          </span>
+          <span className="text-xs text-zinc-500 font-mono">
+            {index + 1} / {vocabulary.length}
           </span>
         </div>
 
@@ -162,39 +190,39 @@ const InlineVocabPlayer = ({ vocabulary }: { vocabulary: any[] }) => {
           <div
             id="card-vocab-flashcard"
             onClick={() => setIsFlipped(!isFlipped)}
-            className="aspect-[16/8] max-h-56 rounded-2xl border-2 border-purple-500/30 bg-card shadow-sm flex flex-col items-center justify-center p-6 text-center cursor-pointer select-none transition-all hover:border-purple-500/50"
+            className="aspect-[16/8] max-h-52 rounded-2xl border border-zinc-200/80 bg-zinc-50/60 hover:bg-zinc-50 hover:border-zinc-900 shadow-[0_1px_2px_rgba(0,0,0,0.02)] flex flex-col items-center justify-center p-6 text-center cursor-pointer select-none transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
           >
             {!isFlipped ? (
-              <div className="space-y-2">
-                <h3 className="text-3xl font-extrabold text-foreground tracking-wide">
+              <div className="space-y-1.5">
+                <h3 className="text-3xl font-extrabold text-zinc-900 tracking-tight">
                   {current.term}
                 </h3>
                 {current.phonetic && (
-                  <p className="text-sm font-mono text-muted-foreground">{current.phonetic}</p>
+                  <p className="text-sm font-mono text-zinc-500">{current.phonetic}</p>
                 )}
                 {current.partOfSpeech && (
-                  <Badge variant="outline" className="text-xs">
+                  <span className="inline-block text-[11px] font-medium bg-zinc-100 text-zinc-700 border border-zinc-200/60 px-2 py-0.5 rounded-md mt-1">
                     {current.partOfSpeech}
-                  </Badge>
+                  </span>
                 )}
-                <p className="text-[11px] text-muted-foreground pt-2 flex items-center justify-center gap-1">
+                <p className="text-[11px] text-zinc-400 pt-2 flex items-center justify-center gap-1">
                   <RotateCw className="w-3 h-3" /> Nhấn để lật xem nghĩa
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
-                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
                   Định nghĩa & Ví dụ
                 </span>
-                <h4 className="text-xl font-bold text-foreground">
+                <h4 className="text-lg font-bold text-zinc-900">
                   {current.meaning}
                 </h4>
                 {current.example && (
-                  <p className="text-xs text-muted-foreground italic max-w-md">
+                  <p className="text-xs text-zinc-500 italic max-w-md">
                     "{current.example}"
                   </p>
                 )}
-                <p className="text-[11px] text-muted-foreground pt-2 flex items-center justify-center gap-1">
+                <p className="text-[11px] text-zinc-400 pt-2 flex items-center justify-center gap-1">
                   <RotateCw className="w-3 h-3" /> Nhấn để lật lại
                 </p>
               </div>
@@ -210,6 +238,7 @@ const InlineVocabPlayer = ({ vocabulary }: { vocabulary: any[] }) => {
             size="sm"
             disabled={index === 0}
             onClick={() => { setIndex(i => Math.max(0, i - 1)); setIsFlipped(false); }}
+            className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98] rounded-xl text-xs font-medium h-8"
           >
             Từ trước
           </Button>
@@ -220,6 +249,7 @@ const InlineVocabPlayer = ({ vocabulary }: { vocabulary: any[] }) => {
             size="sm"
             disabled={index === vocabulary.length - 1}
             onClick={() => { setIndex(i => i + 1); setIsFlipped(false); }}
+            className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98] rounded-xl text-xs font-medium h-8"
           >
             Từ tiếp theo
           </Button>
@@ -236,39 +266,39 @@ const InlineQuizPlayer = ({ quiz }: { quiz: any[] }) => {
   if (!quiz || quiz.length === 0) return null;
 
   return (
-    <Card className="border-2 border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-background to-card shadow-sm my-6 overflow-hidden">
-      <CardContent className="p-6 space-y-5">
+    <Card className="border border-zinc-200/80 bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)] my-6 overflow-hidden">
+      <CardContent className="p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <Badge className="bg-amber-500 hover:bg-amber-500 text-white font-medium">
-            <HelpCircle className="w-3.5 h-3.5 mr-1" /> Câu hỏi củng cố ({quiz.length} câu)
-          </Badge>
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-700 bg-zinc-100 px-2.5 py-1 rounded-md border border-zinc-200/60">
+            <HelpCircle className="w-3.5 h-3.5" /> Câu hỏi củng cố ({quiz.length} câu)
+          </span>
           {isSubmitted && (
-            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              Đã hoàn thành kiểm tra
+            <span className="text-xs font-semibold text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded">
+              Đã kiểm tra kết quả
             </span>
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {quiz.map((q: any, qIdx: number) => {
             const chosen = selectedAnswers[qIdx];
             const isCorrect = isSubmitted && chosen === q.correctIndex;
 
             return (
-              <div key={q.id || qIdx} className="p-4 rounded-xl border bg-card/60 space-y-3">
+              <div key={q.id || qIdx} className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/50 space-y-3">
                 <div className="flex items-start justify-between gap-2">
-                  <h4 className="text-sm font-semibold">
-                    <span className="text-amber-500 mr-2">Câu {qIdx + 1}:</span>
+                  <h4 className="text-sm font-semibold text-zinc-900 leading-snug">
+                    <span className="text-zinc-500 mr-1.5">Câu {qIdx + 1}:</span>
                     {q.question}
                   </h4>
                   {isSubmitted && (
                     <span className="text-xs font-semibold shrink-0">
                       {isCorrect ? (
-                        <span className="text-emerald-500 flex items-center gap-1">
+                        <span className="text-emerald-700 flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Đúng
                         </span>
                       ) : (
-                        <span className="text-destructive flex items-center gap-1">
+                        <span className="text-red-700 flex items-center gap-1">
                           <AlertCircle className="w-3.5 h-3.5" /> Sai
                         </span>
                       )}
@@ -281,15 +311,15 @@ const InlineQuizPlayer = ({ quiz }: { quiz: any[] }) => {
                     const isSelected = chosen === optIdx;
                     const isRight = q.correctIndex === optIdx;
 
-                    let btnStyle = 'border-border/60 hover:bg-muted/40';
+                    let btnStyle = 'border-zinc-200/80 bg-white text-zinc-800 hover:border-zinc-400 hover:translate-x-0.5';
                     if (isSubmitted) {
                       if (isRight) {
-                        btnStyle = 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold';
+                        btnStyle = 'border-emerald-600 bg-emerald-50/60 text-emerald-900 font-semibold';
                       } else if (isSelected && !isRight) {
-                        btnStyle = 'border-destructive bg-destructive/10 text-destructive line-through';
+                        btnStyle = 'border-red-600 bg-red-50/60 text-red-900 line-through';
                       }
                     } else if (isSelected) {
-                      btnStyle = 'border-primary bg-primary/10 text-primary font-semibold';
+                      btnStyle = 'border-zinc-900 bg-zinc-900/[0.04] text-zinc-900 font-semibold shadow-xs';
                     }
 
                     return (
@@ -298,9 +328,9 @@ const InlineQuizPlayer = ({ quiz }: { quiz: any[] }) => {
                         type="button"
                         disabled={isSubmitted}
                         onClick={() => setSelectedAnswers(prev => ({ ...prev, [qIdx]: optIdx }))}
-                        className={`w-full text-left p-2.5 rounded-lg border text-xs flex items-center gap-3 transition-colors ${btnStyle}`}
+                        className={`w-full text-left p-2.5 rounded-lg border text-xs flex items-center gap-2.5 transition-all duration-150 ${btnStyle}`}
                       >
-                        <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center font-bold text-[10px] shrink-0">
+                        <span className="w-5 h-5 rounded-md bg-zinc-100 text-zinc-700 flex items-center justify-center font-bold text-[10px] shrink-0 border border-zinc-200/60">
                           {String.fromCharCode(65 + optIdx)}
                         </span>
                         <span className="flex-1">{opt}</span>
@@ -310,8 +340,8 @@ const InlineQuizPlayer = ({ quiz }: { quiz: any[] }) => {
                 </div>
 
                 {isSubmitted && q.explanation && (
-                  <div className="p-2.5 rounded-lg bg-muted/40 text-xs text-muted-foreground border mt-2">
-                    <strong className="text-foreground">Giải thích: </strong>
+                  <div className="p-2.5 rounded-lg bg-white border border-zinc-200/80 text-xs text-zinc-600 mt-2">
+                    <strong className="text-zinc-900">Giải thích: </strong>
                     {q.explanation}
                   </div>
                 )}
@@ -320,7 +350,7 @@ const InlineQuizPlayer = ({ quiz }: { quiz: any[] }) => {
           })}
         </div>
 
-        <div className="flex justify-end pt-2">
+        <div className="flex justify-end pt-1">
           {isSubmitted ? (
             <Button
               id="btn-reset-quiz"
@@ -328,6 +358,7 @@ const InlineQuizPlayer = ({ quiz }: { quiz: any[] }) => {
               variant="outline"
               size="sm"
               onClick={() => { setIsSubmitted(false); setSelectedAnswers({}); }}
+              className="bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98] rounded-xl text-xs font-medium h-9"
             >
               Làm lại câu hỏi
             </Button>
@@ -338,6 +369,7 @@ const InlineQuizPlayer = ({ quiz }: { quiz: any[] }) => {
               size="sm"
               onClick={() => setIsSubmitted(true)}
               disabled={Object.keys(selectedAnswers).length === 0}
+              className="bg-[#161616] text-white hover:bg-zinc-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-150 rounded-xl text-xs font-medium h-9"
             >
               Kiểm tra kết quả
             </Button>
@@ -557,23 +589,36 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-4 bg-card">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="font-bold text-lg">{data.course.title}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Tiến độ: {data.progress}%</span>
-              <Progress value={data.progress} className="w-32 h-2" />
-              {data.isCompleted && (
-                <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white gap-1">
-                  <CheckCircle className="w-3 h-3" /> Đã hoàn thành khóa học
-                </Badge>
-              )}
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+        <div className="p-4 border-b border-zinc-200/80 flex items-center justify-between bg-white shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onBack}
+              className="text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl h-9 w-9"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="font-extrabold text-base text-zinc-900 tracking-tight">{data.course.title}</h1>
+              <div className="flex items-center gap-2.5 text-xs text-zinc-500 mt-0.5">
+                <span>Tiến độ: {data.progress}%</span>
+                <div className="w-28 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-zinc-900 rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    style={{ width: `${Math.min(100, Math.round(data.progress))}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
+
+          {data.isCompleted && (
+            <span className="inline-flex items-center gap-1.5 bg-zinc-900 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-xs">
+              <CheckCircle className="w-3.5 h-3.5" /> Đã hoàn thành khóa học
+            </span>
+          )}
         </div>
 
         <ScrollArea className="flex-1 p-6">
@@ -593,16 +638,16 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
               onCompleteCourse={handleCompleteCourse}
             />
           ) : lessonContent ? (
-            <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight mb-2">{lessonContent.title}</h2>
-                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                  <PlayCircle className="w-4 h-4" /> {lessonContent.durationMinutes} phút
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 mb-1.5">{lessonContent.title}</h2>
+                <div className="text-xs text-zinc-500 flex items-center gap-1.5 font-medium">
+                  <PlayCircle className="w-3.5 h-3.5 text-zinc-700" /> {lessonContent.durationMinutes} phút học
                 </div>
               </div>
 
               {lessonContent.videoUrl && (
-                <div className="aspect-video w-full rounded-xl overflow-hidden bg-black shadow-lg border">
+                <div className="aspect-video w-full rounded-2xl overflow-hidden bg-zinc-950 shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-zinc-200/80">
                   {lessonContent.videoUrl.includes('youtube') || lessonContent.videoUrl.includes('youtu.be') ? (
                     <iframe 
                       className="w-full h-full"
@@ -619,30 +664,31 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                 </div>
               )}
 
-              
               {lessonContent.blocks && lessonContent.blocks.length > 0 && (
                 <div className="space-y-6 my-6">
                   {lessonContent.blocks.map((block: any) => (
-                    <Card key={block.id} className="border-none shadow-sm bg-muted/10 overflow-hidden">
+                    <Card key={block.id} className="border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] bg-zinc-50/50 rounded-2xl overflow-hidden">
                       <CardContent className="p-6">
                         {block.type === 'text' && (
-                          <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">{block.content}</div>
+                          <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap text-zinc-800 leading-relaxed text-sm sm:text-base">{block.content}</div>
                         )}
                         {block.type === 'audio' && (
                           <div className="flex flex-col gap-2">
-                            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Audio</span>
+                            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Audio bài học</span>
                             <audio controls src={block.content} className="w-full" />
                           </div>
                         )}
                         {block.type === 'video' && (
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-semibold text-primary uppercase tracking-wider">Video</span>
+                              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Video minh họa</span>
                               {block.metadata?.showTranscript && (
-                                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">Interactive Shadowing</span>
+                                <span className="text-[11px] bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded-md font-medium border border-zinc-200/60">
+                                  Interactive Shadowing
+                                </span>
                               )}
                             </div>
-                            <div className="aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center shadow-md">
+                            <div className="aspect-video bg-zinc-950 rounded-xl overflow-hidden flex items-center justify-center shadow-md border border-zinc-200/80">
                               {block.content.includes('youtube.com') || block.content.includes('youtu.be') ? (
                                 <iframe 
                                   className="w-full h-full" 
@@ -662,12 +708,12 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                         )}
                         {block.type === 'speech_recognition' && (
                           <div className="flex flex-col gap-3">
-                            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Luyện nói</span>
-                            <div className="p-4 bg-background rounded-lg border border-border text-xl text-center italic">
+                            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Luyện phát âm</span>
+                            <div className="p-4 bg-white rounded-xl border border-zinc-200 text-lg text-center italic text-zinc-800 font-serif shadow-xs">
                               "{block.content}"
                             </div>
-                            <Button variant="outline" className="w-full max-w-sm mx-auto rounded-full gap-2 border-primary text-primary hover:bg-primary/10">
-                              <Mic className="w-4 h-4" /> Bấm để thu âm
+                            <Button variant="outline" className="w-full max-w-xs mx-auto rounded-xl gap-2 bg-white border-zinc-200 text-zinc-800 hover:border-zinc-400 active:scale-[0.98] text-xs font-medium h-9">
+                              <Mic className="w-3.5 h-3.5" /> Bấm để thu âm
                             </Button>
                           </div>
                         )}
@@ -678,20 +724,20 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
               )}
 
               {lessonContent.content && (
-                <Card className="border-none shadow-sm bg-muted/20">
+                <Card className="border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] bg-white rounded-2xl">
                   <CardContent className="p-6 prose dark:prose-invert max-w-none">
-                     <div className="whitespace-pre-wrap">{lessonContent.content}</div>
+                     <div className="whitespace-pre-wrap text-zinc-800 leading-relaxed text-sm sm:text-base">{lessonContent.content}</div>
                   </CardContent>
                 </Card>
               )}
 
               {/* Ghi chú bài giảng (Lesson Notes) */}
               {lessonContent.notes && (
-                <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-2 my-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                    <FileText className="w-4 h-4" /> Ghi chú bài giảng
+                <div className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/70 space-y-1.5 my-4">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                    <FileText className="w-3.5 h-3.5 text-zinc-700" /> Ghi chú bài giảng
                   </div>
-                  <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-sm text-zinc-700 whitespace-pre-wrap leading-relaxed">
                     {lessonContent.notes}
                   </p>
                 </div>
@@ -709,40 +755,53 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
 
               {/* Đính kèm Bài kiểm tra (Attached Exam) */}
               {lessonContent.attachedExamId && (
-                <Card className="border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-background to-card shadow-md my-6 overflow-hidden">
+                <Card className="border border-zinc-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.02)] rounded-2xl my-6 overflow-hidden transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-zinc-900 hover:shadow-[0_10px_26px_-6px_rgba(0,0,0,0.07)] group">
                   <CardContent className="p-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-primary hover:bg-primary text-white font-medium">
-                            <FileText className="w-3.5 h-3.5 mr-1" /> Bài kiểm tra đính kèm
-                          </Badge>
-                          {typeof lessonContent.attachedExamId === 'object' && lessonContent.attachedExamId.totalQuestions > 0 && (
-                            <span className="text-xs text-muted-foreground font-medium">
-                              {lessonContent.attachedExamId.totalQuestions} câu hỏi
-                            </span>
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-zinc-900 text-white px-2.5 py-0.5 rounded-full">
+                            <FileText className="w-3.5 h-3.5 mr-0.5" /> Bài kiểm tra đính kèm
+                          </span>
+                          {typeof lessonContent.attachedExamId === 'object' && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {lessonContent.attachedExamId.totalQuestions > 0 && (
+                                <span className="text-[11px] font-mono bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md border border-zinc-200/60">
+                                  {lessonContent.attachedExamId.totalQuestions} câu hỏi
+                                </span>
+                              )}
+                              {lessonContent.attachedExamId.durationMinutes && (
+                                <span className="text-[11px] font-mono bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md border border-zinc-200/60">
+                                  {lessonContent.attachedExamId.durationMinutes} phút
+                                </span>
+                              )}
+                              {lessonContent.attachedExamId.level && (
+                                <span className="text-[11px] font-semibold bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md border border-zinc-200/60">
+                                  {lessonContent.attachedExamId.level}
+                                </span>
+                              )}
+                            </div>
                           )}
                           {lessonContent.isRequiredToPassExam && (
-                            <Badge variant="outline" className="border-amber-500 text-amber-600 text-[11px]">
+                            <span className="text-[11px] font-medium border border-zinc-300 text-zinc-700 px-2 py-0.5 rounded-md">
                               Bắt buộc hoàn thành
-                            </Badge>
+                            </span>
                           )}
                         </div>
-                        <h3 className="text-xl font-bold tracking-tight">
+                        <h3 className="text-xl font-bold tracking-tight text-zinc-900">
                           {typeof lessonContent.attachedExamId === 'object' 
                             ? lessonContent.attachedExamId.title 
                             : "Bài kiểm tra cuối bài học"}
                         </h3>
                         {typeof lessonContent.attachedExamId === 'object' && lessonContent.attachedExamId.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className="text-xs text-zinc-500 line-clamp-2">
                             {lessonContent.attachedExamId.description}
                           </p>
                         )}
                       </div>
 
                       <Button 
-                        size="lg" 
-                        className="shrink-0 gap-2 font-semibold shadow-md bg-primary hover:bg-primary/90"
+                        className="shrink-0 gap-2 bg-[#161616] text-white hover:bg-zinc-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-150 rounded-xl px-5 h-11 text-sm font-medium group/btn"
                         onClick={() => {
                           const id = typeof lessonContent.attachedExamId === 'object' 
                             ? lessonContent.attachedExamId._id 
@@ -750,7 +809,7 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                           setTakingExamId(id);
                         }}
                       >
-                        <PlayCircle className="w-5 h-5" /> Bắt đầu làm bài kiểm tra
+                        <PlayCircle className="w-4 h-4 group-hover/btn:translate-x-0.5 transition-transform duration-200" /> Bắt đầu làm bài kiểm tra
                       </Button>
                     </div>
                   </CardContent>
@@ -759,26 +818,31 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
 
               {/* Đính kèm Flashcards (Attached Flashcard) */}
               {lessonContent.attachedFlashcardId && (
-                <Card className="border-2 border-indigo-500/20 bg-gradient-to-r from-indigo-500/10 via-background to-card shadow-md my-4 overflow-hidden">
+                <Card className="border border-zinc-200/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.02)] rounded-2xl my-4 overflow-hidden transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-zinc-900 hover:shadow-[0_10px_26px_-6px_rgba(0,0,0,0.07)] group">
                   <CardContent className="p-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                          <BookOpen className="w-6 h-6" />
+                      <div className="flex items-center gap-3.5">
+                        <div className="p-3 bg-zinc-100 text-zinc-800 rounded-xl border border-zinc-200/60">
+                          <BookOpen className="w-5 h-5" />
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold border-indigo-200">
+                            <span className="text-xs font-semibold bg-zinc-100 text-zinc-800 px-2.5 py-0.5 rounded-md border border-zinc-200/60">
                               📚 Bộ thẻ Flashcard đính kèm
-                            </Badge>
+                            </span>
+                            {typeof lessonContent.attachedFlashcardId === 'object' && typeof lessonContent.attachedFlashcardId.cardCount === 'number' && (
+                              <span className="text-[11px] font-mono bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md border border-zinc-200/60">
+                                {lessonContent.attachedFlashcardId.cardCount} thẻ ghi nhớ
+                              </span>
+                            )}
                           </div>
-                          <h3 className="text-xl font-bold tracking-tight">
+                          <h3 className="text-xl font-bold tracking-tight text-zinc-900">
                             {typeof lessonContent.attachedFlashcardId === 'object' 
                               ? lessonContent.attachedFlashcardId.title 
                               : "Bộ thẻ từ vựng của bài học"}
                           </h3>
                           {typeof lessonContent.attachedFlashcardId === 'object' && lessonContent.attachedFlashcardId.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
+                            <p className="text-xs text-zinc-500 line-clamp-2">
                               {lessonContent.attachedFlashcardId.description}
                             </p>
                           )}
@@ -786,8 +850,7 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                       </div>
 
                       <Button 
-                        size="lg" 
-                        className="shrink-0 gap-2 font-semibold shadow-md bg-indigo-600 hover:bg-indigo-700 text-white"
+                        className="shrink-0 gap-2 bg-[#161616] text-white hover:bg-zinc-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-150 rounded-xl px-5 h-11 text-sm font-medium group/btn"
                         onClick={() => {
                           const id = typeof lessonContent.attachedFlashcardId === 'object' 
                             ? lessonContent.attachedFlashcardId._id 
@@ -798,28 +861,44 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                           setStudyingFlashcardDeck({ id, title });
                         }}
                       >
-                        <Sparkles className="w-4 h-4" /> Luyện tập thẻ nhớ (SRS)
+                        <Sparkles className="w-4 h-4 group-hover/btn:translate-x-0.5 transition-transform duration-200" /> Luyện tập thẻ nhớ (SRS)
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               )}
 
-              <div className="pt-6 border-t flex justify-between items-center gap-3 flex-wrap">
-                 <Button variant="outline" onClick={onBack}>Thoát</Button>
+              <div className="pt-6 border-t border-zinc-200/80 flex justify-between items-center gap-3 flex-wrap">
+                 <Button 
+                   variant="outline" 
+                   onClick={onBack}
+                   className="bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 rounded-xl text-xs font-medium h-10 px-4"
+                 >
+                   Thoát bài học
+                 </Button>
                  <div className="flex items-center gap-3">
                    {isActiveChapterFullyLearned && activeChapter && (
-                     <Button variant="outline" size="lg" className="gap-2" onClick={() => setSummaryChapterId(activeChapter._id)}>
-                       <ListChecks className="w-5 h-5" /> Tổng kết chương
+                     <Button 
+                       variant="outline" 
+                       className="gap-2 bg-white text-zinc-900 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-400 rounded-xl text-xs sm:text-sm font-medium h-10 px-4" 
+                       onClick={() => setSummaryChapterId(activeChapter._id)}
+                     >
+                       <ListChecks className="w-4 h-4" /> Tổng kết chương
                      </Button>
                    )}
                    {data.completedLessons?.includes(activeLesson?._id) ? (
-                     <Button size="lg" className="bg-green-500 hover:bg-green-600 shadow-md cursor-default text-white" disabled>
-                       <CheckCircle className="w-5 h-5 mr-2" /> Đã hoàn thành
+                     <Button 
+                       className="bg-zinc-100 text-zinc-700 border border-zinc-200/80 shadow-none cursor-default rounded-xl font-medium text-xs sm:text-sm h-10 px-5 gap-2" 
+                       disabled
+                     >
+                       <CheckCircle className="w-4 h-4" /> Đã hoàn thành bài học
                      </Button>
                    ) : (
-                     <Button size="lg" className="bg-primary hover:bg-primary/90 shadow-md" onClick={handleMarkComplete}>
-                       <CheckCircle className="w-5 h-5 mr-2" /> Hoàn thành bài học
+                     <Button 
+                       className="bg-[#161616] text-white hover:bg-zinc-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-150 rounded-xl font-medium text-xs sm:text-sm h-10 px-5 gap-2" 
+                       onClick={handleMarkComplete}
+                     >
+                       <CheckCircle className="w-4 h-4" /> Hoàn thành bài học
                      </Button>
                    )}
                  </div>
@@ -827,19 +906,19 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
             </div>
           ) : activeLesson && lessonError ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3 min-h-[300px]">
-              <Lock className="w-10 h-10 text-muted-foreground/40" />
-              <p className="font-medium text-foreground">{lessonError}</p>
+              <Lock className="w-10 h-10 text-zinc-400" />
+              <p className="font-medium text-zinc-800">{lessonError}</p>
             </div>
           ) : activeLesson ? (
             <div className="h-full flex items-center justify-center min-h-[300px]">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-900 border-t-transparent"></div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center space-y-3 min-h-[300px]">
-              <BookOpen className="w-10 h-10 text-muted-foreground/40" />
-              <p className="font-medium text-foreground">Chưa có bài học nào trong khóa học này.</p>
-              <p className="text-xs max-w-xs text-muted-foreground">Bạn có thể vào Creator Studio để thêm chương và bài giảng cho khóa học.</p>
-              <Button variant="outline" size="sm" onClick={onBack} className="gap-1 mt-2">
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3 min-h-[300px]">
+              <BookOpen className="w-10 h-10 text-zinc-400 mx-auto" />
+              <p className="font-semibold text-zinc-900">Chưa có bài học nào trong khóa học này.</p>
+              <p className="text-xs max-w-xs text-zinc-500">Bạn có thể vào Creator Studio để thêm chương và bài giảng cho khóa học.</p>
+              <Button variant="outline" size="sm" onClick={onBack} className="gap-1 mt-2 bg-white text-zinc-700 border-zinc-200 rounded-xl">
                 <ArrowLeft className="w-3.5 h-3.5" /> Quay lại
               </Button>
             </div>
@@ -848,8 +927,10 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
       </div>
 
       {/* Syllabus Sidebar */}
-      <div className="w-80 border-l bg-card flex flex-col">
-        <div className="p-4 border-b font-semibold bg-muted/10">Nội dung khóa học</div>
+      <div className="w-80 border-l border-zinc-200/80 bg-zinc-50/70 flex flex-col">
+        <div className="p-4 border-b border-zinc-200/80 font-semibold text-xs tracking-wider uppercase text-zinc-500 bg-white">
+          Nội dung khóa học
+        </div>
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-6">
             {data.syllabus.map((chapter: any) => {
@@ -859,15 +940,15 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
               return (
               <div key={chapter._id} className={`space-y-2 transition-opacity ${isUnlocked ? '' : 'opacity-60'}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-semibold text-sm uppercase text-muted-foreground tracking-wider">
+                  <h3 className="font-semibold text-xs uppercase text-zinc-500 tracking-wider">
                     Chương {chapter.order}: {chapter.title}
                   </h3>
                   {isChapterDone ? (
-                    <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-zinc-900 shrink-0" />
                   ) : !isUnlocked ? (
-                    <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <Lock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                   ) : (
-                    <span className="text-[11px] text-muted-foreground shrink-0">{doneCount}/{chapter.lessons.length}</span>
+                    <span className="text-[11px] text-zinc-500 font-mono shrink-0">{doneCount}/{chapter.lessons.length}</span>
                   )}
                 </div>
                 <div className="space-y-1">
@@ -880,26 +961,38 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                         disabled={!isUnlocked}
                         onClick={() => handleSelectLesson(lesson)}
                         title={isUnlocked ? undefined : 'Hoàn thành chương trước để mở khóa'}
-                        className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all ${!isUnlocked ? 'cursor-not-allowed' : ''} ${isActive ? 'bg-primary/10 border-primary/20 border shadow-sm' : `${isUnlocked ? 'hover:bg-muted/50' : ''} border border-transparent`}`}
+                        className={`w-full flex items-start gap-2.5 p-2.5 rounded-xl text-left transition-all duration-150 ${
+                          !isUnlocked ? 'cursor-not-allowed opacity-50' : ''
+                        } ${
+                          isActive 
+                            ? 'bg-white border border-zinc-900 shadow-[0_1px_3px_rgba(0,0,0,0.04)] text-zinc-900' 
+                            : `${isUnlocked ? 'hover:bg-white hover:border-zinc-200/80' : ''} border border-transparent text-zinc-600`
+                        }`}
                       >
                         <div className="mt-0.5 shrink-0">
-                          {!isUnlocked ? <Lock className="w-5 h-5 text-muted-foreground" /> : isCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Circle className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />}
+                          {!isUnlocked ? (
+                            <Lock className="w-4 h-4 text-zinc-400" />
+                          ) : isCompleted ? (
+                            <CheckCircle className="w-4 h-4 text-zinc-900" />
+                          ) : (
+                            <Circle className={`w-4 h-4 ${isActive ? 'text-zinc-900' : 'text-zinc-400'}`} />
+                          )}
                         </div>
-                        <div>
-                          <div className={`font-medium text-sm leading-tight ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-medium text-xs leading-snug line-clamp-2 ${isActive ? 'text-zinc-900 font-semibold' : 'text-zinc-700'}`}>
                             {lesson.order}. {lesson.title}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-                            <span className="flex items-center gap-1"><PlayCircle className="w-3 h-3" /> {lesson.durationMinutes} phút</span>
+                          <div className="text-[11px] text-zinc-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                            <span className="flex items-center gap-1"><PlayCircle className="w-3 h-3" /> {lesson.durationMinutes}p</span>
                             {lesson.attachedExamId && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary/40 text-primary font-normal">
+                              <span className="text-[10px] px-1.5 py-0 rounded bg-zinc-100 text-zinc-700 border border-zinc-200/60 font-medium">
                                 Quiz
-                              </Badge>
+                              </span>
                             )}
                             {lesson.attachedFlashcardId && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-indigo-500/40 text-indigo-600 dark:text-indigo-400 font-normal">
+                              <span className="text-[10px] px-1.5 py-0 rounded bg-zinc-100 text-zinc-700 border border-zinc-200/60 font-medium">
                                 Cards
-                              </Badge>
+                              </span>
                             )}
                           </div>
                         </div>

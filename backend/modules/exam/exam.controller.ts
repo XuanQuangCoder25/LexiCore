@@ -138,15 +138,40 @@ export const getExamById = async (req: Request, res: Response) => {
     const questions = await Question.find({ examId: new mongoose.Types.ObjectId(String(id)) }).sort({ order: 1 }).lean();
     console.log(`Found ${questions.length} questions for exam ${id}`);
     
-    // Ẩn đáp án đúng khỏi Client
+    // Ẩn đáp án đúng và lời giải chi tiết khỏi Client trong lúc làm bài
     const sanitizedQuestions = questions.map((q: any) => {
-      const { answerData, ...rest } = q;
-      return rest;
+      const { answerData, explanation, ...rest } = q;
+      let safeContent = rest.content ? { ...rest.content } : {};
+      
+      // Đảm bảo không lộ đáp án/lời giải trong subQuestions của Audio/Video/Reading
+      if (Array.isArray(safeContent.subQuestions)) {
+        safeContent.subQuestions = safeContent.subQuestions.map((sq: any) => {
+          const { explanation: sqExp, correctOption, ...restSq } = sq;
+          return restSq;
+        });
+      }
+      return {
+        ...rest,
+        content: safeContent
+      };
     });
+
+    // Xáo trộn thứ tự câu hỏi nếu bài thi bật shuffleQuestions
+    let finalQuestions = sanitizedQuestions;
+    if (exam.shuffleQuestions && sanitizedQuestions.length > 1) {
+      finalQuestions = [...sanitizedQuestions].sort(() => Math.random() - 0.5);
+    }
 
     const { password, ...restExam } = exam;
 
-    res.json({ success: true, data: { ...restExam, hasPassword: !!password, questions: sanitizedQuestions } });
+    res.json({ 
+      success: true, 
+      data: { 
+        ...restExam, 
+        hasPassword: !!password, 
+        questions: finalQuestions 
+      } 
+    });
   } catch (error) {
     console.error("Error in getExamById:", error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -156,42 +181,138 @@ export const getExamById = async (req: Request, res: Response) => {
 export const submitExam = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { answers } = req.body; // Map { questionId: answer }
+    const { answers, durationSpentSeconds } = req.body; // Map { questionId: answer }
     const userId = req.user?.id;
 
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(String(id)) }).lean();
+    const exam = await Exam.findById(id).lean();
+    if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
+
+    const questions = await Question.find({ examId: new mongoose.Types.ObjectId(String(id)) }).sort({ order: 1 }).lean();
     if (!questions.length) return res.status(404).json({ success: false, message: 'No questions found for this exam' });
 
     let correctCount = 0;
+    const questionReviews: any[] = [];
+    const userAnswersMap = answers || {};
     
     questions.forEach(q => {
-      const userAnswer = answers[q._id.toString()];
-      if (!userAnswer) return;
+      const qId = q._id.toString();
+      const userAnswer = userAnswersMap[qId];
 
       if (q.type === 'MultipleChoice') {
         const correctOpt = q.answerData?.correctOption;
-        if (userAnswer === correctOpt) correctCount++;
-      } else if (q.type === 'DragDrop' || q.type === 'FillBlank' || q.type === 'Audio' || q.type === 'Video') {
-        const correctMapping = q.answerData?.mapping || {};
-        const keys = Object.keys(correctMapping);
-        const isCorrect = keys.length > 0 && keys.every(key => correctMapping[key] === userAnswer[key]);
-        // Also ensure user didn't submit extra keys incorrectly
-        const userKeys = Object.keys(userAnswer);
-        if (isCorrect && keys.length === userKeys.length) {
-          correctCount++;
+        let isCorrect = false;
+        if (typeof userAnswer === 'string') {
+          isCorrect = userAnswer.trim().toLowerCase() === String(correctOpt).trim().toLowerCase();
+        } else if (userAnswer && typeof userAnswer === 'object') {
+          isCorrect = userAnswer.selectedOption === correctOpt;
         }
+
+        if (isCorrect) correctCount++;
+
+        questionReviews.push({
+          questionId: q._id,
+          order: q.order,
+          type: q.type,
+          content: q.content,
+          userAnswer: userAnswer || null,
+          correctAnswer: correctOpt,
+          isCorrect,
+          explanation: q.explanation || q.content?.explanation || ''
+        });
+
+      } else if (q.type === 'DragDrop' || q.type === 'FillBlank') {
+        const correctMapping = q.answerData?.mapping || (typeof q.answerData === 'object' ? q.answerData : {});
+        const keys = Object.keys(correctMapping);
+        let isCorrect = false;
+
+        if (keys.length > 0 && userAnswer && typeof userAnswer === 'object') {
+          isCorrect = keys.every(key => {
+            const userVal = String(userAnswer[key] || '').trim().toLowerCase();
+            const correctVal = String(correctMapping[key] || '').trim().toLowerCase();
+            return userVal === correctVal;
+          });
+        }
+
+        if (isCorrect) correctCount++;
+
+        questionReviews.push({
+          questionId: q._id,
+          order: q.order,
+          type: q.type,
+          content: q.content,
+          userAnswer: userAnswer || null,
+          correctAnswer: correctMapping,
+          isCorrect,
+          explanation: q.explanation || ''
+        });
+
+      } else if (q.type === 'Audio' || q.type === 'Video' || q.type === 'Reading') {
+        const subQuestions = Array.isArray(q.content?.subQuestions) ? q.content.subQuestions : [];
+        const correctMapping = q.answerData?.mapping || (typeof q.answerData === 'object' ? q.answerData : {});
+        let subCorrect = 0;
+
+        const subReviews = subQuestions.map((sq: any) => {
+          const userSubAns = userAnswer && typeof userAnswer === 'object' ? userAnswer[sq.id] : undefined;
+          const correctSubAns = correctMapping[sq.id];
+          const isSubCorrect = userSubAns !== undefined && String(userSubAns).trim().toLowerCase() === String(correctSubAns).trim().toLowerCase();
+          if (isSubCorrect) subCorrect++;
+
+          return {
+            id: sq.id,
+            text: sq.text,
+            options: sq.options,
+            userAnswer: userSubAns || null,
+            correctAnswer: correctSubAns || null,
+            isCorrect: isSubCorrect,
+            explanation: sq.explanation || ''
+          };
+        });
+
+        const isCorrect = subQuestions.length > 0 && subCorrect === subQuestions.length;
+        if (isCorrect) correctCount++;
+
+        questionReviews.push({
+          questionId: q._id,
+          order: q.order,
+          type: q.type,
+          content: q.content,
+          userAnswer: userAnswer || null,
+          correctAnswer: correctMapping,
+          isCorrect,
+          explanation: q.explanation || '',
+          subQuestionReviews: subReviews
+        });
+      } else {
+        // Fallback cho question type khác nếu có
+        questionReviews.push({
+          questionId: q._id,
+          order: q.order,
+          type: q.type,
+          content: q.content,
+          userAnswer: userAnswer || null,
+          correctAnswer: q.answerData,
+          isCorrect: false,
+          explanation: q.explanation || ''
+        });
       }
     });
 
-    const score = (correctCount / questions.length) * 100;
+    const score = Math.round((correctCount / questions.length) * 100);
+    const passingScore = typeof exam.passingScore === 'number' ? exam.passingScore : 70;
+    const passed = score >= passingScore;
+    const spentSeconds = Number(durationSpentSeconds) || 0;
     
     // Tìm result cũ hoặc tạo mới
     let result = await ExamResult.findOne({ userId, examId: id });
     if (result) {
        result.score = score;
-       result.answers = answers;
+       result.passed = passed;
+       result.correctCount = correctCount;
+       result.totalQuestions = questions.length;
+       result.durationSpentSeconds = spentSeconds;
+       result.answers = userAnswersMap;
        result.progress = 100;
        result.status = 'Completed';
        result.completedAt = new Date();
@@ -201,10 +322,14 @@ export const submitExam = async (req: Request, res: Response) => {
          userId,
          examId: id,
          score,
+         passed,
+         correctCount,
+         totalQuestions: questions.length,
+         durationSpentSeconds: spentSeconds,
          progress: 100,
          status: 'Completed',
          completedAt: new Date(),
-         answers
+         answers: userAnswersMap
        });
        await result.save();
     }
@@ -213,13 +338,17 @@ export const submitExam = async (req: Request, res: Response) => {
       success: true, 
       data: { 
         score, 
+        passed,
+        passingScore,
         correctCount, 
         total: questions.length, 
-        result 
+        durationSpentSeconds: spentSeconds,
+        result,
+        questionReviews
       } 
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in submitExam:', error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };

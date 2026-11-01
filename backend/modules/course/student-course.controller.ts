@@ -266,8 +266,8 @@ export const getLessonContent = async (req: Request, res: Response): Promise<voi
         }
 
         const lesson = await Lesson.findOne({ _id: lessonId, courseId })
-            .populate('attachedExamId', 'title description totalQuestions status averageRating')
-            .populate('attachedFlashcardId', 'title description')
+            .populate('attachedExamId', 'title description totalQuestions status averageRating durationMinutes passingScore level')
+            .populate('attachedFlashcardId', 'title description cardCount')
             .lean();
         if (!lesson) {
             res.status(404).json({ status: 'error', message: 'Bài học không tồn tại.' });

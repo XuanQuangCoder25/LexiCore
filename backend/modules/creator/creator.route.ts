@@ -6,6 +6,7 @@ import {
   createFlashcard, updateFlashcard, deleteFlashcard, getFlashcards,
   getDeckById, saveFullDeck, publishDeck, unpublishDeck, cloneDirectDeck,
   createExam, updateExam, deleteExam, saveExamQuestions, getCreatorExams, getCreatorExamById, bulkActionExams, getExamRatings,
+  saveFullExam, publishExam, unpublishExam, cloneExam,
   getPrivateSpaceContent
 } from './creator.controller';
 
@@ -39,6 +40,11 @@ router.delete('/flashcards/:id', deleteFlashcard);
 // Exams routes (Creator)
 router.get('/exams', getCreatorExams);
 router.post('/exams/bulk-action', bulkActionExams);
+router.post('/exams/save-full', saveFullExam);
+router.post('/exams/:id/save-full', saveFullExam);
+router.post('/exams/:id/publish', publishExam);
+router.post('/exams/:id/unpublish', unpublishExam);
+router.post('/exams/:id/clone', cloneExam);
 router.get('/exams/:id', getCreatorExamById);
 router.get('/exams/:id/ratings', getExamRatings);
 router.post('/exams', createExam);

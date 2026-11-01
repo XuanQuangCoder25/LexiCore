@@ -548,30 +548,21 @@ export const getCreatorExamById = async (req: Request, res: Response) => {
 
 export const createExam = async (req: Request, res: Response) => {
   try {
-    const { title, description, thumbnail } = req.body;
-    const creatorId = req.user?.id;
-    if (!creatorId) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    const exam = new Exam({ 
+    const { 
       title, 
       description, 
       thumbnail, 
-      status: 'Draft',
-      totalQuestions: 0,
-      createdBy: creatorId 
-    });
-    await exam.save();
-
-    res.status(201).json({ success: true, data: exam });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Lỗi server' });
-  }
-};
-
-export const updateExam = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { title, description, thumbnail, status, password } = req.body;
+      durationMinutes, 
+      passingScore, 
+      level, 
+      shuffleQuestions, 
+      skills, 
+      password, 
+      status, 
+      questions 
+    } = req.body;
+    const creatorId = req.user?.id;
+    if (!creatorId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
     // Chặn role user xuất bản bài thi ra cộng đồng
     if (status === 'Published' && !canPublishContent(req)) {
@@ -581,17 +572,108 @@ export const updateExam = async (req: Request, res: Response) => {
         requires_creator: true
       });
     }
-    
+
+    const exam = new Exam({ 
+      title: title || 'Bài kiểm tra chưa đặt tên', 
+      description: description || '', 
+      thumbnail: thumbnail || '', 
+      durationMinutes: typeof durationMinutes === 'number' ? durationMinutes : 45,
+      passingScore: typeof passingScore === 'number' ? passingScore : 70,
+      level: level || 'All',
+      shuffleQuestions: !!shuffleQuestions,
+      skills: Array.isArray(skills) && skills.length > 0 ? skills : ['General'],
+      password: password || '',
+      status: status || 'Draft',
+      totalQuestions: Array.isArray(questions) ? questions.length : 0,
+      createdBy: creatorId 
+    });
+    await exam.save();
+
+    if (Array.isArray(questions) && questions.length > 0) {
+      const questionsToSave = questions.map((q: any, idx: number) => ({
+        examId: exam._id,
+        order: q.order ?? idx,
+        type: q.type,
+        content: q.content,
+        answerData: q.answerData,
+        explanation: q.explanation || ''
+      }));
+      await Question.insertMany(questionsToSave);
+    }
+
+    res.status(201).json({ success: true, data: exam });
+  } catch (error) {
+    console.error('Error in createExam:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const updateExam = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { 
+      title, 
+      description, 
+      thumbnail, 
+      durationMinutes, 
+      passingScore, 
+      level, 
+      shuffleQuestions, 
+      skills, 
+      status, 
+      password, 
+      questions 
+    } = req.body;
+
+    // Chặn role user xuất bản bài thi ra cộng đồng
+    if (status === 'Published' && !canPublishContent(req)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bài kiểm tra ra cộng đồng.',
+        requires_creator: true
+      });
+    }
+
+    const updateFields: any = {};
+    if (title !== undefined) updateFields.title = title;
+    if (description !== undefined) updateFields.description = description;
+    if (thumbnail !== undefined) updateFields.thumbnail = thumbnail;
+    if (durationMinutes !== undefined) updateFields.durationMinutes = Number(durationMinutes);
+    if (passingScore !== undefined) updateFields.passingScore = Number(passingScore);
+    if (level !== undefined) updateFields.level = level;
+    if (shuffleQuestions !== undefined) updateFields.shuffleQuestions = !!shuffleQuestions;
+    if (skills !== undefined) updateFields.skills = skills;
+    if (status !== undefined) updateFields.status = status;
+    if (password !== undefined) updateFields.password = password;
+
     const exam = await Exam.findOneAndUpdate(
       { _id: id, createdBy: req.user?.id }, 
-      { title, description, thumbnail, status, password },
+      updateFields,
       { new: true }
     );
 
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found or unauthorized' });
 
+    if (Array.isArray(questions)) {
+      await Question.deleteMany({ examId: exam._id });
+      const questionsToSave = questions.map((q: any, idx: number) => ({
+        examId: exam._id,
+        order: q.order ?? idx,
+        type: q.type,
+        content: q.content,
+        answerData: q.answerData,
+        explanation: q.explanation || ''
+      }));
+      if (questionsToSave.length > 0) {
+        await Question.insertMany(questionsToSave);
+      }
+      exam.totalQuestions = questionsToSave.length;
+      await exam.save();
+    }
+
     res.json({ success: true, data: exam });
   } catch (error) {
+    console.error('Error in updateExam:', error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };
@@ -628,17 +710,15 @@ export const saveExamQuestions = async (req: Request, res: Response) => {
       await Question.deleteMany({ examId: exam._id });
       const questionsToSave = questions.map((q: any, idx: number) => ({
         examId: exam._id,
-        order: idx,
+        order: q.order ?? idx,
         type: q.type,
         content: q.content,
-        answerData: q.answerData
+        answerData: q.answerData,
+        explanation: q.explanation || ''
       }));
-      
-      console.log("Questions to save:", JSON.stringify(questionsToSave));
       
       if (questionsToSave.length > 0) {
         await Question.insertMany(questionsToSave);
-        console.log("Successfully inserted questions.");
       }
       
       exam.totalQuestions = questionsToSave.length;
@@ -649,6 +729,238 @@ export const saveExamQuestions = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error in saveExamQuestions:", error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+// --- ATOMIC FULL EXAM SAVE ---
+export const saveFullExam = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const targetId = req.params.id || req.body.id;
+    const {
+      title,
+      description,
+      thumbnail,
+      durationMinutes,
+      passingScore,
+      level,
+      shuffleQuestions,
+      skills,
+      password,
+      status,
+      questions
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Tiêu đề đề thi không được để trống' });
+    }
+
+    // Kiểm tra quyền xuất bản nếu status là Published
+    if (status === 'Published') {
+      if (!canPublishContent(req)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản đề thi ra cộng đồng.',
+          requires_creator: true
+        });
+      }
+      if (!Array.isArray(questions) || questions.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Không thể xuất bản đề thi chưa có câu hỏi nào. Vui lòng thêm ít nhất 1 câu hỏi.'
+        });
+      }
+    }
+
+    let exam: any;
+    if (targetId && mongoose.Types.ObjectId.isValid(targetId)) {
+      exam = await Exam.findOne({ _id: targetId, createdBy: userId });
+      if (!exam) {
+        return res.status(404).json({ success: false, message: 'Không tìm thấy đề thi hoặc bạn không có quyền sửa đổi.' });
+      }
+
+      exam.title = title.trim();
+      if (description !== undefined) exam.description = description;
+      if (thumbnail !== undefined) exam.thumbnail = thumbnail;
+      if (durationMinutes !== undefined) exam.durationMinutes = Number(durationMinutes) || 45;
+      if (passingScore !== undefined) exam.passingScore = Number(passingScore) || 70;
+      if (level !== undefined) exam.level = level;
+      if (shuffleQuestions !== undefined) exam.shuffleQuestions = !!shuffleQuestions;
+      if (skills !== undefined) exam.skills = Array.isArray(skills) && skills.length > 0 ? skills : ['General'];
+      if (password !== undefined) exam.password = password;
+      if (status !== undefined) exam.status = status;
+    } else {
+      exam = new Exam({
+        title: title.trim(),
+        description: description || '',
+        thumbnail: thumbnail || '',
+        durationMinutes: Number(durationMinutes) || 45,
+        passingScore: Number(passingScore) || 70,
+        level: level || 'All',
+        shuffleQuestions: !!shuffleQuestions,
+        skills: Array.isArray(skills) && skills.length > 0 ? skills : ['General'],
+        password: password || '',
+        status: status || 'Draft',
+        createdBy: userId,
+        totalQuestions: 0
+      });
+    }
+
+    const questionList = Array.isArray(questions) ? questions : [];
+    await Question.deleteMany({ examId: exam._id });
+
+    let savedQuestions: any[] = [];
+    if (questionList.length > 0) {
+      const questionsToSave = questionList.map((q: any, idx: number) => ({
+        examId: exam._id,
+        order: q.order ?? idx,
+        type: q.type || 'MultipleChoice',
+        content: q.content || {},
+        answerData: q.answerData || {},
+        explanation: q.explanation || ''
+      }));
+      savedQuestions = await Question.insertMany(questionsToSave);
+    }
+
+    exam.totalQuestions = savedQuestions.length;
+    await exam.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lưu đề thi thành công!',
+      data: {
+        exam,
+        questions: savedQuestions
+      }
+    });
+  } catch (error) {
+    console.error('Lỗi khi lưu đề thi (saveFullExam):', error);
+    return res.status(500).json({ success: false, message: 'Lỗi máy chủ khi lưu đề thi' });
+  }
+};
+
+// --- EXAM PUBLISH / UNPUBLISH ---
+export const publishExam = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    if (!canPublishContent(req)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản đề thi ra cộng đồng.',
+        requires_creator: true
+      });
+    }
+
+    const exam = await Exam.findOne({ _id: id, createdBy: userId });
+    if (!exam) return res.status(404).json({ success: false, message: 'Không tìm thấy đề thi' });
+
+    const questionCount = await Question.countDocuments({ examId: exam._id });
+    if (questionCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không thể xuất bản đề thi chưa có câu hỏi nào. Vui lòng thêm ít nhất 1 câu hỏi.'
+      });
+    }
+
+    exam.status = 'Published';
+    exam.totalQuestions = questionCount;
+    await exam.save();
+
+    return res.json({
+      success: true,
+      message: 'Xuất bản đề thi thành công!',
+      data: exam
+    });
+  } catch (error) {
+    console.error('Error in publishExam:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi xuất bản đề thi' });
+  }
+};
+
+export const unpublishExam = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const exam = await Exam.findOne({ _id: id, createdBy: userId });
+    if (!exam) return res.status(404).json({ success: false, message: 'Không tìm thấy đề thi' });
+
+    exam.status = 'Draft';
+    await exam.save();
+
+    return res.json({
+      success: true,
+      message: 'Đã chuyển đề thi về trạng thái Bản nháp (Private Space).',
+      data: exam
+    });
+  } catch (error) {
+    console.error('Error in unpublishExam:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi hủy xuất bản đề thi' });
+  }
+};
+
+export const cloneExam = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const sourceExam = await Exam.findOne({
+      _id: id,
+      $or: [
+        { createdBy: userId },
+        { status: 'Published' }
+      ]
+    });
+
+    if (!sourceExam) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đề thi hoặc đề thi chưa được công khai.' });
+    }
+
+    const clonedExam = new Exam({
+      title: `${sourceExam.title} (Bản sao)`,
+      description: sourceExam.description || '',
+      thumbnail: sourceExam.thumbnail || '',
+      durationMinutes: sourceExam.durationMinutes || 45,
+      passingScore: sourceExam.passingScore || 70,
+      level: sourceExam.level || 'All',
+      shuffleQuestions: sourceExam.shuffleQuestions || false,
+      skills: sourceExam.skills || ['General'],
+      status: 'Draft',
+      totalQuestions: 0,
+      createdBy: userId
+    });
+    await clonedExam.save();
+
+    const sourceQuestions = await Question.find({ examId: id }).sort({ order: 1 }).lean();
+    if (sourceQuestions.length > 0) {
+      const clonedQuestions = sourceQuestions.map((q: any) => ({
+        examId: clonedExam._id,
+        order: q.order,
+        type: q.type,
+        content: q.content,
+        answerData: q.answerData,
+        explanation: q.explanation || ''
+      }));
+      await Question.insertMany(clonedQuestions);
+      clonedExam.totalQuestions = clonedQuestions.length;
+      await clonedExam.save();
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Nhân bản đề thi vào Private Space thành công!',
+      data: clonedExam
+    });
+  } catch (error) {
+    console.error('Lỗi khi nhân bản đề thi:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi nhân bản đề thi' });
   }
 };
 

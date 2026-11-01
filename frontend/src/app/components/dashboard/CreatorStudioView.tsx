@@ -17,6 +17,7 @@ import { courseBuilderService } from '../../services/course-builder-service';
 import { ExamBuilder } from "./creator/ExamBuilder";
 import { CourseBuilder } from "./creator/CourseBuilder";
 import { FlashcardBuilder } from "./creator/FlashcardBuilder";
+import { PublishRestrictedModal } from "./creator/PublishRestrictedModal";
 import { LayoutList, 
   Plus,
   Edit,
@@ -388,43 +389,12 @@ const handleOpenEditor = (course: Course) => {
   };
 
   const renderPublishRestrictedModal = () => (
-    <Dialog open={showPublishRestrictedModal} onOpenChange={setShowPublishRestrictedModal}>
-      <DialogContent className="max-w-md" aria-describedby={undefined}>
-        <DialogHeader>
-          <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
-            <Crown className="w-6 h-6" />
-          </div>
-          <DialogTitle className="text-center text-xl">Tính năng dành cho Creator</DialogTitle>
-        </DialogHeader>
-        <div className="text-center py-2 text-sm text-muted-foreground space-y-2">
-          <p>
-            Tính năng xuất bản nội dung công khai chỉ dành riêng cho <strong className="text-foreground">Creator chính thức</strong>.
-          </p>
-          <p>
-            Nội dung của bạn vẫn được lưu an toàn trong <strong className="text-foreground">Private Space</strong> để bạn tự do học tập và làm bài thi bất kỳ lúc nào.
-          </p>
-          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium pt-1">
-            Hãy đăng ký làm Creator để chia sẻ kiến thức bổ ích tới cộng đồng học viên LexiCore!
-          </p>
-        </div>
-        <DialogFooter className="flex flex-col sm:flex-row sm:justify-center gap-2 pt-2">
-          <Button variant="outline" onClick={() => setShowPublishRestrictedModal(false)}>
-            Để sau
-          </Button>
-          <Button
-            className="bg-amber-500 hover:bg-amber-600 text-white font-medium gap-2 shadow-sm"
-            onClick={() => {
-              setShowPublishRestrictedModal(false);
-              if (onNavigateTab) {
-                onNavigateTab("profile");
-              }
-            }}
-          >
-            <Crown className="w-4 h-4" /> Đăng ký làm Creator ngay
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <PublishRestrictedModal
+      open={showPublishRestrictedModal}
+      onOpenChange={setShowPublishRestrictedModal}
+      onNavigateTab={onNavigateTab}
+      contentType="nội dung"
+    />
   );
 
   // --- DECK EDITOR (Flashcards) ---
@@ -568,118 +538,123 @@ const handleOpenEditor = (course: Course) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Creator Studio</h1>
-          <p className="text-muted-foreground">Quản lý và tạo nội dung học tập của bạn</p>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Creator Studio</h1>
+          <p className="text-zinc-500 text-sm">Quản lý và tạo nội dung học tập chất lượng cao của bạn</p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="flashcards">Flashcards</TabsTrigger>
-          <TabsTrigger value="courses">Khóa Học</TabsTrigger>
-          <TabsTrigger value="exams">Bài Kiểm Tra</TabsTrigger>
+        <TabsList className="bg-zinc-100 p-1.5 rounded-2xl border border-zinc-200/80 gap-1.5 inline-flex">
+          <TabsTrigger value="flashcards" className="rounded-xl px-5 py-2 font-medium text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-xs transition-all">
+            Flashcards
+          </TabsTrigger>
+          <TabsTrigger value="courses" className="rounded-xl px-5 py-2 font-medium text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-xs transition-all">
+            Khóa Học
+          </TabsTrigger>
+          <TabsTrigger value="exams" className="rounded-xl px-5 py-2 font-medium text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-xs transition-all">
+            Bài Kiểm Tra
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="courses" className="space-y-6">
           <div className="flex justify-end">
-            <Button onClick={() => setShowNewActualCourseDialog(true)}>
+            <Button onClick={() => setShowNewActualCourseDialog(true)} className="bg-[#161616] hover:bg-black text-white rounded-xl shadow-xs active:scale-[0.99] transition-all duration-200 font-semibold">
               <Plus className="h-4 w-4 mr-2" /> Tạo khóa học
             </Button>
           </div>
 
+          {/* Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="border border-zinc-200/80 bg-white rounded-2xl shadow-xs hover:-translate-y-0.5 transition-all duration-200">
+              <CardContent className="p-5">
+                <p className="text-xs text-zinc-500 font-medium">Tổng số khóa học</p>
+                <p className="text-2xl font-bold text-zinc-900 mt-1">{actualCourses.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="border border-zinc-200/80 bg-white rounded-2xl shadow-xs hover:-translate-y-0.5 transition-all duration-200">
+              <CardContent className="p-5">
+                <p className="text-xs text-zinc-500 font-medium">Đã xuất bản</p>
+                <p className="text-2xl font-bold text-zinc-900 mt-1">{actualCourses.filter((c) => c.isPublished).length}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Tổng số khóa học</p>
-            <p className="text-2xl font-bold">{actualCourses.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Đã xuất bản</p>
-            <p className="text-2xl font-bold">{actualCourses.filter((c) => c.isPublished).length}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search */}
-      <div className="flex gap-2 items-center flex-wrap">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Tìm kiếm khóa học..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Courses Table */}
-      {isLoading ? (
-        <div className="flex justify-center p-12">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="divide-y">
-              {actualCourses.length === 0 ? (
-                <p className="text-center p-8 text-muted-foreground">Chưa có khóa học nào.</p>
-              ) : (
-                actualCourses.map((course) => (
-                  <div key={course._id} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
-                    {course.thumbnail ? (
-                       <img src={course.thumbnail} alt={course.title} className="h-12 w-12 rounded-lg object-cover bg-muted shrink-0" />
-                    ) : (
-                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <BookOpen className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{course.title}</p>
-                        <Badge variant={course.isPublished ? "default" : "secondary"} className="shrink-0 text-xs">
-                          {course.isPublished ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <AlertCircle className="h-3 w-3 mr-1" />}
-                          {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{course.description || "Không có mô tả"}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => { setSelectedCourse(course); setView("course_builder"); }}>
-                        <Edit className="h-4 w-4 mr-2" /> Xây dựng Khóa học
-                      </Button>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="ghost">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handlePublishActualCourse(course)}>
-                            {course.isPublished ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
-                            {course.isPublished ? "Hủy xuất bản" : "Xuất bản"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => setShowDeleteDialog(course._id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))
-              )}
+          {/* Search */}
+          <div className="flex gap-2 items-center flex-wrap">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <Input
+                className="pl-10 border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
+                placeholder="Tìm kiếm khóa học..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          {/* Courses Table */}
+          {isLoading ? (
+            <div className="flex justify-center p-12">
+              <div className="w-8 h-8 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <Card className="border border-zinc-200/80 rounded-2xl shadow-xs overflow-hidden bg-white">
+              <CardContent className="p-0">
+                <div className="divide-y divide-zinc-100">
+                  {actualCourses.length === 0 ? (
+                    <p className="text-center p-8 text-zinc-500">Chưa có khóa học nào.</p>
+                  ) : (
+                    actualCourses.map((course) => (
+                      <div key={course._id} className="flex items-center gap-4 p-4 hover:bg-zinc-50/80 transition-colors">
+                        {course.thumbnail ? (
+                           <img src={course.thumbnail} alt={course.title} className="h-12 w-12 rounded-xl object-cover bg-zinc-100 shrink-0 border border-zinc-200/60" />
+                        ) : (
+                          <div className="h-12 w-12 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0 border border-zinc-200/60">
+                            <BookOpen className="h-6 w-6 text-zinc-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-zinc-900 truncate">{course.title}</p>
+                            <Badge variant={course.isPublished ? "default" : "secondary"} className="shrink-0 text-xs rounded-full border-zinc-200">
+                              {course.isPublished ? <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" /> : <AlertCircle className="h-3 w-3 mr-1 text-zinc-500" />}
+                              {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-zinc-500 truncate">{course.description || "Không có mô tả"}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => { setSelectedCourse(course); setView("course_builder"); }} className="rounded-xl border-zinc-200 hover:border-zinc-900 hover:bg-zinc-50 text-zinc-800">
+                            <Edit className="h-4 w-4 mr-2" /> Xây dựng Khóa học
+                          </Button>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost" className="rounded-lg hover:bg-zinc-100">
+                                <MoreHorizontal className="h-4 w-4 text-zinc-500" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl border-zinc-200">
+                              <DropdownMenuItem onClick={() => handlePublishActualCourse(course)}>
+                                {course.isPublished ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
+                                {course.isPublished ? "Hủy xuất bản" : "Xuất bản"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+                                onClick={() => setShowDeleteDialog(course._id)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Xóa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
       {/* Delete Confirmation */}
       <Dialog open={showDeleteDialog !== null} onOpenChange={() => setShowDeleteDialog(null)}>
@@ -729,104 +704,102 @@ const handleOpenEditor = (course: Course) => {
 
         <TabsContent value="flashcards" className="space-y-6">
           <div className="flex justify-end">
-            <Button onClick={() => { setSelectedFlashcardDeckId(null); setView("flashcard_builder"); }}>
+            <Button onClick={() => { setSelectedFlashcardDeckId(null); setView("flashcard_builder"); }} className="bg-[#161616] hover:bg-black text-white rounded-xl shadow-xs active:scale-[0.99] transition-all duration-200 font-semibold">
               <Plus className="h-4 w-4 mr-2" /> Tạo bộ thẻ
             </Button>
           </div>
 
+          {/* Summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="border border-zinc-200/80 bg-white rounded-2xl shadow-xs hover:-translate-y-0.5 transition-all duration-200">
+              <CardContent className="p-5">
+                <p className="text-xs text-zinc-500 font-medium">Tổng số bộ thẻ</p>
+                <p className="text-2xl font-bold text-zinc-900 mt-1">{courses.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="border border-zinc-200/80 bg-white rounded-2xl shadow-xs hover:-translate-y-0.5 transition-all duration-200">
+              <CardContent className="p-5">
+                <p className="text-xs text-zinc-500 font-medium">Đã xuất bản</p>
+                <p className="text-2xl font-bold text-zinc-900 mt-1">{courses.filter((c) => c.isPublished).length}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Tổng số bộ thẻ</p>
-            <p className="text-2xl font-bold">{courses.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Đã xuất bản</p>
-            <p className="text-2xl font-bold">{courses.filter((c) => c.isPublished).length}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search */}
-      <div className="flex gap-2 items-center flex-wrap">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Tìm kiếm bộ thẻ..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Courses Table */}
-      {isLoading ? (
-        <div className="flex justify-center p-12">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="divide-y">
-              {filtered.length === 0 ? (
-                <p className="text-center p-8 text-muted-foreground">Chưa có bộ thẻ nào.</p>
-              ) : (
-                filtered.map((course) => (
-                  <div key={course._id} className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors">
-                    {course.thumbnail ? (
-                       <img src={course.thumbnail} alt={course.title} className="h-12 w-12 rounded-lg object-cover bg-muted shrink-0" />
-                    ) : (
-                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <BookOpen className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{course.title}</p>
-                        <Badge variant={course.isPublished ? "default" : "secondary"} className="shrink-0 text-xs">
-                          {course.isPublished ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <AlertCircle className="h-3 w-3 mr-1" />}
-                          {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{course.description || "Không có mô tả"}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      
-                      <Button size="sm" variant="outline" onClick={() => { setSelectedFlashcardDeckId(course._id); setView("flashcard_builder"); }}>
-                        <Edit className="h-4 w-4 mr-2" /> Quản lý thẻ
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="ghost">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handlePublishToggle(course)}>
-                            {course.isPublished ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
-                            {course.isPublished ? "Hủy xuất bản" : "Xuất bản"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => setShowDeleteDialog(course._id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))
-              )}
+          {/* Search */}
+          <div className="flex gap-2 items-center flex-wrap">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <Input
+                className="pl-10 border-zinc-200 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl bg-white"
+                placeholder="Tìm kiếm bộ thẻ..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          {/* Courses Table */}
+          {isLoading ? (
+            <div className="flex justify-center p-12">
+              <div className="w-8 h-8 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <Card className="border border-zinc-200/80 rounded-2xl shadow-xs overflow-hidden bg-white">
+              <CardContent className="p-0">
+                <div className="divide-y divide-zinc-100">
+                  {filtered.length === 0 ? (
+                    <p className="text-center p-8 text-zinc-500">Chưa có bộ thẻ nào.</p>
+                  ) : (
+                    filtered.map((course) => (
+                      <div key={course._id} className="flex items-center gap-4 p-4 hover:bg-zinc-50/80 transition-colors">
+                        {course.thumbnail ? (
+                           <img src={course.thumbnail} alt={course.title} className="h-12 w-12 rounded-xl object-cover bg-zinc-100 shrink-0 border border-zinc-200/60" />
+                        ) : (
+                          <div className="h-12 w-12 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0 border border-zinc-200/60">
+                            <BookOpen className="h-6 w-6 text-zinc-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-zinc-900 truncate">{course.title}</p>
+                            <Badge variant={course.isPublished ? "default" : "secondary"} className="shrink-0 text-xs rounded-full border-zinc-200">
+                              {course.isPublished ? <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" /> : <AlertCircle className="h-3 w-3 mr-1 text-zinc-500" />}
+                              {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-zinc-500 truncate">{course.description || "Không có mô tả"}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => { setSelectedFlashcardDeckId(course._id); setView("flashcard_builder"); }} className="rounded-xl border-zinc-200 hover:border-zinc-900 hover:bg-zinc-50 text-zinc-800">
+                            <Edit className="h-4 w-4 mr-2" /> Quản lý thẻ
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost" className="rounded-lg hover:bg-zinc-100">
+                                <MoreHorizontal className="h-4 w-4 text-zinc-500" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl border-zinc-200">
+                              <DropdownMenuItem onClick={() => handlePublishToggle(course)}>
+                                {course.isPublished ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
+                                {course.isPublished ? "Hủy xuất bản" : "Xuất bản"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+                                onClick={() => setShowDeleteDialog(course._id)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Xóa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
       {/* Delete Confirmation */}
       <Dialog open={showDeleteDialog !== null} onOpenChange={() => setShowDeleteDialog(null)}>
@@ -878,9 +851,9 @@ const handleOpenEditor = (course: Course) => {
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-4">
-                <h2 className="text-xl font-semibold">Danh sách Bài Kiểm Tra</h2>
+                <h2 className="text-xl font-bold tracking-tight text-zinc-900">Danh sách Bài Kiểm Tra</h2>
                 {exams.length > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-4">
+                  <div className="flex items-center gap-2 text-xs text-zinc-500 border-l border-zinc-200 pl-4">
                     <Checkbox 
                       checked={selectedExams.length === exams.length && exams.length > 0} 
                       onCheckedChange={(checked) => setSelectedExams(checked ? exams.map(e => e._id) : [])} 
@@ -889,23 +862,23 @@ const handleOpenEditor = (course: Course) => {
                   </div>
                 )}
               </div>
-              <Button onClick={handleCreateNewExam}>
+              <Button onClick={handleCreateNewExam} className="bg-[#161616] hover:bg-black text-white rounded-xl shadow-xs active:scale-[0.99] transition-all duration-200 font-semibold">
                 <Plus className="h-4 w-4 mr-2" /> Tạo Bài Kiểm Tra Mới
               </Button>
             </div>
 
             {selectedExams.length > 0 && (
-              <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg flex items-center justify-between">
-                <span className="font-medium text-sm">Đã chọn {selectedExams.length} bài thi</span>
+              <div className="bg-[#161616] text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xs">
+                <span className="font-medium text-xs">Đã chọn {selectedExams.length} bài thi</span>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleBulkAction('publish')}>
-                    <Globe className="h-4 w-4 mr-2" /> Xuất bản
+                  <Button variant="outline" size="sm" onClick={() => handleBulkAction('publish')} className="bg-transparent text-white border-zinc-700 hover:bg-zinc-800 rounded-xl text-xs">
+                    <Globe className="h-3.5 w-3.5 mr-1.5" /> Xuất bản
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleBulkAction('unpublish')}>
-                    <Lock className="h-4 w-4 mr-2" /> Hủy xuất bản
+                  <Button variant="outline" size="sm" onClick={() => handleBulkAction('unpublish')} className="bg-transparent text-white border-zinc-700 hover:bg-zinc-800 rounded-xl text-xs">
+                    <Lock className="h-3.5 w-3.5 mr-1.5" /> Hủy xuất bản
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
-                    <Trash2 className="h-4 w-4 mr-2" /> Xóa
+                  <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')} className="bg-rose-600 hover:bg-rose-700 rounded-xl text-xs">
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Xóa
                   </Button>
                 </div>
               </div>
@@ -914,13 +887,16 @@ const handleOpenEditor = (course: Course) => {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {exams.length === 0 ? (
-              <p className="text-muted-foreground">Chưa có bài kiểm tra nào.</p>
+              <p className="text-zinc-500 text-sm">Chưa có bài kiểm tra nào.</p>
             ) : (
               exams.map((exam) => (
-                <Card key={exam._id} className="cursor-pointer hover:border-primary transition-colors relative" onClick={() => { setActiveTab("exams"); setBuilderExamId(exam._id); }}>
+                <Card 
+                  key={exam._id} 
+                  className="cursor-pointer border border-zinc-200/80 bg-white hover:border-zinc-900 hover:-translate-y-0.5 hover:shadow-[0_10px_26px_-6px_rgba(0,0,0,0.07)] transition-all duration-200 rounded-2xl overflow-hidden relative group" 
+                  onClick={() => { setActiveTab("exams"); setBuilderExamId(exam._id); }}>
                   <div className="absolute top-3 left-3 z-10" onClick={(e) => e.stopPropagation()}>
                     <Checkbox 
-                      className="bg-background/80"
+                      className="bg-white/90 border-zinc-300"
                       checked={selectedExams.includes(exam._id)} 
                       onCheckedChange={(checked) => {
                         setSelectedExams(prev => checked ? [...prev, exam._id] : prev.filter(id => id !== exam._id));
@@ -928,35 +904,34 @@ const handleOpenEditor = (course: Course) => {
                     />
                   </div>
                   {exam.thumbnail ? (
-                    <img src={exam.thumbnail} alt={exam.title} className="w-full h-32 object-cover rounded-t-lg" />
+                    <img src={exam.thumbnail} alt={exam.title} className="w-full h-36 object-cover bg-zinc-100" />
                   ) : (
-                    <div className="w-full h-32 bg-muted flex items-center justify-center rounded-t-lg">
-                      <FileText className="h-10 w-10 text-muted-foreground/50" />
+                    <div className="w-full h-36 bg-zinc-100 flex items-center justify-center">
+                      <FileText className="h-10 w-10 text-zinc-300" />
                     </div>
                   )}
-                  <CardContent className="p-4">
+                  <CardContent className="p-5">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold">{exam.title}</h3>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={exam.status === 'Published' ? 'default' : exam.status === 'Suspended' ? 'destructive' : 'secondary'} className="text-[10px]">
+                      <h3 className="font-bold text-zinc-900 group-hover:text-black line-clamp-1">{exam.title}</h3>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="outline" className={`text-[10px] rounded-full border-zinc-200 ${exam.status === 'Published' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700'}`}>
                           {exam.status === 'Published' ? 'Published' : exam.status === 'Suspended' ? 'Suspended' : 'Draft'}
                         </Badge>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:bg-destructive hover:text-white" onClick={(e) => { e.stopPropagation(); setShowDeleteExamDialog(exam._id); }}>
-                          <Trash2 className="h-4 w-4" />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg" onClick={(e) => { e.stopPropagation(); setShowDeleteExamDialog(exam._id); }}>
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{exam.description || "Chưa có mô tả"}</p>
-                    <div className="flex justify-between items-center mt-3">
-                      <p className="text-xs text-muted-foreground">{exam.totalQuestions} Câu hỏi</p>
+                    <p className="text-xs text-zinc-500 line-clamp-2">{exam.description || "Chưa có mô tả"}</p>
+                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-zinc-100 text-xs">
+                      <span className="text-zinc-500 font-medium">{exam.totalQuestions} Câu hỏi</span>
                       {exam.totalRatings && exam.totalRatings > 0 ? (
                         <div 
-                          className="flex items-center gap-1 group relative bg-muted/50 px-2 py-1 rounded-md hover:bg-muted"
+                          className="flex items-center gap-1 bg-zinc-100 px-2 py-0.5 rounded-lg hover:bg-zinc-200 transition-colors cursor-pointer"
                           onClick={(e) => { e.stopPropagation(); openRatingsModal(exam._id); }}
                         >
-                          <span className="text-xs font-semibold text-yellow-500">★ {(exam.averageRating || 0).toFixed(1)}</span>
-                          <span className="text-xs text-muted-foreground">({exam.totalRatings})</span>
-                          
+                          <span className="font-semibold text-zinc-900">★ {(exam.averageRating || 0).toFixed(1)}</span>
+                          <span className="text-zinc-500 text-[11px]">({exam.totalRatings})</span>
                         </div>
                       ) : null}
                     </div>
