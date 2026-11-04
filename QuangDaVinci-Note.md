@@ -1,4 +1,4 @@
-# LexiCore - Tài Liệu Hệ Thống (System Reference)
+﻿# LexiCore - Tài Liệu Hệ Thống (System Reference)
 
 ---
 
@@ -396,3 +396,6 @@ frontend/src/app/
 6. Shadowing chỉ nhận phụ đề thủ công: Phụ đề tự động (ASR) bị chặn tại hàm `checkManualSub`. Điều kiện nhận diện là `kind !== 'asr'` và `!vssId.startsWith('a.')`.
 
 7. Ảnh thumbnail Shadowing: Lấy trực tiếp từ YouTube theo định dạng `https://img.youtube.com/vi/{youtubeId}/maxresdefault.jpg` mà không cần Google API key.
+
+
+---

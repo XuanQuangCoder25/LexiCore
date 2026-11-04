@@ -7,6 +7,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarSeparator,
 } from "./ui/sidebar";
 import {
   BookOpen,
@@ -78,127 +79,90 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
           </div>
         </SidebarHeader>
 
-        {/* ===== SIDEBAR CONTENT WITH NATURAL SCROLL ===== */}
-        <SidebarContent className="px-2.5 py-3 flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-          {/* ===== 1. ADMIN HUB SECTION (Được đưa lên ĐẦU khi là Admin) ===== */}
-          {isAdmin && (
-            <div className="space-y-1 mb-2">
-              <div className="flex items-center justify-between px-2.5 py-1">
-                <p className="text-[10.5px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
-                  <ShieldAlert className="h-3.5 w-3.5 text-primary" />
-                  ADMIN HUB
-                </p>
-                <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold bg-primary/10 text-primary border-primary/20">
-                  ADMIN
-                </Badge>
-              </div>
+        {/* ===== SIDEBAR CONTENT (scrollable) ===== */}
+        <SidebarContent className="px-2.5 py-3 flex flex-col flex-1 overflow-x-hidden overflow-y-auto [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]">
 
+          {/* ===== ADMIN HUB — hiện ở TRÊN CÙNG, chỉ khi là ADMIN ===== */}
+          {isAdmin && (
+            <div className="mb-2 pb-2 border-b shrink-0">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">ADMIN HUB</p>
               <SidebarMenu className="gap-1">
                 {/* Dashboard */}
-                <SidebarMenuItem key="admin-dashboard">
+                <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => onTabChange("admin-dashboard")}
-                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl transition-all duration-150 ${
-                      activeTab === "admin-dashboard"
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-xs"
-                        : "hover:bg-sidebar-accent/50 text-foreground/80 hover:text-foreground"
-                    }`}
+                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl ${activeTab === "admin-dashboard" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
                   >
-                    <PieChart className="h-4 w-4 mr-2.5 shrink-0 opacity-80" />
+                    <PieChart className="h-4 w-4 mr-2.5 shrink-0" />
                     <div className="flex flex-col items-start min-w-0 text-left">
-                      <span className="font-medium text-[13px] leading-snug">Dashboard</span>
-                      <span className="text-[10.5px] text-muted-foreground leading-tight">Tổng quan &amp; Số liệu</span>
+                      <span className="font-medium text-xs">Dashboard</span>
+                      <span className="text-[10px] text-muted-foreground">Tổng quan & Số liệu</span>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
                 {/* Human Resources */}
-                <SidebarMenuItem key="admin-hr">
+                <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => onTabChange("admin-hr")}
-                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl transition-all duration-150 ${
-                      activeTab === "admin-hr"
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-xs"
-                        : "hover:bg-sidebar-accent/50 text-foreground/80 hover:text-foreground"
-                    }`}
+                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl ${activeTab === "admin-hr" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
                   >
-                    <Users className="h-4 w-4 mr-2.5 shrink-0 opacity-80" />
+                    <Users className="h-4 w-4 mr-2.5 shrink-0" />
                     <div className="flex flex-col items-start min-w-0 text-left">
-                      <span className="font-medium text-[13px] leading-snug">Human Resources</span>
-                      <span className="text-[10.5px] text-muted-foreground leading-tight">Quản lý User &amp; Creator</span>
+                      <span className="font-medium text-xs">Human Resources</span>
+                      <span className="text-[10px] text-muted-foreground">Quản lý User & Creator</span>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
                 {/* Economy */}
-                <SidebarMenuItem key="admin-economy">
+                <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => onTabChange("admin-economy")}
-                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl transition-all duration-150 ${
-                      activeTab === "admin-economy" || activeTab === "admin"
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-xs"
-                        : "hover:bg-sidebar-accent/50 text-foreground/80 hover:text-foreground"
-                    }`}
+                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl ${activeTab === "admin-economy" || activeTab === "admin" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
                   >
-                    <CircleDollarSign className="h-4 w-4 mr-2.5 shrink-0 opacity-80" />
+                    <CircleDollarSign className="h-4 w-4 mr-2.5 shrink-0" />
                     <div className="flex flex-col items-start min-w-0 text-left">
-                      <span className="font-medium text-[13px] leading-snug">Economy</span>
-                      <span className="text-[10.5px] text-muted-foreground leading-tight">Cửa hàng &amp; Gamification</span>
+                      <span className="font-medium text-xs">Economy</span>
+                      <span className="text-[10px] text-muted-foreground">Cửa hàng & Gamification</span>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
                 {/* Moderation */}
-                <SidebarMenuItem key="admin-moderation">
+                <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => onTabChange("admin-moderation")}
-                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl transition-all duration-150 ${
-                      activeTab === "admin-moderation"
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-xs"
-                        : "hover:bg-sidebar-accent/50 text-foreground/80 hover:text-foreground"
-                    }`}
+                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl ${activeTab === "admin-moderation" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
                   >
-                    <ShieldAlert className="h-4 w-4 mr-2.5 shrink-0 opacity-80" />
+                    <ShieldAlert className="h-4 w-4 mr-2.5 shrink-0" />
                     <div className="flex flex-col items-start min-w-0 text-left">
-                      <span className="font-medium text-[13px] leading-snug">Moderation</span>
-                      <span className="text-[10.5px] text-muted-foreground leading-tight">Kiểm duyệt &amp; Report</span>
+                      <span className="font-medium text-xs">Moderation</span>
+                      <span className="text-[10px] text-muted-foreground">Kiểm duyệt & Report</span>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
                 {/* Marketing & Campaigns */}
-                <SidebarMenuItem key="admin-marketing">
+                <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => onTabChange("admin-marketing")}
-                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl transition-all duration-150 ${
-                      activeTab === "admin-marketing"
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-xs"
-                        : "hover:bg-sidebar-accent/50 text-foreground/80 hover:text-foreground"
-                    }`}
+                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl ${activeTab === "admin-marketing" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
                   >
-                    <Megaphone className="h-4 w-4 mr-2.5 shrink-0 opacity-80" />
+                    <Megaphone className="h-4 w-4 mr-2.5 shrink-0" />
                     <div className="flex flex-col items-start min-w-0 text-left">
-                      <span className="font-medium text-[13px] leading-snug">Marketing</span>
-                      <span className="text-[10.5px] text-muted-foreground leading-tight">Sự kiện &amp; Chiến dịch</span>
+                      <span className="font-medium text-xs">Marketing</span>
+                      <span className="text-[10px] text-muted-foreground">Sự kiện & Chiến dịch</span>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
-
-              <div className="pt-2 pb-1">
-                <div className="h-px bg-border/80 w-full" />
-              </div>
             </div>
           )}
 
-          {/* ===== 2. MAIN LEARNING NAVIGATION ===== */}
-          <div className="space-y-1">
-            {isAdmin && (
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2.5 mb-1.5">
-                HỌC TẬP &amp; TÍNH NĂNG
-              </p>
-            )}
-            <SidebarMenu className="gap-1">
+          {/* ===== MAIN NAVIGATION MENU ===== */}
+          <div className="flex-1">
+            <SidebarMenu className="gap-1 py-0.5">
               {navigationItems.map((item) => {
                 const IconComponent = item.icon;
                 const isActive = activeTab === item.id;
@@ -207,11 +171,10 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton
                       onClick={() => onTabChange(item.id)}
-                      className={`w-full justify-start px-3 py-2 h-auto rounded-xl transition-all duration-150 ${
-                        isActive
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-xs"
-                          : "hover:bg-sidebar-accent/50 text-foreground/80 hover:text-foreground"
-                      }`}
+                      className={`w-full justify-start px-3 py-2 h-auto rounded-xl transition-all duration-150 ${isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-xs"
+                        : "hover:bg-sidebar-accent/50 text-foreground/80 hover:text-foreground"
+                        }`}
                     >
                       <IconComponent className="h-4 w-4 mr-2.5 shrink-0 opacity-80" />
                       <div className="flex flex-col items-start min-w-0 text-left">
@@ -228,7 +191,7 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
             </SidebarMenu>
           </div>
 
-          {/* ===== 3. BOTTOM WIDGETS: DAILY GOAL & COINS ===== */}
+          {/* ===== BOTTOM WIDGETS: DAILY GOAL & COINS ===== */}
           <div className="mt-3 pt-3 border-t space-y-2 shrink-0">
             {/* Daily Goal */}
             <div className="rounded-xl border bg-card/60 p-2.5 space-y-1.5 shadow-2xs">
