@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -63,14 +63,9 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
       <Sidebar className="overflow-x-hidden border-r">
         {/* ===== BRAND HEADER: LEXICORE ===== */}
         <SidebarHeader className="border-b px-4 py-3.5 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#151515] text-white shadow-sm ring-1 ring-black/10 shrink-0">
-              {/* LexiCore Crystal Logo Icon */}
-              <svg className="h-5 w-5" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1.5L14 5V11L8 14.5L2 11V5L8 1.5Z" stroke="#99B6D2" strokeWidth="1.2" fill="rgba(153,182,210,0.18)" />
-                <circle cx="8" cy="8" r="2.2" fill="#FFFFFF" />
-                <path d="M8 1.5V5.8M8 10.2V14.5M2 5L5.8 6.9M10.2 9.1L14 11M14 5L10.2 6.9M5.8 9.1L2 11" stroke="#99B6D2" strokeWidth="0.8" strokeOpacity="0.8" />
-              </svg>
+          <div className="flex items-center space-x-2">
+            <div className="shrink-0 flex items-center justify-center">
+              <img src="/assets/logo_whale.png" alt="LexiCore" className="h-12 w-12 object-contain" />
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-semibold text-base tracking-tight text-foreground leading-tight">LexiCore</span>
