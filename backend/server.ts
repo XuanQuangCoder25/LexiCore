@@ -18,6 +18,7 @@ import creatorApplicationRoutes from './modules/creator/creator-application.rout
 import adminRoutes from './modules/admin/admin.route';
 import gamificationAdminRoutes from './modules/admin/gamification-admin.route';
 import arenaAdminRoutes from './modules/admin/arena-admin.route';
+import paymentRoutes from './modules/payment/payment.route';
 import examRoutes from './modules/exam/exam.route';
 import courseRoute from './modules/course/course.route';
 import studentCourseRoute from './modules/course/student-course.route';
@@ -92,6 +93,9 @@ const startServer = async () => {
 
         // --- Community Routes ---
         app.use('/api/community', communityRoute);
+
+        // --- Payment & Credit Packages ---
+        app.use('/api/payment', paymentRoutes);
 
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);

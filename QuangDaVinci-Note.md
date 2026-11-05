@@ -1,4 +1,4 @@
-﻿# LexiCore - Tài Liệu Hệ Thống (System Reference)
+# LexiCore - Tài Liệu Hệ Thống (System Reference)
 
 ---
 
@@ -28,6 +28,7 @@
 /api/arena              -> PvP Arena
 /api/courses            -> Creator/Admin course management
 /api/exams              -> Exam module
+/api/payment            -> Payment & Credit Packages (VNPay, Mock, Packages catalog)
 ```
 
 ---
@@ -365,7 +366,8 @@ backend/
     ├── arena/                         # Dau truong PvP (Socket.IO)
     ├── course/                        # Khoa hoc (Creator, Admin, Student)
     ├── srs/                           # Spaced Repetition System (Flashcard)
-    └── exam/                          # Module kiem tra
+    ├── exam/                          # Module kiem tra
+    └── payment/                       # Payment gateways (Mock, VNPay), Credit packages, Orders
 
 frontend/src/app/
 ├── services/
@@ -396,6 +398,8 @@ frontend/src/app/
 6. Shadowing chỉ nhận phụ đề thủ công: Phụ đề tự động (ASR) bị chặn tại hàm `checkManualSub`. Điều kiện nhận diện là `kind !== 'asr'` và `!vssId.startsWith('a.')`.
 
 7. Ảnh thumbnail Shadowing: Lấy trực tiếp từ YouTube theo định dạng `https://img.youtube.com/vi/{youtubeId}/maxresdefault.jpg` mà không cần Google API key.
+
+8. Quy tắc Database & Migration: Tuyệt đối KHÔNG tạo hay tự chạy script migration tự động. Mọi thay đổi cấu trúc bảng (DDL), index, và seed data chỉ được viết trực tiếp vào file `backend/database/schema.sql` để user tự xem xét và thực thi trên DataGrip.
 
 
 ---

@@ -441,7 +441,12 @@ CREATE TABLE IF NOT EXISTS friendships (
     requester_id VARCHAR(36) NOT NULL,
     receiver_id VARCHAR(36) NOT NULL,
     pair_key VARCHAR(73) NOT NULL,
-    status ENUM('pending', 'accepted', 'rejected', 'blocked') NOT NULL DEFAULT 'pending',
+    status ENUM(
+        'pending',
+        'accepted',
+        'rejected',
+        'blocked'
+    ) NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_friendship_pair (pair_key),
@@ -475,7 +480,102 @@ CREATE TABLE IF NOT EXISTS messages (
     read_at TIMESTAMP(3) NULL DEFAULT NULL,
     created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     INDEX idx_messages_conversation_id (conversation_id, id),
-    INDEX idx_messages_unread (conversation_id, sender_id, is_read),
+    INDEX idx_messages_unread (
+        conversation_id,
+        sender_id,
+        is_read
+    ),
     FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
     FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE
 );
+
+-- F. PAYMENT & CREDIT PACKAGES
+
+-- 1. Bảng danh mục gói nạp và subscription
+CREATE TABLE IF NOT EXISTS credit_packages (
+    id VARCHAR(36) PRIMARY KEY DEFAULT(UUID()),
+    name VARCHAR(100) NOT NULL,
+    slug VARCHAR(50) NOT NULL UNIQUE,
+    package_type ENUM(
+        'SUBSCRIPTION',
+        'COIN_PACK',
+        'DIAMOND_PACK',
+        'BUNDLE'
+    ) NOT NULL,
+    tier ENUM('STARTER', 'PRO', 'ELITE') NULL,
+    price_vnd INT NOT NULL DEFAULT 0,
+    price_usd DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    coin_amount INT NOT NULL DEFAULT 0,
+    diamond_amount INT NOT NULL DEFAULT 0,
+    duration_days INT NULL,
+    sale_percent INT NOT NULL DEFAULT 0,
+    sale_ends_at DATETIME NULL,
+    features JSON NULL,
+    display_order INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 2. Bảng lịch sử đơn thanh toán
+CREATE TABLE IF NOT EXISTS payment_orders (
+    id VARCHAR(36) PRIMARY KEY DEFAULT(UUID()),
+    user_id VARCHAR(36) NOT NULL,
+    package_id VARCHAR(36) NOT NULL,
+    amount_vnd INT NOT NULL,
+    gateway ENUM(
+        'VNPAY',
+        'MOMO',
+        'STRIPE',
+        'MOCK'
+    ) NOT NULL DEFAULT 'MOCK',
+    status ENUM(
+        'PENDING',
+        'SUCCESS',
+        'FAILED',
+        'CANCELLED',
+        'REFUNDED'
+    ) NOT NULL DEFAULT 'PENDING',
+    gateway_txn_id VARCHAR(255) NULL,
+    gateway_response JSON NULL,
+    metadata JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_payment_orders_user (user_id, status),
+    INDEX idx_payment_orders_gateway_txn (gateway_txn_id),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (package_id) REFERENCES credit_packages (id)
+);
+
+-- 3. Dữ liệu mẫu (Seed Data) cho Credit Packages
+INSERT INTO credit_packages 
+    (slug, name, package_type, tier, price_vnd, price_usd, coin_amount, diamond_amount, duration_days, sale_percent, display_order, features)
+VALUES 
+    -- Subscription Packages
+    ('sub-starter-monthly', 'Starter', 'SUBSCRIPTION', 'STARTER', 49000, 1.99, 200, 5, 30, 0, 1, '["Không quảng cáo", "200 Coin/tháng", "5 Diamond/tháng", "Truy cập từ vựng Arena"]'),
+    ('sub-pro-monthly', 'Pro', 'SUBSCRIPTION', 'PRO', 99000, 3.99, 500, 15, 30, 0, 2, '["Tất cả tính năng Starter", "AI Voice Recognition", "Analytics chi tiết", "500 Coin/tháng", "15 Diamond/tháng", "Badge Pro độc quyền"]'),
+    ('sub-elite-monthly', 'Elite', 'SUBSCRIPTION', 'ELITE', 199000, 7.99, 1500, 50, 30, 20, 3, '["Tất cả tính năng Pro", "Unlimited AI feedback", "Priority support", "1500 Coin/tháng", "50 Diamond/tháng", "Elite frame + badge", "Early access tính năng mới"]'),
+    -- Coin Packs
+    ('coin-xs', 'Coin Mini', 'COIN_PACK', NULL, 9000, 0.39, 100, 0, NULL, 0, 9, NULL),
+    ('coin-small', 'Túi Coin Nhỏ', 'COIN_PACK', NULL, 15000, 0.59, 200, 0, NULL, 0, 10, NULL),
+    ('coin-medium', 'Túi Coin Vừa', 'COIN_PACK', NULL, 29000, 1.19, 500, 0, NULL, 0, 11, NULL),
+    ('coin-large', 'Túi Coin Lớn', 'COIN_PACK', NULL, 49000, 1.99, 1000, 0, NULL, 15, 12, NULL),
+    ('coin-xl', 'Rương Coin', 'COIN_PACK', NULL, 89000, 3.59, 2000, 0, NULL, 0, 13, NULL),
+    ('coin-xxl', 'Kho Coin', 'COIN_PACK', NULL, 149000, 5.99, 4000, 0, NULL, 20, 14, NULL),
+    -- Diamond Packs
+    ('diamond-xs', 'Diamond Mini', 'DIAMOND_PACK', NULL, 15000, 0.59, 0, 5, NULL, 0, 19, NULL),
+    ('diamond-small', 'Hộp Diamond Nhỏ', 'DIAMOND_PACK', NULL, 25000, 0.99, 0, 10, NULL, 0, 20, NULL),
+    ('diamond-medium', 'Hộp Diamond Vừa', 'DIAMOND_PACK', NULL, 59000, 2.39, 0, 30, NULL, 0, 21, NULL),
+    ('diamond-large', 'Hộp Diamond Lớn', 'DIAMOND_PACK', NULL, 99000, 3.99, 0, 60, NULL, 10, 22, NULL),
+    ('diamond-xl', 'Rương Diamond', 'DIAMOND_PACK', NULL, 179000, 7.19, 0, 120, NULL, 20, 23, NULL),
+    ('diamond-xxl', 'Kho Diamond', 'DIAMOND_PACK', NULL, 299000, 11.99, 0, 250, NULL, 25, 24, NULL)
+ON DUPLICATE KEY UPDATE 
+    name = VALUES(name),
+    price_vnd = VALUES(price_vnd),
+    price_usd = VALUES(price_usd),
+    coin_amount = VALUES(coin_amount),
+    diamond_amount = VALUES(diamond_amount),
+    duration_days = VALUES(duration_days),
+    sale_percent = VALUES(sale_percent),
+    features = VALUES(features),
+    display_order = VALUES(display_order);
