@@ -37,6 +37,13 @@ interface ArenaWord {
   created_at: string;
 }
 
+interface UploadedFileItem {
+  id: string;
+  name: string;
+  content: string;
+  rowCount: number;
+}
+
 const LEVELS: WordLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
 const WORD_TYPES: WordType[] = [
   "noun", "verb", "adjective", "adverb",
@@ -97,7 +104,8 @@ export function AdminArenaView() {
   const [formError, setFormError] = useState("");
 
   // Import
-  const [csvText, setCsvText] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileItem[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [importError, setImportError] = useState("");
   const [importLoading, setImportLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -207,20 +215,79 @@ export function AdminArenaView() {
     }
   };
 
-  // ─── Import CSV ───────────────────────────────────────────────────────────
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setCsvText(ev.target?.result as string);
-    reader.readAsText(file, "UTF-8");
+  // ─── Import CSV (Multi-file support) ───────────────────────────────────────
+  const processFiles = (files: File[]) => {
+    setImportError("");
+    files.forEach((file) => {
+      if (!file.name.toLowerCase().endsWith(".csv") && file.type !== "text/csv") {
+        setImportError(`File "${file.name}" không phải định dạng CSV.`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = (ev.target?.result as string) || "";
+        const lines = text.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const newFileItem = {
+          id: `${file.name}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          name: file.name,
+          content: text,
+          rowCount: lines.length,
+        };
+        setUploadedFiles(prev => [...prev, newFileItem]);
+      };
+      reader.readAsText(file, "UTF-8");
+    });
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    processFiles(Array.from(files));
+    if (e.target) e.target.value = "";
+  };
+
+  const removeFile = (id: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(Array.from(e.dataTransfer.files));
+    }
+  };
+
+  const totalImportRows = uploadedFiles.reduce((sum, f) => sum + f.rowCount, 0);
 
   const handleImport = async () => {
     setImportError("");
-    const rows = csvText.trim().split(/\r?\n/).map(r => r.trim()).filter(Boolean);
-    if (rows.length === 0) {
-      setImportError("File CSV trống.");
+    if (uploadedFiles.length === 0) {
+      setImportError("Chưa có file CSV nào được chọn.");
+      return;
+    }
+
+    // Thu thập toàn bộ dòng từ tất cả các file đã upload
+    const allRows: { line: string; fileName: string; lineIndex: number }[] = [];
+    for (const file of uploadedFiles) {
+      const lines = file.content.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      lines.forEach((line, idx) => {
+        allRows.push({ line, fileName: file.name, lineIndex: idx + 1 });
+      });
+    }
+
+    if (allRows.length === 0) {
+      setImportError("Nội dung các file CSV đều trống.");
       return;
     }
 
@@ -259,10 +326,10 @@ export function AdminArenaView() {
     }[] = [];
 
     try {
-      parsed = rows.map((row, i) => {
-        const cols = parseCsvRow(row);
+      parsed = allRows.map((item) => {
+        const cols = parseCsvRow(item.line);
         if (cols.length < 5) {
-          throw new Error(`Dòng ${i + 1}: Thiếu cột (cần ít nhất 5 cột: word, meaning, topic, level, word_type)`);
+          throw new Error(`[${item.fileName}] Dòng ${item.lineIndex}: Thiếu cột (cần ít nhất 5 cột: word, meaning, topic, level, word_type)`);
         }
         return {
           word: cols[0],
@@ -289,7 +356,7 @@ export function AdminArenaView() {
       const data = await res.json();
       if (data.success) {
         setImportOpen(false);
-        setCsvText("");
+        setUploadedFiles([]);
         fetchWords(1);
       } else {
         setImportError(data.message || "Import thất bại");
@@ -530,32 +597,139 @@ export function AdminArenaView() {
       </Dialog>
 
       {/* ── Import CSV Modal ─────────────────────────────────────────────────── */}
-      <Dialog open={importOpen} onOpenChange={(open) => { if (!open) { setImportOpen(false); setCsvText(""); setImportError(""); } }}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={importOpen} onOpenChange={(open) => { if (!open) { setImportOpen(false); setUploadedFiles([]); setImportError(""); } }}>
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Import từ vựng qua CSV</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2 text-sm">
             <div className="bg-muted/50 rounded-lg p-3 text-muted-foreground space-y-1 text-xs font-mono">
-              <p className="font-semibold text-foreground mb-2">Định dạng CSV (không có header):</p>
-              <p>word, meaning, topic, level, word_type, example(tuỳ chọn)</p>
+              <p className="font-semibold text-foreground mb-1 font-sans text-xs">Định dạng CSV (không có header, mỗi dòng 1 từ):</p>
+              <p>word, meaning, topic, level, word_type, example (tùy chọn)</p>
               <p className="text-muted-foreground/70 mt-1">Ví dụ:</p>
-              <p>persevere, kiên trì, business, B2, verb, She persevered.</p>
+              <p>persevere, "kiên trì, bền bỉ", business, B2, verb, She persevered.</p>
               <p>resilient, kiên cường, psychology, C1, adjective</p>
             </div>
-            <div
-              className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors"
-              onClick={() => fileRef.current?.click()}
+
+            {/* Vùng Dropzone lớn: chỉ hiển thị khi CHƯA có file nào */}
+            {uploadedFiles.length === 0 && (
+              <div
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                  isDragging
+                    ? "border-primary bg-primary/10"
+                    : "hover:border-primary/50 hover:bg-muted/30 border-border"
+                }`}
+                onClick={() => fileRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="font-medium text-sm">Kéo thả hoặc click để chọn một hoặc nhiều file .csv</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Hỗ trợ chọn nhiều file cùng lúc</p>
+              </div>
+            )}
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {/* Danh sách file đã tải: hiển thị khi ĐÃ có file (hỗ trợ kéo thả trực tiếp vào khung) */}
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <span className="text-foreground font-semibold">
+                    Danh sách file đã chọn ({uploadedFiles.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setUploadedFiles([])}
+                    className="text-muted-foreground hover:text-destructive text-xs transition-colors"
+                  >
+                    Xoá tất cả
+                  </button>
+                </div>
+
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`flex flex-wrap gap-3 max-h-56 overflow-y-auto p-2.5 border-2 rounded-xl transition-colors [scrollbar-width:thin] ${
+                    isDragging
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-muted/20"
+                  }`}
+                >
+                  {uploadedFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="relative group flex flex-col items-center p-3 rounded-xl border border-border bg-card hover:border-primary/40 transition-all w-28 shrink-0 shadow-xs"
+                    >
+                      {/* Nút xoá file */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile(file.id);
+                        }}
+                        className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:scale-110 z-10"
+                        title="Xoá file này"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+
+                      {/* Icon file tài liệu CSV */}
+                      <div className="w-12 h-14 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center relative mb-2 shadow-xs group-hover:scale-105 transition-transform">
+                        <div className="absolute top-0 right-0 w-3 h-3 bg-card border-b border-l border-emerald-500/30 rounded-bl-xs" />
+                        <span className="text-[11px] font-black text-emerald-600 tracking-wider">CSV</span>
+                      </div>
+
+                      {/* Tên file */}
+                      <span
+                        className="text-xs font-medium text-foreground truncate w-full text-center"
+                        title={file.name}
+                      >
+                        {file.name}
+                      </span>
+                      {/* Số dòng */}
+                      <span className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                        {file.rowCount} dòng
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Nút thêm file nữa */}
+                  <div
+                    onClick={() => fileRef.current?.click()}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 bg-muted/30 hover:bg-muted/60 cursor-pointer transition-colors w-28 h-[122px] shrink-0 text-muted-foreground hover:text-foreground"
+                    title="Thêm file CSV khác (hoặc kéo thả file vào đây)"
+                  >
+                    <Plus className="w-6 h-6 mb-1 text-muted-foreground" />
+                    <span className="text-xs font-medium text-center">Thêm file</span>
+                  </div>
+                </div>
+
+                {/* Thống kê tổng số từ */}
+                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg text-xs text-emerald-600 font-medium">
+                  <span>Đã chọn {uploadedFiles.length} file</span>
+                  <span className="font-bold">Tổng cộng: {totalImportRows} từ vựng</span>
+                </div>
+              </div>
+            )}
+
+            {importError && <p className="text-destructive text-xs font-medium">{importError}</p>}
+            <Button
+              className="w-full"
+              onClick={handleImport}
+              disabled={importLoading || uploadedFiles.length === 0}
             >
-              <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="font-medium">Kéo thả hoặc click để chọn file .csv</p>
-              {csvText && <p className="text-xs text-emerald-600 mt-1">{csvText.trim().split("\n").length} dòng đã tải</p>}
-            </div>
-            <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileChange} />
-            {importError && <p className="text-destructive text-xs">{importError}</p>}
-            <Button className="w-full" onClick={handleImport} disabled={importLoading || !csvText}>
               {importLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-              Import ngay
+              Import ngay {totalImportRows > 0 ? `(${totalImportRows} từ)` : ""}
             </Button>
           </div>
         </DialogContent>
