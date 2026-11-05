@@ -104,9 +104,10 @@ export function AdminHRView() {
   });
 
   const getRoleBadge = (role: string) => {
-    if (role === "ADMIN") return <Badge className="bg-red-500 hover:bg-red-600">Admin</Badge>;
-    if (role === "CONTENT_CREATOR") return <Badge className="bg-amber-500 hover:bg-amber-600">Creator</Badge>;
-    return <Badge className="bg-blue-500 hover:bg-blue-600">User</Badge>;
+    const badgeStyle = "w-20 justify-center text-center";
+    if (role === "ADMIN") return <Badge className={`bg-red-500 hover:bg-red-600 ${badgeStyle}`}>Admin</Badge>;
+    if (role === "CONTENT_CREATOR") return <Badge className={`bg-amber-500 hover:bg-amber-600 ${badgeStyle}`}>Creator</Badge>;
+    return <Badge className={`bg-blue-500 hover:bg-blue-600 ${badgeStyle}`}>User</Badge>;
   };
 
   const getStatusBadge = (user: UserProfile) => {

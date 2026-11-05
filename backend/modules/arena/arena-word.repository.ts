@@ -26,8 +26,8 @@ export interface ArenaWordRow extends ArenaWordInput {
 
 // ─── Validation helpers ───────────────────────────────────────────────────────
 
-const VALID_LEVELS: WordLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-const VALID_TYPES: WordType[] = [
+export const VALID_LEVELS: WordLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+export const VALID_TYPES: WordType[] = [
     'noun', 'verb', 'adjective', 'adverb',
     'phrase', 'noun_phrase', 'verb_phrase',
     'idiom', 'collocation',

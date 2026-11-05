@@ -17,6 +17,7 @@ import creatorRoutes from './modules/creator/creator.route';
 import creatorApplicationRoutes from './modules/creator/creator-application.route';
 import adminRoutes from './modules/admin/admin.route';
 import gamificationAdminRoutes from './modules/admin/gamification-admin.route';
+import arenaAdminRoutes from './modules/admin/arena-admin.route';
 import examRoutes from './modules/exam/exam.route';
 import courseRoute from './modules/course/course.route';
 import studentCourseRoute from './modules/course/student-course.route';
@@ -73,6 +74,7 @@ const startServer = async () => {
         app.use('/api/creator', creatorApplicationRoutes);
         app.use('/api/admin', adminRoutes);
         app.use('/api/admin/gamification', gamificationAdminRoutes);
+        app.use('/api/admin/arena', arenaAdminRoutes);
         app.use('/api/exams', examRoutes);
 
         // --- Course Routes ---

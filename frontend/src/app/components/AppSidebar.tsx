@@ -28,6 +28,7 @@ import {
   ShieldAlert,
   Megaphone,
   FolderLock,
+  BookMarked,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { PremiumModal } from "./global/PremiumModal";
@@ -148,6 +149,19 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
                     <div className="flex flex-col items-start min-w-0 text-left">
                       <span className="font-medium text-xs">Marketing</span>
                       <span className="text-[10px] text-muted-foreground">Sự kiện & Chiến dịch</span>
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {/* Arena Words */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => onTabChange("admin-arena")}
+                    className={`w-full justify-start px-3 py-2 h-auto rounded-xl ${activeTab === "admin-arena" ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50"}`}
+                  >
+                    <BookMarked className="h-4 w-4 mr-2.5 shrink-0" />
+                    <div className="flex flex-col items-start min-w-0 text-left">
+                      <span className="font-medium text-xs">Arena Words</span>
+                      <span className="text-[10px] text-muted-foreground">Từ vựng PvP Arena</span>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -16,6 +16,7 @@ import { PrivateSpaceView } from "./components/dashboard/PrivateSpaceView";
 import { AdminView } from "./components/dashboard/AdminEconomyView";
 import { AdminDashboardView } from "./components/dashboard/AdminDashboardView";
 import { AdminHRView } from "./components/dashboard/AdminHRView";
+import { AdminArenaView } from "./components/dashboard/AdminArenaView";
 import { AdminModerationView } from "./components/dashboard/AdminModerationView";
 import { AdminMarketingView } from "./components/dashboard/AdminMarketingView";
 import { ExamView } from "./components/dashboard/ExamView";
@@ -49,6 +50,7 @@ const TAB_LABELS: Record<string, string> = {
   "admin-economy": "Admin - Economy",
   "admin-moderation": "Admin - Moderation",
   "admin-marketing": "Admin - Marketing & Campaigns",
+  "admin-arena": "Admin - Arena Words",
   profile: "Profile",
   settings: "Settings",
 };
@@ -134,6 +136,7 @@ function AppContent() {
       case "admin-hr": return <AdminHRView />;
       case "admin-moderation": return <AdminModerationView />;
       case "admin-marketing": return <AdminMarketingView />;
+      case "admin-arena": return <AdminArenaView />;
       case "profile": return <ProfileView />;
       case "settings": return <SettingsView onNavigateTab={setActiveTab} userRole={userRole || "user"} />;
       default: return <DashboardView />;
