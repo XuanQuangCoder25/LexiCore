@@ -218,27 +218,65 @@ export function AdminArenaView() {
 
   const handleImport = async () => {
     setImportError("");
-    const rows = csvText.trim().split("\n").filter(Boolean);
+    const rows = csvText.trim().split(/\r?\n/).map(r => r.trim()).filter(Boolean);
     if (rows.length === 0) {
       setImportError("File CSV trống.");
       return;
     }
 
-    // Parse: word,meaning,topic,level,word_type,example(optional)
-    const parsed = rows.map((row, i) => {
-      const cols = row.split(",").map((c) => c.trim());
-      if (cols.length < 5) {
-        throw new Error(`Hàng ${i + 1}: thiếu cột (cần ít nhất 5 cột: word, meaning, topic, level, word_type)`);
+    // Helper parse 1 dòng CSV hỗ trợ cả dấu ngoặc kép "..." chứa dấu phẩy
+    const parseCsvRow = (line: string): string[] => {
+      const cols: string[] = [];
+      let cur = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (c === ',' && !inQuotes) {
+          cols.push(cur.trim());
+          cur = "";
+        } else {
+          cur += c;
+        }
       }
-      return {
-        word: cols[0],
-        meaning: cols[1],
-        topic: cols[2],
-        level: cols[3] as WordLevel,
-        word_type: cols[4] as WordType,
-        example: cols[5] || undefined,
-      };
-    });
+      cols.push(cur.trim());
+      return cols;
+    };
+
+    let parsed: {
+      word: string;
+      meaning: string;
+      topic: string;
+      level: WordLevel;
+      word_type: WordType;
+      example?: string;
+    }[] = [];
+
+    try {
+      parsed = rows.map((row, i) => {
+        const cols = parseCsvRow(row);
+        if (cols.length < 5) {
+          throw new Error(`Dòng ${i + 1}: Thiếu cột (cần ít nhất 5 cột: word, meaning, topic, level, word_type)`);
+        }
+        return {
+          word: cols[0],
+          meaning: cols[1],
+          topic: cols[2],
+          level: cols[3].toUpperCase() as WordLevel,
+          word_type: cols[4].toLowerCase() as WordType,
+          example: cols[5] || undefined,
+        };
+      });
+    } catch (err: any) {
+      setImportError(err.message || "Lỗi định dạng file CSV.");
+      return;
+    }
 
     setImportLoading(true);
     try {
