@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -31,7 +31,7 @@ import {
   BookMarked,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
-import { PremiumModal } from "./global/PremiumModal";
+import { SubscriptionModal } from "./global/SubscriptionModal";
 
 interface AppSidebarProps {
   activeTab: string;
@@ -269,7 +269,7 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
         </SidebarFooter>
       </Sidebar>
 
-      <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
+      <SubscriptionModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
     </>
   );
 }

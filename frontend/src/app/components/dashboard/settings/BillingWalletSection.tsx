@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "../../ui/table";
 import { toast } from "sonner";
-import { PremiumModal } from "../../global/PremiumModal";
+import { SubscriptionModal } from "../../global/SubscriptionModal";
 import { SettingsState } from "./settingsMock";
 
 interface BillingWalletSectionProps {
@@ -369,7 +369,7 @@ export function BillingWalletSection({
       </Card>
 
       {/* Upgrade Modal */}
-      <PremiumModal
+      <SubscriptionModal
         open={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
       />

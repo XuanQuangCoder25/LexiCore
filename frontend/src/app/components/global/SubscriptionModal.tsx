@@ -23,8 +23,6 @@ import {
   Star,
   Clock,
   Info,
-  ChevronLeft,
-  ChevronRight,
   ArrowLeft,
 } from "lucide-react";
 
@@ -55,10 +53,11 @@ interface GroupedPackages {
   bundles: CreditPackage[];
 }
 
-interface PremiumModalProps {
+export interface SubscriptionModalProps {
   open: boolean;
   onClose: () => void;
 }
+export type PremiumModalProps = SubscriptionModalProps;
 
 // ============================================================
 // Mock data
@@ -197,7 +196,7 @@ const MOCK_DATA: GroupedPackages = {
       diamond_amount: 0,
       duration_days: null,
       sale_percent: 15,
-      sale_ends_at: null,
+      sale_ends_at: new Date(Date.now() + (2 * 24 + 14) * 3600 * 1000).toISOString(),
       display_order: 12,
       features: null,
     },
@@ -229,7 +228,7 @@ const MOCK_DATA: GroupedPackages = {
       diamond_amount: 0,
       duration_days: null,
       sale_percent: 20,
-      sale_ends_at: null,
+      sale_ends_at: new Date(Date.now() + (5 * 3600 + 42 * 60) * 1000).toISOString(),
       display_order: 14,
       features: null,
     },
@@ -295,7 +294,7 @@ const MOCK_DATA: GroupedPackages = {
       diamond_amount: 60,
       duration_days: null,
       sale_percent: 10,
-      sale_ends_at: null,
+      sale_ends_at: new Date(Date.now() + (3 * 24 + 8) * 3600 * 1000).toISOString(),
       display_order: 22,
       features: null,
     },
@@ -311,7 +310,7 @@ const MOCK_DATA: GroupedPackages = {
       diamond_amount: 120,
       duration_days: null,
       sale_percent: 20,
-      sale_ends_at: null,
+      sale_ends_at: new Date(Date.now() + (18 * 60 + 45) * 1000).toISOString(),
       display_order: 23,
       features: null,
     },
@@ -327,7 +326,7 @@ const MOCK_DATA: GroupedPackages = {
       diamond_amount: 250,
       duration_days: null,
       sale_percent: 25,
-      sale_ends_at: null,
+      sale_ends_at: new Date(Date.now() + (1 * 24 + 6) * 3600 * 1000).toISOString(),
       display_order: 24,
       features: null,
     },
@@ -388,6 +387,73 @@ function Countdown({ endsAt }: { endsAt: string }) {
 }
 
 // ============================================================
+// Compact Countdown cho Badge chính giữa mép trên Card
+// Hiển thị tối đa 2 thông số:
+// - Còn > 1 ngày: Xd Yh
+// - Còn < 1 ngày & >= 1 giờ: Xh Yp
+// - Còn < 1 giờ: Xp Ys
+// ============================================================
+function CompactCountdown({
+  endsAt,
+  size = "sm",
+  className,
+}: {
+  endsAt: string;
+  size?: "sm" | "md";
+  className?: string;
+}) {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    const calc = () => {
+      const diff = new Date(endsAt).getTime() - Date.now();
+      if (diff <= 0) {
+        setTimeLeft("Hết hạn");
+        return;
+      }
+      const totalSec = Math.floor(diff / 1000);
+      const days = Math.floor(totalSec / 86400);
+      const hours = Math.floor((totalSec % 86400) / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+
+      if (days > 0) {
+        setTimeLeft(`${days}d ${hours}h`);
+      } else if (hours > 0) {
+        setTimeLeft(`${hours}h ${minutes}p`);
+      } else {
+        setTimeLeft(`${minutes}p ${seconds}s`);
+      }
+    };
+    calc();
+    const id = setInterval(calc, 1000);
+    return () => clearInterval(id);
+  }, [endsAt]);
+
+  if (!timeLeft || timeLeft === "Hết hạn") return null;
+
+  if (size === "md") {
+    return (
+      <span
+        className={`absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 px-3 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.5)] pointer-events-none flex items-center gap-1.5 whitespace-nowrap ${className || ""}`}
+      >
+        <Clock className="w-3 h-3 shrink-0" />
+        {timeLeft}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`absolute -top-2.5 left-1/2 -translate-x-1/2 z-10 px-2 py-0.5 rounded-full text-[9px] font-black tracking-tight bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs pointer-events-none flex items-center gap-1 whitespace-nowrap ${className || ""}`}
+    >
+      <Clock className="w-2.5 h-2.5 shrink-0" />
+      {timeLeft}
+    </span>
+  );
+}
+
+// ============================================================
 // Flip Card (Subscription)
 // 240×330px — same width as ArenaRankModal cards
 // ============================================================
@@ -438,8 +504,7 @@ function SubscriptionFlipCard({
   const finalPrice = getFinalPrice(pkg);
   const hasSale =
     pkg.sale_percent > 0 &&
-    pkg.sale_ends_at &&
-    new Date(pkg.sale_ends_at) > new Date();
+    (!pkg.sale_ends_at || new Date(pkg.sale_ends_at) > new Date());
   const features = pkg.tier ? TIER_FEATURES_MAP[pkg.tier] ?? [] : [];
 
   // Màu chủ đạo cho 3 gói
@@ -450,10 +515,10 @@ function SubscriptionFlipCard({
       : "text-emerald-500";
 
   const tierBg = isElite
-    ? "bg-amber-500/15"
+    ? "bg-amber-500/15 group-hover/card:bg-amber-500/25"
     : isPro
-      ? "bg-blue-500/15"
-      : "bg-emerald-500/15";
+      ? "bg-blue-500/15 group-hover/card:bg-blue-500/25"
+      : "bg-emerald-500/15 group-hover/card:bg-emerald-500/25";
 
   const tierCheckBg = isElite
     ? "bg-amber-500"
@@ -463,18 +528,28 @@ function SubscriptionFlipCard({
 
   // Border & glow khi được chọn
   const tierBorderActive = isElite
-    ? "border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+    ? "border-amber-500 shadow-[0_0_25px_rgba(245,158,11,0.45)] bg-gradient-to-b from-amber-500/[0.06] via-card to-card"
     : isPro
-      ? "border-blue-500 shadow-[0_0_18px_rgba(59,130,246,0.35)]"
-      : "border-emerald-500 shadow-[0_0_18px_rgba(16,185,129,0.35)]";
+      ? "border-blue-500 shadow-[0_0_22px_rgba(59,130,246,0.4)] bg-gradient-to-b from-blue-500/[0.06] via-card to-card"
+      : "border-emerald-500 shadow-[0_0_22px_rgba(16,185,129,0.4)] bg-gradient-to-b from-emerald-500/[0.06] via-card to-card";
 
-  const tierBorderIdle =
-    "border-border hover:border-muted-foreground";
+  // Border, glow & tint khi hover (lúc chưa chọn)
+  const tierBorderIdle = isElite
+    ? "border-border hover:border-amber-500/80 hover:shadow-[0_0_22px_rgba(245,158,11,0.3)] hover:bg-amber-500/[0.03]"
+    : isPro
+      ? "border-border hover:border-blue-500/80 hover:shadow-[0_0_20px_rgba(59,130,246,0.28)] hover:bg-blue-500/[0.03]"
+      : "border-border hover:border-emerald-500/80 hover:shadow-[0_0_20px_rgba(16,185,129,0.28)] hover:bg-emerald-500/[0.03]";
+
+  const detailButtonHover = isElite
+    ? "hover:border-amber-500/50 hover:text-amber-500"
+    : isPro
+      ? "hover:border-blue-500/50 hover:text-blue-500"
+      : "hover:border-emerald-500/50 hover:text-emerald-500";
 
   return (
-    // Perspective wrapper — cùng kích thước card như ArenaRankModal (240px)
+    // Perspective wrapper — cùng kích thước card 240px
     <div
-      className="w-[240px] min-w-[240px] shrink-0"
+      className="group/card w-[240px] min-w-[240px] shrink-0 transition-transform duration-300 hover:-translate-y-1.5"
       style={{ perspective: "1000px", height: "330px" }}
     >
       <div
@@ -487,15 +562,20 @@ function SubscriptionFlipCard({
         {/* ===== FRONT FACE ===== */}
         <div
           onClick={onSelect}
-          className={`absolute inset-0 rounded-2xl border-2 p-5 flex flex-col cursor-pointer transition-all duration-200
+          className={`absolute inset-0 rounded-2xl border-2 p-5 flex flex-col cursor-pointer transition-all duration-300
             ${selected ? tierBorderActive : tierBorderIdle}
-            bg-card`}
+            bg-card select-none`}
           style={{ backfaceVisibility: "hidden" }}
         >
-          {/* Selected checkmark */}
+          {/* Badge thời gian đếm ngược chính giữa mép trên card (màu cam, to nổi bật) */}
+          {hasSale && pkg.sale_ends_at && (
+            <CompactCountdown endsAt={pkg.sale_ends_at} size="md" />
+          )}
+
+          {/* Selected checkmark (góc trên phải) */}
           {selected && (
             <div
-              className={`absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center ${tierCheckBg}`}
+              className={`absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center ${tierCheckBg} shadow-sm`}
             >
               <Check className="h-3 w-3 text-white" />
             </div>
@@ -503,7 +583,7 @@ function SubscriptionFlipCard({
 
           {/* Tier icon */}
           <div
-            className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-3 mt-1 ${tierBg}`}
+            className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-3 mt-1 transition-all duration-300 group-hover/card:scale-110 ${tierBg}`}
           >
             {isElite ? (
               <Crown className="h-6 w-6 text-amber-500" />
@@ -519,11 +599,28 @@ function SubscriptionFlipCard({
 
           {/* Price */}
           <div className="flex flex-col mb-2">
-            {hasSale && (
-              <span className="text-xs text-muted-foreground line-through">
-                {formatVND(pkg.price_vnd)}
-              </span>
-            )}
+            {/* Dòng 1: Giá cũ & Tag % sale (hoặc khoảng trống vô hình giữ chỗ) */}
+            <div className="flex items-center gap-1.5 leading-none mb-1">
+              {hasSale ? (
+                <>
+                  <span className="text-xs text-muted-foreground/75 line-through leading-none">
+                    {formatVND(pkg.price_vnd)}
+                  </span>
+                  <span className="text-[10px] font-black text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded leading-none">
+                    -{pkg.sale_percent}%
+                  </span>
+                </>
+              ) : (
+                <span
+                  className="text-xs invisible select-none leading-none py-0.5"
+                  aria-hidden="true"
+                >
+                  0₫
+                </span>
+              )}
+            </div>
+
+            {/* Dòng 2: Giá chính */}
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-extrabold tracking-tight">
                 {formatVND(finalPrice)}
@@ -531,13 +628,6 @@ function SubscriptionFlipCard({
               <span className="text-xs text-muted-foreground font-medium">/tháng</span>
             </div>
           </div>
-
-          {/* Sale countdown */}
-          {hasSale && pkg.sale_ends_at && (
-            <div className="mb-2">
-              <Countdown endsAt={pkg.sale_ends_at} />
-            </div>
-          )}
 
           {/* Spacer */}
           <div className="flex-1" />
@@ -548,19 +638,19 @@ function SubscriptionFlipCard({
               e.stopPropagation();
               setFlipped(true);
             }}
-            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border bg-muted/50 hover:bg-muted text-xs font-medium text-muted-foreground hover:text-foreground transition-all"
+            className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-muted-foreground transition-all duration-200 ${detailButtonHover}`}
           >
             <Info className="h-3.5 w-3.5" />
-            Chi tiết
+            Chi tiết quyền lợi
           </button>
         </div>
 
         {/* ===== BACK FACE ===== */}
         <div
           onClick={onSelect}
-          className={`absolute inset-0 rounded-2xl border-2 p-5 flex flex-col cursor-pointer transition-all duration-200
+          className={`absolute inset-0 rounded-2xl border-2 p-5 flex flex-col cursor-pointer transition-all duration-300
             ${selected ? tierBorderActive : tierBorderIdle}
-            bg-card`}
+            bg-card select-none`}
           style={{
             backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
@@ -592,10 +682,10 @@ function SubscriptionFlipCard({
               e.stopPropagation();
               setFlipped(false);
             }}
-            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border bg-muted/50 hover:bg-muted text-xs font-medium text-muted-foreground hover:text-foreground transition-all"
+            className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-muted-foreground transition-all duration-200 ${detailButtonHover}`}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Quay lại
+            Quay lại mặt trước
           </button>
         </div>
       </div>
@@ -622,52 +712,97 @@ function TopupCard({
   loading: string | null;
 }) {
   const finalPrice = getFinalPrice(pkg);
-  const hasSale = pkg.sale_percent > 0;
+  const hasSale =
+    pkg.sale_percent > 0 &&
+    (!pkg.sale_ends_at || new Date(pkg.sale_ends_at) > new Date());
   const amount = pkg.coin_amount || pkg.diamond_amount;
+  const isCoin = unit.toLowerCase() === "coin" || pkg.package_type === "COIN_PACK";
+
+  // Hover color chủ đạo theo loại thẻ
+  const hoverCardStyles = isCoin
+    ? "hover:border-emerald-600 hover:shadow-[0_0_20px_rgba(5,150,105,0.35)] hover:bg-emerald-500/[0.04]"
+    : "hover:border-fuchsia-500 hover:shadow-[0_0_20px_rgba(217,70,239,0.35)] hover:bg-fuchsia-500/[0.04]";
+
+  const iconBg = isCoin
+    ? "bg-emerald-500/10 group-hover:bg-emerald-500/20"
+    : "bg-fuchsia-500/10 group-hover:bg-fuchsia-500/20";
+
+  const buttonStyle = isCoin
+    ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/25"
+    : "bg-gradient-to-r from-fuchsia-500 to-pink-600 hover:from-fuchsia-600 hover:to-pink-700 text-white shadow-fuchsia-500/25";
 
   return (
     <div
-      className="relative flex-shrink-0 w-[150px] min-w-[150px] rounded-2xl border border-border bg-card p-3.5 flex flex-col items-center gap-1.5"
+      onClick={() => onBuy(pkg)}
+      className={`group relative flex-shrink-0 w-[150px] min-w-[150px] rounded-2xl border-2 border-border bg-card p-3.5 flex flex-col items-center justify-between transition-all duration-300 hover:-translate-y-0.5 cursor-pointer select-none ${hoverCardStyles}`}
       style={{ scrollSnapAlign: "start" }}
     >
-      {/* Icon */}
-      <div
-        className={`w-9 h-9 rounded-xl flex items-center justify-center mt-1`}
-        style={{ background: "rgba(0,0,0,0.05)" }}
-      >
-        <Icon className={`h-5 w-5 ${colorClass}`} />
+      {/* Badge thời gian đếm ngược chính giữa mép trên card (màu cam) */}
+      {hasSale && pkg.sale_ends_at && (
+        <CompactCountdown endsAt={pkg.sale_ends_at} />
+      )}
+
+      {/* Top section: Icon + Số lượng + Đơn vị */}
+      <div className="flex flex-col items-center gap-1 w-full">
+        {/* Icon */}
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center mt-0.5 transition-colors duration-300 ${iconBg}`}
+        >
+          <Icon className={`h-5 w-5 ${colorClass}`} />
+        </div>
+
+        {/* Amount */}
+        <p className={`text-lg font-extrabold tracking-tight ${colorClass}`}>
+          {amount.toLocaleString()}
+        </p>
+        <p className="text-[10px] text-muted-foreground -mt-1 font-medium">{unit}</p>
       </div>
 
-      {/* Amount */}
-      <p className={`text-lg font-extrabold ${colorClass}`}>
-        {amount.toLocaleString()}
-      </p>
-      <p className="text-[10px] text-muted-foreground -mt-1">{unit}</p>
-
-      {/* Price */}
-      <div className="flex flex-col items-center">
-        {hasSale && (
-          <span className="text-[10px] text-muted-foreground line-through">
-            {formatVND(pkg.price_vnd)}
+      {/* Bottom section: Giá tiền đồng bộ + Nút mua */}
+      <div className="flex flex-col items-center w-full mt-2 gap-2">
+        {/* Price block: 2 dòng đồng bộ tuyệt đối về chiều cao */}
+        <div className="flex flex-col items-center justify-end leading-none">
+          {hasSale ? (
+            <div className="flex items-center gap-1 leading-none mb-1">
+              <span className="text-[10px] text-muted-foreground/75 line-through leading-none">
+                {formatVND(pkg.price_vnd)}
+              </span>
+              <span className="text-[9px] font-black text-rose-500 bg-rose-500/10 px-1 py-0.2 rounded leading-none">
+                -{pkg.sale_percent}%
+              </span>
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-1 leading-none mb-1 invisible select-none"
+              aria-hidden="true"
+            >
+              <span className="text-[10px] leading-none">0₫</span>
+              <span className="text-[9px] px-1 py-0.2 rounded leading-none">-0%</span>
+            </div>
+          )}
+          <span className="text-sm font-bold tracking-tight leading-none">
+            {formatVND(finalPrice)}
           </span>
-        )}
-        <span className="text-sm font-bold">{formatVND(finalPrice)}</span>
-      </div>
+        </div>
 
-      <Button
-        size="sm"
-        className="w-full h-7 text-xs mt-0.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
-        disabled={loading === pkg.id}
-        onClick={() => onBuy(pkg)}
-      >
-        {loading === pkg.id ? "..." : "Mua ngay"}
-      </Button>
+        <Button
+          size="sm"
+          className={`w-full h-7 text-xs font-bold rounded-lg shadow-sm transition-all ${buttonStyle}`}
+          disabled={loading === pkg.id}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBuy(pkg);
+          }}
+        >
+          {loading === pkg.id ? "..." : "Mua ngay"}
+        </Button>
+      </div>
     </div>
   );
 }
 
 // ============================================================
-// Horizontal scroll row with arrow buttons
+// Horizontal scroll row (scroll ngang, hỗ trợ lăn chuột)
 // ============================================================
 function HScrollRow({
   children,
@@ -676,10 +811,6 @@ function HScrollRow({
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  const scroll = (dir: "left" | "right") => {
-    ref.current?.scrollBy({ left: dir === "left" ? -170 : 170, behavior: "smooth" });
-  };
-
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (ref.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
       ref.current.scrollLeft += e.deltaY;
@@ -687,23 +818,11 @@ function HScrollRow({
   };
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => scroll("left")}
-        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 bg-background border rounded-full p-1 shadow-sm hover:bg-muted transition-colors"
-      >
-        <ChevronLeft className="h-3.5 w-3.5" />
-      </button>
-      <button
-        onClick={() => scroll("right")}
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 bg-background border rounded-full p-1 shadow-sm hover:bg-muted transition-colors"
-      >
-        <ChevronRight className="h-3.5 w-3.5" />
-      </button>
+    <div className="w-full min-w-0 overflow-hidden">
       <div
         ref={ref}
         onWheel={handleWheel}
-        className="flex gap-3 overflow-x-auto pb-1 px-1 select-none scroll-smooth [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full"
+        className="w-full flex items-stretch gap-3 overflow-x-auto pb-3 pt-3 px-1.5 select-none scroll-smooth [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50"
         style={{ scrollbarWidth: "thin", scrollSnapType: "x mandatory" }}
       >
         {children}
@@ -715,7 +834,7 @@ function HScrollRow({
 // ============================================================
 // Main Modal
 // ============================================================
-export function PremiumModal({ open, onClose }: PremiumModalProps) {
+export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
   const [activeTab, setActiveTab] = useState<"subscription" | "topup">(
     "subscription"
   );
@@ -873,7 +992,7 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
                 }`}
             >
               <Crown className="h-3.5 w-3.5 inline mr-1.5 text-amber-500" />
-              Gói Premium
+              Gói Hội viên
             </button>
             <button
               onClick={() => setActiveTab("topup")}
@@ -895,12 +1014,12 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
           {/* ---- TAB: SUBSCRIPTION ---- */}
           {activeTab === "subscription" && (
             <div className="h-full flex flex-col">
-              {/* Scroll ngang — same style as ArenaRankModal */}
-              <div className="w-full min-w-0 overflow-hidden p-6 pb-2">
+              {/* Scroll ngang */}
+              <div className="w-full min-w-0 overflow-hidden px-6">
                 <div
                   ref={subScrollRef}
                   onWheel={handleWheel}
-                  className="w-full overflow-x-auto flex items-stretch gap-5 pb-4 select-none scroll-smooth [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50"
+                  className="w-full overflow-x-auto flex items-stretch gap-5 pt-8 pb-5 px-1.5 select-none scroll-smooth [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50"
                   style={{ scrollbarWidth: "thin" }}
                 >
                   {packages.subscription.map((pkg) => (
@@ -1077,3 +1196,6 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
     </Dialog>
   );
 }
+
+// Backward compatibility alias
+export { SubscriptionModal as PremiumModal };
