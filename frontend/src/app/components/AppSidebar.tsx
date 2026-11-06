@@ -7,7 +7,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
-  SidebarSeparator,
 } from "./ui/sidebar";
 import {
   BookOpen,
@@ -31,7 +30,7 @@ import {
   BookMarked,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
-import { SubscriptionModal } from "./global/SubscriptionModal";
+
 
 interface AppSidebarProps {
   activeTab: string;
@@ -40,6 +39,8 @@ interface AppSidebarProps {
   isAdmin: boolean;
   userName?: string;
   userRole?: string;
+  /** Tier hiện tại của user: null = chưa có gói */
+  userTier?: "STARTER" | "PRO" | "ELITE" | null;
 }
 
 const navigationItems = [
@@ -56,8 +57,19 @@ const navigationItems = [
   { id: "achievements", title: "Achievements", icon: Trophy, description: "Goals & Rewards" },
 ];
 
-export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = "Guest", userRole = "user" }: AppSidebarProps) {
-  const [premiumOpen, setPremiumOpen] = useState(false);
+export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = "Guest", userRole = "user", userTier = null }: AppSidebarProps) {
+  // Tier color & label cho nút sidebar
+  const tierLabel = userTier === "ELITE" ? "Elite" : userTier === "PRO" ? "Pro" : userTier === "STARTER" ? "Starter" : "Free";
+  const tierColor =
+    userTier === "ELITE" ? "text-amber-500" :
+      userTier === "PRO" ? "text-blue-500" :
+        userTier === "STARTER" ? "text-emerald-500" :
+          "text-muted-foreground";
+  const tierBadgeClass =
+    userTier === "ELITE" ? "bg-amber-500/10 text-amber-700 border-amber-500/20" :
+      userTier === "PRO" ? "bg-blue-500/10 text-blue-700 border-blue-500/20" :
+        userTier === "STARTER" ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" :
+          "bg-muted text-muted-foreground border-border";
 
   return (
     <>
@@ -233,17 +245,21 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
 
         {/* ===== SIDEBAR FOOTER ===== */}
         <SidebarFooter className="border-t p-3 space-y-1.5 shrink-0 overflow-hidden">
-          {/* Premium Badge */}
+          {/* Membership button — mở SubscriptionView */}
           <button
-            onClick={() => setPremiumOpen(true)}
-            className="w-full flex items-center gap-2.5 p-2 rounded-xl border border-dashed hover:bg-muted/60 transition-colors text-left"
+            onClick={() => onTabChange("subscription")}
+            className={`w-full flex items-center gap-2.5 p-2 rounded-xl border border-dashed hover:bg-muted/60 transition-colors text-left ${activeTab === "subscription" ? "bg-muted/60" : ""}`}
           >
-            <Crown className="h-4 w-4 text-amber-500 shrink-0" />
+            <Crown className={`h-4 w-4 shrink-0 ${userTier ? tierColor : "text-amber-500"}`} />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium leading-tight">Free Plan</p>
-              <p className="text-[11px] text-muted-foreground truncate leading-tight">Upgrade to Pro</p>
+              <p className="text-xs font-medium leading-tight">Gói Hội viên</p>
+              <p className={`text-[11px] truncate leading-tight font-semibold ${tierColor}`}>
+                {tierLabel}
+              </p>
             </div>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-semibold tracking-wider shrink-0 bg-amber-500/10 text-amber-700 border-amber-500/20">PRO</Badge>
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-semibold tracking-wider shrink-0 ${tierBadgeClass}`}>
+              {tierLabel.toUpperCase()}
+            </Badge>
           </button>
 
           <SidebarMenu className="gap-1">
@@ -268,8 +284,6 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-
-      <SubscriptionModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
     </>
   );
 }

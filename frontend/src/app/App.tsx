@@ -22,6 +22,7 @@ import { AdminMarketingView } from "./components/dashboard/AdminMarketingView";
 import { ExamView } from "./components/dashboard/ExamView";
 import { ProfileView } from "./components/dashboard/ProfileView";
 import { SettingsView } from "./components/dashboard/SettingsView";
+import { SubscriptionView } from "./components/dashboard/SubscriptionView";
 import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
 import { FriendsButton } from "./components/global/FriendsButton";
@@ -53,6 +54,7 @@ const TAB_LABELS: Record<string, string> = {
   "admin-arena": "Admin - Arena Words",
   profile: "Profile",
   settings: "Settings",
+  subscription: "Gói Hội viên",
 };
 
 function AppContent() {
@@ -139,6 +141,7 @@ function AppContent() {
       case "admin-arena": return <AdminArenaView />;
       case "profile": return <ProfileView />;
       case "settings": return <SettingsView onNavigateTab={setActiveTab} userRole={userRole || "user"} />;
+      case "subscription": return <SubscriptionView />;
       default: return <DashboardView />;
     }
   };
