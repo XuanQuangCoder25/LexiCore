@@ -28,6 +28,8 @@ import {
   Megaphone,
   FolderLock,
   BookMarked,
+  Star,
+  Zap,
 } from "lucide-react";
 import { Badge } from "./ui/badge";
 
@@ -58,18 +60,33 @@ const navigationItems = [
 ];
 
 export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = "Guest", userRole = "user", userTier = null }: AppSidebarProps) {
-  // Tier color & label cho nút sidebar
-  const tierLabel = userTier === "ELITE" ? "Elite" : userTier === "PRO" ? "Pro" : userTier === "STARTER" ? "Starter" : "Free";
+  // Tier icon, color & badge gradient cho nút sidebar
+  const tierLabel =
+    userTier === "ELITE" ? "Elite" :
+    userTier === "PRO" ? "Pro" :
+    userTier === "STARTER" ? "Starter" :
+    "Free";
+
+  const TierIcon =
+    userTier === "ELITE" ? Crown :
+    userTier === "PRO" ? Zap :
+    userTier === "STARTER" ? Star :
+    Crown;
+
   const tierColor =
     userTier === "ELITE" ? "text-amber-500" :
-      userTier === "PRO" ? "text-blue-500" :
-        userTier === "STARTER" ? "text-emerald-500" :
-          "text-muted-foreground";
+    userTier === "PRO" ? "text-blue-500" :
+    userTier === "STARTER" ? "text-emerald-500" :
+    "text-muted-foreground";
+
   const tierBadgeClass =
-    userTier === "ELITE" ? "bg-amber-500/10 text-amber-700 border-amber-500/20" :
-      userTier === "PRO" ? "bg-blue-500/10 text-blue-700 border-blue-500/20" :
-        userTier === "STARTER" ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" :
-          "bg-muted text-muted-foreground border-border";
+    userTier === "ELITE"
+      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-xs border-none font-bold"
+      : userTier === "PRO"
+        ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-xs border-none font-bold"
+        : userTier === "STARTER"
+          ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-xs border-none font-bold"
+          : "bg-muted text-muted-foreground border border-border font-semibold";
 
   return (
     <>
@@ -245,19 +262,16 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
 
         {/* ===== SIDEBAR FOOTER ===== */}
         <SidebarFooter className="border-t p-3 space-y-1.5 shrink-0 overflow-hidden">
-          {/* Membership button — mở SubscriptionView */}
+          {/* Membership button - mở SubscriptionView */}
           <button
             onClick={() => onTabChange("subscription")}
             className={`w-full flex items-center gap-2.5 p-2 rounded-xl border border-dashed hover:bg-muted/60 transition-colors text-left ${activeTab === "subscription" ? "bg-muted/60" : ""}`}
           >
-            <Crown className={`h-4 w-4 shrink-0 ${userTier ? tierColor : "text-amber-500"}`} />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium leading-tight">Gói Hội viên</p>
-              <p className={`text-[11px] truncate leading-tight font-semibold ${tierColor}`}>
-                {tierLabel}
-              </p>
-            </div>
-            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-semibold tracking-wider shrink-0 ${tierBadgeClass}`}>
+            <TierIcon className={`h-4 w-4 shrink-0 ${tierColor}`} />
+            <span className="flex-1 text-xs font-semibold leading-tight truncate">
+              Gói Hội viên
+            </span>
+            <Badge className={`text-[10px] px-2 py-0.5 tracking-wider shrink-0 ${tierBadgeClass}`}>
               {tierLabel.toUpperCase()}
             </Badge>
           </button>

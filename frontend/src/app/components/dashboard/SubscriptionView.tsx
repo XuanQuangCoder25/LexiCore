@@ -531,6 +531,15 @@ export function SubscriptionView() {
   const handleToggleAutoRenew = () => setMembership((m) => ({ ...m, autoRenew: !m.autoRenew }));
   const handleToggleEmailReminder = () => setMembership((m) => ({ ...m, emailReminder: !m.emailReminder }));
 
+  // Đồng bộ tier lên sidebar và toàn bộ ứng dụng
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("membership-tier-change", {
+        detail: { tier: membership.tier === "FREE" ? null : membership.tier },
+      })
+    );
+  }, [membership.tier]);
+
   // Mua gói subscription
   const handleBuySub = async (pkg: CreditPackage) => {
     // TODO: hien Checkout modal (se implement sau)

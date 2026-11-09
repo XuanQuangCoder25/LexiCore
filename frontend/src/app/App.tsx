@@ -69,6 +69,9 @@ function AppContent() {
   const [coins, setCoins] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("Guest");
+  const [userTier, setUserTier] = useState<"STARTER" | "PRO" | "ELITE" | null>(() => {
+    return (localStorage.getItem("lexicore_user_tier") as any) || null;
+  });
 
   // Sync tab khi location state hoặc search params thay đổi
   useEffect(() => {
@@ -92,6 +95,10 @@ function AppContent() {
         if (data?.coin_balance !== undefined) setCoins(data.coin_balance);
         if (data?.role) setUserRole(data.role.toLowerCase());
         if (data?.full_name) setUserName(data.full_name);
+        if (data?.tier !== undefined) {
+          setUserTier(data.tier);
+          if (data.tier) localStorage.setItem("lexicore_user_tier", data.tier);
+        }
       })
       .catch(() => { });
   }, []);
@@ -103,8 +110,19 @@ function AppContent() {
         setActiveTab(e.detail.tab);
       }
     };
+    const handleTierChange = (e: any) => {
+      if (e.detail?.tier !== undefined) {
+        setUserTier(e.detail.tier);
+        if (e.detail.tier) localStorage.setItem("lexicore_user_tier", e.detail.tier);
+        else localStorage.removeItem("lexicore_user_tier");
+      }
+    };
     window.addEventListener("navigate-tab", handleNavigateTab);
-    return () => window.removeEventListener("navigate-tab", handleNavigateTab);
+    window.addEventListener("membership-tier-change", handleTierChange);
+    return () => {
+      window.removeEventListener("navigate-tab", handleNavigateTab);
+      window.removeEventListener("membership-tier-change", handleTierChange);
+    };
   }, []);
 
   const handleChallenge = () => {
@@ -150,7 +168,15 @@ function AppContent() {
     <SidebarProvider>
       {/* MARKER-MAKE-KIT-INVOKED */}
       <div className="flex h-screen w-full overflow-hidden">
-        <AppSidebar activeTab={activeTab} onTabChange={setActiveTab} coins={coins} isAdmin={userRole === "admin"} userName={userName} userRole={userRole || "user"} />
+        <AppSidebar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          coins={coins}
+          isAdmin={userRole === "admin"}
+          userName={userName}
+          userRole={userRole || "user"}
+          userTier={userTier}
+        />
         <SidebarInset className="flex-1 overflow-hidden flex flex-col">
           {/* Top Header */}
           <header className="border-b px-6 py-3 flex items-center justify-between shrink-0 bg-background">
