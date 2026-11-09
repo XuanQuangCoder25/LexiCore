@@ -279,7 +279,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                         {!selectedSub.is_trial && selectedSub.tier === "STARTER" && <Star className="h-4 w-4 mr-1.5" />}
                         {selectedSub.is_trial
                           ? "Dùng thử miễn phí 3 ngày"
-                          : `Đăng ký ${selectedSub.name} — ${formatVND(getFinalPrice(selectedSub))}/tháng`}
+                          : `Đăng ký ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))}/tháng`}
                       </>
                     )}
                   </Button>

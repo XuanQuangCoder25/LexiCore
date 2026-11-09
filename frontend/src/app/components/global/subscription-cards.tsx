@@ -596,7 +596,7 @@ export function SubscriptionFlipCard({
         >
           <div className="flex items-center justify-between mb-3">
             <p className="font-bold text-sm">
-              <span className={tierColor}>{pkg.name}</span> — Quyền lợi
+              <span className={tierColor}>{pkg.name}</span> - Quyền lợi
             </p>
           </div>
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 select-none">
@@ -609,24 +609,6 @@ export function SubscriptionFlipCard({
               </div>
             ))}
           </div>
-          {/* CTA on back face */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onBuy(pkg);
-            }}
-            className={`w-full flex items-center justify-center gap-1.5 py-2 mt-3 rounded-xl text-xs font-bold text-white transition-all duration-200
-              ${isTrial
-                ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600"
-                : isElite
-                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
-                  : isPro
-                    ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                    : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
-              }`}
-          >
-            {isTrial ? "Dùng thử ngay" : "Chọn gói này"}
-          </button>
           <button
             onClick={(e) => { e.stopPropagation(); setFlipped(false); }}
             className={`w-full flex items-center justify-center gap-1.5 py-2 mt-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-muted-foreground transition-all duration-200 ${detailButtonHover}`}
@@ -641,8 +623,7 @@ export function SubscriptionFlipCard({
 }
 
 // ============================================================
-// TopupCard — Coin / Diamond
-// sizeVariant: "sm" (modal 150px) | "lg" (trang 190px)
+// TopupCard - Coin / Diamond (Size chuẩn 150px)
 // ============================================================
 export function TopupCard({
   pkg,
@@ -651,7 +632,6 @@ export function TopupCard({
   unit,
   onBuy,
   loading,
-  sizeVariant = "sm",
 }: {
   pkg: CreditPackage;
   icon: typeof CircleDollarSign;
@@ -659,7 +639,6 @@ export function TopupCard({
   unit: string;
   onBuy: (pkg: CreditPackage) => void;
   loading: string | null;
-  sizeVariant?: "sm" | "lg";
 }) {
   const finalPrice = getFinalPrice(pkg);
   const hasSale = pkg.sale_percent > 0 && (!pkg.sale_ends_at || new Date(pkg.sale_ends_at) > new Date());
@@ -678,19 +657,10 @@ export function TopupCard({
     ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/25"
     : "bg-gradient-to-r from-fuchsia-500 to-pink-600 hover:from-fuchsia-600 hover:to-pink-700 text-white shadow-fuchsia-500/25";
 
-  const widthClass = sizeVariant === "lg"
-    ? "w-[190px] min-w-[190px]"
-    : "w-[150px] min-w-[150px]";
-
-  const iconSize = sizeVariant === "lg" ? "w-12 h-12 rounded-xl" : "w-10 h-10 rounded-xl";
-  const iconInner = sizeVariant === "lg" ? "h-6 w-6" : "h-5 w-5";
-  const amountText = sizeVariant === "lg" ? "text-xl font-extrabold" : "text-lg font-extrabold";
-  const priceText = sizeVariant === "lg" ? "text-sm font-bold" : "text-sm font-bold";
-
   return (
     <div
       onClick={() => onBuy(pkg)}
-      className={`group relative flex-shrink-0 ${widthClass} rounded-2xl border-2 border-border bg-card p-3.5 flex flex-col items-center justify-between transition-all duration-300 hover:-translate-y-0.5 cursor-pointer select-none ${hoverCardStyles}`}
+      className={`group relative flex-shrink-0 w-[150px] min-w-[150px] rounded-2xl border-2 border-border bg-card p-3.5 flex flex-col items-center justify-between transition-all duration-300 hover:-translate-y-0.5 cursor-pointer select-none ${hoverCardStyles}`}
       style={{ scrollSnapAlign: "start" }}
     >
       {/* Badge thời gian */}
@@ -698,10 +668,10 @@ export function TopupCard({
 
       {/* Icon + Amount + Unit */}
       <div className="flex flex-col items-center gap-1 w-full">
-        <div className={`${iconSize} flex items-center justify-center mt-0.5 transition-colors duration-300 ${iconBg}`}>
-          <Icon className={`${iconInner} ${colorClass}`} />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mt-0.5 transition-colors duration-300 ${iconBg}`}>
+          <Icon className={`h-5 w-5 ${colorClass}`} />
         </div>
-        <p className={`${amountText} tracking-tight ${colorClass}`}>{amount.toLocaleString()}</p>
+        <p className={`text-lg font-extrabold tracking-tight ${colorClass}`}>{amount.toLocaleString()}</p>
         <p className="text-[10px] text-muted-foreground -mt-1 font-medium">{unit}</p>
       </div>
 
@@ -719,7 +689,7 @@ export function TopupCard({
               <span className="text-[9px] px-1 rounded leading-none">-0%</span>
             </div>
           )}
-          <span className={`${priceText} tracking-tight leading-none`}>{formatVND(finalPrice)}</span>
+          <span className="text-sm font-bold tracking-tight leading-none">{formatVND(finalPrice)}</span>
         </div>
         <Button
           size="sm"
@@ -735,7 +705,7 @@ export function TopupCard({
 }
 
 // ============================================================
-// HScrollRow — dùng trong Modal khi không đủ chỗ
+// HScrollRow - dùng trong Modal khi không đủ chỗ
 // ============================================================
 export function HScrollRow({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Crown,
   Zap,
@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Info,
   Wallet,
+  Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -75,7 +76,7 @@ interface Transaction {
 const MOCK_MEMBERSHIP: UserMembership = {
   tier: "ELITE",
   startedAt: "2026-10-06",
-  expiresAt: "2026-12-06",
+  expiresAt: new Date(Date.now() + 27 * 86400000 + 14 * 3600000).toISOString(),
   autoRenew: true,
   emailReminder: true,
   coinBalance: 3250,
@@ -84,19 +85,63 @@ const MOCK_MEMBERSHIP: UserMembership = {
 };
 
 const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: "TXN-20261006-001", date: "06/10/2026 14:32", description: "Gói Elite – 1 tháng", amountVnd: 159200, status: "SUCCESS" },
+  { id: "TXN-20261006-001", date: "06/10/2026 14:32", description: "Gói Elite - 1 tháng", amountVnd: 159200, status: "SUCCESS" },
   { id: "TXN-20261006-002", date: "06/10/2026 14:28", description: "Nạp 60 Diamond", amountVnd: 89100, status: "SUCCESS" },
-  { id: "TXN-20260906-001", date: "06/09/2026 09:15", description: "Gói Pro – 1 tháng", amountVnd: 99000, status: "SUCCESS" },
+  { id: "TXN-20260906-001", date: "06/09/2026 09:15", description: "Gói Pro - 1 tháng", amountVnd: 99000, status: "SUCCESS" },
   { id: "TXN-20260820-001", date: "20/08/2026 21:40", description: "Nạp 2.000 Coin", amountVnd: 89000, status: "SUCCESS" },
-  { id: "TXN-20260812-001", date: "12/08/2026 18:03", description: "Gói Starter – 1 tháng", amountVnd: 49000, status: "FAILED" },
+  { id: "TXN-20260812-001", date: "12/08/2026 18:03", description: "Gói Starter - 1 tháng", amountVnd: 49000, status: "FAILED" },
 ];
 
 // ============================================================
 // Helpers
 // ============================================================
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "--";
   return new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function calculateRemaining(expiresAt: string | null) {
+  if (!expiresAt) {
+    return { text: "--", isExpiringSoon: false, isExpired: false };
+  }
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  if (diff <= 0) {
+    return { text: "Đã hết hạn", isExpiringSoon: false, isExpired: true };
+  }
+
+  const totalSec = Math.floor(diff / 1000);
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+
+  let text = "";
+  if (days > 0) {
+    text = `${days} ngày ${hours} giờ`;
+  } else if (hours > 0) {
+    text = `${hours} giờ ${minutes} phút`;
+  } else {
+    text = `${minutes} phút ${seconds} giây`;
+  }
+
+  // Dưới 3 ngày mới tính là sắp hết hạn
+  const isExpiringSoon = diff < 3 * 24 * 3600 * 1000;
+
+  return { text, isExpiringSoon, isExpired: false };
+}
+
+function useRemainingTime(expiresAt: string | null) {
+  const [timeInfo, setTimeInfo] = useState(() => calculateRemaining(expiresAt));
+
+  useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => setTimeInfo(calculateRemaining(expiresAt));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+
+  return timeInfo;
 }
 
 function daysUntil(iso: string | null): number | null {
@@ -105,13 +150,71 @@ function daysUntil(iso: string | null): number | null {
 }
 
 // ============================================================
-// Tier config
+// Tier config - Màu chủ đạo, border, glow và icon đồng bộ theo từng gói
 // ============================================================
-const TIER_CFG: Record<Tier, { label: string; color: string; badgeClass: string; borderClass: string; bgGrad: string; icon: typeof Crown }> = {
-  FREE: { label: "Free", color: "text-muted-foreground", badgeClass: "bg-muted text-muted-foreground border-border", borderClass: "border-border", bgGrad: "", icon: Star },
-  STARTER: { label: "Starter", color: "text-emerald-600", badgeClass: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20", borderClass: "border-emerald-500/50", bgGrad: "from-emerald-500/[0.07] via-card to-card", icon: Star },
-  PRO: { label: "Pro", color: "text-blue-600", badgeClass: "bg-blue-500/10 text-blue-700 border-blue-500/20", borderClass: "border-blue-500/50", bgGrad: "from-blue-500/[0.07] via-card to-card", icon: Zap },
-  ELITE: { label: "Elite", color: "text-amber-500", badgeClass: "bg-amber-500/10 text-amber-700 border-amber-500/20", borderClass: "border-amber-500/60", bgGrad: "from-amber-500/[0.08] via-card to-card", icon: Crown },
+const TIER_CFG: Record<
+  Tier,
+  {
+    label: string;
+    color: string;
+    badgeClass: string;
+    borderClass: string;
+    bgGrad: string;
+    glowColor: string;
+    iconBg: string;
+    clockColor: string;
+    clockBg: string;
+    icon: typeof Crown;
+  }
+> = {
+  FREE: {
+    label: "Free",
+    color: "text-muted-foreground",
+    badgeClass: "bg-muted text-muted-foreground border-border",
+    borderClass: "border-border",
+    bgGrad: "",
+    glowColor: "transparent",
+    iconBg: "bg-muted",
+    clockColor: "text-muted-foreground",
+    clockBg: "bg-muted",
+    icon: Star,
+  },
+  STARTER: {
+    label: "Starter",
+    color: "text-emerald-600 dark:text-emerald-400",
+    badgeClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+    borderClass: "border-emerald-500/50",
+    bgGrad: "from-emerald-500/[0.08] via-card to-card",
+    glowColor: "#10b981",
+    iconBg: "bg-emerald-500/15",
+    clockColor: "text-emerald-600 dark:text-emerald-400",
+    clockBg: "bg-emerald-500/10",
+    icon: Star,
+  },
+  PRO: {
+    label: "Pro",
+    color: "text-blue-600 dark:text-blue-400",
+    badgeClass: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+    borderClass: "border-blue-500/50",
+    bgGrad: "from-blue-500/[0.08] via-card to-card",
+    glowColor: "#3b82f6",
+    iconBg: "bg-blue-500/15",
+    clockColor: "text-blue-600 dark:text-blue-400",
+    clockBg: "bg-blue-500/10",
+    icon: Zap,
+  },
+  ELITE: {
+    label: "Elite",
+    color: "text-amber-500",
+    badgeClass: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
+    borderClass: "border-amber-500/60",
+    bgGrad: "from-amber-500/[0.08] via-card to-card",
+    glowColor: "#f59e0b",
+    iconBg: "bg-amber-500/15",
+    clockColor: "text-amber-500",
+    clockBg: "bg-amber-500/10",
+    icon: Crown,
+  },
 };
 
 // ============================================================
@@ -141,41 +244,79 @@ function StatusBadge({ status }: { status: Transaction["status"] }) {
 function MembershipCard({ membership }: { membership: UserMembership }) {
   const cfg = TIER_CFG[membership.tier];
   const TierIcon = cfg.icon;
-  const days = daysUntil(membership.expiresAt);
+  const { text: remainingText, isExpiringSoon, isExpired } = useRemainingTime(membership.expiresAt);
   const isFree = membership.tier === "FREE";
 
   return (
-    <Card className={`relative overflow-hidden border-2 bg-gradient-to-b ${cfg.borderClass} ${cfg.bgGrad}`}>
+    <Card className={`relative overflow-hidden border-2 bg-gradient-to-b ${cfg.borderClass} ${cfg.bgGrad} h-full flex flex-col justify-between`}>
       {!isFree && (
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-25"
-          style={{ background: membership.tier === "ELITE" ? "#f59e0b" : membership.tier === "PRO" ? "#3b82f6" : "#10b981" }} />
+        <div
+          className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl pointer-events-none opacity-25"
+          style={{ background: cfg.glowColor }}
+        />
       )}
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3">
-          <div className={`p-2.5 rounded-xl shrink-0 ${isFree ? "bg-muted" : membership.tier === "ELITE" ? "bg-amber-500/15" : membership.tier === "PRO" ? "bg-blue-500/15" : "bg-emerald-500/15"
-            }`}>
+          <div className={`p-2.5 rounded-xl shrink-0 ${cfg.iconBg}`}>
             <TierIcon className={`h-5 w-5 ${cfg.color}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <CardTitle className="text-base">Gói Hội viên</CardTitle>
+              <CardTitle className="text-base font-bold">Gói Hội viên</CardTitle>
               <Badge variant="outline" className={`text-[10px] font-black px-2 py-0 tracking-wider ${cfg.badgeClass}`}>
                 {cfg.label.toUpperCase()}
               </Badge>
-              {!isFree && days !== null && days <= 7 && (
-                <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 bg-rose-500/10 text-rose-600 border-rose-500/20">
-                  Còn {days} ngày
-                </Badge>
-              )}
             </div>
-            <CardDescription className="mt-0.5 text-xs">
-              {isFree ? "Bạn đang sử dụng các tính năng cơ bản miễn phí"
-                : `Hội viên ${cfg.label} · ${days !== null && days > 0 ? `Còn ${days} ngày` : "Đã hết hạn"}`}
+            <CardDescription className="mt-1 text-xs text-muted-foreground">
+              {isFree
+                ? "Bạn đang sử dụng các tính năng cơ bản miễn phí"
+                : `Đang kích hoạt đầy đủ đặc quyền gói ${cfg.label}`}
             </CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 pt-0">
+
+      <CardContent className="space-y-3 pt-0 flex-1 flex flex-col justify-between">
+        {/* Khối hiển thị số ngày còn lại (2 thông số, màu đồng hồ theo tier, dưới 3 ngày cảnh báo đỏ) */}
+        {!isFree && membership.expiresAt ? (
+          <div className="rounded-xl bg-muted/40 p-2.5 border border-border/60 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                  isExpiringSoon
+                    ? "bg-rose-500/10 text-rose-500"
+                    : `${cfg.clockBg} ${cfg.clockColor}`
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground font-medium leading-none">Thời hạn sử dụng</p>
+                <p className="text-xs font-bold text-foreground mt-1">
+                  {isExpired ? "Đã hết hạn sử dụng" : `Còn lại ${remainingText}`}
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className={`text-[10px] font-semibold px-2 py-0.5 ${
+                isExpired
+                  ? "bg-muted text-muted-foreground border-border"
+                  : isExpiringSoon
+                    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+              }`}
+            >
+              {isExpired ? "Hết hạn" : isExpiringSoon ? "Sắp hết hạn" : "Đang hiệu lực"}
+            </Badge>
+          </div>
+        ) : isFree ? (
+          <div className="rounded-xl bg-muted/30 p-2.5 border border-dashed border-border flex items-center gap-2 text-xs text-muted-foreground">
+            <Info className="w-4 h-4 text-primary shrink-0" />
+            <span>Nâng cấp để mở khóa đặc quyền học tập không giới hạn</span>
+          </div>
+        ) : null}
+
         {/* Coin & Diamond */}
         <div className="grid grid-cols-2 gap-2">
           <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
@@ -193,6 +334,7 @@ function MembershipCard({ membership }: { membership: UserMembership }) {
             </div>
           </div>
         </div>
+
         {/* Ví LexiCore */}
         <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
           <Wallet className="h-4 w-4 text-primary shrink-0" />
@@ -221,20 +363,20 @@ function MembershipDetails({
 }) {
   const isFree = membership.tier === "FREE";
   return (
-    <Card>
+    <Card className="h-full flex flex-col justify-between">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          Thông tin gói
+          Thông tin và cài đặt gói
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 pt-0">
+      <CardContent className="space-y-4 pt-0 flex-1 flex flex-col justify-between">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Bắt đầu</p>
             <div className="flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-sm font-semibold">{isFree ? "—" : formatDate(membership.startedAt)}</span>
+              <span className="text-sm font-semibold">{isFree ? "--" : formatDate(membership.startedAt)}</span>
             </div>
           </div>
           <div className="space-y-1">
@@ -248,39 +390,41 @@ function MembershipDetails({
 
         <div className="border-t" />
 
-        {/* Toggle: Nhắc mail */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-start gap-2 flex-1 min-w-0">
-            <Bell className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-medium leading-tight">Nhắc nhở qua email</p>
-              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">Gửi mail 3 ngày trước khi hết hạn</p>
-            </div>
-          </div>
-          <Switch checked={membership.emailReminder} onCheckedChange={onToggleEmailReminder} disabled={isFree} className="shrink-0" />
-        </div>
-
-        {/* Toggle: Tự động gia hạn */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-start gap-2 flex-1 min-w-0">
-            <RefreshCw className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs font-medium leading-tight">Tự động gia hạn</p>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px] text-xs">
-                    Hệ thống tự động gia hạn bằng số dư Ví LexiCore khi đến hạn.
-                    Nếu không đủ số dư, gói sẽ về Free và bạn sẽ nhận email thông báo.
-                  </TooltipContent>
-                </Tooltip>
+        <div className="space-y-3">
+          {/* Toggle: Nhắc mail */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2 flex-1 min-w-0">
+              <Bell className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium leading-tight">Nhắc nhở qua email</p>
+                <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">Gửi mail 3 ngày trước khi hết hạn</p>
               </div>
-              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">Trừ từ Ví LexiCore khi đến hạn</p>
             </div>
+            <Switch checked={membership.emailReminder} onCheckedChange={onToggleEmailReminder} disabled={isFree} className="shrink-0" />
           </div>
-          <Switch checked={membership.autoRenew} onCheckedChange={onToggleAutoRenew} disabled={isFree} className="shrink-0" />
+
+          {/* Toggle: Tự động gia hạn */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2 flex-1 min-w-0">
+              <RefreshCw className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-medium leading-tight">Tự động gia hạn</p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                      Hệ thống tự động gia hạn bằng số dư Ví LexiCore khi đến hạn.
+                      Nếu không đủ số dư, gói sẽ về Free và bạn sẽ nhận email thông báo.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">Trừ từ Ví LexiCore khi đến hạn</p>
+              </div>
+            </div>
+            <Switch checked={membership.autoRenew} onCheckedChange={onToggleAutoRenew} disabled={isFree} className="shrink-0" />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -389,7 +533,7 @@ export function SubscriptionView() {
 
   // Mua gói subscription
   const handleBuySub = async (pkg: CreditPackage) => {
-    // TODO: hiện Checkout modal — sẽ implement sau
+    // TODO: hien Checkout modal (se implement sau)
     toast.info(`Chọn gói: ${pkg.name}`, {
       description: pkg.is_trial ? "Đang kích hoạt dùng thử..." : `${formatVND(getFinalPrice(pkg))}/tháng`,
     });
@@ -410,7 +554,7 @@ export function SubscriptionView() {
       <div className="space-y-8 max-w-5xl mx-auto">
 
         {/* ===== SECTION 1: Trạng thái hội viên ===== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
           <MembershipCard membership={membership} />
           <MembershipDetails
             membership={membership}
@@ -419,7 +563,7 @@ export function SubscriptionView() {
           />
         </div>
 
-        {/* ===== SECTION 2: Gói Hội viên — 4 card inline ===== */}
+        {/* ===== SECTION 2: Gói Hội viên - 4 card inline ===== */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -429,7 +573,7 @@ export function SubscriptionView() {
             <span className="text-xs text-muted-foreground">Bấm vào card để chọn - Lật thẻ xem quyền lợi</span>
           </div>
 
-          {/* 4 cards: Trial + Starter + Pro + Elite — dàn ngang không scroll */}
+          {/* 4 cards: Trial + Starter + Pro + Elite - dàn ngang không scroll */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 pt-6 pb-2">
             {packages.subscription.map((pkg) => (
               <SubscriptionFlipCard
@@ -450,7 +594,7 @@ export function SubscriptionView() {
               <span className="text-xs text-muted-foreground">
                 Số dư Ví: <span className="font-bold text-foreground">{formatVND(membership.walletBalanceVnd)}</span>
               </span>
-              <span className="text-xs text-muted-foreground">·</span>
+              <span className="text-xs text-muted-foreground mx-1">|</span>
               <span className="text-xs text-muted-foreground">Thanh toán 1 lần hoặc dùng Ví LexiCore</span>
             </div>
             <div className="flex gap-2">
@@ -468,7 +612,7 @@ export function SubscriptionView() {
                   if (!sub) return "Chọn gói";
                   if (sub.is_trial) return <><Zap className="h-3.5 w-3.5" />Dùng thử miễn phí</>;
                   const TierIcon = sub.tier === "ELITE" ? Crown : sub.tier === "PRO" ? Zap : Star;
-                  return <><TierIcon className="h-3.5 w-3.5" />Đăng ký {sub.name} — {formatVND(getFinalPrice(sub))}</>;
+                  return <><TierIcon className="h-3.5 w-3.5" />Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))})</>;
                 })()}
               </Button>
             </div>
@@ -482,8 +626,7 @@ export function SubscriptionView() {
               <CircleDollarSign className="h-4 w-4 text-emerald-600" />
               <h2 className="text-sm font-semibold">Nạp Coin</h2>
             </div>
-            {/* Grid thay vì scroll — trang đủ rộng */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 pt-4 pb-1">
+            <div className="flex flex-wrap gap-3 pt-4 pb-1">
               {packages.coin_packs.map((pkg) => (
                 <TopupCard
                   key={pkg.id}
@@ -493,7 +636,6 @@ export function SubscriptionView() {
                   unit="Coin"
                   onBuy={handleBuyPack}
                   loading={packLoading}
-                  sizeVariant="lg"
                 />
               ))}
             </div>
@@ -507,7 +649,7 @@ export function SubscriptionView() {
               <Gem className="h-4 w-4 text-fuchsia-500" />
               <h2 className="text-sm font-semibold">Nạp Diamond</h2>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 pt-4 pb-1">
+            <div className="flex flex-wrap gap-3 pt-4 pb-1">
               {packages.diamond_packs.map((pkg) => (
                 <TopupCard
                   key={pkg.id}
@@ -517,7 +659,6 @@ export function SubscriptionView() {
                   unit="Diamond"
                   onBuy={handleBuyPack}
                   loading={packLoading}
-                  sizeVariant="lg"
                 />
               ))}
             </div>
