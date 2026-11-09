@@ -25,6 +25,7 @@ import studentCourseRoute from './modules/course/student-course.route';
 import arenaRoute from './modules/arena/arena-word.route';
 import notificationRoute from './modules/notification/notification-route';
 import { initNotificationCron } from './modules/notification/notification-cron';
+import { initSubscriptionCron } from './modules/payment/subscription-cron';
 import socialRoute from './modules/social/social.route';
 import communityRoute from './modules/community/community.route';
 import { initSocialSocket } from './modules/social/social-socket';
@@ -113,6 +114,9 @@ const startServer = async () => {
 
         // Khởi tạo Background Task nhắc nhở học tập (quét DB mỗi phút)
         initNotificationCron();
+
+        // Khởi tạo Subscription Cron (auto-renew 00:05, nhắc hết hạn 09:00 ICT)
+        initSubscriptionCron();
 
         httpServer.listen(port, () => {
             console.log(`Server đang chạy tại http://localhost:${port}`);

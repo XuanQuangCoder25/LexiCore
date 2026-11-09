@@ -74,9 +74,11 @@ export const activateUser = async (email: string): Promise<void> => {
 export const findUserById = async (id: string) => {
     const [rows] = await pool.execute(
         `SELECT u.id, u.email, u.full_name, u.role, u.status, u.created_at, u.creator_status, u.avatar_url, u.cover_url,
-                w.coin_balance, w.diamond_balance, w.exp, w.level, w.rank_point, w.current_streak
+                w.coin_balance, w.diamond_balance, w.exp, w.level, w.rank_point, w.current_streak,
+                CASE WHEN s.status = 'ACTIVE' AND s.expires_at > NOW() THEN s.tier ELSE NULL END AS tier
          FROM users u
-         LEFT JOIN wallets w ON w.user_id = u.id
+         LEFT JOIN wallets w       ON w.user_id = u.id
+         LEFT JOIN subscriptions s ON s.user_id = u.id
          WHERE u.id = ? LIMIT 1`,
         [id]
     );

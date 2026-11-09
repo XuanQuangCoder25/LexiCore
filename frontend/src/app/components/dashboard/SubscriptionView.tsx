@@ -71,26 +71,19 @@ interface Transaction {
 }
 
 // ============================================================
-// Mock data
+// API helpers
 // ============================================================
-const MOCK_MEMBERSHIP: UserMembership = {
-  tier: "ELITE",
-  startedAt: "2026-10-06",
-  expiresAt: new Date(Date.now() + 27 * 86400000 + 14 * 3600000).toISOString(),
-  autoRenew: true,
-  emailReminder: true,
-  coinBalance: 3250,
-  diamondBalance: 72,
-  walletBalanceVnd: 350000,
-};
+const API = "/api/payment";
 
-const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: "TXN-20261006-001", date: "06/10/2026 14:32", description: "Gói Elite - 1 tháng", amountVnd: 159200, status: "SUCCESS" },
-  { id: "TXN-20261006-002", date: "06/10/2026 14:28", description: "Nạp 60 Diamond", amountVnd: 89100, status: "SUCCESS" },
-  { id: "TXN-20260906-001", date: "06/09/2026 09:15", description: "Gói Pro - 1 tháng", amountVnd: 99000, status: "SUCCESS" },
-  { id: "TXN-20260820-001", date: "20/08/2026 21:40", description: "Nạp 2.000 Coin", amountVnd: 89000, status: "SUCCESS" },
-  { id: "TXN-20260812-001", date: "12/08/2026 18:03", description: "Gói Starter - 1 tháng", amountVnd: 49000, status: "FAILED" },
-];
+async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
+  const res = await fetch(API + path, { credentials: "include", ...opts });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { message?: string };
+    throw new Error(body.message ?? `HTTP ${res.status}`);
+  }
+  const json = await res.json() as { success: boolean; data: T };
+  return json.data;
+}
 
 // ============================================================
 // Helpers
@@ -519,17 +512,103 @@ function TransactionTable({ transactions }: { transactions: Transaction[] }) {
 // Main View
 // ============================================================
 export function SubscriptionView() {
-  const [membership, setMembership] = useState<UserMembership>(MOCK_MEMBERSHIP);
+  const [membership, setMembership] = useState<UserMembership>({
+    tier: "FREE",
+    startedAt: null,
+    expiresAt: null,
+    autoRenew: false,
+    emailReminder: true,
+    coinBalance: 0,
+    diamondBalance: 0,
+    walletBalanceVnd: 0,
+  });
   const [packages, setPackages] = useState<GroupedPackages>(MOCK_DATA);
-  const [selectedSubId, setSelectedSubId] = useState<string>("sub-elite");
+  const [selectedSubId, setSelectedSubId] = useState<string>("");
   const [packLoading, setPackLoading] = useState<string | null>(null);
-  const [transactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ── Fetch on mount ──────────────────────────────────────────
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const [subData, pkgData, txData] = await Promise.all([
+          apiFetch<{
+            tier: string;
+            startedAt: string | null;
+            expiresAt: string | null;
+            autoRenew: boolean;
+            emailReminder: boolean;
+            coinBalance: number;
+            diamondBalance: number;
+            walletBalanceVnd: number;
+          }>("/my-subscription"),
+          apiFetch<GroupedPackages>("/packages"),
+          apiFetch<Transaction[]>("/my-transactions"),
+        ]);
+
+        setMembership({
+          tier: (subData.tier ?? "FREE") as Tier,
+          startedAt: subData.startedAt,
+          expiresAt: subData.expiresAt,
+          autoRenew: subData.autoRenew,
+          emailReminder: subData.emailReminder,
+          coinBalance: subData.coinBalance,
+          diamondBalance: subData.diamondBalance,
+          walletBalanceVnd: subData.walletBalanceVnd,
+        });
+
+        setPackages(pkgData);
+        setTransactions(txData);
+
+        // Chọn mặc định card subscription đầu tiên
+        if (pkgData.subscription.length > 0 && !selectedSubId) {
+          setSelectedSubId(pkgData.subscription[0].id);
+        }
+      } catch (err) {
+        console.error("[SubscriptionView] Fetch error:", err);
+        toast.error("Khong the tai du lieu. Vui long thu lai sau.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isFree = membership.tier === "FREE";
   const cfg = TIER_CFG[membership.tier];
 
-  const handleToggleAutoRenew = () => setMembership((m) => ({ ...m, autoRenew: !m.autoRenew }));
-  const handleToggleEmailReminder = () => setMembership((m) => ({ ...m, emailReminder: !m.emailReminder }));
+  const handleToggleAutoRenew = async () => {
+    const next = !membership.autoRenew;
+    setMembership((m) => ({ ...m, autoRenew: next }));
+    try {
+      await apiFetch("/my-subscription", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auto_renew: next }),
+      });
+    } catch {
+      setMembership((m) => ({ ...m, autoRenew: !next }));
+      toast.error("Khong the cap nhat cai dat. Vui long thu lai.");
+    }
+  };
+
+  const handleToggleEmailReminder = async () => {
+    const next = !membership.emailReminder;
+    setMembership((m) => ({ ...m, emailReminder: next }));
+    try {
+      await apiFetch("/my-subscription", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_reminder: next }),
+      });
+    } catch {
+      setMembership((m) => ({ ...m, emailReminder: !next }));
+      toast.error("Khong the cap nhat cai dat. Vui long thu lai.");
+    }
+  };
 
   // Đồng bộ tier lên sidebar và toàn bộ ứng dụng
   useEffect(() => {
@@ -540,27 +619,52 @@ export function SubscriptionView() {
     );
   }, [membership.tier]);
 
-  // Mua gói subscription
+  // Mua gói subscription (Trial: trực tiếp; trả phí: placeholder Checkout modal)
   const handleBuySub = async (pkg: CreditPackage) => {
-    // TODO: hien Checkout modal (se implement sau)
-    toast.info(`Chọn gói: ${pkg.name}`, {
-      description: pkg.is_trial ? "Đang kích hoạt dùng thử..." : `${formatVND(getFinalPrice(pkg))}/tháng`,
+    if (pkg.is_trial) {
+      try {
+        await apiFetch("/trial/activate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ packageId: pkg.id }),
+        });
+        toast.success("Kich hoat dung thu thanh cong!", {
+          description: "Ban co 3 ngay trai nghiem day du tinh nang Pro.",
+        });
+        // Reload trang de cap nhat trang thai
+        window.location.reload();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Loi khong xac dinh";
+        toast.error(msg);
+      }
+      return;
+    }
+    // Checkout modal se implement sau
+    toast.info(`Chon goi: ${pkg.name}`, {
+      description: `${formatVND(getFinalPrice(pkg))}/thang - Tinh nang thanh toan dang phat trien.`,
     });
   };
 
-  // Mua topup pack
+  // Mua topup pack (Checkout modal - implement sau)
   const handleBuyPack = async (pkg: CreditPackage) => {
     setPackLoading(pkg.id);
-    // TODO: hiện Checkout modal
+    // Checkout modal se implement sau
     setTimeout(() => {
-      toast.success(`Chọn gói: ${pkg.name}`, { description: `${formatVND(getFinalPrice(pkg))}` });
+      toast.info(`Chon goi: ${pkg.name}`, { description: `${formatVND(getFinalPrice(pkg))} - tinh nang thanh toan dang phat trien.` });
       setPackLoading(null);
-    }, 600);
+    }, 400);
   };
 
   return (
     <TooltipProvider>
       <div className="space-y-8 max-w-5xl mx-auto">
+        {loading && (
+          <div className="flex items-center justify-center py-20 text-sm text-muted-foreground gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            Dang tai du lieu...
+          </div>
+        )}
+        {!loading && (<>
 
         {/* ===== SECTION 1: Trạng thái hội viên ===== */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
@@ -680,6 +784,7 @@ export function SubscriptionView() {
         {/* ===== SECTION 5: Lịch sử giao dịch ===== */}
         <TransactionTable transactions={transactions} />
 
+      </>)}
       </div>
     </TooltipProvider>
   );
