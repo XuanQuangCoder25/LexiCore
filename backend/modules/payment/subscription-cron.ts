@@ -42,7 +42,7 @@ async function processAutoRenew(): Promise<void> {
             if (!ok) {
                 // Không đủ số dư: tắt auto_renew, để gói tự expire
                 await conn.execute(
-                    `UPDATE subscriptions SET auto_renew = FALSE, updated_at = NOW() WHERE user_id = ?`,
+                    `UPDATE user_subscription SET auto_renew = FALSE, updated_at = NOW() WHERE user_id = ?`,
                     [sub.user_id]
                 );
                 console.warn(
@@ -68,7 +68,7 @@ async function processAutoRenew(): Promise<void> {
             const { duration_days } = sub;
             const newExpiry = new Date(Date.now() + Number(duration_days) * 86400 * 1000);
             await conn.execute(
-                `UPDATE subscriptions 
+                `UPDATE user_subscription 
                  SET expires_at = ?, status = 'ACTIVE', updated_at = NOW()
                  WHERE user_id = ?`,
                 [newExpiry, sub.user_id]
@@ -114,7 +114,7 @@ async function sendExpiryReminders(): Promise<void> {
     // Lấy gói còn 3 ngày nữa hết hạn, email_reminder = TRUE
     const [rows] = await pool.execute(
         `SELECT s.user_id, s.expires_at, u.email, u.full_name, cp.name as package_name
-         FROM subscriptions s
+         FROM user_subscription s
          JOIN users u            ON s.user_id    = u.id
          JOIN credit_packages cp ON s.package_id = cp.id
          WHERE s.status = 'ACTIVE'

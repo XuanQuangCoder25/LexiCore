@@ -38,10 +38,10 @@ ALTER TABLE payment_orders
 MODIFY COLUMN gateway ENUM('SEPAY', 'WALLET', 'MOCK') NOT NULL DEFAULT 'SEPAY',
 ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(50) UNIQUE NULL COMMENT 'Ma tham chieu noi dung chuyen khoan (SePay match noi dung VietQR)';
 
--- ─── BLOCK 5: Tao bang subscriptions ─────────────────────────
+-- ─── BLOCK 5: Tao bang user_subscription ─────────────────────
 -- Luu trang thai goi hoi vien hien tai cua tung user
 
-CREATE TABLE IF NOT EXISTS subscriptions (
+CREATE TABLE IF NOT EXISTS user_subscription (
     id VARCHAR(36) PRIMARY KEY DEFAULT(UUID()),
     user_id VARCHAR(36) NOT NULL UNIQUE,
     package_id VARCHAR(36) NOT NULL,
@@ -364,7 +364,7 @@ ON DUPLICATE KEY UPDATE
 -- Ket thuc migration
 -- Kiem tra sau khi chay:
 --   SELECT COUNT(*) FROM credit_packages WHERE package_type = 'SUBSCRIPTION'; -- nen la 10
---   SHOW COLUMNS FROM subscriptions;
+--   SHOW COLUMNS FROM user_subscription;
 --   SHOW COLUMNS FROM wallets LIKE 'vnd_balance';
 --   SELECT slug, name, price_vnd, duration_days, is_active FROM credit_packages
 --     WHERE package_type = 'SUBSCRIPTION' ORDER BY display_order;

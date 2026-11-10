@@ -200,7 +200,7 @@ export async function getUserTransactions(userId: string, limit = 30): Promise<U
 
 export async function getUserSubscription(userId: string): Promise<Subscription | null> {
     const [rows] = await pool.execute<RowDataPacket[]>(
-        `SELECT * FROM subscriptions WHERE user_id = ? AND status = 'ACTIVE'`,
+        `SELECT * FROM user_subscription WHERE user_id = ? AND status = 'ACTIVE'`,
         [userId]
     );
     if (rows.length === 0) return null;
@@ -224,16 +224,17 @@ export async function activateSubscription(
     const expiresAt = new Date(Date.now() + durationDays * 86400 * 1000);
 
     await conn.execute(
-        `INSERT INTO subscriptions (id, user_id, package_id, tier, started_at, expires_at, status)
-         VALUES (?, ?, ?, ?, NOW(), ?, 'ACTIVE')
+        `INSERT INTO user_subscription (id, user_id, package_id, tier, duration_days, started_at, expires_at, status)
+         VALUES (?, ?, ?, ?, ?, NOW(), ?, 'ACTIVE')
          ON DUPLICATE KEY UPDATE
-             package_id  = VALUES(package_id),
-             tier        = VALUES(tier),
-             started_at  = NOW(),
-             expires_at  = VALUES(expires_at),
-             status      = 'ACTIVE',
-             updated_at  = NOW()`,
-        [subId, userId, packageId, tier, expiresAt]
+             package_id    = VALUES(package_id),
+             tier          = VALUES(tier),
+             duration_days = VALUES(duration_days),
+             started_at    = NOW(),
+             expires_at    = VALUES(expires_at),
+             status        = 'ACTIVE',
+             updated_at    = NOW()`,
+        [subId, userId, packageId, tier, durationDays, expiresAt]
     );
 }
 
@@ -252,7 +253,7 @@ export async function updateSubscriptionSettings(
     values.push(userId);
 
     await pool.execute(
-        `UPDATE subscriptions SET ${fields.join(', ')}, updated_at = NOW() WHERE user_id = ?`,
+        `UPDATE user_subscription SET ${fields.join(', ')}, updated_at = NOW() WHERE user_id = ?`,
         values
     );
 }
@@ -260,7 +261,7 @@ export async function updateSubscriptionSettings(
 // Đánh dấu các subscription hết hạn (dành cho cron)
 export async function expireSubscriptions(): Promise<number> {
     const [result] = await pool.execute(
-        `UPDATE subscriptions SET status = 'EXPIRED', updated_at = NOW()
+        `UPDATE user_subscription SET status = 'EXPIRED', updated_at = NOW()
          WHERE status = 'ACTIVE' AND expires_at < NOW()`
     ) as any;
     return result.affectedRows as number;
@@ -270,7 +271,7 @@ export async function expireSubscriptions(): Promise<number> {
 export async function getExpiringSubscriptions(withinDays: number): Promise<any[]> {
     const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT s.*, u.email, u.full_name, cp.price_vnd, cp.name as package_name, w.vnd_balance
-         FROM subscriptions s
+         FROM user_subscription s
          JOIN users u           ON s.user_id    = u.id
          JOIN credit_packages cp ON s.package_id = cp.id
          JOIN wallets w         ON s.user_id    = w.user_id

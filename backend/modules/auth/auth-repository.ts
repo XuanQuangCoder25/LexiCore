@@ -77,8 +77,8 @@ export const findUserById = async (id: string) => {
                 w.coin_balance, w.diamond_balance, w.exp, w.level, w.rank_point, w.current_streak,
                 CASE WHEN s.status = 'ACTIVE' AND s.expires_at > NOW() THEN s.tier ELSE NULL END AS tier
          FROM users u
-         LEFT JOIN wallets w       ON w.user_id = u.id
-         LEFT JOIN subscriptions s ON s.user_id = u.id
+         LEFT JOIN wallets w            ON w.user_id = u.id
+         LEFT JOIN user_subscription s  ON s.user_id = u.id
          WHERE u.id = ? LIMIT 1`,
         [id]
     );
