@@ -122,6 +122,4 @@
 - **Cặp 3 (Tier 3 - Hiếm):** Sói Cơ Khí Quantum (Quantum Mech Wolf) với lõi hạt nhân năng lượng tím — Vành đai thiên thạch quay quanh Sao Thổ huyền ảo (Saturn Asteroid Belt Promenade).
 - **Cặp 4 (Tier 4 - Siêu hiếm):** Rồng Cơ Khí Vũ Trụ (Cosmic Mecha Leviathan) sải cánh giữa không gian — Cánh cổng không-thời gian (Wormhole Portal) rực sáng giữa dải ngân hà đa sắc (Glowing Cosmic Nebula).
 
-* Hệ thống 13 bậc Rank PvP, 7 Collections, Cơ chế Store
-
 --- 
