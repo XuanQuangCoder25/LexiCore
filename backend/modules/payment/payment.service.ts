@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../../config/mysql';
 import { AppError } from '../../errors/AppError';
@@ -18,6 +17,7 @@ import {
     deductWalletVnd,
     hasUsedTrial,
     markTrialUsed,
+    getOrderByReference,
     CreditPackage,
 } from './payment.repository';
 
@@ -34,16 +34,6 @@ export function calcFinalPrice(pkg: CreditPackage): number {
         }
     }
     return pkg.price_vnd;
-}
-
-function sortObject(obj: Record<string, string>): Record<string, string> {
-    const sorted: Record<string, string> = {};
-    Object.keys(obj).sort().forEach(key => { sorted[key] = obj[key]; });
-    return sorted;
-}
-
-function toQueryString(obj: Record<string, string>): string {
-    return new URLSearchParams(obj).toString();
 }
 
 // ============================================================
@@ -274,103 +264,182 @@ export const confirmMockPayment = async (userId: string, orderId: string) => {
 };
 
 // ============================================================
-// VNPay Integration
+// SePay Integration (VietQR + Webhook)
 // ============================================================
 
-export const initVNPayPayment = async (userId: string, packageId: string, ipAddr: string) => {
+export const initSepayPayment = async (userId: string, packageId: string) => {
     const pkg = await getPackageById(packageId);
-    if (!pkg) throw new AppError('Goi khong ton tai', 404);
-
-    const tmnCode   = process.env.VNPAY_TMN_CODE   || 'SANDBOX';
-    const secretKey = process.env.VNPAY_HASH_SECRET || 'SANDBOX_SECRET';
-    const vnpUrl    = process.env.VNPAY_URL         || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
-    const returnUrl = process.env.VNPAY_RETURN_URL  || 'http://localhost:5000/api/payment/vnpay/return';
+    if (!pkg) throw new AppError('Gói không tồn tại', 404);
 
     const finalPrice = calcFinalPrice(pkg);
-    const orderId    = await createPaymentOrder(userId, packageId, finalPrice, 'VNPAY');
+    if (finalPrice <= 0) {
+        throw new AppError('Gói miễn phí không cần thanh toán qua ngân hàng', 400);
+    }
 
-    const date       = new Date();
-    const createDate = date.toISOString().replace(/[-T:.Z]/g, '').slice(0, 14);
+    // Sinh mã tham chiếu ngắn gọn, duy nhất: LC + 6 số ngẫu nhiên (ví dụ: LC582914)
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000).toString();
+    const paymentReference = `LC${randomSuffix}`;
 
-    const params: Record<string, string> = {
-        vnp_Version:   '2.1.0',
-        vnp_Command:   'pay',
-        vnp_TmnCode:   tmnCode,
-        vnp_Locale:    'vn',
-        vnp_CurrCode:  'VND',
-        vnp_TxnRef:    orderId.slice(0, 8),
-        vnp_OrderInfo: `Thanh toan LexiCore: ${pkg.name}`,
-        vnp_OrderType: 'other',
-        vnp_Amount:    String(finalPrice * 100),
-        vnp_ReturnUrl: returnUrl,
-        vnp_IpAddr:    ipAddr,
-        vnp_CreateDate: createDate,
-    };
-
-    const sortedParams = sortObject(params);
-    const signData     = toQueryString(sortedParams);
-    const hmac         = crypto.createHmac('sha512', secretKey);
-    const signed       = hmac.update(signData).digest('hex');
-
-    sortedParams['vnp_SecureHash'] = signed;
-    const payUrl = `${vnpUrl}?${toQueryString(sortedParams)}`;
-
-    return { orderId, payUrl, amountVnd: finalPrice };
-};
-
-export const handleVNPayReturn = async (query: Record<string, string>) => {
-    const secretKey  = process.env.VNPAY_HASH_SECRET || 'SANDBOX_SECRET';
-    const secureHash = query['vnp_SecureHash'];
-
-    const params = { ...query };
-    delete params['vnp_SecureHash'];
-    delete params['vnp_SecureHashType'];
-    const sortedParams = sortObject(params);
-    const signData     = toQueryString(sortedParams);
-    const hmac         = crypto.createHmac('sha512', secretKey);
-    const signed       = hmac.update(signData).digest('hex');
-
-    if (signed !== secureHash) throw new AppError('Chu ky khong hop le', 400);
-
-    const responseCode  = query['vnp_ResponseCode'];
-    const txnRef        = query['vnp_TxnRef'];
-    const transactionNo = query['vnp_TransactionNo'];
-
-    const [rows] = await (pool as any).execute(
-        `SELECT po.*, cp.coin_amount, cp.diamond_amount, cp.package_type, cp.duration_days, cp.tier
-         FROM payment_orders po
-         JOIN credit_packages cp ON po.package_id = cp.id
-         WHERE po.id LIKE ? AND po.status = 'PENDING'`,
-        [`${txnRef}%`]
+    const orderId = await createPaymentOrder(
+        userId,
+        packageId,
+        finalPrice,
+        'SEPAY',
+        paymentReference
     );
 
-    if (!rows || rows.length === 0) return { success: false, message: 'Don hang khong tim thay' };
+    const bankCode = process.env.SEPAY_BANK_CODE || 'MB';
+    const accNumber = process.env.SEPAY_ACC_NUMBER || '0000000000';
+    const accName = process.env.SEPAY_ACC_NAME || 'LEXICORE';
 
-    const order = rows[0] as any;
+    // Tạo URL ảnh VietQR chuẩn quét được trên 100% app ngân hàng VN qua SePay VietQR engine
+    const qrUrl = `https://qr.sepay.vn/img?bank=${encodeURIComponent(bankCode)}&acc=${encodeURIComponent(accNumber)}&template=compact&amount=${finalPrice}&des=${encodeURIComponent(paymentReference)}`;
 
-    if (responseCode === '00') {
-        const conn = await (pool as any).getConnection();
-        try {
-            await conn.beginTransaction();
-            await creditWalletAfterPurchase(conn, order.user_id, order.coin_amount, order.diamond_amount);
-            if (order.package_type === 'SUBSCRIPTION' && order.tier && order.duration_days) {
-                await activateSubscription(conn, order.user_id, order.package_id, order.tier, order.duration_days);
-            }
-            await conn.execute(
-                `UPDATE payment_orders SET status = 'SUCCESS', gateway_txn_id = ?, updated_at = NOW() WHERE id = ?`,
-                [transactionNo, order.id]
-            );
-            await conn.commit();
-            return { success: true, message: 'Thanh toan thanh cong!', coinEarned: order.coin_amount, diamondEarned: order.diamond_amount };
-        } catch (err) {
-            await conn.rollback();
-            throw err;
-        } finally {
-            conn.release();
+    return {
+        orderId,
+        paymentReference,
+        amountVnd: finalPrice,
+        bankCode,
+        accountNumber: accNumber,
+        accountName: accName,
+        qrUrl,
+    };
+};
+
+export interface SepayWebhookPayload {
+    id: number;
+    gateway: string;
+    transactionDate: string;
+    accountNumber: string;
+    code: string | null;
+    content: string;
+    transferType: 'in' | 'out';
+    transferAmount: number;
+    accumulated: number;
+    subAccount: string | null;
+    referenceCode: string;
+    description: string;
+}
+
+export const handleSepayWebhook = async (
+    payload: SepayWebhookPayload,
+    authorizationHeader?: string
+) => {
+    // 1. Kiểm tra API Key nếu cấu hình trong .env
+    const configuredApiKey = process.env.SEPAY_API_KEY;
+    if (configuredApiKey) {
+        const token = authorizationHeader?.replace(/^Apikey\s+/i, '').trim();
+        if (token !== configuredApiKey) {
+            throw new AppError('Xác thực SePay webhook thất bại: API Key không hợp lệ', 401);
         }
-    } else {
-        await updateOrderStatus(order.id, 'FAILED', transactionNo, { responseCode });
-        return { success: false, message: 'Thanh toan that bai hoac bi huy' };
+    }
+
+    // Chỉ xử lý giao dịch tiền vào (transferType = 'in')
+    if (payload.transferType && payload.transferType !== 'in') {
+        return { success: true, message: 'Bỏ qua giao dịch tiền ra' };
+    }
+
+    // 2. Bóc tách paymentReference từ code hoặc content
+    let matchRef = payload.code;
+    if (!matchRef && payload.content) {
+        const match = payload.content.match(/LC\d{6}/i);
+        if (match) {
+            matchRef = match[0].toUpperCase();
+        }
+    }
+
+    if (!matchRef) {
+        console.warn('[SePay Webhook] Không tìm thấy mã tham chiếu trong nội dung:', payload.content);
+        return { success: false, message: 'Không tìm thấy mã tham chiếu' };
+    }
+
+    // 3. Tìm order trong database
+    const order = await getOrderByReference(matchRef);
+    if (!order) {
+        console.warn(`[SePay Webhook] Không tìm thấy đơn hàng với mã tham chiếu: ${matchRef}`);
+        return { success: false, message: 'Đơn hàng không tồn tại' };
+    }
+
+    // 4. Idempotency Check: Nếu đơn đã thành công trước đó thì return success ngay (tránh kích hoạt 2 lần)
+    if (order.status === 'SUCCESS') {
+        console.log(`[SePay Webhook] Đơn hàng ${order.id} (${matchRef}) đã được xử lý trước đó.`);
+        return { success: true, message: 'Đơn hàng đã được xử lý' };
+    }
+
+    // 5. Kiểm tra số tiền chuyển có khớp hoặc đủ với giá trị đơn hàng
+    if (Number(payload.transferAmount) < Number(order.amount_vnd)) {
+        console.warn(
+            `[SePay Webhook] Số tiền không đủ: chuyển ${payload.transferAmount}, yêu cầu ${order.amount_vnd}`
+        );
+        return { success: false, message: 'Số tiền thanh toán chưa đủ' };
+    }
+
+    // 6. ACID Transaction xử lý kích hoạt gói hoặc cộng coin/diamond
+    const conn = await (pool as any).getConnection();
+    try {
+        await conn.beginTransaction();
+
+        const gatewayTxnId = payload.referenceCode || String(payload.id);
+        await conn.execute(
+            `UPDATE payment_orders 
+             SET status = 'SUCCESS', 
+                 gateway = 'SEPAY',
+                 gateway_txn_id = ?, 
+                 gateway_response = ?,
+                 updated_at = NOW() 
+             WHERE id = ?`,
+            [gatewayTxnId, JSON.stringify(payload), order.id]
+        );
+
+        // Kích hoạt subscription nếu là gói SUBSCRIPTION
+        if (order.package_type === 'SUBSCRIPTION' && order.tier && order.duration_days) {
+            await activateSubscription(
+                conn,
+                order.user_id,
+                order.package_id,
+                order.tier,
+                order.duration_days
+            );
+        }
+
+        // Cộng coin / diamond nếu là topup pack
+        if (order.coin_amount > 0 || order.diamond_amount > 0) {
+            await creditWalletAfterPurchase(
+                conn,
+                order.user_id,
+                order.coin_amount,
+                order.diamond_amount
+            );
+        }
+
+        // Tạo thông báo in-app
+        const notifId = uuidv4();
+        await conn.execute(
+            `INSERT INTO notifications (id, user_id, type, title, body)
+             VALUES (?, ?, 'payment', 'Thanh toán thành công', ?)`,
+            [
+                notifId,
+                order.user_id,
+                `Giao dịch thanh toán gói ${order.package_name} qua chuyển khoản đã hoàn tất thành công!`,
+            ]
+        );
+
+        await conn.commit();
+        console.log(`[SePay Webhook] ✅ Kích hoạt thành công đơn hàng ${order.id} (${matchRef})!`);
+
+        return {
+            success: true,
+            message: 'Kích hoạt đơn hàng thành công',
+            orderId: order.id,
+            coinEarned: order.coin_amount,
+            diamondEarned: order.diamond_amount,
+        };
+    } catch (err) {
+        await conn.rollback();
+        console.error('[SePay Webhook] Lỗi khi xử lý transaction:', err);
+        throw err;
+    } finally {
+        conn.release();
     }
 };
 

@@ -30,10 +30,11 @@ export interface PaymentOrder {
     user_id: string;
     package_id: string;
     amount_vnd: number;
-    gateway: 'VNPAY' | 'MOMO' | 'STRIPE' | 'MOCK' | 'WALLET';
+    gateway: 'SEPAY' | 'WALLET' | 'MOCK';
     status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
     gateway_txn_id: string | null;
     gateway_response: object | null;
+    payment_reference: string | null;
     metadata: object | null;
     created_at: string;
 }
@@ -95,15 +96,28 @@ export async function createPaymentOrder(
     userId: string,
     packageId: string,
     amountVnd: number,
-    gateway: PaymentOrder['gateway']
+    gateway: PaymentOrder['gateway'],
+    paymentReference?: string
 ): Promise<string> {
     const orderId = uuidv4();
     await pool.execute(
-        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status)
-         VALUES (?, ?, ?, ?, ?, 'PENDING')`,
-        [orderId, userId, packageId, amountVnd, gateway]
+        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, payment_reference, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'PENDING')`,
+        [orderId, userId, packageId, amountVnd, gateway, paymentReference || null]
     );
     return orderId;
+}
+
+export async function getOrderByReference(paymentReference: string): Promise<any | null> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT po.*, cp.coin_amount, cp.diamond_amount, cp.package_type, cp.duration_days, cp.tier, cp.name as package_name
+         FROM payment_orders po
+         JOIN credit_packages cp ON po.package_id = cp.id
+         WHERE po.payment_reference = ? LIMIT 1`,
+        [paymentReference]
+    );
+    if (rows.length === 0) return null;
+    return rows[0];
 }
 
 export async function updateOrderStatus(

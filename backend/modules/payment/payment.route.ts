@@ -9,8 +9,8 @@ import {
     activateTrial,
     initMock,
     confirmMock,
-    initVNPay,
-    vnpayReturn,
+    initSepay,
+    sepayWebhook,
     myOrders,
 } from './payment.controller';
 
@@ -20,8 +20,8 @@ const router = Router();
 // Lấy danh sách gói (không cần đăng nhập để xem giá)
 router.get('/packages', listPackages);
 
-// VNPay callback không cần auth (gateway gọi trực tiếp)
-router.get('/vnpay/return', vnpayReturn);
+// SePay webhook nhận callback biến động số dư từ ngân hàng (server-to-server)
+router.post('/sepay/webhook', sepayWebhook);
 
 // ─── Protected ───────────────────────────────────────────────────────────────
 router.use(requireAuth);
@@ -33,6 +33,9 @@ router.patch('/my-subscription', patchSubscription);
 // Lịch sử giao dịch (format cho TransactionTable)
 router.get('/my-transactions', myTransactions);
 
+// Thanh toán qua SePay (VietQR)
+router.post('/sepay/init', initSepay);
+
 // Thanh toán qua Ví LexiCore
 router.post('/wallet/pay', walletPay);
 
@@ -43,9 +46,6 @@ router.post('/trial/activate', activateTrial);
 router.post('/mock/init', initMock);
 router.post('/mock/confirm', confirmMock);
 router.get('/mock/confirm', confirmMock); // redirect từ mock
-
-// VNPay
-router.post('/vnpay/init', initVNPay);
 
 // Lịch sử đơn thô (admin/debug)
 router.get('/orders', myOrders);

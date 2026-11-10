@@ -8,8 +8,8 @@ import {
     activateTrialPlan,
     initMockPayment,
     confirmMockPayment,
-    initVNPayPayment,
-    handleVNPayReturn,
+    initSepayPayment,
+    handleSepayWebhook,
     getMyOrders,
 } from './payment.service';
 import { getPackageById } from './payment.repository';
@@ -127,37 +127,29 @@ export const confirmMock = async (req: Request, res: Response, next: NextFunctio
     } catch (err) { next(err); }
 };
 
-// ─── VNPay ───────────────────────────────────────────────────────────────────
+// ─── SePay ───────────────────────────────────────────────────────────────────
 
-// POST /api/payment/vnpay/init
-export const initVNPay = async (req: Request, res: Response, next: NextFunction) => {
+// POST /api/payment/sepay/init
+export const initSepay = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).user.id as string;
         const { packageId } = req.body as { packageId: string };
-        const ipAddr =
-            (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
-            req.socket.remoteAddress ||
-            '127.0.0.1';
         if (!packageId) {
             res.status(400).json({ success: false, message: 'packageId la bat buoc' });
             return;
         }
-        const result = await initVNPayPayment(userId, packageId, ipAddr);
+        const result = await initSepayPayment(userId, packageId);
         res.json({ success: true, data: result });
     } catch (err) { next(err); }
 };
 
-// GET /api/payment/vnpay/return
-export const vnpayReturn = async (req: Request, res: Response, next: NextFunction) => {
+// POST /api/payment/sepay/webhook (SePay server-to-server IPN)
+export const sepayWebhook = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const query  = req.query as Record<string, string>;
-        const result = await handleVNPayReturn(query);
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        if (result.success) {
-            res.redirect(`${clientUrl}/?payment=success&coin=${result.coinEarned}&diamond=${result.diamondEarned}`);
-        } else {
-            res.redirect(`${clientUrl}/?payment=failed`);
-        }
+        const payload = req.body;
+        const authHeader = req.headers['authorization'];
+        const result = await handleSepayWebhook(payload, authHeader);
+        res.json(result);
     } catch (err) { next(err); }
 };
 
