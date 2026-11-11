@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://api.lexicore.site/api/:path*"
+    },
+    {
+      "source": "/socket.io/:path*",
+      "destination": "https://api.lexicore.site/socket.io/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

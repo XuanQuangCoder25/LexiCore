@@ -37,17 +37,33 @@ const app = express();
 const port = process.env.PORT || 5000;
 const httpServer = createServer(app);
 
+// Danh sách origin được phép (thêm domain mới vào đây nếu cần)
+const allowedOrigins = [
+    process.env.CLIENT_URL,            // VD: https://lexicore.site
+    'http://localhost:5173',            // Dev local
+    'http://localhost:3000',
+].filter(Boolean) as string[];
+
+const corsOptions = {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Cho phép request không có origin (Postman, server-to-server, SePay webhook)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS blocked: ${origin}`));
+        }
+    },
+    credentials: true,
+};
+
 const io = new SocketIO(httpServer, {
     cors: {
-        origin: process.env.CLIENT_URL || 'http://localhost:5173',
+        origin: allowedOrigins,
         credentials: true
     }
 });
 
-app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    credentials: true
-}));
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 

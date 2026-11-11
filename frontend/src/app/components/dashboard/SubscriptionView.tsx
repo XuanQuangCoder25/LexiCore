@@ -275,11 +275,10 @@ function MembershipCard({ membership }: { membership: UserMembership }) {
           <div className="rounded-xl bg-muted/40 p-2.5 border border-border/60 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
-                  isExpiringSoon
-                    ? "bg-rose-500/10 text-rose-500"
-                    : `${cfg.clockBg} ${cfg.clockColor}`
-                }`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${isExpiringSoon
+                  ? "bg-rose-500/10 text-rose-500"
+                  : `${cfg.clockBg} ${cfg.clockColor}`
+                  }`}
               >
                 <Clock className="w-4 h-4" />
               </div>
@@ -292,13 +291,12 @@ function MembershipCard({ membership }: { membership: UserMembership }) {
             </div>
             <Badge
               variant="outline"
-              className={`text-[10px] font-semibold px-2 py-0.5 ${
-                isExpired
-                  ? "bg-muted text-muted-foreground border-border"
-                  : isExpiringSoon
-                    ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
-                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-              }`}
+              className={`text-[10px] font-semibold px-2 py-0.5 ${isExpired
+                ? "bg-muted text-muted-foreground border-border"
+                : isExpiringSoon
+                  ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                }`}
             >
               {isExpired ? "Hết hạn" : isExpiringSoon ? "Sắp hết hạn" : "Đang hiệu lực"}
             </Badge>
@@ -369,7 +367,7 @@ function MembershipDetails({
             <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Bắt đầu</p>
             <div className="flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-sm font-semibold">{isFree ? "--" : formatDate(membership.startedAt)}</span>
+              <span className="text-sm font-semibold">{isFree ? "Từ lúc tạo tài khoản" : formatDate(membership.startedAt)}</span>
             </div>
           </div>
           <div className="space-y-1">
@@ -574,7 +572,7 @@ export function SubscriptionView() {
     };
 
     fetchAll();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isFree = membership.tier === "FREE";
@@ -666,125 +664,125 @@ export function SubscriptionView() {
         )}
         {!loading && (<>
 
-        {/* ===== SECTION 1: Trạng thái hội viên ===== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-          <MembershipCard membership={membership} />
-          <MembershipDetails
-            membership={membership}
-            onToggleAutoRenew={handleToggleAutoRenew}
-            onToggleEmailReminder={handleToggleEmailReminder}
-          />
-        </div>
-
-        {/* ===== SECTION 2: Gói Hội viên - 4 card inline ===== */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Crown className="h-4 w-4 text-amber-500" />
-              <h2 className="text-sm font-semibold">Gói Hội viên</h2>
-            </div>
-            <span className="text-xs text-muted-foreground">Bấm vào card để chọn - Lật thẻ xem quyền lợi</span>
+          {/* ===== SECTION 1: Trạng thái hội viên ===== */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+            <MembershipCard membership={membership} />
+            <MembershipDetails
+              membership={membership}
+              onToggleAutoRenew={handleToggleAutoRenew}
+              onToggleEmailReminder={handleToggleEmailReminder}
+            />
           </div>
 
-          {/* 4 cards: Trial + Starter + Pro + Elite - dàn ngang không scroll */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 pt-6 pb-2">
-            {packages.subscription.map((pkg) => (
-              <SubscriptionFlipCard
-                key={pkg.id}
-                pkg={pkg}
-                selected={selectedSubId === pkg.id}
-                onSelect={() => setSelectedSubId(pkg.id)}
-                onBuy={handleBuySub}
-                widthClass="w-full"
-              />
-            ))}
-          </div>
-
-          {/* CTA bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-muted/40 rounded-xl border mt-2">
-            <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-              <Wallet className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-xs text-muted-foreground">
-                Số dư Ví: <span className="font-bold text-foreground">{formatVND(membership.walletBalanceVnd)}</span>
-              </span>
-              <span className="text-xs text-muted-foreground mx-1">|</span>
-              <span className="text-xs text-muted-foreground">Thanh toán 1 lần hoặc dùng Ví LexiCore</span>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs gap-1.5 font-medium"
-                onClick={() => {
-                  const sub = packages.subscription.find((p) => p.id === selectedSubId);
-                  if (sub) handleBuySub(sub);
-                }}
-              >
-                {(() => {
-                  const sub = packages.subscription.find((p) => p.id === selectedSubId);
-                  if (!sub) return "Chọn gói";
-                  if (sub.is_trial) return <><Zap className="h-3.5 w-3.5" />Dùng thử miễn phí</>;
-                  const TierIcon = sub.tier === "ELITE" ? Crown : sub.tier === "PRO" ? Zap : Star;
-                  return <><TierIcon className="h-3.5 w-3.5" />Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))})</>;
-                })()}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* ===== SECTION 3: Nạp Coin ===== */}
-        {packages.coin_packs.length > 0 && (
+          {/* ===== SECTION 2: Gói Hội viên - 4 card inline ===== */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <CircleDollarSign className="h-4 w-4 text-emerald-600" />
-              <h2 className="text-sm font-semibold">Nạp Coin</h2>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Crown className="h-4 w-4 text-amber-500" />
+                <h2 className="text-sm font-semibold">Gói Hội viên</h2>
+              </div>
+              <span className="text-xs text-muted-foreground">Bấm vào card để chọn - Lật thẻ xem quyền lợi</span>
             </div>
-            <div className="flex flex-wrap gap-3 pt-4 pb-1">
-              {packages.coin_packs.map((pkg) => (
-                <TopupCard
+
+            {/* 4 cards: Trial + Starter + Pro + Elite - dàn ngang không scroll */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 pt-6 pb-2">
+              {packages.subscription.map((pkg) => (
+                <SubscriptionFlipCard
                   key={pkg.id}
                   pkg={pkg}
-                  icon={CircleDollarSign}
-                  colorClass="text-emerald-600"
-                  unit="Coin"
-                  onBuy={handleBuyPack}
-                  loading={packLoading}
+                  selected={selectedSubId === pkg.id}
+                  onSelect={() => setSelectedSubId(pkg.id)}
+                  onBuy={handleBuySub}
+                  widthClass="w-full"
                 />
               ))}
             </div>
-          </div>
-        )}
 
-        {/* ===== SECTION 4: Nạp Diamond ===== */}
-        {packages.diamond_packs.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Gem className="h-4 w-4 text-fuchsia-500" />
-              <h2 className="text-sm font-semibold">Nạp Diamond</h2>
+            {/* CTA bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-muted/40 rounded-xl border mt-2">
+              <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+                <Wallet className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground">
+                  Số dư Ví: <span className="font-bold text-foreground">{formatVND(membership.walletBalanceVnd)}</span>
+                </span>
+                <span className="text-xs text-muted-foreground mx-1">|</span>
+                <span className="text-xs text-muted-foreground">Thanh toán 1 lần hoặc dùng Ví LexiCore</span>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5 font-medium"
+                  onClick={() => {
+                    const sub = packages.subscription.find((p) => p.id === selectedSubId);
+                    if (sub) handleBuySub(sub);
+                  }}
+                >
+                  {(() => {
+                    const sub = packages.subscription.find((p) => p.id === selectedSubId);
+                    if (!sub) return "Chọn gói";
+                    if (sub.is_trial) return <><Zap className="h-3.5 w-3.5" />Dùng thử miễn phí</>;
+                    const TierIcon = sub.tier === "ELITE" ? Crown : sub.tier === "PRO" ? Zap : Star;
+                    return <><TierIcon className="h-3.5 w-3.5" />Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))})</>;
+                  })()}
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3 pt-4 pb-1">
-              {packages.diamond_packs.map((pkg) => (
-                <TopupCard
-                  key={pkg.id}
-                  pkg={pkg}
-                  icon={Gem}
-                  colorClass="text-fuchsia-500"
-                  unit="Diamond"
-                  onBuy={handleBuyPack}
-                  loading={packLoading}
-                />
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Coin & Diamond được cộng ngay vào ví sau khi thanh toán thành công.
-            </p>
           </div>
-        )}
 
-        {/* ===== SECTION 5: Lịch sử giao dịch ===== */}
-        <TransactionTable transactions={transactions} />
+          {/* ===== SECTION 3: Nạp Coin ===== */}
+          {packages.coin_packs.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <CircleDollarSign className="h-4 w-4 text-emerald-600" />
+                <h2 className="text-sm font-semibold">Nạp Coin</h2>
+              </div>
+              <div className="flex flex-wrap gap-3 pt-4 pb-1">
+                {packages.coin_packs.map((pkg) => (
+                  <TopupCard
+                    key={pkg.id}
+                    pkg={pkg}
+                    icon={CircleDollarSign}
+                    colorClass="text-emerald-600"
+                    unit="Coin"
+                    onBuy={handleBuyPack}
+                    loading={packLoading}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
-      </>)}
+          {/* ===== SECTION 4: Nạp Diamond ===== */}
+          {packages.diamond_packs.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Gem className="h-4 w-4 text-fuchsia-500" />
+                <h2 className="text-sm font-semibold">Nạp Diamond</h2>
+              </div>
+              <div className="flex flex-wrap gap-3 pt-4 pb-1">
+                {packages.diamond_packs.map((pkg) => (
+                  <TopupCard
+                    key={pkg.id}
+                    pkg={pkg}
+                    icon={Gem}
+                    colorClass="text-fuchsia-500"
+                    unit="Diamond"
+                    onBuy={handleBuyPack}
+                    loading={packLoading}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Coin & Diamond được cộng ngay vào ví sau khi thanh toán thành công.
+              </p>
+            </div>
+          )}
+
+          {/* ===== SECTION 5: Lịch sử giao dịch ===== */}
+          <TransactionTable transactions={transactions} />
+
+        </>)}
       </div>
     </TooltipProvider>
   );

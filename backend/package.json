@@ -15,7 +15,8 @@
     "postinstall": "prisma skills sync || exit 0",
     "dev": "tsx watch server.ts",
     "type-check": "tsc --noEmit",
-    "build": "echo 'Backend runtime ready'"
+    "build": "echo 'No build step - tsx handles TypeScript directly'",
+    "start": "tsx server.ts"
   },
   "keywords": [],
   "author": "",
