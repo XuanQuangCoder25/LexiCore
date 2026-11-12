@@ -342,6 +342,14 @@ export function formatVND(amount: number): string {
   return new Intl.NumberFormat("vi-VN").format(amount) + "₫";
 }
 
+export function getDurationLabel(durationDays: number | null | undefined): string {
+  if (!durationDays) return "/tháng";
+  if (durationDays === 365) return "/năm";
+  if (durationDays === 7) return "/7 ngày";
+  if (durationDays === 30) return "/tháng";
+  return `/${durationDays} ngày`;
+}
+
 export function getFinalPrice(pkg: CreditPackage): number {
   if (pkg.sale_percent > 0 && pkg.sale_ends_at && new Date(pkg.sale_ends_at) > new Date()) {
     return Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100));
@@ -592,12 +600,12 @@ export function SubscriptionFlipCard({
               {isTrial ? (
                 <>
                   <span className="text-2xl font-extrabold tracking-tight">Miễn phí</span>
-                  <span className="text-xs text-muted-foreground font-medium">/3 ngày</span>
+                  <span className="text-xs text-muted-foreground font-medium">/{pkg.duration_days ?? 3} ngày</span>
                 </>
               ) : (
                 <>
                   <span className="text-2xl font-extrabold tracking-tight">{formatVND(finalPrice)}</span>
-                  <span className="text-xs text-muted-foreground font-medium">/tháng</span>
+                  <span className="text-xs text-muted-foreground font-medium">{getDurationLabel(pkg.duration_days)}</span>
                 </>
               )}
             </div>

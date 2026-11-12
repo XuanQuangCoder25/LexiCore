@@ -20,9 +20,9 @@ export const initKeepAliveCron = () => {
             const start = Date.now();
             const res = await fetch(targetUrl);
             const duration = Date.now() - start;
-            console.log(`[Keep-Alive Ping] ✅ Ping thành công ${targetUrl} (Status: ${res.status}, ${duration}ms)`);
+            console.log(`[Keep-Alive Ping] Ping thành công ${targetUrl} (Status: ${res.status}, ${duration}ms)`);
         } catch (err: any) {
-            console.warn(`[Keep-Alive Ping] ⚠️ Lỗi khi ping ${targetUrl}:`, err?.message || err);
+            console.warn(`[Keep-Alive Ping] Lỗi khi ping ${targetUrl}:`, err?.message || err);
         }
     });
 };

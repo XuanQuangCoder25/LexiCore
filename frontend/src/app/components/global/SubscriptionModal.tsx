@@ -11,9 +11,6 @@ import {
   Crown,
   Check,
   Zap,
-  CircleDollarSign,
-  Gem,
-  Gift,
   Star,
   Copy,
   Wallet,
@@ -21,6 +18,7 @@ import {
   ArrowLeft,
   Loader2,
   CheckCircle2,
+  FileText,
 } from "lucide-react";
 import {
   CreditPackage,
@@ -28,9 +26,8 @@ import {
   MOCK_DATA,
   formatVND,
   getFinalPrice,
+  getDurationLabel,
   SubscriptionFlipCard,
-  TopupCard,
-  HScrollRow,
 } from "./subscription-cards";
 
 // ============================================================
@@ -39,6 +36,10 @@ import {
 export interface SubscriptionModalProps {
   open: boolean;
   onClose: () => void;
+  initialPackageId?: string;
+  initialTab?: "subscription" | "info";
+  autoCheckout?: boolean;
+  onSuccess?: () => void;
 }
 export type PremiumModalProps = SubscriptionModalProps;
 
@@ -53,7 +54,7 @@ interface SepayInitResult {
 }
 
 // ============================================================
-// WalletConfirmModal (modal nhỏ đè lên)
+// WalletConfirmModal (modal nhỏ đè lên modal chính)
 // ============================================================
 interface WalletConfirmProps {
   open: boolean;
@@ -86,24 +87,24 @@ function WalletConfirmModal({
       <div className="relative z-10 bg-background border rounded-2xl shadow-2xl w-[90vw] max-w-sm p-6 flex flex-col gap-4">
         <div className="flex items-center gap-2 text-base font-bold">
           <Wallet className="h-5 w-5 text-emerald-500" />
-          Xac nhan thanh toan bang Vi LexiCore
+          Xác nhận thanh toán bằng Ví LexiCore
         </div>
 
         <div className="bg-muted/50 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Goi dang ky</span>
+            <span className="text-muted-foreground">Gói đăng ký</span>
             <span className="font-medium">{pkg.name}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">So du vi hien tai</span>
+            <span className="text-muted-foreground">Số dư ví hiện tại</span>
             <span className="font-medium">{formatVND(walletBalance)}</span>
           </div>
           <div className="flex justify-between text-red-500">
-            <span>So tien thanh toan</span>
+            <span>Số tiền thanh toán</span>
             <span className="font-bold">-{formatVND(price)}</span>
           </div>
           <div className="border-t pt-2 flex justify-between font-bold">
-            <span>So du con lai</span>
+            <span>Số dư còn lại</span>
             <span className={canAfford ? "text-emerald-600" : "text-red-500"}>
               {formatVND(Math.max(remaining, 0))}
             </span>
@@ -112,7 +113,7 @@ function WalletConfirmModal({
 
         {!canAfford && (
           <p className="text-xs text-red-500 text-center">
-            So du vi khong du. Vui long nap them hoac chon phuong thuc chuyen khoan.
+            Số dư ví không đủ. Vui lòng chọn phương thức chuyển khoản VietQR.
           </p>
         )}
 
@@ -123,7 +124,7 @@ function WalletConfirmModal({
             onClick={onCancel}
             disabled={loading}
           >
-            Huy
+            Hủy
           </Button>
           <Button
             className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -133,7 +134,7 @@ function WalletConfirmModal({
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              "Xac nhan thanh toan"
+              "Xác nhận thanh toán"
             )}
           </Button>
         </div>
@@ -143,7 +144,7 @@ function WalletConfirmModal({
 }
 
 // ============================================================
-// QR Checkout Section (hien thi ben duoi sau khi an mua goi)
+// QR Checkout Section (hiển thị khi chọn thanh toán gói)
 // ============================================================
 interface QRCheckoutProps {
   result: SepayInitResult;
@@ -175,9 +176,9 @@ function QRCheckoutSection({
     return (
       <div className="flex flex-col items-center gap-4 py-8 px-6">
         <CheckCircle2 className="h-16 w-16 text-emerald-500" />
-        <p className="text-lg font-bold text-center">Thanh toan thanh cong!</p>
+        <p className="text-lg font-bold text-center">Thanh toán thành công!</p>
         <p className="text-sm text-muted-foreground text-center">
-          Goi {pkg.name} da duoc kich hoat. Chuc ban hoc tot!
+          Gói {pkg.name} đã được kích hoạt. Chúc bạn học tốt!
         </p>
       </div>
     );
@@ -190,41 +191,41 @@ function QRCheckoutSection({
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        Chon goi khac
+        Chọn gói khác
       </button>
 
       <div className="text-center">
         <p className="text-sm font-semibold text-muted-foreground mb-1">
-          Quet ma QR de thanh toan
+          Quét mã QR để thanh toán
         </p>
         <p className="text-xs text-muted-foreground">
-          Ung dung ngan hang tu dong dien san so tai khoan, so tien va noi dung
+          Ứng dụng ngân hàng tự động điền sẵn số tài khoản, số tiền và nội dung
         </p>
       </div>
 
-      {/* QR Image */}
+      {/* Ảnh QR SePay VietQR */}
       <div className="flex justify-center">
         <div className="rounded-2xl border-2 border-dashed border-muted p-3 bg-white">
           <img
             src={result.qrUrl}
-            alt="Ma QR chuyen khoan"
+            alt="Mã QR chuyển khoản"
             className="w-52 h-52 object-contain"
           />
         </div>
       </div>
 
-      {/* Thong tin chuyen khoan */}
+      {/* Thông tin chuyển khoản */}
       <div className="bg-muted/50 rounded-xl p-4 space-y-2.5 text-sm">
-        <InfoRow label="Ngan hang" value={result.bankCode} />
-        <InfoRow label="So tai khoan" value={result.accountNumber} />
-        <InfoRow label="Ten tai khoan" value={result.accountName} />
+        <InfoRow label="Ngân hàng" value={result.bankCode} />
+        <InfoRow label="Số tài khoản" value={result.accountNumber} />
+        <InfoRow label="Tên tài khoản" value={result.accountName} />
         <InfoRow
-          label="So tien"
+          label="Số tiền"
           value={formatVND(result.amountVnd)}
           highlight
         />
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Noi dung CK</span>
+          <span className="text-muted-foreground">Nội dung chuyển khoản</span>
           <div className="flex items-center gap-2">
             <span className="font-mono font-bold tracking-wider text-primary">
               {result.orderCode}
@@ -232,7 +233,7 @@ function QRCheckoutSection({
             <button
               onClick={() => copy(result.orderCode)}
               className="p-1 rounded hover:bg-muted transition-colors"
-              title="Sao chep noi dung"
+              title="Sao chép nội dung"
             >
               {copied ? (
                 <Check className="h-3.5 w-3.5 text-emerald-500" />
@@ -244,18 +245,18 @@ function QRCheckoutSection({
         </div>
       </div>
 
-      {/* Huong dan */}
+      {/* Lưu ý chuyển khoản */}
       <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400 space-y-1">
-        <p className="font-semibold">Luu y quan trong:</p>
-        <p>Noi dung chuyen khoan phai chinh xac la <strong>{result.orderCode}</strong></p>
-        <p>He thong tu dong xac nhan trong 1 - 5 phut sau khi nhan duoc tien.</p>
+        <p className="font-semibold">Lưu ý quan trọng:</p>
+        <p>Nội dung chuyển khoản phải chính xác là <strong>{result.orderCode}</strong></p>
+        <p>Hệ thống tự động xác nhận trong 1 đến 5 phút sau khi nhận được tiền.</p>
       </div>
 
-      {/* Nut thanh toan bang vi */}
+      {/* Nút thanh toán bằng ví */}
       <div className="flex flex-col gap-2">
         <div className="relative flex items-center gap-2">
           <div className="flex-1 border-t border-muted" />
-          <span className="text-xs text-muted-foreground">hoac</span>
+          <span className="text-xs text-muted-foreground">hoặc</span>
           <div className="flex-1 border-t border-muted" />
         </div>
         <Button
@@ -264,7 +265,7 @@ function QRCheckoutSection({
           onClick={onWalletPay}
         >
           <Wallet className="h-4 w-4" />
-          Thanh toan bang Vi LexiCore
+          Thanh toán bằng Ví LexiCore
           <span className="ml-auto text-xs text-muted-foreground">
             {formatVND(walletBalance)}
           </span>
@@ -294,111 +295,110 @@ function InfoRow({
 }
 
 // ============================================================
-// Tab Thong tin content
+// Tab Thông tin và chính sách content
 // ============================================================
 function InfoTabContent() {
   return (
     <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-220px)]">
-      <Section title="Bang gia dang ky">
+      <Section title="Bảng giá đăng ký các gói">
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="bg-muted/60">
-              <th className="text-left p-2 rounded-tl-lg">Goi</th>
-              <th className="text-right p-2">7 ngay</th>
-              <th className="text-right p-2">30 ngay</th>
-              <th className="text-right p-2 rounded-tr-lg">365 ngay</th>
+              <th className="text-left p-2 rounded-tl-lg">Gói</th>
+              <th className="text-right p-2">7 ngày</th>
+              <th className="text-right p-2">30 ngày</th>
+              <th className="text-right p-2 rounded-tr-lg">365 ngày</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             <tr>
               <td className="p-2 font-medium text-emerald-600">Starter</td>
-              <td className="p-2 text-right">9.000d</td>
-              <td className="p-2 text-right">19.000d</td>
-              <td className="p-2 text-right">159.000d</td>
+              <td className="p-2 text-right">9.000đ</td>
+              <td className="p-2 text-right">19.000đ</td>
+              <td className="p-2 text-right">159.000đ</td>
             </tr>
             <tr>
               <td className="p-2 font-medium text-blue-600">Pro</td>
-              <td className="p-2 text-right">15.000d</td>
-              <td className="p-2 text-right">35.000d</td>
-              <td className="p-2 text-right">269.000d</td>
+              <td className="p-2 text-right">15.000đ</td>
+              <td className="p-2 text-right">35.000đ</td>
+              <td className="p-2 text-right">269.000đ</td>
             </tr>
             <tr>
               <td className="p-2 font-medium text-amber-600">Elite</td>
-              <td className="p-2 text-right">25.000d</td>
-              <td className="p-2 text-right">49.000d</td>
-              <td className="p-2 text-right">349.000d</td>
+              <td className="p-2 text-right">25.000đ</td>
+              <td className="p-2 text-right">49.000đ</td>
+              <td className="p-2 text-right">349.000đ</td>
             </tr>
           </tbody>
         </table>
       </Section>
 
-      <Section title="Quy tac nang cap goi">
+      <Section title="Quy tắc nâng cấp gói">
         <ul className="space-y-1.5 text-xs text-muted-foreground">
           <li className="flex gap-2">
             <span className="text-emerald-500 mt-0.5">+</span>
             <span>
-              <strong>Gia han:</strong> Mua cung tier va chu ky thi he thong cong them ngay vao
-              ngay het han hien tai (khong mat ngay nao).
+              <strong>Gia hạn:</strong> Mua cùng hạng và cùng chu kỳ thì hệ thống cộng dồn thêm số ngày vào
+              hạn sử dụng hiện tại (không mất ngày nào).
             </span>
           </li>
           <li className="flex gap-2">
             <span className="text-blue-500 mt-0.5">+</span>
             <span>
-              <strong>Nang cap:</strong> So tien can tra = Gia goi moi - (Gia goi cu / 30 x So ngay
-              con lai). He thong tinh toan va hoan tien chenh lech vao Vi LexiCore hoac tru thang.
+              <strong>Nâng cấp:</strong> Số tiền cần trả = Giá gói mới - (Giá gói cũ / 30 x Số ngày còn lại).
+              Hệ thống kích hoạt ngay hạn sử dụng mới kể từ ngày nâng cấp.
             </span>
           </li>
           <li className="flex gap-2">
             <span className="text-red-500 mt-0.5">-</span>
             <span>
-              <strong>Khong duoc:</strong> Dang ky goi thap hon goi hien tai dang su dung.
+              <strong>Không hỗ trợ:</strong> Hạ cấp xuống gói thấp hơn gói hiện tại đang sử dụng.
             </span>
           </li>
           <li className="flex gap-2">
             <span className="text-orange-500 mt-0.5">!</span>
             <span>
-              <strong>Chu ky:</strong> Khong the nang cap len goi co chu ky ngan hon chu ky dang
-              dung (vi du: dang dung 30 ngay thi khong duoc mua goi 7 ngay o tier cao hon).
+              <strong>Chu kỳ:</strong> Không thể nâng cấp lên gói có chu kỳ ngắn hơn gói đang dùng
+              (ví dụ: đang dùng gói tháng thì không thể nâng lên gói 7 ngày của hạng cao hơn).
             </span>
           </li>
         </ul>
       </Section>
 
-      <Section title="Cach tinh thoi gian">
+      <Section title="Cách tính thời gian">
         <ul className="space-y-1.5 text-xs text-muted-foreground">
-          <li>1 nam = 365 ngay (khong tinh theo nam duong lich)</li>
-          <li>1 thang = 30 ngay</li>
-          <li>1 tuan = 7 ngay</li>
-          <li>Ngay het han duoc tinh bat dau tu thoi diem thanh toan thanh cong.</li>
+          <li>1 năm = 365 ngày</li>
+          <li>1 tháng = 30 ngày</li>
+          <li>1 tuần = 7 ngày</li>
+          <li>Hạn sử dụng được tính bắt đầu từ thời điểm thanh toán thành công.</li>
         </ul>
       </Section>
 
-      <Section title="Huong dan thanh toan">
+      <Section title="Hướng dẫn thanh toán">
         <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal list-inside">
-          <li>Chon goi muon dang ky va nhan nut Mua goi.</li>
-          <li>Quet ma QR bang app ngan hang bat ky hoac sao chep thong tin chuyen khoan.</li>
+          <li>Chọn gói muốn đăng ký và nhấn nút Mua gói.</li>
+          <li>Quét mã QR bằng ứng dụng ngân hàng bất kỳ (VietQR).</li>
           <li>
-            Noi dung chuyen khoan PHAI dung chinh xac ma don hang (vi du: LC105). App ngan hang
-            se tu dong dien san.
+            Nội dung chuyển khoản phải đúng chính xác mã đơn hàng (ví dụ: LC105). Ứng dụng ngân hàng
+            sẽ tự động điền sẵn khi quét QR.
           </li>
-          <li>He thong tu xac nhan trong 1 - 5 phut sau khi nhan duoc tien.</li>
-          <li>Hoac su dung Vi LexiCore (da nap tien truoc) de thanh toan ngay lap tuc.</li>
+          <li>Hệ thống tự động xác nhận trong 1 đến 5 phút sau khi nhận được tiền.</li>
+          <li>Hoặc thanh toán tức thì bằng số dư Ví LexiCore.</li>
         </ol>
       </Section>
 
-      <Section title="Goi dung thu va khuyen mai">
+      <Section title="Gói dùng thử và khuyến mãi">
         <ul className="space-y-1.5 text-xs text-muted-foreground">
-          <li>Moi tai khoan moi tu dong nhan goi Pro dung thu 3 ngay mien phi.</li>
+          <li>Mỗi tài khoản mới mặc định được kích hoạt gói Pro dùng thử 3 ngày miễn phí.</li>
           <li>
-            Admin co the ban hanh cac dot khuyen mai giam gia hoac goi dung thu dac biet nhan cac
-            dip le - se hien thi tren trang chu neu co chuong trinh dang chay.
+            Ban quản trị có thể ban hành các đợt khuyến mãi giảm giá hoặc gói dùng thử đặc biệt nhân dịp kỷ niệm.
           </li>
-          <li>Moi nguoi dung chi duoc kich hoat 1 goi dung thu trong toan bo vong doi tai khoan.</li>
+          <li>Mỗi người dùng chỉ được sử dụng 1 lần gói dùng thử.</li>
         </ul>
       </Section>
 
       <p className="text-xs text-center text-muted-foreground pb-2">
-        Moi thac mac lien he: support@lexicore.site
+        Hỗ trợ thanh toán: support@lexicore.site
       </p>
     </div>
   );
@@ -422,13 +422,17 @@ function Section({
 // ============================================================
 // Main Modal
 // ============================================================
-export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
-  const [activeTab, setActiveTab] = useState<"subscription" | "topup" | "info">(
-    "subscription"
-  );
+export function SubscriptionModal({
+  open,
+  onClose,
+  initialPackageId,
+  initialTab = "subscription",
+  autoCheckout = false,
+  onSuccess,
+}: SubscriptionModalProps) {
+  const [activeTab, setActiveTab] = useState<"subscription" | "info">(initialTab);
   const [packages, setPackages] = useState<GroupedPackages>(MOCK_DATA);
   const [selectedSubId, setSelectedSubId] = useState<string>("sub-elite");
-  const [packLoading, setPackLoading] = useState<string | null>(null);
   const [subLoadingId, setSubLoadingId] = useState<string | null>(null);
 
   // QR checkout state
@@ -436,7 +440,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
   const [checkoutPkg, setCheckoutPkg] = useState<CreditPackage | null>(null);
   const [paymentDone, setPaymentDone] = useState(false);
 
-  // Vi LexiCore state
+  // Ví LexiCore state
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletConfirmOpen, setWalletConfirmOpen] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
@@ -448,7 +452,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
     packages.subscription.find((p) => p.id === selectedSubId) ||
     packages.subscription[packages.subscription.length - 1];
 
-  // Fetch packages tu backend
+  // Fetch packages từ backend
   useEffect(() => {
     if (!open) return;
     fetch("/api/payment/packages")
@@ -457,13 +461,15 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
         if (json.success && json.data) {
           setPackages(json.data);
           const sub = json.data.subscription;
-          if (sub?.length) setSelectedSubId(sub[sub.length - 1].id);
+          if (sub?.length && !initialPackageId) {
+            setSelectedSubId(sub[sub.length - 1].id);
+          }
         }
       })
       .catch(() => {});
-  }, [open]);
+  }, [open, initialPackageId]);
 
-  // Fetch so du vi
+  // Fetch số dư ví
   useEffect(() => {
     if (!open) return;
     fetch("/api/payment/my-subscription", { credentials: "include" })
@@ -476,18 +482,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
       .catch(() => {});
   }, [open]);
 
-  // Reset khi dong modal
-  useEffect(() => {
-    if (!open) {
-      setCheckoutResult(null);
-      setCheckoutPkg(null);
-      setPaymentDone(false);
-      setActiveTab("subscription");
-      stopPolling();
-    }
-  }, [open]);
-
-  // Polling kiem tra trang thai don hang
+  // Polling kiểm tra trạng thái đơn hàng
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -507,22 +502,23 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
           if (json.success && json.data?.status === "SUCCESS") {
             stopPolling();
             setPaymentDone(true);
-            toast.success(`Dang ky ${pkg.name} thanh cong!`, {
-              description: "Goi da duoc kich hoat. Chuc ban hoc tot!",
+            toast.success(`Đăng ký ${pkg.name} thành công!`, {
+              description: "Gói đã được kích hoạt. Chúc bạn học tốt!",
             });
-            setTimeout(() => onClose(), 3000);
+            onSuccess?.();
+            setTimeout(() => onClose(), 2500);
           }
         } catch {
-          // bo qua loi mang tam thoi
+          // Bỏ qua lỗi mạng tạm thời
         }
-      }, 5000);
+      }, 4000);
     },
-    [stopPolling, onClose]
+    [stopPolling, onClose, onSuccess]
   );
 
-  // Mua goi bang SePay QR
-  const handleBuySub = async (pkg: CreditPackage) => {
-    // Neu la goi trial thi dung API trial rieng
+  // Mua gói bằng SePay QR
+  const handleBuySub = useCallback(async (pkg: CreditPackage) => {
+    // Nếu là gói dùng thử thì dùng API kích hoạt dùng thử riêng
     if (pkg.is_trial) {
       setSubLoadingId(pkg.id);
       try {
@@ -534,19 +530,20 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
         });
         const json = await res.json();
         if (!json.success) throw new Error(json.message);
-        toast.success("Kich hoat goi dung thu thanh cong!", {
-          description: "Chuc ban hoc tot!",
+        toast.success("Kích hoạt gói dùng thử thành công!", {
+          description: "Chúc bạn học tốt!",
         });
+        onSuccess?.();
         onClose();
       } catch (err: any) {
-        toast.error("Kich hoat that bai", { description: err.message });
+        toast.error("Kích hoạt thất bại", { description: err.message });
       } finally {
         setSubLoadingId(null);
       }
       return;
     }
 
-    // Goi tra phi: goi SePay init
+    // Gói trả phí: gọi SePay init
     setSubLoadingId(pkg.id);
     try {
       const res = await fetch("/api/payment/sepay/init", {
@@ -560,39 +557,16 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
 
       setCheckoutResult(json.data as SepayInitResult);
       setCheckoutPkg(pkg);
+      setActiveTab("subscription");
       startPolling(json.data.orderId, pkg);
     } catch (err: any) {
-      toast.error("Khoi tao thanh toan that bai", { description: err.message });
+      toast.error("Khởi tạo thanh toán thất bại", { description: err.message });
     } finally {
       setSubLoadingId(null);
     }
-  };
+  }, [startPolling, onClose, onSuccess]);
 
-  // Mua pack coin/diamond (van dung SePay)
-  const handleBuyPack = async (pkg: CreditPackage) => {
-    setPackLoading(pkg.id);
-    try {
-      const res = await fetch("/api/payment/sepay/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ packageId: pkg.id }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message);
-
-      setCheckoutResult(json.data as SepayInitResult);
-      setCheckoutPkg(pkg);
-      setActiveTab("subscription"); // chuyen ve tab chinh de hien thi QR
-      startPolling(json.data.orderId, pkg);
-    } catch (err: any) {
-      toast.error("Khoi tao thanh toan that bai", { description: err.message });
-    } finally {
-      setPackLoading(null);
-    }
-  };
-
-  // Thanh toan bang Vi LexiCore
+  // Thanh toán bằng Ví LexiCore
   const handleWalletConfirm = async () => {
     if (!checkoutPkg) return;
     setWalletLoading(true);
@@ -609,14 +583,38 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
       stopPolling();
       setWalletConfirmOpen(false);
       setPaymentDone(true);
-      toast.success(`Dang ky ${checkoutPkg.name} thanh cong qua Vi LexiCore!`);
-      setTimeout(() => onClose(), 3000);
+      toast.success(`Đăng ký ${checkoutPkg.name} thành công qua Ví LexiCore!`);
+      onSuccess?.();
+      setTimeout(() => onClose(), 2500);
     } catch (err: any) {
-      toast.error("Thanh toan vi that bai", { description: err.message });
+      toast.error("Thanh toán ví thất bại", { description: err.message });
     } finally {
       setWalletLoading(false);
     }
   };
+
+  // Đồng bộ initialTab & initialPackageId & autoCheckout khi mở modal
+  useEffect(() => {
+    if (!open) {
+      setCheckoutResult(null);
+      setCheckoutPkg(null);
+      setPaymentDone(false);
+      stopPolling();
+      return;
+    }
+
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+
+    if (initialPackageId) {
+      setSelectedSubId(initialPackageId);
+      const targetPkg = packages.subscription.find((p) => p.id === initialPackageId);
+      if (targetPkg && autoCheckout) {
+        handleBuySub(targetPkg);
+      }
+    }
+  }, [open, initialTab, initialPackageId, autoCheckout, packages.subscription, handleBuySub, stopPolling]);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (subScrollRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -633,7 +631,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
 
   return (
     <>
-      {/* Modal Vi xac nhan (de len modal chinh) */}
+      {/* Modal Ví xác nhận (đè lên modal chính) */}
       {checkoutPkg && (
         <WalletConfirmModal
           open={walletConfirmOpen}
@@ -650,51 +648,49 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
           className="max-w-4xl sm:max-w-4xl w-[92vw] p-0 flex flex-col gap-0 overflow-hidden bg-background/95 backdrop-blur-md border shadow-2xl"
           aria-describedby={undefined}
         >
-          {/* ===== HEADER ===== */}
+          {/* Header */}
           <div className="shrink-0 p-6 pb-4 border-b">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-2xl font-black">
                 <Crown className="h-6 w-6 text-amber-500" />
-                Nang cap LexiCore
+                Nâng cấp LexiCore
               </DialogTitle>
             </DialogHeader>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Chon goi phu hop hoac nap them Coin va Diamond de mo khoa toan bo trai nghiem hoc tap!
+              Khám phá toàn bộ 9 gói theo chu kỳ 7 ngày, 30 ngày và 365 ngày kèm chính sách nâng cấp minh bạch.
             </p>
 
-            {/* Tab switcher */}
+            {/* Tab chuyển đổi: Chỉ còn 2 tab như đã bàn */}
             <div className="flex mt-4 bg-muted rounded-xl p-1">
               <TabBtn
                 active={activeTab === "subscription"}
-                onClick={() => setActiveTab("subscription")}
+                onClick={() => {
+                  setCheckoutResult(null);
+                  setActiveTab("subscription");
+                }}
               >
                 <Crown className="h-3.5 w-3.5 inline mr-1.5 text-amber-500" />
-                Goi Hoi vien
-              </TabBtn>
-              <TabBtn
-                active={activeTab === "topup"}
-                onClick={() => setActiveTab("topup")}
-              >
-                <Gift className="h-3.5 w-3.5 inline mr-1.5 text-fuchsia-500" />
-                Nap Coin va Diamond
+                Tất cả gói Hội viên
               </TabBtn>
               <TabBtn
                 active={activeTab === "info"}
-                onClick={() => setActiveTab("info")}
+                onClick={() => {
+                  setCheckoutResult(null);
+                  setActiveTab("info");
+                }}
               >
-                <Info className="h-3.5 w-3.5 inline mr-1.5 text-sky-500" />
-                Thong tin
+                <FileText className="h-3.5 w-3.5 inline mr-1.5 text-sky-500" />
+                Thông tin và chính sách
               </TabBtn>
             </div>
           </div>
 
-          {/* ===== BODY ===== */}
+          {/* Body */}
           <div className="flex-1 overflow-y-auto">
 
-            {/* ---- TAB: SUBSCRIPTION ---- */}
+            {/* Tab: Subscription (Tất cả các gói) */}
             {activeTab === "subscription" && (
               <div className="flex flex-col">
-                {/* Neu da chon goi va co ket qua QR thi hien checkout */}
                 {checkoutResult && checkoutPkg ? (
                   <QRCheckoutSection
                     result={checkoutResult}
@@ -706,7 +702,6 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                   />
                 ) : (
                   <>
-                    {/* Danh sach goi scroll ngang */}
                     <div className="w-full min-w-0 overflow-hidden px-6">
                       <div
                         ref={subScrollRef}
@@ -726,10 +721,10 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                       </div>
                     </div>
 
-                    {/* Footer CTA */}
+                    {/* Footer thanh toán */}
                     <div className="shrink-0 px-6 py-4 bg-muted/40 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
                       <p className="text-xs text-muted-foreground">
-                        Thanh toan qua chuyen khoan VietQR (SePay) hoac Vi LexiCore
+                        Thanh toán qua chuyển khoản VietQR (SePay) hoặc Ví LexiCore
                       </p>
 
                       {selectedSub && (
@@ -761,8 +756,8 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
                                 <Star className="h-4 w-4 mr-1.5" />
                               )}
                               {selectedSub.is_trial
-                                ? "Dung thu mien phi 3 ngay"
-                                : `Mua goi ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))}`}
+                                ? "Dùng thử miễn phí 3 ngày"
+                                : `Mua gói ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))} ${getDurationLabel(selectedSub.duration_days)}`}
                             </>
                           )}
                         </Button>
@@ -773,62 +768,7 @@ export function SubscriptionModal({ open, onClose }: SubscriptionModalProps) {
               </div>
             )}
 
-            {/* ---- TAB: TOPUP ---- */}
-            {activeTab === "topup" && (
-              <div className="p-6 space-y-5">
-                {/* Coin row */}
-                {packages.coin_packs.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold flex items-center gap-1.5 mb-3">
-                      <CircleDollarSign className="h-4 w-4 text-emerald-600" />
-                      Nap Coin
-                    </p>
-                    <HScrollRow>
-                      {packages.coin_packs.map((pkg) => (
-                        <TopupCard
-                          key={pkg.id}
-                          pkg={pkg}
-                          icon={CircleDollarSign}
-                          colorClass="text-emerald-600"
-                          unit="Coin"
-                          onBuy={handleBuyPack}
-                          loading={packLoading}
-                        />
-                      ))}
-                    </HScrollRow>
-                  </div>
-                )}
-
-                {/* Diamond row */}
-                {packages.diamond_packs.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold flex items-center gap-1.5 mb-3">
-                      <Gem className="h-4 w-4 text-fuchsia-500" />
-                      Nap Diamond
-                    </p>
-                    <HScrollRow>
-                      {packages.diamond_packs.map((pkg) => (
-                        <TopupCard
-                          key={pkg.id}
-                          pkg={pkg}
-                          icon={Gem}
-                          colorClass="text-fuchsia-500"
-                          unit="Diamond"
-                          onBuy={handleBuyPack}
-                          loading={packLoading}
-                        />
-                      ))}
-                    </HScrollRow>
-                  </div>
-                )}
-
-                <p className="text-xs text-center text-muted-foreground pb-2">
-                  Coin va Diamond duoc cong ngay vao vi sau khi he thong xac nhan thanh toan.
-                </p>
-              </div>
-            )}
-
-            {/* ---- TAB: THONG TIN ---- */}
+            {/* Tab: Thông tin và chính sách */}
             {activeTab === "info" && <InfoTabContent />}
           </div>
         </DialogContent>

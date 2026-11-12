@@ -63,13 +63,25 @@ export interface UserTransaction {
 // Packages
 // ============================================================
 
+// Hàm parse cột features an toàn:
+// - Nếu mysql2 đã tự parse JSON column thành array/object thì dùng luôn
+// - Nếu vẫn là string (kiểu TEXT) thì mới cần JSON.parse
+function parseFeatures(raw: any): string[] | null {
+    if (!raw) return null;
+    if (Array.isArray(raw)) return raw as string[];
+    if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch { return null; }
+    }
+    return null;
+}
+
 export async function getAllPackages(): Promise<CreditPackage[]> {
     const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT * FROM credit_packages WHERE is_active = TRUE ORDER BY display_order ASC`
     );
     return rows.map(row => ({
         ...row,
-        features: row.features ? JSON.parse(row.features as string) : null,
+        features: parseFeatures(row.features),
         is_trial: Boolean(row.is_trial),
     })) as CreditPackage[];
 }
@@ -83,7 +95,7 @@ export async function getPackageById(id: string): Promise<CreditPackage | null> 
     const row = rows[0];
     return {
         ...row,
-        features: row.features ? JSON.parse(row.features as string) : null,
+        features: parseFeatures(row.features),
         is_trial: Boolean(row.is_trial),
     } as CreditPackage;
 }

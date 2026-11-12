@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Crown,
   Zap,
@@ -41,9 +41,11 @@ import {
   MOCK_DATA,
   formatVND,
   getFinalPrice,
+  getDurationLabel,
   SubscriptionFlipCard,
   TopupCard,
 } from "../global/subscription-cards";
+import { SubscriptionModal } from "../global/SubscriptionModal";
 import { toast } from "sonner";
 
 // ============================================================
@@ -526,54 +528,59 @@ export function SubscriptionView() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ── Fetch on mount ──────────────────────────────────────────
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [subData, pkgData, txData] = await Promise.all([
-          apiFetch<{
-            tier: string;
-            startedAt: string | null;
-            expiresAt: string | null;
-            autoRenew: boolean;
-            emailReminder: boolean;
-            coinBalance: number;
-            diamondBalance: number;
-            walletBalanceVnd: number;
-          }>("/my-subscription"),
-          apiFetch<GroupedPackages>("/packages"),
-          apiFetch<Transaction[]>("/my-transactions"),
-        ]);
+  // State cho SubscriptionModal (thanh toán thật)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalPackageId, setModalPackageId] = useState<string | undefined>(undefined);
+  const [modalTab, setModalTab] = useState<"subscription" | "topup" | "info">("subscription");
+  const [modalAutoCheckout, setModalAutoCheckout] = useState(false);
 
-        setMembership({
-          tier: (subData.tier ?? "FREE") as Tier,
-          startedAt: subData.startedAt,
-          expiresAt: subData.expiresAt,
-          autoRenew: subData.autoRenew,
-          emailReminder: subData.emailReminder,
-          coinBalance: subData.coinBalance,
-          diamondBalance: subData.diamondBalance,
-          walletBalanceVnd: subData.walletBalanceVnd,
-        });
+  // ── Fetch dữ liệu ──────────────────────────────────────────
+  const fetchAll = useCallback(async () => {
+    try {
+      const [subData, pkgData, txData] = await Promise.all([
+        apiFetch<{
+          tier: string;
+          startedAt: string | null;
+          expiresAt: string | null;
+          autoRenew: boolean;
+          emailReminder: boolean;
+          coinBalance: number;
+          diamondBalance: number;
+          walletBalanceVnd: number;
+        }>("/my-subscription"),
+        apiFetch<GroupedPackages>("/packages"),
+        apiFetch<Transaction[]>("/my-transactions"),
+      ]);
 
-        setPackages(pkgData);
-        setTransactions(txData);
+      setMembership({
+        tier: (subData.tier ?? "FREE") as Tier,
+        startedAt: subData.startedAt,
+        expiresAt: subData.expiresAt,
+        autoRenew: subData.autoRenew,
+        emailReminder: subData.emailReminder,
+        coinBalance: subData.coinBalance,
+        diamondBalance: subData.diamondBalance,
+        walletBalanceVnd: subData.walletBalanceVnd,
+      });
 
-        // Chọn mặc định card subscription đầu tiên
-        if (pkgData.subscription.length > 0 && !selectedSubId) {
-          setSelectedSubId(pkgData.subscription[0].id);
-        }
-      } catch (err) {
-        console.error("[SubscriptionView] Fetch error:", err);
-        toast.error("Khong the tai du lieu. Vui long thu lai sau.");
-      } finally {
-        setLoading(false);
+      setPackages(pkgData);
+      setTransactions(txData);
+
+      // Chọn mặc định card subscription đầu tiên nếu chưa chọn
+      if (pkgData.subscription.length > 0 && !selectedSubId) {
+        setSelectedSubId(pkgData.subscription[0].id);
       }
-    };
+    } catch (err) {
+      console.error("[SubscriptionView] Fetch error:", err);
+      toast.error("Không thể tải dữ liệu. Vui lòng thử lại sau.");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedSubId]);
 
+  useEffect(() => {
     fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchAll]);
 
   const isFree = membership.tier === "FREE";
   const cfg = TIER_CFG[membership.tier];
@@ -589,7 +596,7 @@ export function SubscriptionView() {
       });
     } catch {
       setMembership((m) => ({ ...m, autoRenew: !next }));
-      toast.error("Khong the cap nhat cai dat. Vui long thu lai.");
+      toast.error("Không thể cập nhật cài đặt. Vui lòng thử lại.");
     }
   };
 
@@ -604,7 +611,7 @@ export function SubscriptionView() {
       });
     } catch {
       setMembership((m) => ({ ...m, emailReminder: !next }));
-      toast.error("Khong the cap nhat cai dat. Vui long thu lai.");
+      toast.error("Không thể cập nhật cài đặt. Vui lòng thử lại.");
     }
   };
 
@@ -617,7 +624,7 @@ export function SubscriptionView() {
     );
   }, [membership.tier]);
 
-  // Mua gói subscription (Trial: trực tiếp; trả phí: placeholder Checkout modal)
+  // Mua gói subscription (Trial: kích hoạt trực tiếp; trả phí: mở modal thanh toán thật)
   const handleBuySub = async (pkg: CreditPackage) => {
     if (pkg.is_trial) {
       try {
@@ -626,32 +633,71 @@ export function SubscriptionView() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ packageId: pkg.id }),
         });
-        toast.success("Kich hoat dung thu thanh cong!", {
-          description: "Ban co 3 ngay trai nghiem day du tinh nang Pro.",
+        toast.success("Kích hoạt gói dùng thử thành công!", {
+          description: "Bạn có 3 ngày trải nghiệm đầy đủ tính năng Pro.",
         });
-        // Reload trang de cap nhat trang thai
-        window.location.reload();
+        fetchAll();
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Loi khong xac dinh";
+        const msg = err instanceof Error ? err.message : "Lỗi không xác định";
         toast.error(msg);
       }
       return;
     }
-    // Checkout modal se implement sau
-    toast.info(`Chon goi: ${pkg.name}`, {
-      description: `${formatVND(getFinalPrice(pkg))}/thang - Tinh nang thanh toan dang phat trien.`,
-    });
+
+    // Mở modal thanh toán SePay VietQR cho gói này
+    setModalPackageId(pkg.id);
+    setModalTab("subscription");
+    setModalAutoCheckout(true);
+    setModalOpen(true);
   };
 
-  // Mua topup pack (Checkout modal - implement sau)
+  // Mua gói Coin hoặc Diamond (Mở modal thanh toán SePay VietQR thật)
   const handleBuyPack = async (pkg: CreditPackage) => {
-    setPackLoading(pkg.id);
-    // Checkout modal se implement sau
-    setTimeout(() => {
-      toast.info(`Chon goi: ${pkg.name}`, { description: `${formatVND(getFinalPrice(pkg))} - tinh nang thanh toan dang phat trien.` });
-      setPackLoading(null);
-    }, 400);
+    setModalPackageId(pkg.id);
+    setModalTab("subscription");
+    setModalAutoCheckout(true);
+    setModalOpen(true);
   };
+
+  // Lọc chỉ 3 gói tháng đại diện (Starter, Pro, Elite chu kỳ 30 ngày)
+  // và gói Trial ở vị trí đầu tiên (nếu có trial) -> hiển thị 3 hoặc 4 card
+  const featuredSubs = useMemo(() => {
+    const subs = packages.subscription;
+    const list: CreditPackage[] = [];
+
+    // 1. Gói Trial ở vị trí đầu tiên nếu có
+    const trialPkg = subs.find((p) => p.is_trial);
+    if (trialPkg) {
+      list.push(trialPkg);
+    }
+
+    // 2. 3 gói tháng đại diện: Starter, Pro, Elite (chu kỳ 30 ngày)
+    const tiers: ("STARTER" | "PRO" | "ELITE")[] = ["STARTER", "PRO", "ELITE"];
+    tiers.forEach((t) => {
+      const monthly = subs.find(
+        (p) => !p.is_trial && p.tier === t && (p.duration_days === 30 || !p.duration_days)
+      );
+      if (monthly) {
+        list.push(monthly);
+      } else {
+        const anyTierPkg = subs.find((p) => !p.is_trial && p.tier === t);
+        if (anyTierPkg) list.push(anyTierPkg);
+      }
+    });
+
+    return list;
+  }, [packages.subscription]);
+
+  // Tự động chọn gói hợp lệ trong featuredSubs nếu selectedSubId chưa có hoặc không nằm trong featuredSubs
+  useEffect(() => {
+    if (featuredSubs.length > 0) {
+      const exists = featuredSubs.some((p) => p.id === selectedSubId);
+      if (!exists) {
+        const proPkg = featuredSubs.find((p) => p.tier === "PRO" && !p.is_trial);
+        setSelectedSubId(proPkg ? proPkg.id : featuredSubs[0].id);
+      }
+    }
+  }, [featuredSubs, selectedSubId]);
 
   return (
     <TooltipProvider>
@@ -659,7 +705,7 @@ export function SubscriptionView() {
         {loading && (
           <div className="flex items-center justify-center py-20 text-sm text-muted-foreground gap-2">
             <RefreshCw className="h-4 w-4 animate-spin" />
-            Dang tai du lieu...
+            Đang tải dữ liệu...
           </div>
         )}
         {!loading && (<>
@@ -674,19 +720,42 @@ export function SubscriptionView() {
             />
           </div>
 
-          {/* ===== SECTION 2: Gói Hội viên - 4 card inline ===== */}
+          {/* ===== SECTION 2: Gói Hội viên - Căn đều 3 hoặc 4 thẻ đại diện ===== */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Crown className="h-4 w-4 text-amber-500" />
                 <h2 className="text-sm font-semibold">Gói Hội viên</h2>
               </div>
-              <span className="text-xs text-muted-foreground">Bấm vào card để chọn - Lật thẻ xem quyền lợi</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  Bấm vào thẻ để chọn hoặc lật thẻ xem quyền lợi
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 px-2.5 font-medium"
+                  onClick={() => {
+                    setModalPackageId(selectedSubId);
+                    setModalTab("subscription");
+                    setModalAutoCheckout(false);
+                    setModalOpen(true);
+                  }}
+                >
+                  Xem tất cả các gói
+                </Button>
+              </div>
             </div>
 
-            {/* 4 cards: Trial + Starter + Pro + Elite - dàn ngang không scroll */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 pt-6 pb-2">
-              {packages.subscription.map((pkg) => (
+            {/* Hiển thị 3 card (căn đều 3 cột) hoặc 4 card (căn đều 4 cột) cân xứng */}
+            <div
+              className={`w-full pt-6 pb-2 ${
+                featuredSubs.length === 3
+                  ? "grid grid-cols-1 md:grid-cols-3 gap-6"
+                  : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+              }`}
+            >
+              {featuredSubs.map((pkg) => (
                 <SubscriptionFlipCard
                   key={pkg.id}
                   pkg={pkg}
@@ -723,7 +792,12 @@ export function SubscriptionView() {
                     if (!sub) return "Chọn gói";
                     if (sub.is_trial) return <><Zap className="h-3.5 w-3.5" />Dùng thử miễn phí</>;
                     const TierIcon = sub.tier === "ELITE" ? Crown : sub.tier === "PRO" ? Zap : Star;
-                    return <><TierIcon className="h-3.5 w-3.5" />Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))})</>;
+                    return (
+                      <>
+                        <TierIcon className="h-3.5 w-3.5" />
+                        Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))}{getDurationLabel(sub.duration_days)})
+                      </>
+                    );
                   })()}
                 </Button>
               </div>
@@ -784,6 +858,16 @@ export function SubscriptionView() {
 
         </>)}
       </div>
+
+      {/* Modal xem tất cả gói & thanh toán SePay VietQR / Ví */}
+      <SubscriptionModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        initialPackageId={modalPackageId}
+        initialTab={modalTab}
+        autoCheckout={modalAutoCheckout}
+        onSuccess={fetchAll}
+      />
     </TooltipProvider>
   );
 }
