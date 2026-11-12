@@ -345,7 +345,7 @@ export function formatVND(amount: number): string {
 export function getDurationLabel(durationDays: number | null | undefined): string {
   if (!durationDays) return "/tháng";
   if (durationDays === 365) return "/năm";
-  if (durationDays === 7) return "/7 ngày";
+  if (durationDays === 7) return "/tuần";
   if (durationDays === 30) return "/tháng";
   return `/${durationDays} ngày`;
 }

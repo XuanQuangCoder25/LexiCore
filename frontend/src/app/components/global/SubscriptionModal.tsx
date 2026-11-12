@@ -305,7 +305,7 @@ function InfoTabContent() {
           <thead>
             <tr className="bg-muted/60">
               <th className="text-left p-2 rounded-tl-lg">Gói</th>
-              <th className="text-right p-2">7 ngày</th>
+              <th className="text-right p-2">1 tuần</th>
               <th className="text-right p-2">30 ngày</th>
               <th className="text-right p-2 rounded-tr-lg">365 ngày</th>
             </tr>
@@ -359,7 +359,7 @@ function InfoTabContent() {
             <span className="text-orange-500 mt-0.5">!</span>
             <span>
               <strong>Chu kỳ:</strong> Không thể nâng cấp lên gói có chu kỳ ngắn hơn gói đang dùng
-              (ví dụ: đang dùng gói tháng thì không thể nâng lên gói 7 ngày của hạng cao hơn).
+              (ví dụ: đang dùng gói tháng thì không thể nâng lên gói tuần của hạng cao hơn).
             </span>
           </li>
         </ul>
@@ -657,7 +657,7 @@ export function SubscriptionModal({
               </DialogTitle>
             </DialogHeader>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Khám phá toàn bộ 9 gói theo chu kỳ 7 ngày, 30 ngày và 365 ngày kèm chính sách nâng cấp minh bạch.
+              Khám phá toàn bộ 9 gói theo chu kỳ tuần, tháng và năm kèm chính sách nâng cấp minh bạch.
             </p>
 
             {/* Tab chuyển đổi: Chỉ còn 2 tab như đã bàn */}
