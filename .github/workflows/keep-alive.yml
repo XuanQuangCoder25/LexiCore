@@ -1,0 +1,22 @@
+name: Keep-Alive Ping (Render & Vercel)
+
+on:
+  schedule:
+    # Chạy mỗi 10 phút để giữ Render không bị ngủ đông
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend API (Render)
+        run: |
+          echo "Ping Render Backend API..."
+          curl -f -s https://api.lexicore.site/health || curl -s https://api.lexicore.site/ || true
+
+      - name: Ping Frontend (Vercel)
+        run: |
+          echo "Ping Vercel Frontend..."
+          curl -f -s https://lexicore.site/ || true
+

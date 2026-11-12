@@ -339,8 +339,22 @@ export const handleSepayWebhook = async (
         return { success: true, message: 'Bỏ qua giao dịch tiền ra' };
     }
 
-    // 2. Bóc tách paymentReference từ code hoặc content
-    let matchRef = payload.code;
+    // 2. Hỗ trợ test webhook từ SePay Dashboard (khi admin bấm "Test Webhook" hoặc "Gửi thử")
+    if (
+        payload.id === 0 ||
+        payload.code === 'TEST' ||
+        payload.referenceCode === 'TEST123456' ||
+        (payload.content && payload.content.toLowerCase().includes('test'))
+    ) {
+        console.log('[SePay Webhook] Nhận được tín hiệu Test Webhook từ SePay Dashboard. Trả về 200 OK.');
+        return { success: true, message: 'Test webhook thành công!' };
+    }
+
+    // 3. Bóc tách paymentReference từ code hoặc content
+    let matchRef = payload.code ? payload.code.trim().toUpperCase() : null;
+    if (matchRef && !matchRef.startsWith('LC') && /^\d{6}$/.test(matchRef)) {
+        matchRef = `LC${matchRef}`;
+    }
     if (!matchRef && payload.content) {
         const match = payload.content.match(/LC\d{6}/i);
         if (match) {

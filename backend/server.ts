@@ -26,6 +26,7 @@ import arenaRoute from './modules/arena/arena-word.route';
 import notificationRoute from './modules/notification/notification-route';
 import { initNotificationCron } from './modules/notification/notification-cron';
 import { initSubscriptionCron } from './modules/payment/subscription-cron';
+import { initKeepAliveCron } from './utils/keep-alive';
 import socialRoute from './modules/social/social.route';
 import communityRoute from './modules/community/community.route';
 import { initSocialSocket } from './modules/social/social-socket';
@@ -117,9 +118,14 @@ const startServer = async () => {
         // Global Error Handler phải ở cuối
         app.use(globalErrorHandler);
 
-        // Route test thử
-        app.get('/', (req, res) => {
-            res.send('LexiCore Backend API is running!');
+        // Route Health check cho UptimeRobot / Render ping / Keep-alive
+        app.get(['/', '/health', '/api/health'], (req, res) => {
+            res.json({
+                status: 'ok',
+                service: 'LexiCore Backend API',
+                timestamp: new Date().toISOString(),
+                uptimeSec: Math.floor(process.uptime()),
+            });
         });
 
         // Khởi tạo Arena Socket.IO (Xác thực + Real-time handlers)
@@ -133,6 +139,9 @@ const startServer = async () => {
 
         // Khởi tạo Subscription Cron (auto-renew 00:05, nhắc hết hạn 09:00 ICT)
         initSubscriptionCron();
+
+        // Khởi tạo Keep-Alive Ping Cron (tự động ping mỗi 10 phút chống Render ngủ đông)
+        initKeepAliveCron();
 
         httpServer.listen(port, () => {
             console.log(`Server đang chạy tại http://localhost:${port}`);
