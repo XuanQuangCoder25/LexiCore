@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { pool } from '../../config/mysql';
+import { sendSubscriptionExpiryEmail } from '../../utils/mailer';
 import {
     getExpiringSubscriptions,
     expireSubscriptions,
@@ -37,7 +38,7 @@ async function processAutoRenew(): Promise<void> {
             await conn.beginTransaction();
 
             const price = Number(sub.price_vnd);
-            const ok    = await deductWalletVnd(conn, sub.user_id, price);
+            const ok = await deductWalletVnd(conn, sub.user_id, price);
 
             if (!ok) {
                 // Không đủ số dư: tắt auto_renew, để gói tự expire
@@ -127,7 +128,7 @@ async function sendExpiryReminders(): Promise<void> {
 
     for (const sub of expiring) {
         try {
-            // Ghi in-app notification (email có thể thêm sau qua mailer)
+            // 1. Ghi in-app notification
             const { v4: uuidv4 } = await import('uuid');
             await pool.execute(
                 `INSERT INTO notifications (id, user_id, type, title, body)
@@ -139,9 +140,40 @@ async function sendExpiryReminders(): Promise<void> {
                     `Goi ${sub.package_name} cua ban se het han vao ${new Date(sub.expires_at).toLocaleDateString('vi-VN')}. Hay gia han de khong gian doan.`,
                 ]
             );
+
+            // 2. Gửi email thông báo nhắc nhở
+            if (sub.email) {
+                await sendSubscriptionExpiryEmail({
+                    toEmail: sub.email,
+                    fullName: sub.full_name,
+                    packageName: sub.package_name,
+                    expiresAt: sub.expires_at,
+                });
+            }
         } catch (err) {
             console.error(`[Subscription Cron] Loi gui nhac cho user ${sub.user_id}:`, err);
         }
+    }
+}
+
+// ============================================================
+// Dọn dẹp khuyến mãi hết hạn: chạy lúc 00:00 hàng ngày
+// ============================================================
+
+async function cleanupExpiredSales(): Promise<void> {
+    try {
+        console.log('[Subscription Cron] Bat dau quét don dep khuyen mai het han...');
+        const [result] = await pool.execute(
+            `UPDATE credit_packages 
+             SET sale_percent = 0, sale_ends_at = NULL 
+             WHERE sale_ends_at IS NOT NULL AND sale_ends_at < NOW()`
+        ) as any;
+
+        if (result.affectedRows > 0) {
+            console.log(`[Subscription Cron] 🧹 Da don dep ${result.affectedRows} goi khuyen mai het han trong DB.`);
+        }
+    } catch (err) {
+        console.error('[Subscription Cron] Loi don dep khuyen mai het han:', err);
     }
 }
 
@@ -150,16 +182,21 @@ async function sendExpiryReminders(): Promise<void> {
 // ============================================================
 
 export const initSubscriptionCron = () => {
-    // Auto-renew: 00:05 moi ngay
+    // Dọn dẹp khuyến mãi hết hạn: 00:00 mỗi ngày
+    cron.schedule('0 0 * * *', async () => {
+        await cleanupExpiredSales();
+    }, { timezone: 'Asia/Ho_Chi_Minh' });
+
+    // Auto-renew: 00:05 mỗi ngày
     cron.schedule('5 0 * * *', async () => {
         await processAutoRenew();
     }, { timezone: 'Asia/Ho_Chi_Minh' });
 
-    // Nhac sap het han: 09:00 moi ngay
+    // Nhắc sắp hết hạn (3 ngày): 09:00 mỗi ngày
     cron.schedule('0 9 * * *', async () => {
         await sendExpiryReminders();
     }, { timezone: 'Asia/Ho_Chi_Minh' });
 
-    console.log('Subscription Cron da khoi dong (auto-renew 00:05, nhac han 09:00 ICT).');
+    console.log('Subscription Cron đã khởi động (dọn dẹp 00:00, auto-renew 00:05, nhắn hạn 09:00 ICT).');
 };
 

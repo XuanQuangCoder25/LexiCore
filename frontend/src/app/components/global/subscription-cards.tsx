@@ -122,8 +122,8 @@ export const MOCK_DATA: GroupedPackages = {
       coin_amount: 1500,
       diamond_amount: 50,
       duration_days: 30,
-      sale_percent: 20,
-      sale_ends_at: new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString(),
+      sale_percent: 0,
+      sale_ends_at: null,
       display_order: 3,
       features: [
         "Tất cả tính năng Pro",
@@ -196,8 +196,8 @@ export const MOCK_DATA: GroupedPackages = {
       coin_amount: 1000,
       diamond_amount: 0,
       duration_days: null,
-      sale_percent: 15,
-      sale_ends_at: new Date(Date.now() + (2 * 24 + 14) * 3600 * 1000).toISOString(),
+      sale_percent: 0,
+      sale_ends_at: null,
       display_order: 12,
       features: null,
     },
@@ -228,8 +228,8 @@ export const MOCK_DATA: GroupedPackages = {
       coin_amount: 4000,
       diamond_amount: 0,
       duration_days: null,
-      sale_percent: 20,
-      sale_ends_at: new Date(Date.now() + (5 * 3600 + 42 * 60) * 1000).toISOString(),
+      sale_percent: 0,
+      sale_ends_at: null,
       display_order: 14,
       features: null,
     },
@@ -294,8 +294,8 @@ export const MOCK_DATA: GroupedPackages = {
       coin_amount: 0,
       diamond_amount: 60,
       duration_days: null,
-      sale_percent: 10,
-      sale_ends_at: new Date(Date.now() + (3 * 24 + 8) * 3600 * 1000).toISOString(),
+      sale_percent: 0,
+      sale_ends_at: null,
       display_order: 22,
       features: null,
     },
@@ -310,8 +310,8 @@ export const MOCK_DATA: GroupedPackages = {
       coin_amount: 0,
       diamond_amount: 120,
       duration_days: null,
-      sale_percent: 20,
-      sale_ends_at: new Date(Date.now() + (18 * 60 + 45) * 1000).toISOString(),
+      sale_percent: 0,
+      sale_ends_at: null,
       display_order: 23,
       features: null,
     },
@@ -326,8 +326,8 @@ export const MOCK_DATA: GroupedPackages = {
       coin_amount: 0,
       diamond_amount: 250,
       duration_days: null,
-      sale_percent: 25,
-      sale_ends_at: new Date(Date.now() + (1 * 24 + 6) * 3600 * 1000).toISOString(),
+      sale_percent: 0,
+      sale_ends_at: null,
       display_order: 24,
       features: null,
     },
@@ -350,6 +350,33 @@ export function getFinalPrice(pkg: CreditPackage): number {
     return Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100));
   }
   return pkg.price_vnd;
+}
+
+export function useSaleActive(salePercent: number, saleEndsAt: string | null): boolean {
+  const [active, setActive] = useState(() => {
+    if (salePercent <= 0) return false;
+    if (!saleEndsAt) return true;
+    return new Date(saleEndsAt).getTime() > Date.now();
+  });
+
+  useEffect(() => {
+    if (salePercent <= 0 || !saleEndsAt) {
+      setActive(salePercent > 0);
+      return;
+    }
+    const check = () => {
+      const isStillActive = new Date(saleEndsAt).getTime() > Date.now();
+      setActive(isStillActive);
+    };
+    check();
+    const diff = new Date(saleEndsAt).getTime() - Date.now();
+    if (diff <= 0) return;
+
+    const timer = setTimeout(check, diff + 100);
+    return () => clearTimeout(timer);
+  }, [salePercent, saleEndsAt]);
+
+  return active;
 }
 
 // ============================================================
@@ -466,8 +493,8 @@ export function SubscriptionFlipCard({
   const isTrial = pkg.is_trial || pkg.tier === "TRIAL";
   const isElite = pkg.tier === "ELITE";
   const isPro = pkg.tier === "PRO" && !isTrial;
-  const finalPrice = getFinalPrice(pkg);
-  const hasSale = pkg.sale_percent > 0 && (!pkg.sale_ends_at || new Date(pkg.sale_ends_at) > new Date());
+  const hasSale = useSaleActive(pkg.sale_percent, pkg.sale_ends_at);
+  const finalPrice = hasSale ? Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100)) : pkg.price_vnd;
   const features = TIER_FEATURES_MAP[isTrial ? "TRIAL" : (pkg.tier ?? "")] ?? [];
 
   const tierColor = isElite ? "text-amber-500" : isPro ? "text-blue-500" : isTrial ? "text-blue-400" : "text-emerald-500";
@@ -640,8 +667,8 @@ export function TopupCard({
   onBuy: (pkg: CreditPackage) => void;
   loading: string | null;
 }) {
-  const finalPrice = getFinalPrice(pkg);
-  const hasSale = pkg.sale_percent > 0 && (!pkg.sale_ends_at || new Date(pkg.sale_ends_at) > new Date());
+  const hasSale = useSaleActive(pkg.sale_percent, pkg.sale_ends_at);
+  const finalPrice = hasSale ? Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100)) : pkg.price_vnd;
   const amount = pkg.coin_amount || pkg.diamond_amount;
   const isCoin = unit.toLowerCase() === "coin" || pkg.package_type === "COIN_PACK";
 

@@ -40,10 +40,10 @@ ALTER TABLE payment_orders
     ADD COLUMN IF NOT EXISTS payment_reference VARCHAR(50) UNIQUE NULL
         COMMENT 'Mã tham chiếu nội dung chuyển khoản (SePay match nội dung VietQR)';
 
--- ─── BLOCK 5: Tạo bảng subscriptions ─────────────────────────
+-- ─── BLOCK 5: Tạo bảng user_subscription ─────────────────────
 -- Lưu trạng thái gói hội viên hiện tại của từng người dùng
 
-CREATE TABLE IF NOT EXISTS subscriptions (
+CREATE TABLE IF NOT EXISTS user_subscription (
     id              VARCHAR(36)  PRIMARY KEY DEFAULT (UUID()),
     user_id         VARCHAR(36)  NOT NULL UNIQUE,
     package_id      VARCHAR(36)  NOT NULL,
