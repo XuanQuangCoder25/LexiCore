@@ -11,6 +11,7 @@ import {
     initSepayPayment,
     handleSepayWebhook,
     getMyOrders,
+    checkOrderStatus,
 } from './payment.service';
 import { getPackageById } from './payment.repository';
 
@@ -161,5 +162,19 @@ export const myOrders = async (req: Request, res: Response, next: NextFunction) 
         const userId = (req as any).user.id as string;
         const orders = await getMyOrders(userId);
         res.json({ success: true, data: orders });
+    } catch (err) { next(err); }
+};
+
+// GET /api/payment/order-status/:orderId
+export const orderStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId  = (req as any).user.id as string;
+        const orderId = req.params.orderId as string;
+        if (!orderId) {
+            res.status(400).json({ success: false, message: 'orderId la bat buoc' });
+            return;
+        }
+        const data = await checkOrderStatus(userId, orderId);
+        res.json({ success: true, data });
     } catch (err) { next(err); }
 };

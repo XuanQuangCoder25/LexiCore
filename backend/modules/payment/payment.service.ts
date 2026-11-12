@@ -5,6 +5,8 @@ import {
     getAllPackages,
     getPackageById,
     createPaymentOrder,
+    setOrderCode,
+    getOrderStatus,
     updateOrderStatus,
     creditWalletAfterPurchase,
     getUserOrders,
@@ -125,10 +127,15 @@ export const payWithWallet = async (userId: string, packageId: string) => {
 
         // Tạo đơn thanh toán
         const orderId = uuidv4();
-        await conn.execute(
+        const [orderResult] = await conn.execute(
             `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
              VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?)`,
             [orderId, userId, packageId, finalPrice, `WALLET_${orderId.slice(0, 8).toUpperCase()}`]
+        ) as any;
+        const orderCode = `LC${orderResult.insertId}`;
+        await conn.execute(
+            `UPDATE payment_orders SET payment_reference = ? WHERE id = ?`,
+            [orderCode, orderId]
         );
 
         // Cộng coin/diamond (nếu là topup pack)
@@ -173,10 +180,15 @@ export const activateTrialPlan = async (userId: string, pkg: CreditPackage) => {
 
         // Tạo đơn với amount = 0
         const orderId = uuidv4();
-        await conn.execute(
+        const [trialOrderResult] = await conn.execute(
             `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
              VALUES (?, ?, ?, 0, 'MOCK', 'SUCCESS', ?)`,
             [orderId, userId, pkg.id, `TRIAL_${orderId.slice(0, 8).toUpperCase()}`]
+        ) as any;
+        const trialOrderCode = `LC${trialOrderResult.insertId}`;
+        await conn.execute(
+            `UPDATE payment_orders SET payment_reference = ? WHERE id = ?`,
+            [trialOrderCode, orderId]
         );
 
         await activateSubscription(conn, userId, pkg.id, pkg.tier as any ?? 'PRO', pkg.duration_days);
@@ -202,10 +214,10 @@ export const activateTrialPlan = async (userId: string, pkg: CreditPackage) => {
 
 export const initMockPayment = async (userId: string, packageId: string) => {
     const pkg = await getPackageById(packageId);
-    if (!pkg) throw new AppError('Goi khong ton tai', 404);
+    if (!pkg) throw new AppError('Gói không tồn tại', 404);
 
     const finalPrice = calcFinalPrice(pkg);
-    const orderId = await createPaymentOrder(userId, packageId, finalPrice, 'MOCK');
+    const { orderId } = await createPaymentOrder(userId, packageId, finalPrice, 'MOCK');
 
     return {
         orderId,
@@ -276,32 +288,27 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
         throw new AppError('Gói miễn phí không cần thanh toán qua ngân hàng', 400);
     }
 
-    // Sinh mã tham chiếu ngắn gọn, duy nhất: LC + 6 số ngẫu nhiên (ví dụ: LC582914)
-    const randomSuffix = Math.floor(100000 + Math.random() * 900000).toString();
-    const paymentReference = `LC${randomSuffix}`;
+    // Tạo đơn trước để lấy order_number tự tăng
+    const { orderId, orderNumber } = await createPaymentOrder(userId, packageId, finalPrice, 'SEPAY');
 
-    const orderId = await createPaymentOrder(
-        userId,
-        packageId,
-        finalPrice,
-        'SEPAY',
-        paymentReference
-    );
+    // Sinh order_code từ order_number (ví dụ: LC105)
+    const orderCode = `LC${orderNumber}`;
+    await setOrderCode(orderId, orderCode);
 
-    const bankCode = process.env.SEPAY_BANK_CODE || 'MB';
-    const accNumber = process.env.SEPAY_ACC_NUMBER || '0000000000';
-    const accName = process.env.SEPAY_ACC_NAME || 'LEXICORE';
+    const bankCode    = process.env.SEPAY_BANK_CODE   || 'BIDV';
+    const accNumber   = process.env.SEPAY_ACC_NUMBER  || '0000000000';
+    const accName     = process.env.SEPAY_ACC_NAME    || 'LEXICORE';
 
-    // Tạo URL ảnh VietQR chuẩn quét được trên 100% app ngân hàng VN qua SePay VietQR engine
-    const qrUrl = `https://qr.sepay.vn/img?bank=${encodeURIComponent(bankCode)}&acc=${encodeURIComponent(accNumber)}&template=compact&amount=${finalPrice}&des=${encodeURIComponent(paymentReference)}`;
+    // Cú pháp QR URL chính xác theo SePay
+    const qrUrl = `https://qr.sepay.vn/img?acc=${accNumber}&bank=${bankCode}&amount=${finalPrice}&des=${orderCode}`;
 
     return {
         orderId,
-        paymentReference,
+        orderCode,
         amountVnd: finalPrice,
         bankCode,
         accountNumber: accNumber,
-        accountName: accName,
+        accountName:   accName,
         qrUrl,
     };
 };
@@ -352,11 +359,11 @@ export const handleSepayWebhook = async (
 
     // 3. Bóc tách paymentReference từ code hoặc content
     let matchRef = payload.code ? payload.code.trim().toUpperCase() : null;
-    if (matchRef && !matchRef.startsWith('LC') && /^\d{6}$/.test(matchRef)) {
+    if (matchRef && !matchRef.startsWith('LC') && /^\d+$/.test(matchRef)) {
         matchRef = `LC${matchRef}`;
     }
     if (!matchRef && payload.content) {
-        const match = payload.content.match(/LC\d{6}/i);
+        const match = payload.content.match(/LC\d+/i);
         if (match) {
             matchRef = match[0].toUpperCase();
         }
@@ -455,6 +462,16 @@ export const handleSepayWebhook = async (
     } finally {
         conn.release();
     }
+};
+
+// ============================================================
+// Kiểm tra trạng thái đơn hàng (dùng cho polling ở frontend)
+// ============================================================
+
+export const checkOrderStatus = async (userId: string, orderId: string) => {
+    const result = await getOrderStatus(orderId);
+    if (!result) throw new AppError('Đơn hàng không tồn tại', 404);
+    return result;
 };
 
 // ============================================================

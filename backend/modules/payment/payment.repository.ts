@@ -97,15 +97,34 @@ export async function createPaymentOrder(
     packageId: string,
     amountVnd: number,
     gateway: PaymentOrder['gateway'],
-    paymentReference?: string
-): Promise<string> {
+): Promise<{ orderId: string; orderNumber: number }> {
     const orderId = uuidv4();
+    const [result] = await pool.execute(
+        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status)
+         VALUES (?, ?, ?, ?, ?, 'PENDING')`,
+        [orderId, userId, packageId, amountVnd, gateway]
+    ) as any;
+    const orderNumber = result.insertId as number;
+    return { orderId, orderNumber };
+}
+
+export async function setOrderCode(orderId: string, orderCode: string): Promise<void> {
     await pool.execute(
-        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, payment_reference, status)
-         VALUES (?, ?, ?, ?, ?, ?, 'PENDING')`,
-        [orderId, userId, packageId, amountVnd, gateway, paymentReference || null]
+        `UPDATE payment_orders SET payment_reference = ? WHERE id = ?`,
+        [orderCode, orderId]
     );
-    return orderId;
+}
+
+export async function getOrderStatus(orderId: string): Promise<{ status: string; tier?: string } | null> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT po.status, cp.tier
+         FROM payment_orders po
+         JOIN credit_packages cp ON po.package_id = cp.id
+         WHERE po.id = ? LIMIT 1`,
+        [orderId]
+    );
+    if (rows.length === 0) return null;
+    return { status: rows[0].status as string, tier: rows[0].tier as string | undefined };
 }
 
 export async function getOrderByReference(paymentReference: string): Promise<any | null> {

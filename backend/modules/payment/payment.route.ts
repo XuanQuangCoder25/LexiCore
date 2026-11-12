@@ -12,6 +12,7 @@ import {
     initSepay,
     sepayWebhook,
     myOrders,
+    orderStatus,
 } from './payment.controller';
 
 const router = Router();
@@ -49,5 +50,8 @@ router.get('/mock/confirm', confirmMock); // redirect từ mock
 
 // Lịch sử đơn thô (admin/debug)
 router.get('/orders', myOrders);
+
+// Trạng thái đơn hàng (frontend polling sau khi hiển thị QR)
+router.get('/order-status/:orderId', orderStatus);
 
 export default router;
