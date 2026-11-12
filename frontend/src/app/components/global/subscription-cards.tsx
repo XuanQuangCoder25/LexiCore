@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Crown, Check, Zap, Mic, Brain, BarChart3, Users,
   CircleDollarSign, Gem, Star, Clock, Info, ArrowLeft,
+  Sparkles, Gift,
 } from "lucide-react";
 import { Button } from "../ui/button";
 
@@ -414,20 +415,30 @@ export function CompactCountdown({
       const hours = Math.floor((totalSec % 86400) / 3600);
       const minutes = Math.floor((totalSec % 3600) / 60);
       const seconds = totalSec % 60;
-      if (days > 0) setTimeLeft(`${days}d ${hours}h`);
-      else if (hours > 0) setTimeLeft(`${hours}h ${minutes}p`);
-      else setTimeLeft(`${minutes}p ${seconds}s`);
+      if (size === "md") {
+        if (days > 0) {
+          setTimeLeft(`${days} ${days === 1 ? "Day" : "Days"} ${hours} ${hours === 1 ? "Hour" : "Hours"}`);
+        } else if (hours > 0) {
+          setTimeLeft(`${hours} ${hours === 1 ? "Hour" : "Hours"} ${minutes} ${minutes === 1 ? "Minute" : "Minutes"}`);
+        } else {
+          setTimeLeft(`${minutes} ${minutes === 1 ? "Minute" : "Minutes"} ${seconds} ${seconds === 1 ? "Second" : "Seconds"}`);
+        }
+      } else {
+        if (days > 0) setTimeLeft(`${days}d ${hours}h`);
+        else if (hours > 0) setTimeLeft(`${hours}h ${minutes}p`);
+        else setTimeLeft(`${minutes}p ${seconds}s`);
+      }
     };
     calc();
     const id = setInterval(calc, 1000);
     return () => clearInterval(id);
-  }, [endsAt]);
+  }, [endsAt, size]);
 
   if (!timeLeft || timeLeft === "Hết hạn") return null;
 
   if (size === "md") {
     return (
-      <span className={`absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 px-3 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.5)] pointer-events-none flex items-center gap-1.5 whitespace-nowrap ${className || ""}`}>
+      <span className={`absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 px-3.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.5)] pointer-events-none flex items-center gap-1.5 whitespace-nowrap ${className || ""}`}>
         <Clock className="w-3 h-3 shrink-0" />
         {timeLeft}
       </span>
@@ -539,6 +550,10 @@ export function SubscriptionFlipCard({
       ? "hover:border-blue-500/50 hover:text-blue-500"
       : "hover:border-emerald-500/50 hover:text-emerald-500";
 
+  const cardTitle = pkg.campaign_id
+    ? (pkg.tier ? `Gói ${pkg.tier.charAt(0).toUpperCase() + pkg.tier.slice(1).toLowerCase()}` : pkg.name)
+    : pkg.name;
+
   return (
     <div
       className={`group/card ${widthClass} shrink-0 transition-transform duration-300 hover:-translate-y-1.5`}
@@ -554,16 +569,8 @@ export function SubscriptionFlipCard({
           className={`absolute inset-0 rounded-2xl border-2 p-5 flex flex-col cursor-pointer transition-all duration-300 bg-card select-none ${selected ? tierBorderActive : tierBorderIdle}`}
           style={{ backfaceVisibility: "hidden" }}
         >
-          {/* Trial badge trên đầu */}
-          {isTrial && (
-            <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 px-3 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-gradient-to-r from-blue-400 to-blue-500 text-white shadow-[0_0_12px_rgba(96,165,250,0.5)] pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
-              <Zap className="w-3 h-3 shrink-0" />
-              Dùng thử miễn phí
-            </span>
-          )}
-
-          {/* Sale countdown badge */}
-          {!isTrial && hasSale && pkg.sale_ends_at && (
+          {/* Sale countdown badge trên đầu (chỉ hiển thị khi có đợt Sale) */}
+          {hasSale && pkg.sale_ends_at && (
             <CompactCountdown endsAt={pkg.sale_ends_at} size="md" />
           )}
 
@@ -582,10 +589,10 @@ export function SubscriptionFlipCard({
           </div>
 
           {/* Name */}
-          <p className={`font-black text-xl mb-1 ${tierColor}`}>{pkg.name}</p>
+          <p className={`font-black text-xl mb-1 ${tierColor}`}>{cardTitle}</p>
 
           {/* Price */}
-          <div className="flex flex-col mb-2">
+          <div className="flex flex-col mb-1">
             {/* Dòng 1: giá cũ / placeholder */}
             <div className="flex items-center gap-1.5 leading-none mb-1">
               {!isTrial && hasSale ? (
@@ -613,6 +620,19 @@ export function SubscriptionFlipCard({
             </div>
           </div>
 
+          {/* Badge thông tin bổ sung: Chiến dịch sự kiện hoặc Đặc quyền tài khoản */}
+          {pkg.campaign_id ? (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 border border-amber-500/35 text-amber-600 dark:text-amber-400 text-[11px] font-bold tracking-wide mt-2 w-fit shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="truncate max-w-[190px]">{pkg.name}</span>
+            </div>
+          ) : isTrial ? (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-600 dark:text-blue-400 text-[11px] font-semibold tracking-wide mt-2 w-fit">
+              <Gift className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>Đặc quyền khi tạo tài khoản</span>
+            </div>
+          ) : null}
+
           <div className="flex-1" />
 
           {/* Detail button */}
@@ -633,7 +653,7 @@ export function SubscriptionFlipCard({
         >
           <div className="flex items-center justify-between mb-3">
             <p className="font-bold text-sm">
-              <span className={tierColor}>{pkg.name}</span> - Quyền lợi
+              <span className={tierColor}>{cardTitle}</span> - Quyền lợi
             </p>
           </div>
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 select-none">
@@ -709,7 +729,7 @@ export function TopupCard({
           <Icon className={`h-5 w-5 ${colorClass}`} />
         </div>
         <p className={`text-lg font-extrabold tracking-tight ${colorClass}`}>{amount.toLocaleString()}</p>
-        <p className="text-[10px] text-muted-foreground -mt-1 font-medium">{unit}</p>
+        <p className="text-[10px] text-muted-foreground -mt-1 font-medium text-center truncate max-w-full px-1">{pkg.name}</p>
       </div>
 
       {/* Price + Button */}

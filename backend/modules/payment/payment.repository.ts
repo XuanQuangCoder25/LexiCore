@@ -185,6 +185,7 @@ export async function getUserTransactions(userId: string, limit = 30): Promise<U
     const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT 
             po.id,
+            po.payment_reference,
             po.created_at,
             cp.name         AS package_name,
             cp.package_type,
@@ -205,19 +206,17 @@ export async function getUserTransactions(userId: string, limit = 30): Promise<U
         const pad = (n: number) => String(n).padStart(2, '0');
         const dateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-        // Tạo nội dung mô tả
-        let description = r.package_name as string;
-        if (r.package_type === 'COIN_PACK' && r.coin_amount) {
-            description = `Nap ${Number(r.coin_amount).toLocaleString('vi-VN')} Coin`;
-        } else if (r.package_type === 'DIAMOND_PACK' && r.diamond_amount) {
-            description = `Nap ${Number(r.diamond_amount).toLocaleString('vi-VN')} Diamond`;
-        } else if (r.package_type === 'SUBSCRIPTION') {
-            description = `Goi ${r.package_name} - 1 thang`;
-        }
+        // Nội dung giao dịch: chỉ hiển thị đúng tên gói
+        const description = (r.package_name as string) || 'Gói dịch vụ';
+
+        // Mã đơn gọn gàng: ưu tiên mã đơn LCxxx, nếu chưa có thì lấy 8 ký tự đầu của UUID
+        const displayId = r.payment_reference 
+            ? (r.payment_reference as string) 
+            : (r.id ? (r.id as string).slice(0, 8).toUpperCase() : '');
 
         const status = (r.status as string).toUpperCase();
         return {
-            id: r.id as string,
+            id: displayId,
             date: dateStr,
             description,
             amountVnd: Number(r.amount_vnd),

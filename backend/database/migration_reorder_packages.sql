@@ -7,7 +7,7 @@
 -- Trong moi Tier sap xep theo chu ky: 1 tuan -> 1 thang -> 1 nam
 
 -- 1. Goi Dung thu Pro (Trial mac dinh)
-UPDATE credit_packages SET display_order = 1 WHERE slug = 'sub-trial-default';
+UPDATE credit_packages SET display_order = 1, name = 'Dùng thử Pro' WHERE slug = 'sub-trial-default';
 
 -- 2. Nhom STARTER
 UPDATE credit_packages SET display_order = 2, name = 'Starter 1 tuần' WHERE slug = 'sub-starter-7d';

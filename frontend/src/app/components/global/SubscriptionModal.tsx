@@ -19,6 +19,8 @@ import {
   Loader2,
   CheckCircle2,
   FileText,
+  Sparkles,
+  Gift,
 } from "lucide-react";
 import {
   CreditPackage,
@@ -618,27 +620,42 @@ export function SubscriptionModal({
     }
   };
 
-  // Đồng bộ initialTab & initialPackageId & autoCheckout khi mở modal
+  const prevOpenRef = useRef(false);
+  const hasAutoCheckedOutRef = useRef(false);
+
+  // Đồng bộ initialTab & initialPackageId & autoCheckout CHỈ KHI VỪA MỞ MODAL
   useEffect(() => {
-    if (!open) {
-      setCheckoutResult(null);
-      setCheckoutPkg(null);
-      setPaymentDone(false);
-      stopPolling();
-      return;
-    }
+    if (open) {
+      // Chỉ khởi tạo tab và reset state khi modal vừa được bật từ đóng sang mở
+      if (!prevOpenRef.current) {
+        setActiveTab(initialTab || "subscription");
+        if (initialPackageId) {
+          setSelectedSubId(initialPackageId);
+        }
+        setCheckoutResult(null);
+        setCheckoutPkg(null);
+        setPaymentDone(false);
+        hasAutoCheckedOutRef.current = false;
+      }
 
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
-
-    if (initialPackageId) {
-      setSelectedSubId(initialPackageId);
-      const targetPkg = packages.subscription.find((p) => p.id === initialPackageId);
-      if (targetPkg && autoCheckout) {
-        handleBuySub(targetPkg);
+      // Kích hoạt autoCheckout đúng 1 lần nếu được yêu cầu
+      if (autoCheckout && initialPackageId && !hasAutoCheckedOutRef.current) {
+        const targetPkg = packages.subscription.find((p) => p.id === initialPackageId);
+        if (targetPkg) {
+          hasAutoCheckedOutRef.current = true;
+          handleBuySub(targetPkg);
+        }
+      }
+    } else {
+      // Khi đóng modal: dọn dẹp state và dừng polling
+      if (prevOpenRef.current) {
+        setCheckoutResult(null);
+        setCheckoutPkg(null);
+        setPaymentDone(false);
+        stopPolling();
       }
     }
+    prevOpenRef.current = open;
   }, [open, initialTab, initialPackageId, autoCheckout, packages.subscription, handleBuySub, stopPolling]);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -770,7 +787,8 @@ export function SubscriptionModal({
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <>
-                              {selectedSub.is_trial && <Zap className="h-4 w-4 mr-1.5" />}
+                              {selectedSub.campaign_id && <Sparkles className="h-4 w-4 mr-1.5" />}
+                              {!selectedSub.campaign_id && selectedSub.is_trial && <Gift className="h-4 w-4 mr-1.5" />}
                               {!selectedSub.is_trial && selectedSub.tier === "ELITE" && (
                                 <Crown className="h-4 w-4 mr-1.5" />
                               )}
@@ -783,7 +801,7 @@ export function SubscriptionModal({
                               {selectedSub.campaign_id
                                 ? `Nhận quà sự kiện miễn phí (${selectedSub.duration_days} ngày)`
                                 : selectedSub.is_trial
-                                  ? "Dùng thử miễn phí 3 ngày"
+                                  ? `Dùng thử miễn phí ${selectedSub.duration_days ?? 3} ngày`
                                   : `Mua gói ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))} ${getDurationLabel(selectedSub.duration_days)}`}
                             </>
                           )}

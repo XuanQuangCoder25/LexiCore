@@ -16,6 +16,8 @@ import {
   Info,
   Wallet,
   Clock,
+  Sparkles,
+  Gift,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -534,6 +536,8 @@ export function SubscriptionView() {
   const [modalTab, setModalTab] = useState<"subscription" | "info">("subscription");
   const [modalAutoCheckout, setModalAutoCheckout] = useState(false);
 
+  const handleCloseModal = useCallback(() => setModalOpen(false), []);
+
   // ── Fetch dữ liệu ──────────────────────────────────────────
   const fetchAll = useCallback(async () => {
     try {
@@ -810,8 +814,8 @@ export function SubscriptionView() {
                   {(() => {
                     const sub = packages.subscription.find((p) => p.id === selectedSubId);
                     if (!sub) return "Chọn gói";
-                    if (sub.campaign_id) return <><Zap className="h-3.5 w-3.5" />Nhận quà sự kiện miễn phí</>;
-                    if (sub.is_trial) return <><Zap className="h-3.5 w-3.5" />Dùng thử miễn phí</>;
+                    if (sub.campaign_id) return <><Sparkles className="h-3.5 w-3.5 text-amber-500" />Nhận quà sự kiện ({sub.duration_days} ngày)</>;
+                    if (sub.is_trial) return <><Gift className="h-3.5 w-3.5 text-blue-500" />Dùng thử miễn phí ({sub.duration_days ?? 3} ngày)</>;
                     const TierIcon = sub.tier === "ELITE" ? Crown : sub.tier === "PRO" ? Zap : Star;
                     return (
                       <>
@@ -883,7 +887,7 @@ export function SubscriptionView() {
       {/* Modal xem tất cả gói & thanh toán SePay VietQR / Ví */}
       <SubscriptionModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={handleCloseModal}
         initialPackageId={modalPackageId}
         initialTab={modalTab}
         autoCheckout={modalAutoCheckout}
