@@ -1,6 +1,6 @@
 -- ============================================================
--- MIGRATION: SUBSCRIPTION CAMPAIGNS & USER CLAIMS
--- Chay tren DataGrip de tao bang quan ly chien dich su kien
+-- MIGRATION: SUBSCRIPTION CAMPAIGNS & USER CLAIMS (FULL SCHEMA)
+-- Chạy script này trên DataGrip để tạo bảng hoặc nâng cấp bảng
 -- ============================================================
 
 -- 5. Bảng quản lý chiến dịch sự kiện của Admin
@@ -23,13 +23,3 @@ CREATE TABLE user_campaign_claims (
     claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_user_trial (user_id, campaign_id) -- Mỗi user chỉ được nhận 1 lần trong suốt đợt
 );
-
--- Kiem tra cac bang vua tao
-SELECT TABLE_NAME
-FROM information_schema.TABLES
-WHERE
-    TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME IN (
-        'subscription_campaigns',
-        'user_campaign_claims'
-    );

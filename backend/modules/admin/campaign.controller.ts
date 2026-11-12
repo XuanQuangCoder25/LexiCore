@@ -21,11 +21,8 @@ export const createNewCampaign = async (req: Request, res: Response, next: NextF
     try {
         const {
             name,
-            campaign_type,
-            target_package_id,
-            custom_tier,
-            custom_duration_days,
-            discount_percent,
+            tier,
+            duration_days,
             starts_at,
             ends_at,
             is_active,
@@ -33,11 +30,8 @@ export const createNewCampaign = async (req: Request, res: Response, next: NextF
 
         const result = await adminCreateCampaign({
             name,
-            campaign_type,
-            target_package_id,
-            custom_tier,
-            custom_duration_days: custom_duration_days ? Number(custom_duration_days) : null,
-            discount_percent: discount_percent ? Number(discount_percent) : 0,
+            tier,
+            duration_days: Number(duration_days),
             starts_at,
             ends_at,
             is_active,

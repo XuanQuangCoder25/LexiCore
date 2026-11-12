@@ -523,7 +523,7 @@ CREATE TABLE IF NOT EXISTS payment_announcements (
     INDEX idx_ann_active (is_active, ends_at)
 );
 
--- 5. Chiến dịch của Admin
+-- 5. Bảng quản lý chiến dịch sự kiện của Admin
 CREATE TABLE subscription_campaigns (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255) NOT NULL, -- Ví dụ: 'Mừng tựu trường', 'Kỷ niệm thành lập'
@@ -535,7 +535,7 @@ CREATE TABLE subscription_campaigns (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Theo dõi lượt nhận quà của người dùng
+-- 6. Bảng lưu vết người dùng đã nhận quà chiến dịch
 CREATE TABLE user_campaign_claims (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,

@@ -41,70 +41,44 @@ export function calcFinalPrice(pkg: CreditPackage): number {
 }
 
 // ============================================================
-// Packages (Tự động tích hợp Campaign Free Trial & Sale)
+// Packages (Tự động tích hợp Campaign Free Trial)
 // ============================================================
 
 export const getPackages = async () => {
-    const [packages, activeCampaigns] = await Promise.all([
-        getAllPackages(),
-        getActiveCampaigns(),
-    ]);
-
-    // 1. Áp dụng các chiến dịch DISCOUNT_SALE
-    const saleCampaigns = activeCampaigns.filter(c => c.campaign_type === 'DISCOUNT_SALE');
-    for (const sale of saleCampaigns) {
-        for (const pkg of packages) {
-            // Nếu chỉ định gói cụ thể
-            if (sale.target_package_id && pkg.id === sale.target_package_id) {
-                pkg.sale_percent = sale.discount_percent;
-                pkg.sale_ends_at = sale.ends_at;
-            } else if (!sale.target_package_id) {
-                // Nếu sale theo tier hoặc toàn bộ subscription
-                if (!sale.custom_tier || pkg.tier === sale.custom_tier) {
-                    pkg.sale_percent = sale.discount_percent;
-                    pkg.sale_ends_at = sale.ends_at;
-                }
-            }
-        }
+    let activeCampaigns: any[] = [];
+    try {
+        activeCampaigns = await getActiveCampaigns();
+    } catch (err) {
+        console.error('[Campaign] Chưa thể tải active campaigns (vui lòng kiểm tra migration bảng subscription_campaigns):', err);
     }
-
+    const packages = await getAllPackages();
     const subscriptions = packages.filter(p => p.package_type === 'SUBSCRIPTION');
 
-    // 2. Nếu có chiến dịch FREE_TRIAL, sinh gói sự kiện đặt lên đầu danh sách
-    const freeCampaign = activeCampaigns.find(c => c.campaign_type === 'FREE_TRIAL');
-    if (freeCampaign) {
-        const tier = (freeCampaign.custom_tier || freeCampaign.target_tier || 'PRO') as CreditPackage['tier'];
-        const durationDays = freeCampaign.custom_duration_days || freeCampaign.target_duration_days || 7;
-        
-        let parsedFeatures: string[] = [
-            `Trải nghiệm đầy đủ đặc quyền gói ${tier}`,
-            `Thời hạn quà tặng ${durationDays} ngày`,
-            'Sự kiện giới hạn dành cho tất cả thành viên',
-        ];
-        if (freeCampaign.target_features) {
-            parsedFeatures = typeof freeCampaign.target_features === 'string'
-                ? JSON.parse(freeCampaign.target_features)
-                : freeCampaign.target_features;
-        }
-
+    // Nếu có chiến dịch tặng Trial đang hoạt động, chèn vào đầu danh sách
+    if (activeCampaigns.length > 0) {
+        const camp = activeCampaigns[0];
         const campaignPkg: CreditPackage = {
-            id: `campaign-${freeCampaign.id}`,
-            name: freeCampaign.name,
-            slug: `campaign-${freeCampaign.id}`,
+            id: `campaign-${camp.id}`,
+            name: camp.name,
+            slug: `campaign-${camp.id}`,
             package_type: 'SUBSCRIPTION',
-            tier,
+            tier: camp.tier,
             price_vnd: 0,
             price_usd: 0,
             coin_amount: 0,
             diamond_amount: 0,
-            duration_days: durationDays,
+            duration_days: camp.duration_days,
             sale_percent: 0,
             sale_ends_at: null,
-            features: parsedFeatures,
+            features: [
+                `Trải nghiệm đầy đủ đặc quyền gói ${camp.tier}`,
+                `Thời hạn quà tặng ${camp.duration_days} ngày`,
+                'Sự kiện giới hạn dành cho tất cả thành viên',
+            ],
             display_order: 0, // Đứng đầu tiên
             is_active: true,
             is_trial: true,
-            campaign_id: freeCampaign.id,
+            campaign_id: camp.id,
         };
 
         subscriptions.unshift(campaignPkg);
