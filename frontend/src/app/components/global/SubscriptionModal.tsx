@@ -772,13 +772,15 @@ export function SubscriptionModal({
                       {selectedSub && (
                         <Button
                           className={`h-10 px-6 text-xs font-bold transition-all shadow-md rounded-xl
-                            ${selectedSub.is_trial
-                              ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
-                              : selectedSub.tier === "ELITE"
-                                ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
-                                : selectedSub.tier === "PRO"
-                                  ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
-                                  : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
+                            ${selectedSub.campaign_id
+                              ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                              : selectedSub.is_trial
+                                ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
+                                : selectedSub.tier === "ELITE"
+                                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
+                                  : selectedSub.tier === "PRO"
+                                    ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
+                                    : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
                             }`}
                           disabled={subLoadingId === selectedSub.id}
                           onClick={() => handleBuySub(selectedSub)}

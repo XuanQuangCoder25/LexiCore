@@ -18,6 +18,7 @@ import {
   Clock,
   Sparkles,
   Gift,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -49,6 +50,7 @@ import {
 } from "../global/subscription-cards";
 import { SubscriptionModal } from "../global/SubscriptionModal";
 import { toast } from "sonner";
+import { downloadInvoiceWithFallback } from "../../utils/invoiceGenerator";
 
 // ============================================================
 // Types local
@@ -238,7 +240,13 @@ function StatusBadge({ status }: { status: Transaction["status"] }) {
 // ============================================================
 // MembershipCard (trái)
 // ============================================================
-function MembershipCard({ membership }: { membership: UserMembership }) {
+function MembershipCard({
+  membership,
+  onTopup,
+}: {
+  membership: UserMembership;
+  onTopup?: () => void;
+}) {
   const cfg = TIER_CFG[membership.tier];
   const TierIcon = cfg.icon;
   const { text: remainingText, isExpiringSoon, isExpired } = useRemainingTime(membership.expiresAt);
@@ -337,7 +345,13 @@ function MembershipCard({ membership }: { membership: UserMembership }) {
             <p className="text-xs text-muted-foreground leading-none mb-0.5">Ví LexiCore</p>
             <p className="text-sm font-bold">{formatVND(membership.walletBalanceVnd)}</p>
           </div>
-          <Button variant="outline" size="sm" className="h-6 text-[11px] px-2 shrink-0">Nạp</Button>
+          <Button
+            size="sm"
+            onClick={onTopup}
+            className="h-7 px-6 min-w-[72px] text-xs font-bold rounded-full shrink-0 text-white shadow-xs border-none bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 transition-all cursor-pointer"
+          >
+            Nạp
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -429,26 +443,31 @@ function MembershipDetails({
 // ============================================================
 // TransactionTable
 // ============================================================
-function TransactionTable({ transactions }: { transactions: Transaction[] }) {
-  const handleDownload = (txn: Transaction) => {
-    const content = [
-      `HÓA ĐƠN LEXICORE`,
-      `------------------`,
-      `Mã đơn:     ${txn.id}`,
-      `Ngày:       ${txn.date}`,
-      `Nội dung:   ${txn.description}`,
-      `Số tiền:    ${formatVND(txn.amountVnd)}`,
-      `Trạng thái: ${txn.status === "SUCCESS" ? "Thành công" : txn.status === "PENDING" ? "Đang xử lý" : "Thất bại"}`,
-      ``,
-      `Cảm ơn bạn đã sử dụng LexiCore!`,
-    ].join("\n");
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `HoaDon_${txn.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+function TransactionTable({
+  transactions,
+  customerInfo,
+}: {
+  transactions: Transaction[];
+  customerInfo?: { name?: string; email?: string };
+}) {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (txn: Transaction) => {
+    setDownloadingId(txn.id);
+    try {
+      await downloadInvoiceWithFallback(
+        {
+          id: txn.id,
+          date: txn.date,
+          description: txn.description,
+          amountVnd: txn.amountVnd,
+          status: txn.status,
+        },
+        customerInfo
+      );
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -489,10 +508,24 @@ function TransactionTable({ transactions }: { transactions: Transaction[] }) {
                   <TableCell className="text-xs font-bold text-right whitespace-nowrap">{formatVND(txn.amountVnd)}</TableCell>
                   <TableCell className="text-center"><StatusBadge status={txn.status} /></TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => handleDownload(txn)}
-                      disabled={txn.status !== "SUCCESS"}
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground">
-                      <Download className="h-3.5 w-3.5 mr-1" />Tải
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownload(txn)}
+                      disabled={txn.status !== "SUCCESS" || downloadingId === txn.id}
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {downloadingId === txn.id ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-primary" />
+                          Đang xuất...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-3.5 w-3.5 mr-1" />
+                          Tải
+                        </>
+                      )}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -501,9 +534,8 @@ function TransactionTable({ transactions }: { transactions: Transaction[] }) {
           </Table>
         </div>
         <p className="text-[11px] text-muted-foreground mt-3 flex items-start gap-1.5">
-          <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          Hóa đơn beta dạng <code className="font-mono bg-muted px-1 rounded">.txt</code>.
-          Hóa đơn VAT PDF sẽ hỗ trợ trong phiên bản chính thức.
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+          Hóa đơn điện tử chính thức định dạng <code className="font-mono bg-muted px-1 rounded font-semibold text-foreground">.pdf</code> (có hỗ trợ tự động sao lưu <code className="font-mono bg-muted px-1 rounded">.txt</code> khi thiết bị không hỗ trợ).
         </p>
       </CardContent>
     </Card>
@@ -514,8 +546,12 @@ function TransactionTable({ transactions }: { transactions: Transaction[] }) {
 // Main View
 // ============================================================
 export function SubscriptionView() {
+  const cachedTier = (typeof window !== "undefined"
+    ? (localStorage.getItem("lexicore_user_tier") as Tier | null)
+    : null) || "FREE";
+
   const [membership, setMembership] = useState<UserMembership>({
-    tier: "FREE",
+    tier: cachedTier,
     startedAt: null,
     expiresAt: null,
     autoRenew: false,
@@ -528,7 +564,23 @@ export function SubscriptionView() {
   const [selectedSubId, setSelectedSubId] = useState<string>("");
   const [packLoading, setPackLoading] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [customerInfo, setCustomerInfo] = useState<{ name?: string; email?: string }>({});
   const [loading, setLoading] = useState(true);
+
+  // Lấy thông tin user để hiển thị trên hóa đơn PDF (dùng fetch an toàn, không phụ thuộc httpClient)
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: any) => {
+        if (data) {
+          setCustomerInfo({
+            name: data.full_name || data.name || data.username,
+            email: data.email,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // State cho SubscriptionModal (thanh toán thật)
   const [modalOpen, setModalOpen] = useState(false);
@@ -556,8 +608,10 @@ export function SubscriptionView() {
         apiFetch<Transaction[]>("/my-transactions"),
       ]);
 
+      const realTier = (subData.tier ?? "FREE") as Tier;
+
       setMembership({
-        tier: (subData.tier ?? "FREE") as Tier,
+        tier: realTier,
         startedAt: subData.startedAt,
         expiresAt: subData.expiresAt,
         autoRenew: subData.autoRenew,
@@ -566,6 +620,13 @@ export function SubscriptionView() {
         diamondBalance: subData.diamondBalance,
         walletBalanceVnd: subData.walletBalanceVnd,
       });
+
+      // Đồng bộ tier lên sidebar và toàn bộ ứng dụng CHỈ KHI có dữ liệu thật từ backend
+      window.dispatchEvent(
+        new CustomEvent("membership-tier-change", {
+          detail: { tier: realTier === "FREE" ? null : realTier },
+        })
+      );
 
       setPackages(pkgData);
       setTransactions(txData);
@@ -619,19 +680,11 @@ export function SubscriptionView() {
     }
   };
 
-  // Đồng bộ tier lên sidebar và toàn bộ ứng dụng
-  useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent("membership-tier-change", {
-        detail: { tier: membership.tier === "FREE" ? null : membership.tier },
-      })
-    );
-  }, [membership.tier]);
-
   // Mua gói subscription (Campaign / Trial: kích hoạt trực tiếp; trả phí: mở modal thanh toán thật)
   const handleBuySub = async (pkg: CreditPackage) => {
     // 1. Gói sự kiện quà tặng từ chiến dịch của Admin
     if (pkg.campaign_id) {
+      setPackLoading(pkg.id);
       try {
         await apiFetch("/campaign/claim", {
           method: "POST",
@@ -645,12 +698,15 @@ export function SubscriptionView() {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Lỗi không xác định";
         toast.error(msg);
+      } finally {
+        setPackLoading(null);
       }
       return;
     }
 
     // 2. Gói dùng thử Pro 3 ngày mặc định (chào mừng)
     if (pkg.is_trial) {
+      setPackLoading(pkg.id);
       try {
         await apiFetch("/trial/activate", {
           method: "POST",
@@ -664,6 +720,8 @@ export function SubscriptionView() {
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Lỗi không xác định";
         toast.error(msg);
+      } finally {
+        setPackLoading(null);
       }
       return;
     }
@@ -736,7 +794,13 @@ export function SubscriptionView() {
 
           {/* ===== SECTION 1: Trạng thái hội viên ===== */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-            <MembershipCard membership={membership} />
+            <MembershipCard
+              membership={membership}
+              onTopup={() => {
+                const el = document.getElementById("topup-section");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+            />
             <MembershipDetails
               membership={membership}
               onToggleAutoRenew={handleToggleAutoRenew}
@@ -802,36 +866,62 @@ export function SubscriptionView() {
                 <span className="text-xs text-muted-foreground">Thanh toán 1 lần hoặc dùng Ví LexiCore</span>
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1.5 font-medium"
-                  onClick={() => {
-                    const sub = packages.subscription.find((p) => p.id === selectedSubId);
-                    if (sub) handleBuySub(sub);
-                  }}
-                >
-                  {(() => {
-                    const sub = packages.subscription.find((p) => p.id === selectedSubId);
-                    if (!sub) return "Chọn gói";
-                    if (sub.campaign_id) return <><Sparkles className="h-3.5 w-3.5 text-amber-500" />Nhận quà sự kiện ({sub.duration_days} ngày)</>;
-                    if (sub.is_trial) return <><Gift className="h-3.5 w-3.5 text-blue-500" />Dùng thử miễn phí ({sub.duration_days ?? 3} ngày)</>;
-                    const TierIcon = sub.tier === "ELITE" ? Crown : sub.tier === "PRO" ? Zap : Star;
-                    return (
-                      <>
-                        <TierIcon className="h-3.5 w-3.5" />
-                        Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))}{getDurationLabel(sub.duration_days)})
-                      </>
-                    );
-                  })()}
-                </Button>
+                {(() => {
+                  const sub = packages.subscription.find((p) => p.id === selectedSubId);
+                  const isSubLoading = packLoading === sub?.id;
+                  return (
+                    <Button
+                      size="sm"
+                      className={`h-9 px-5 text-xs font-bold transition-all shadow-md rounded-xl border-none gap-1.5 ${
+                        !sub
+                          ? "bg-primary text-white"
+                          : sub.campaign_id
+                            ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                            : sub.is_trial
+                              ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
+                              : sub.tier === "ELITE"
+                                ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
+                                : sub.tier === "PRO"
+                                  ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
+                                  : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
+                      }`}
+                      disabled={!sub || isSubLoading}
+                      onClick={() => {
+                        if (sub) handleBuySub(sub);
+                      }}
+                    >
+                      {isSubLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : !sub ? (
+                        "Chọn gói"
+                      ) : sub.campaign_id ? (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          Nhận quà sự kiện ({sub.duration_days} ngày)
+                        </>
+                      ) : sub.is_trial ? (
+                        <>
+                          <Gift className="h-4 w-4" />
+                          Dùng thử miễn phí ({sub.duration_days ?? 3} ngày)
+                        </>
+                      ) : (
+                        <>
+                          {sub.tier === "ELITE" && <Crown className="h-4 w-4" />}
+                          {sub.tier === "PRO" && <Zap className="h-4 w-4" />}
+                          {sub.tier === "STARTER" && <Star className="h-4 w-4" />}
+                          Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))}{getDurationLabel(sub.duration_days)})
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
               </div>
             </div>
           </div>
 
           {/* ===== SECTION 3: Nạp Coin ===== */}
           {packages.coin_packs.length > 0 && (
-            <div className="space-y-3">
+            <div id="topup-section" className="space-y-3">
               <div className="flex items-center gap-2">
                 <CircleDollarSign className="h-4 w-4 text-emerald-600" />
                 <h2 className="text-sm font-semibold">Nạp Coin</h2>
@@ -879,7 +969,7 @@ export function SubscriptionView() {
           )}
 
           {/* ===== SECTION 5: Lịch sử giao dịch ===== */}
-          <TransactionTable transactions={transactions} />
+          <TransactionTable transactions={transactions} customerInfo={customerInfo} />
 
         </>)}
       </div>
