@@ -516,9 +516,34 @@ export function SubscriptionModal({
     [stopPolling, onClose, onSuccess]
   );
 
-  // Mua gói bằng SePay QR
+  // Mua gói bằng SePay QR hoặc Nhận quà sự kiện
   const handleBuySub = useCallback(async (pkg: CreditPackage) => {
-    // Nếu là gói dùng thử thì dùng API kích hoạt dùng thử riêng
+    // 1. Nếu là gói sự kiện quà tặng từ chiến dịch của Admin
+    if (pkg.campaign_id) {
+      setSubLoadingId(pkg.id);
+      try {
+        const res = await fetch("/api/payment/campaign/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ campaignId: pkg.campaign_id }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message);
+        toast.success(`Nhận quà sự kiện "${pkg.name}" thành công!`, {
+          description: `Bạn có ${pkg.duration_days} ngày trải nghiệm gói ${pkg.tier}.`,
+        });
+        onSuccess?.();
+        onClose();
+      } catch (err: any) {
+        toast.error("Nhận quà thất bại", { description: err.message });
+      } finally {
+        setSubLoadingId(null);
+      }
+      return;
+    }
+
+    // 2. Nếu là gói dùng thử Pro 3 ngày mặc định (chào mừng)
     if (pkg.is_trial) {
       setSubLoadingId(pkg.id);
       try {
@@ -755,9 +780,11 @@ export function SubscriptionModal({
                               {!selectedSub.is_trial && selectedSub.tier === "STARTER" && (
                                 <Star className="h-4 w-4 mr-1.5" />
                               )}
-                              {selectedSub.is_trial
-                                ? "Dùng thử miễn phí 3 ngày"
-                                : `Mua gói ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))} ${getDurationLabel(selectedSub.duration_days)}`}
+                              {selectedSub.campaign_id
+                                ? `Nhận quà sự kiện miễn phí (${selectedSub.duration_days} ngày)`
+                                : selectedSub.is_trial
+                                  ? "Dùng thử miễn phí 3 ngày"
+                                  : `Mua gói ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))} ${getDurationLabel(selectedSub.duration_days)}`}
                             </>
                           )}
                         </Button>

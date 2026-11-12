@@ -30,6 +30,8 @@ export interface CreditPackage {
   display_order: number;
   /** true nếu đây là gói dùng thử (do admin bật) */
   is_trial?: boolean;
+  /** ID chiến dịch nếu đây là gói quà tặng từ subscription_campaigns */
+  campaign_id?: string | null;
 }
 
 export interface GroupedPackages {

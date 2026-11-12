@@ -23,6 +23,7 @@ export interface CreditPackage {
     display_order: number;
     is_active: boolean;
     is_trial: boolean;
+    campaign_id?: string | null;
 }
 
 export interface PaymentOrder {

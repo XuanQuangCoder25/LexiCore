@@ -12,6 +12,7 @@ import {
     handleSepayWebhook,
     getMyOrders,
     checkOrderStatus,
+    claimCampaignGift,
 } from './payment.service';
 import { getPackageById } from './payment.repository';
 
@@ -176,5 +177,21 @@ export const orderStatus = async (req: Request, res: Response, next: NextFunctio
         }
         const data = await checkOrderStatus(userId, orderId);
         res.json({ success: true, data });
+    } catch (err) { next(err); }
+};
+
+// ─── Campaign Claim ──────────────────────────────────────────────────────────
+
+// POST /api/payment/campaign/claim
+export const claimCampaign = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).user.id as string;
+        const { campaignId } = req.body as { campaignId: string };
+        if (!campaignId) {
+            res.status(400).json({ success: false, message: 'campaignId là bắt buộc' });
+            return;
+        }
+        const result = await claimCampaignGift(userId, campaignId);
+        res.json(result);
     } catch (err) { next(err); }
 };

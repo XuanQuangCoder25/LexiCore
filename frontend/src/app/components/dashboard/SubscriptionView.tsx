@@ -531,7 +531,7 @@ export function SubscriptionView() {
   // State cho SubscriptionModal (thanh toán thật)
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPackageId, setModalPackageId] = useState<string | undefined>(undefined);
-  const [modalTab, setModalTab] = useState<"subscription" | "topup" | "info">("subscription");
+  const [modalTab, setModalTab] = useState<"subscription" | "info">("subscription");
   const [modalAutoCheckout, setModalAutoCheckout] = useState(false);
 
   // ── Fetch dữ liệu ──────────────────────────────────────────
@@ -624,8 +624,28 @@ export function SubscriptionView() {
     );
   }, [membership.tier]);
 
-  // Mua gói subscription (Trial: kích hoạt trực tiếp; trả phí: mở modal thanh toán thật)
+  // Mua gói subscription (Campaign / Trial: kích hoạt trực tiếp; trả phí: mở modal thanh toán thật)
   const handleBuySub = async (pkg: CreditPackage) => {
+    // 1. Gói sự kiện quà tặng từ chiến dịch của Admin
+    if (pkg.campaign_id) {
+      try {
+        await apiFetch("/campaign/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ campaignId: pkg.campaign_id }),
+        });
+        toast.success(`Nhận quà sự kiện "${pkg.name}" thành công!`, {
+          description: `Bạn có ${pkg.duration_days} ngày trải nghiệm đầy đủ đặc quyền gói ${pkg.tier}.`,
+        });
+        fetchAll();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Lỗi không xác định";
+        toast.error(msg);
+      }
+      return;
+    }
+
+    // 2. Gói dùng thử Pro 3 ngày mặc định (chào mừng)
     if (pkg.is_trial) {
       try {
         await apiFetch("/trial/activate", {
@@ -644,7 +664,7 @@ export function SubscriptionView() {
       return;
     }
 
-    // Mở modal thanh toán SePay VietQR cho gói này
+    // 3. Gói trả phí: Mở modal thanh toán SePay VietQR
     setModalPackageId(pkg.id);
     setModalTab("subscription");
     setModalAutoCheckout(true);
@@ -790,6 +810,7 @@ export function SubscriptionView() {
                   {(() => {
                     const sub = packages.subscription.find((p) => p.id === selectedSubId);
                     if (!sub) return "Chọn gói";
+                    if (sub.campaign_id) return <><Zap className="h-3.5 w-3.5" />Nhận quà sự kiện miễn phí</>;
                     if (sub.is_trial) return <><Zap className="h-3.5 w-3.5" />Dùng thử miễn phí</>;
                     const TierIcon = sub.tier === "ELITE" ? Crown : sub.tier === "PRO" ? Zap : Star;
                     return (

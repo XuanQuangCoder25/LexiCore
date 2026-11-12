@@ -13,6 +13,12 @@ import {
     banUser,
     unbanUser
 } from './admin.controller';
+import {
+    getCampaigns,
+    createNewCampaign,
+    toggleCampaignStatus,
+    removeCampaign
+} from './campaign.controller';
 
 const router = Router();
 
@@ -37,5 +43,11 @@ router.post('/creators/:userId/reactivate', reactivateCreator);
 router.get('/users', getAllUsers);
 router.post('/users/:userId/ban', banUser);
 router.post('/users/:userId/unban', unbanUser);
+
+// ── Subscription Campaigns Management ──────────────────────
+router.get('/campaigns', getCampaigns);
+router.post('/campaigns', createNewCampaign);
+router.patch('/campaigns/:id/toggle', toggleCampaignStatus);
+router.delete('/campaigns/:id', removeCampaign);
 
 export default router;

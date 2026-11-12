@@ -13,6 +13,7 @@ import {
     sepayWebhook,
     myOrders,
     orderStatus,
+    claimCampaign,
 } from './payment.controller';
 
 const router = Router();
@@ -53,5 +54,8 @@ router.get('/orders', myOrders);
 
 // Trạng thái đơn hàng (frontend polling sau khi hiển thị QR)
 router.get('/order-status/:orderId', orderStatus);
+
+// Nhận quà gói sự kiện từ chiến dịch của Admin
+router.post('/campaign/claim', claimCampaign);
 
 export default router;
