@@ -535,7 +535,7 @@ CREATE TABLE subscription_campaigns (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Bảng lưu vết người dùng đã nhận quà chiến dịch
+-- 6. Bảng theo dõi lượt nhận quà (Mỗi user nhận đúng 1 lần / chiến dịch)
 CREATE TABLE user_campaign_claims (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
