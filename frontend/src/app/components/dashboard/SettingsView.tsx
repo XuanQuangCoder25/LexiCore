@@ -3,7 +3,6 @@ import {
   ShieldCheck,
   Bell,
   Palette,
-  CreditCard,
   Save,
   RotateCcw,
   ChevronRight,
@@ -16,7 +15,6 @@ import { initialSettingsMock, SettingsState } from "./settings/settingsMock";
 import { AccountSecuritySection } from "./settings/AccountSecuritySection";
 import { NotificationsSection } from "./settings/NotificationsSection";
 import { AppearanceSection } from "./settings/AppearanceSection";
-import { BillingWalletSection } from "./settings/BillingWalletSection";
 
 interface SettingsViewProps {
   onNavigateTab?: (tab: string) => void;
@@ -26,8 +24,7 @@ interface SettingsViewProps {
 type SettingsTab =
   | "account"
   | "notifications"
-  | "appearance"
-  | "billing";
+  | "appearance";
 
 export function SettingsView({ onNavigateTab }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("account");
@@ -83,13 +80,6 @@ export function SettingsView({ onNavigateTab }: SettingsViewProps) {
       label: "Giao diện & Hiển thị",
       description: "Chủ đề Sáng/Tối và hiệu ứng giao diện",
       icon: Palette,
-    },
-    {
-      id: "billing",
-      label: "Gói cước & Ví xu",
-      description: "Gói LexiCore Pro, số dư LexiCoins, lịch sử giao dịch",
-      icon: CreditCard,
-      badge: settings.currentPlan === "pro" ? "PRO" : undefined,
     },
   ];
 
@@ -218,14 +208,6 @@ export function SettingsView({ onNavigateTab }: SettingsViewProps) {
             <AppearanceSection
               settings={settings}
               updateSetting={updateSetting}
-            />
-          )}
-
-          {activeTab === "billing" && (
-            <BillingWalletSection
-              settings={settings}
-              updateSetting={updateSetting}
-              onNavigateTab={onNavigateTab}
             />
           )}
         </div>

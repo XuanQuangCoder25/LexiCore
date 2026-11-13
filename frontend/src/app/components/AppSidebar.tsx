@@ -63,21 +63,21 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
   // Tier icon, color & badge gradient cho nút sidebar
   const tierLabel =
     userTier === "ELITE" ? "Elite" :
-    userTier === "PRO" ? "Pro" :
-    userTier === "STARTER" ? "Starter" :
-    "Free";
+      userTier === "PRO" ? "Pro" :
+        userTier === "STARTER" ? "Starter" :
+          "Free";
 
   const TierIcon =
     userTier === "ELITE" ? Crown :
-    userTier === "PRO" ? Zap :
-    userTier === "STARTER" ? Star :
-    Crown;
+      userTier === "PRO" ? Zap :
+        userTier === "STARTER" ? Star :
+          Crown;
 
   const tierColor =
     userTier === "ELITE" ? "text-amber-500" :
-    userTier === "PRO" ? "text-blue-500" :
-    userTier === "STARTER" ? "text-emerald-500" :
-    "text-muted-foreground";
+      userTier === "PRO" ? "text-blue-500" :
+        userTier === "STARTER" ? "text-emerald-500" :
+          "text-muted-foreground";
 
   const tierBadgeClass =
     userTier === "ELITE"
@@ -262,14 +262,14 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
 
         {/* ===== SIDEBAR FOOTER ===== */}
         <SidebarFooter className="border-t p-3 space-y-1.5 shrink-0 overflow-hidden">
-          {/* Membership button - mở SubscriptionView */}
+          {/* Subscriptions */}
           <button
             onClick={() => onTabChange("subscription")}
-            className={`w-full flex items-center gap-2.5 p-2 rounded-xl border border-dashed hover:bg-muted/60 transition-colors text-left ${activeTab === "subscription" ? "bg-muted/60" : ""}`}
+            className={`w-full flex items-center gap-2.5 p-2 rounded-xl border hover:bg-muted/60 transition-colors text-left ${activeTab === "subscription" ? "bg-muted/60" : ""}`}
           >
             <TierIcon className={`h-4 w-4 shrink-0 ${tierColor}`} />
             <span className="flex-1 text-xs font-semibold leading-tight truncate">
-              Gói Hội viên
+              Subscription Plans
             </span>
             <Badge className={`text-[10px] px-2 py-0.5 tracking-wider shrink-0 ${tierBadgeClass}`}>
               {tierLabel.toUpperCase()}
@@ -278,17 +278,17 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
 
           <SidebarMenu className="gap-1">
             <SidebarMenuItem>
-              <SidebarMenuButton className="w-full justify-start rounded-xl px-2.5 py-2" onClick={() => onTabChange("profile")}>
+              <SidebarMenuButton className="w-full justify-start rounded-xl" onClick={() => onTabChange("profile")}>
                 <User className="h-4 w-4 mr-2.5 shrink-0 opacity-80" />
                 <div className="flex flex-col items-start min-w-0 text-left">
-                  <span className="text-xs font-medium truncate">{userName}</span>
-                  <span className="text-[10px] text-muted-foreground capitalize leading-tight">{userRole}</span>
+                  <span className="text-xs font-medium truncate">Profile</span>
+                  <span className="text-[10px] text-muted-foreground capitalize leading-tight">{userName}</span>
                 </div>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
-                className={`w-full justify-start rounded-xl px-2.5 py-2 ${activeTab === "settings" ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "hover:bg-sidebar-accent/50"}`}
+                className={`w-full justify-start rounded-xl ${activeTab === "settings" ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "hover:bg-sidebar-accent/50"}`}
                 onClick={() => onTabChange("settings")}
               >
                 <Settings className="h-4 w-4 mr-2.5 shrink-0 opacity-80" />

@@ -29,25 +29,25 @@ export function formatVND(amount: number): string {
 export function exportInvoiceToTxt(txn: InvoiceTransaction): void {
   const content = [
     "============================================================",
-    "               HOA DON DIEN TU - LEXICORE",
-    "         Smart AI English Learning Platform",
+    "               HOÁ ĐƠN ĐIỆN TỬ - LEXICORE",
+    "           Smart AI English Learning Platform",
     "============================================================",
-    `Ma hoa don:       Invoice_${txn.id}`,
-    `Ma tham chieu:    ${txn.id}`,
-    `Ngay giao dich:   ${txn.date}`,
-    `Dich vu:          ${txn.description}`,
-    `So tien:          ${formatVND(txn.amountVnd)}`,
-    `Trang thai:       ${txn.status === "SUCCESS" ? "Thanh cong (PAID)" : txn.status === "PENDING" ? "Dang xu ly" : "That bai"}`,
-    `Hinh thuc:        ${txn.paymentMethod || "VietQR / Vi LexiCore"}`,
+    `Mã hoá đơn:       Invoice_${txn.id}`,
+    `Mã tham chiếu:    ${txn.id}`,
+    `Ngày giao dịch:   ${txn.date}`,
+    `Dịch vụ:          ${txn.description}`,
+    `Số tiền:          ${formatVND(txn.amountVnd)}`,
+    `Trạng thái:       ${txn.status === "SUCCESS" ? "Thành công (PAID)" : txn.status === "PENDING" ? "Dang xu ly" : "That bai"}`,
+    `Hình thức:        ${txn.paymentMethod || "VietQR / Ví LexiCore"}`,
     "------------------------------------------------------------",
-    "Don vi cung cap:  CONG TY CO PHAN CONG NGHE LEXICORE",
-    "Dia chi:          LexiCore Tower, Cau Giay, Ha Noi",
-    "Email ho tro:     support@lexicore.site",
-    "Hotline:          1900 8888",
+    "Đơn vị cung cấp:  CÔNG TY CỔ PHẦN CÔNG NGHỆ LEXICORE",
+    "Địa chỉ:          LexiCore Tower, phường Tân Hưng, TP. HCM",
+    "Email hỗ trợ:     support@lexicore.site",
+    "Hotline:          52300055 52300044",
     "Website:          https://lexicore.site",
     "============================================================",
-    "Cam on ban da su dung dich vu cua LexiCore!",
-    "Chuc ban co nhung gio phut hoc tap hieu qua va thanh cong.",
+    "Cảm ơn bạn đã sử dụng dịch vụ của LexiCore!",
+    "Chúc bạn có những giờ phút học tập hiệu quả và thành công.",
     "============================================================",
   ].join("\n");
 
@@ -63,6 +63,25 @@ export function exportInvoiceToTxt(txn: InvoiceTransaction): void {
 }
 
 /**
+ * Chuyển đổi logo sang base64 data URL để html2canvas vẽ tức thì mà không lo delay hay CORS
+ */
+async function getLogoBase64(): Promise<string> {
+  try {
+    // Dùng favicon_whale.png (256x256, ~50KB)
+    const res = await fetch("/assets/favicon_whale.png");
+    if (!res.ok) return "";
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string) || "");
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Tạo và tải hóa đơn chuẩn PDF (Invoice_<order_id>.pdf)
  * Dùng dynamic import để chỉ tải thư viện khi người dùng thực sự bấm xuất PDF
  */
@@ -70,10 +89,11 @@ export async function exportInvoiceToPdf(
   txn: InvoiceTransaction,
   customerInfo?: CustomerInfo
 ): Promise<void> {
-  // Dynamic import on demand
-  const [jspdfModule, html2canvasModule] = await Promise.all([
+  // Dynamic import on demand và Lấy base64 của logo thật
+  const [jspdfModule, html2canvasModule, logoDataUrl] = await Promise.all([
     import("jspdf"),
     import("html2canvas"),
+    getLogoBase64(),
   ]);
 
   const jsPDF = jspdfModule.jsPDF || (jspdfModule as any).default || jspdfModule;
@@ -99,17 +119,19 @@ export async function exportInvoiceToPdf(
     txn.status === "SUCCESS"
       ? "ĐÃ THANH TOÁN"
       : txn.status === "PENDING"
-      ? "ĐANG XỬ LÝ"
-      : "THẤT BẠI";
+        ? "ĐANG XỬ LÝ"
+        : "THẤT BẠI";
+
+  const logoHtml = logoDataUrl
+    ? `<img src="${logoDataUrl}" alt="LexiCore Logo" style="width: 48px; height: 48px; object-fit: contain; border-radius: 10px; display: block;" />`
+    : `<div style="width: 48px; height: 48px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 800; font-size: 20px; letter-spacing: -0.5px;">LC</div>`;
 
   container.innerHTML = `
     <div style="padding: 40px; background-color: #ffffff; color: #0f172a; line-height: 1.5; font-size: 13px;">
       <!-- Header -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 2px solid #2563eb;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div style="width: 44px; height: 44px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 800; font-size: 20px; letter-spacing: -0.5px;">
-            LC
-          </div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          ${logoHtml}
           <div>
             <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #0f172a; text-transform: uppercase;">
               LEXICORE
@@ -146,13 +168,13 @@ export async function exportInvoiceToPdf(
             CÔNG TY CỔ PHẦN CÔNG NGHỆ LEXICORE
           </div>
           <div style="color: #475569; font-size: 11px; margin-top: 3px;">
-            Mã số thuế: <strong>0109876543</strong>
+            Mã số thuế: <strong>52300055_52300054</strong>
           </div>
           <div style="color: #475569; font-size: 11px; margin-top: 2px;">
-            Địa chỉ: Tòa nhà LexiCore Tower, Cầu Giấy, Hà Nội
+            Địa chỉ: LexiCore Tower, phường Tân Hưng, TP. HCM
           </div>
           <div style="color: #475569; font-size: 11px; margin-top: 2px;">
-            Hotline: 1900 8888 | Email: support@lexicore.site
+            Hotline: 52300055 52300044 | Email: support@lexicore.site
           </div>
         </div>
 
@@ -225,13 +247,12 @@ export async function exportInvoiceToPdf(
         <!-- Left: Legal notes -->
         <div style="max-width: 420px;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-            <div style="width: 8px; height: 8px; border-radius: 50%; background-color: #10b981;"></div>
-            <span style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">
+            <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">
               Hóa đơn điện tử hợp lệ
-            </span>
+            </div>
           </div>
           <p style="margin: 0; font-size: 11px; color: #64748b; line-height: 1.5;">
-            Hóa đơn được khởi tạo và lưu trữ an toàn dưới dạng điện tử theo quy định tại Nghị định 123/2020/NĐ-CP của Chính phủ. Tra cứu trực tuyến tại <span style="color: #2563eb; font-weight: 600;">lexicore.site/verify-invoice</span> với mã đơn <strong>${txn.id}</strong>.
+            Hóa đơn được khởi tạo và lưu trữ an toàn dưới dạng điện tử theo quy định tại Nghị định 123/2020/NĐ-CP của Chính phủ. Tra cứu và quản lý lịch sử đơn hàng tại tài khoản học viên trên <span style="color: #2563eb; font-weight: 600;">lexicore.site</span> (Mục Gói Hội viên &gt; Lịch sử giao dịch) với mã đơn <strong>${txn.id}</strong>.
           </p>
         </div>
 
