@@ -49,6 +49,7 @@ import {
   TopupCard,
 } from "../global/subscription-cards";
 import { SubscriptionModal } from "../global/SubscriptionModal";
+import { QRModal } from "../global/QRModal";
 import { toast } from "sonner";
 import { downloadInvoiceWithFallback } from "../../utils/invoiceGenerator";
 
@@ -582,11 +583,24 @@ export function SubscriptionView() {
       .catch(() => {});
   }, []);
 
-  // State cho SubscriptionModal (thanh toán thật)
+  // State cho SubscriptionModal (Xem tất cả các gói & bảng giá)
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPackageId, setModalPackageId] = useState<string | undefined>(undefined);
   const [modalTab, setModalTab] = useState<"subscription" | "info">("subscription");
-  const [modalAutoCheckout, setModalAutoCheckout] = useState(false);
+
+  // State cho QRModal (Thanh toán đơn hàng SePay VietQR / Ví LexiCore)
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrModalPkg, setQrModalPkg] = useState<CreditPackage | null>(null);
+  const [qrFromSubModal, setQrFromSubModal] = useState(false);
+
+  const handleOpenQRModal = (pkg: CreditPackage, fromSubModal = false) => {
+    setQrModalPkg(pkg);
+    setQrFromSubModal(fromSubModal);
+    if (fromSubModal) {
+      setModalOpen(false); // Tạm ẩn SubscriptionModal để tránh modal chồng modal
+    }
+    setQrModalOpen(true);
+  };
 
   const handleCloseModal = useCallback(() => setModalOpen(false), []);
 
@@ -726,19 +740,13 @@ export function SubscriptionView() {
       return;
     }
 
-    // 3. Gói trả phí: Mở modal thanh toán SePay VietQR
-    setModalPackageId(pkg.id);
-    setModalTab("subscription");
-    setModalAutoCheckout(true);
-    setModalOpen(true);
+    // 3. Gói trả phí: Mở QRModal thanh toán SePay VietQR trực tiếp
+    handleOpenQRModal(pkg, false);
   };
 
-  // Mua gói Coin hoặc Diamond (Mở modal thanh toán SePay VietQR thật)
+  // Mua gói Coin hoặc Diamond (Mở QRModal thanh toán SePay VietQR trực tiếp)
   const handleBuyPack = async (pkg: CreditPackage) => {
-    setModalPackageId(pkg.id);
-    setModalTab("subscription");
-    setModalAutoCheckout(true);
-    setModalOpen(true);
+    handleOpenQRModal(pkg, false);
   };
 
   // Lọc chỉ 3 gói tháng đại diện (Starter, Pro, Elite chu kỳ 30 ngày)
@@ -826,7 +834,6 @@ export function SubscriptionView() {
                   onClick={() => {
                     setModalPackageId(selectedSubId);
                     setModalTab("subscription");
-                    setModalAutoCheckout(false);
                     setModalOpen(true);
                   }}
                 >
@@ -974,14 +981,31 @@ export function SubscriptionView() {
         </>)}
       </div>
 
-      {/* Modal xem tất cả gói & thanh toán SePay VietQR / Ví */}
+      {/* Modal xem tất cả gói & bảng giá */}
       <SubscriptionModal
         open={modalOpen}
         onClose={handleCloseModal}
         initialPackageId={modalPackageId}
         initialTab={modalTab}
-        autoCheckout={modalAutoCheckout}
+        onBuyPackage={(pkg) => handleOpenQRModal(pkg, true)}
         onSuccess={fetchAll}
+      />
+
+      {/* Modal thanh toán SePay VietQR / Ví LexiCore */}
+      <QRModal
+        open={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        pkg={qrModalPkg}
+        walletBalance={membership.walletBalanceVnd}
+        onSuccess={fetchAll}
+        onBack={
+          qrFromSubModal
+            ? () => {
+                setQrModalOpen(false);
+                setModalOpen(true);
+              }
+            : undefined
+        }
       />
     </TooltipProvider>
   );

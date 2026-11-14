@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,18 +9,12 @@ import { Button } from "../ui/button";
 import { toast } from "sonner";
 import {
   Crown,
-  Check,
   Zap,
   Star,
-  Copy,
-  Wallet,
-  Info,
-  ArrowLeft,
-  Loader2,
-  CheckCircle2,
   FileText,
   Sparkles,
   Gift,
+  Loader2,
 } from "lucide-react";
 import {
   CreditPackage,
@@ -40,367 +34,135 @@ export interface SubscriptionModalProps {
   onClose: () => void;
   initialPackageId?: string;
   initialTab?: "subscription" | "info";
-  autoCheckout?: boolean;
+  onBuyPackage?: (pkg: CreditPackage) => void;
   onSuccess?: () => void;
 }
 export type PremiumModalProps = SubscriptionModalProps;
-
-interface SepayInitResult {
-  orderId: string;
-  orderCode: string;
-  amountVnd: number;
-  bankCode: string;
-  accountNumber: string;
-  accountName: string;
-  qrUrl: string;
-}
-
-// ============================================================
-// WalletConfirmModal (modal nhỏ đè lên modal chính)
-// ============================================================
-interface WalletConfirmProps {
-  open: boolean;
-  pkg: CreditPackage;
-  walletBalance: number;
-  onConfirm: () => void;
-  onCancel: () => void;
-  loading: boolean;
-}
-
-function WalletConfirmModal({
-  open,
-  pkg,
-  walletBalance,
-  onConfirm,
-  onCancel,
-  loading,
-}: WalletConfirmProps) {
-  if (!open) return null;
-  const price = getFinalPrice(pkg);
-  const remaining = walletBalance - price;
-  const canAfford = remaining >= 0;
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-      <div className="relative z-10 bg-background border rounded-2xl shadow-2xl w-[90vw] max-w-sm p-6 flex flex-col gap-4">
-        <div className="flex items-center gap-2 text-base font-bold">
-          <Wallet className="h-5 w-5 text-emerald-500" />
-          Xác nhận thanh toán bằng Ví LexiCore
-        </div>
-
-        <div className="bg-muted/50 rounded-xl p-4 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Gói đăng ký</span>
-            <span className="font-medium">{pkg.name}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Số dư ví hiện tại</span>
-            <span className="font-medium">{formatVND(walletBalance)}</span>
-          </div>
-          <div className="flex justify-between text-red-500">
-            <span>Số tiền thanh toán</span>
-            <span className="font-bold">-{formatVND(price)}</span>
-          </div>
-          <div className="border-t pt-2 flex justify-between font-bold">
-            <span>Số dư còn lại</span>
-            <span className={canAfford ? "text-emerald-600" : "text-red-500"}>
-              {formatVND(Math.max(remaining, 0))}
-            </span>
-          </div>
-        </div>
-
-        {!canAfford && (
-          <p className="text-xs text-red-500 text-center">
-            Số dư ví không đủ. Vui lòng chọn phương thức chuyển khoản VietQR.
-          </p>
-        )}
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={onCancel}
-            disabled={loading}
-          >
-            Hủy
-          </Button>
-          <Button
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={onConfirm}
-            disabled={!canAfford || loading}
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Xác nhận thanh toán"
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// QR Checkout Section (hiển thị khi chọn thanh toán gói)
-// ============================================================
-interface QRCheckoutProps {
-  result: SepayInitResult;
-  pkg: CreditPackage;
-  walletBalance: number;
-  onWalletPay: () => void;
-  onBack: () => void;
-  paymentDone: boolean;
-}
-
-function QRCheckoutSection({
-  result,
-  pkg,
-  walletBalance,
-  onWalletPay,
-  onBack,
-  paymentDone,
-}: QRCheckoutProps) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  if (paymentDone) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-8 px-6">
-        <CheckCircle2 className="h-16 w-16 text-emerald-500" />
-        <p className="text-lg font-bold text-center">Thanh toán thành công!</p>
-        <p className="text-sm text-muted-foreground text-center">
-          Gói {pkg.name} đã được kích hoạt. Chúc bạn học tốt!
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-5 p-6">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Chọn gói khác
-      </button>
-
-      <div className="text-center">
-        <p className="text-sm font-semibold text-muted-foreground mb-1">
-          Quét mã QR để thanh toán
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Ứng dụng ngân hàng tự động điền sẵn số tài khoản, số tiền và nội dung
-        </p>
-      </div>
-
-      {/* Ảnh QR SePay VietQR */}
-      <div className="flex justify-center">
-        <div className="rounded-2xl border-2 border-dashed border-muted p-3 bg-white">
-          <img
-            src={result.qrUrl}
-            alt="Mã QR chuyển khoản"
-            className="w-52 h-52 object-contain"
-          />
-        </div>
-      </div>
-
-      {/* Thông tin chuyển khoản */}
-      <div className="bg-muted/50 rounded-xl p-4 space-y-2.5 text-sm">
-        <InfoRow label="Ngân hàng" value={result.bankCode} />
-        <InfoRow label="Số tài khoản" value={result.accountNumber} />
-        <InfoRow label="Tên tài khoản" value={result.accountName} />
-        <InfoRow
-          label="Số tiền"
-          value={formatVND(result.amountVnd)}
-          highlight
-        />
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Nội dung chuyển khoản</span>
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-bold tracking-wider text-primary">
-              {result.orderCode}
-            </span>
-            <button
-              onClick={() => copy(result.orderCode)}
-              className="p-1 rounded hover:bg-muted transition-colors"
-              title="Sao chép nội dung"
-            >
-              {copied ? (
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
-              ) : (
-                <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Lưu ý chuyển khoản */}
-      <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400 space-y-1">
-        <p className="font-semibold">Lưu ý quan trọng:</p>
-        <p>Nội dung chuyển khoản phải chính xác là <strong>{result.orderCode}</strong></p>
-        <p>Hệ thống tự động xác nhận trong 1 đến 5 phút sau khi nhận được tiền.</p>
-      </div>
-
-      {/* Nút thanh toán bằng ví */}
-      <div className="flex flex-col gap-2">
-        <div className="relative flex items-center gap-2">
-          <div className="flex-1 border-t border-muted" />
-          <span className="text-xs text-muted-foreground">hoặc</span>
-          <div className="flex-1 border-t border-muted" />
-        </div>
-        <Button
-          variant="outline"
-          className="w-full gap-2 border-emerald-500/50 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400"
-          onClick={onWalletPay}
-        >
-          <Wallet className="h-4 w-4" />
-          Thanh toán bằng Ví LexiCore
-          <span className="ml-auto text-xs text-muted-foreground">
-            {formatVND(walletBalance)}
-          </span>
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`font-medium ${highlight ? "text-primary font-bold" : ""}`}>
-        {value}
-      </span>
-    </div>
-  );
-}
 
 // ============================================================
 // Tab Thông tin và chính sách content
 // ============================================================
 function InfoTabContent() {
   return (
-    <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-220px)]">
-      <Section title="Bảng giá đăng ký các gói">
-        <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr className="bg-muted/60">
-              <th className="text-left p-2 rounded-tl-lg">Gói</th>
-              <th className="text-right p-2">1 tuần</th>
-              <th className="text-right p-2">30 ngày</th>
-              <th className="text-right p-2 rounded-tr-lg">365 ngày</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            <tr>
-              <td className="p-2 font-medium text-emerald-600">Starter</td>
-              <td className="p-2 text-right">9.000đ</td>
-              <td className="p-2 text-right">19.000đ</td>
-              <td className="p-2 text-right">159.000đ</td>
-            </tr>
-            <tr>
-              <td className="p-2 font-medium text-blue-600">Pro</td>
-              <td className="p-2 text-right">15.000đ</td>
-              <td className="p-2 text-right">35.000đ</td>
-              <td className="p-2 text-right">269.000đ</td>
-            </tr>
-            <tr>
-              <td className="p-2 font-medium text-amber-600">Elite</td>
-              <td className="p-2 text-right">25.000đ</td>
-              <td className="p-2 text-right">49.000đ</td>
-              <td className="p-2 text-right">349.000đ</td>
-            </tr>
-          </tbody>
-        </table>
+    <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(85vh-160px)] text-foreground">
+      {/* 1. Bảng giá niêm yết chuẩn */}
+      <Section title="Bảng giá niêm yết các gói Hội viên">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse text-left">
+            <thead>
+              <tr className="bg-muted/70 text-foreground border-b">
+                <th className="p-2.5 font-bold rounded-tl-lg">Hạng gói (Tier)</th>
+                <th className="p-2.5 font-bold text-center">Gói Tuần (7 ngày)</th>
+                <th className="p-2.5 font-bold text-center">Gói Tháng (30 ngày)</th>
+                <th className="p-2.5 font-bold text-center rounded-tr-lg">Gói Năm (365 ngày)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-bold text-emerald-600 flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5" /> Gói Starter
+                </td>
+                <td className="p-2.5 text-center font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/[0.03]">
+                  9.000 ₫
+                </td>
+                <td className="p-2.5 text-center font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/[0.08]">
+                  19.000 ₫
+                </td>
+                <td className="p-2.5 text-center font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/[0.15]">
+                  159.000 ₫
+                </td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-bold text-blue-600 flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5" /> Gói Pro
+                </td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400 bg-blue-500/[0.03]">
+                  15.000 ₫
+                </td>
+                <td className="p-2.5 text-center font-bold text-blue-600 dark:text-blue-400 bg-blue-500/[0.08]">
+                  35.000 ₫
+                </td>
+                <td className="p-2.5 text-center font-bold text-blue-700 dark:text-blue-300 bg-blue-500/[0.15]">
+                  269.000 ₫
+                </td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-bold text-amber-600 flex items-center gap-1.5">
+                  <Crown className="h-3.5 w-3.5" /> Gói Elite
+                </td>
+                <td className="p-2.5 text-center font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/[0.03]">
+                  25.000 ₫
+                </td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-500/[0.08]">
+                  49.000 ₫
+                </td>
+                <td className="p-2.5 text-center font-bold text-amber-700 dark:text-amber-300 bg-amber-500/[0.15]">
+                  349.000 ₫
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </Section>
 
-      <Section title="Quy tắc nâng cấp gói">
-        <ul className="space-y-1.5 text-xs text-muted-foreground">
-          <li className="flex gap-2">
-            <span className="text-emerald-500 mt-0.5">+</span>
+      {/* 2. Quy tắc nâng cấp và gia hạn */}
+      <Section title="Quy tắc Gia hạn và Nâng cấp gói">
+        <ul className="space-y-2.5 text-xs text-muted-foreground">
+          <li className="flex gap-2 items-start">
+            <span className="text-emerald-500 font-bold text-sm leading-none mt-0.5">+</span>
             <span>
-              <strong>Gia hạn:</strong> Mua cùng hạng và cùng chu kỳ thì hệ thống cộng dồn thêm số ngày vào
-              hạn sử dụng hiện tại (không mất ngày nào).
+              <strong className="text-foreground">Mua cùng hạng gói (Gia hạn):</strong> Toàn bộ số ngày của gói mới được cộng dồn trực tiếp vào hạn sử dụng hiện tại của bạn mà không bị mất đi ngày nào.
             </span>
           </li>
-          <li className="flex gap-2">
-            <span className="text-blue-500 mt-0.5">+</span>
+          <li className="flex gap-2 items-start">
+            <span className="text-blue-500 font-bold text-sm leading-none mt-0.5">+</span>
             <span>
-              <strong>Nâng cấp:</strong> Số tiền cần trả = Giá gói mới - (Giá gói cũ / 30 x Số ngày còn lại).
-              Hệ thống kích hoạt ngay hạn sử dụng mới kể từ ngày nâng cấp.
+              <strong className="text-foreground">Nâng cấp lên hạng cao hơn (Upgrade):</strong> Áp dụng công thức trừ bù giá trị ngày chưa sử dụng. Hệ thống tính toán số tiền chênh lệch còn lại của gói cũ và kích hoạt ngay chu kỳ mới cho bạn.
             </span>
           </li>
-          <li className="flex gap-2">
-            <span className="text-red-500 mt-0.5">-</span>
+          <li className="flex gap-2 items-start">
+            <span className="text-rose-500 font-bold text-sm leading-none mt-0.5">-</span>
             <span>
-              <strong>Không hỗ trợ:</strong> Hạ cấp xuống gói thấp hơn gói hiện tại đang sử dụng.
+              <strong className="text-foreground">Mua gói thấp hơn:</strong> Hệ thống không hỗ trợ đăng ký gói có thứ hạng thấp hơn gói bạn đang sử dụng nhằm đảm bảo quyền lợi cao nhất của tài khoản.
             </span>
           </li>
-          <li className="flex gap-2">
-            <span className="text-orange-500 mt-0.5">!</span>
+          <li className="flex gap-2 items-start">
+            <span className="text-amber-500 font-bold text-sm leading-none mt-0.5">!</span>
             <span>
-              <strong>Chu kỳ:</strong> Không thể nâng cấp lên gói có chu kỳ ngắn hơn gói đang dùng
-              (ví dụ: đang dùng gói tháng thì không thể nâng lên gói tuần của hạng cao hơn).
+              <strong className="text-foreground">Chu kỳ nâng cấp:</strong> Khuyến nghị nâng cấp tối thiểu cùng chu kỳ thời gian để tối ưu hóa chi phí học tập dài hạn.
             </span>
           </li>
         </ul>
       </Section>
 
-      <Section title="Cách tính thời gian">
+      {/* 3. Cách tính thời gian */}
+      <Section title="Quy chuẩn tính thời gian hội viên">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3.5 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/25 text-center flex flex-col items-center justify-center">
+            <div className="font-bold text-emerald-700 dark:text-emerald-400">Gói Tuần</div>
+            <div className="text-muted-foreground mt-1 text-[11px]">Cố định 7 ngày (168 giờ)</div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-blue-500/[0.04] border border-blue-500/25 text-center flex flex-col items-center justify-center">
+            <div className="font-bold text-blue-700 dark:text-blue-400">Gói Tháng</div>
+            <div className="text-muted-foreground mt-1 text-[11px]">Cố định 30 ngày (720 giờ)</div>
+          </div>
+          <div className="p-3.5 rounded-xl bg-amber-500/[0.04] border border-amber-500/25 text-center flex flex-col items-center justify-center">
+            <div className="font-bold text-amber-700 dark:text-amber-400">Gói Năm</div>
+            <div className="text-muted-foreground mt-1 text-[11px]">Cố định 365 ngày (8.760 giờ)</div>
+          </div>
+        </div>
+      </Section>
+
+      {/* 4. Hình thức thanh toán */}
+      <Section title="Hình thức thanh toán hỗ trợ">
         <ul className="space-y-1.5 text-xs text-muted-foreground">
-          <li>1 năm = 365 ngày</li>
-          <li>1 tháng = 30 ngày</li>
-          <li>1 tuần = 7 ngày</li>
-          <li>Hạn sử dụng được tính bắt đầu từ thời điểm thanh toán thành công.</li>
+          <li><strong>1. Chuyển khoản ngân hàng VietQR (SePay):</strong> Quét mã QR bằng ứng dụng của bất kỳ ngân hàng nào tại Việt Nam. Nội dung và số tiền được tự động điền sẵn, hệ thống xác nhận tự động chỉ sau 1 đến 5 phút.</li>
+          <li><strong>2. Ví LexiCore:</strong> Thanh toán tức thì bằng số dư ví VNĐ đã nạp trước trên tài khoản LexiCore.</li>
         </ul>
       </Section>
 
-      <Section title="Hướng dẫn thanh toán">
-        <ol className="space-y-1.5 text-xs text-muted-foreground list-decimal list-inside">
-          <li>Chọn gói muốn đăng ký và nhấn nút Mua gói.</li>
-          <li>Quét mã QR bằng ứng dụng ngân hàng bất kỳ (VietQR).</li>
-          <li>
-            Nội dung chuyển khoản phải đúng chính xác mã đơn hàng (ví dụ: LC105). Ứng dụng ngân hàng
-            sẽ tự động điền sẵn khi quét QR.
-          </li>
-          <li>Hệ thống tự động xác nhận trong 1 đến 5 phút sau khi nhận được tiền.</li>
-          <li>Hoặc thanh toán tức thì bằng số dư Ví LexiCore.</li>
-        </ol>
-      </Section>
-
-      <Section title="Gói dùng thử và khuyến mãi">
-        <ul className="space-y-1.5 text-xs text-muted-foreground">
-          <li>Mỗi tài khoản mới mặc định được kích hoạt gói Pro dùng thử 3 ngày miễn phí.</li>
-          <li>
-            Ban quản trị có thể ban hành các đợt khuyến mãi giảm giá hoặc gói dùng thử đặc biệt nhân dịp kỷ niệm.
-          </li>
-          <li>Mỗi người dùng chỉ được sử dụng 1 lần gói dùng thử.</li>
-        </ul>
-      </Section>
-
-      <p className="text-xs text-center text-muted-foreground pb-2">
-        Hỗ trợ thanh toán: support@lexicore.site
+      <p className="text-[11px] text-center text-muted-foreground pt-2">
+        Mọi thắc mắc và hỗ trợ vui lòng liên hệ: <strong>support@lexicore.site</strong>
       </p>
     </div>
   );
@@ -415,8 +177,8 @@ function Section({
 }) {
   return (
     <div>
-      <p className="text-sm font-semibold mb-2">{title}</p>
-      <div className="bg-muted/40 rounded-xl p-4">{children}</div>
+      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">{title}</p>
+      <div className="bg-muted/30 rounded-xl p-4 border">{children}</div>
     </div>
   );
 }
@@ -429,7 +191,7 @@ export function SubscriptionModal({
   onClose,
   initialPackageId,
   initialTab = "subscription",
-  autoCheckout = false,
+  onBuyPackage,
   onSuccess,
 }: SubscriptionModalProps) {
   const [activeTab, setActiveTab] = useState<"subscription" | "info">(initialTab);
@@ -437,18 +199,7 @@ export function SubscriptionModal({
   const [selectedSubId, setSelectedSubId] = useState<string>("sub-elite");
   const [subLoadingId, setSubLoadingId] = useState<string | null>(null);
 
-  // QR checkout state
-  const [checkoutResult, setCheckoutResult] = useState<SepayInitResult | null>(null);
-  const [checkoutPkg, setCheckoutPkg] = useState<CreditPackage | null>(null);
-  const [paymentDone, setPaymentDone] = useState(false);
-
-  // Ví LexiCore state
-  const [walletBalance, setWalletBalance] = useState(0);
-  const [walletConfirmOpen, setWalletConfirmOpen] = useState(false);
-  const [walletLoading, setWalletLoading] = useState(false);
-
   const subScrollRef = useRef<HTMLDivElement>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const selectedSub =
     packages.subscription.find((p) => p.id === selectedSubId) ||
@@ -463,64 +214,30 @@ export function SubscriptionModal({
         if (json.success && json.data) {
           setPackages(json.data);
           const sub = json.data.subscription;
-          if (sub?.length && !initialPackageId) {
-            setSelectedSubId(sub[sub.length - 1].id);
+          if (sub?.length) {
+            if (initialPackageId && sub.some((p: CreditPackage) => p.id === initialPackageId)) {
+              setSelectedSubId(initialPackageId);
+            } else {
+              setSelectedSubId(sub[0].id);
+            }
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [open, initialPackageId]);
 
-  // Fetch số dư ví
   useEffect(() => {
-    if (!open) return;
-    fetch("/api/payment/my-subscription", { credentials: "include" })
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success && json.data) {
-          setWalletBalance(json.data.walletBalanceVnd ?? 0);
-        }
-      })
-      .catch(() => {});
-  }, [open]);
-
-  // Polling kiểm tra trạng thái đơn hàng
-  const stopPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
+    if (open) {
+      setActiveTab(initialTab);
+      if (initialPackageId) {
+        setSelectedSubId(initialPackageId);
+      }
     }
-  }, []);
+  }, [open, initialTab, initialPackageId]);
 
-  const startPolling = useCallback(
-    (orderId: string, pkg: CreditPackage) => {
-      stopPolling();
-      pollingRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/payment/order-status/${orderId}`, {
-            credentials: "include",
-          });
-          const json = await res.json();
-          if (json.success && json.data?.status === "SUCCESS") {
-            stopPolling();
-            setPaymentDone(true);
-            toast.success(`Đăng ký ${pkg.name} thành công!`, {
-              description: "Gói đã được kích hoạt. Chúc bạn học tốt!",
-            });
-            onSuccess?.();
-            setTimeout(() => onClose(), 2500);
-          }
-        } catch {
-          // Bỏ qua lỗi mạng tạm thời
-        }
-      }, 4000);
-    },
-    [stopPolling, onClose, onSuccess]
-  );
-
-  // Mua gói bằng SePay QR hoặc Nhận quà sự kiện
-  const handleBuySub = useCallback(async (pkg: CreditPackage) => {
-    // 1. Nếu là gói sự kiện quà tặng từ chiến dịch của Admin
+  // Xu ly khi bam mua goi trong modal
+  const handleBuyClick = async (pkg: CreditPackage) => {
+    // 1. Gói Campaign
     if (pkg.campaign_id) {
       setSubLoadingId(pkg.id);
       try {
@@ -532,20 +249,18 @@ export function SubscriptionModal({
         });
         const json = await res.json();
         if (!json.success) throw new Error(json.message);
-        toast.success(`Nhận quà sự kiện "${pkg.name}" thành công!`, {
-          description: `Bạn có ${pkg.duration_days} ngày trải nghiệm gói ${pkg.tier}.`,
-        });
+        toast.success(`Nhận quà sự kiện "${pkg.name}" thành công!`);
         onSuccess?.();
         onClose();
       } catch (err: any) {
-        toast.error("Nhận quà thất bại", { description: err.message });
+        toast.error(err.message || "Không thể nhận quà");
       } finally {
         setSubLoadingId(null);
       }
       return;
     }
 
-    // 2. Nếu là gói dùng thử Pro 3 ngày mặc định (chào mừng)
+    // 2. Gói Trial
     if (pkg.is_trial) {
       setSubLoadingId(pkg.id);
       try {
@@ -557,9 +272,7 @@ export function SubscriptionModal({
         });
         const json = await res.json();
         if (!json.success) throw new Error(json.message);
-        toast.success("Kích hoạt gói dùng thử thành công!", {
-          description: "Chúc bạn học tốt!",
-        });
+        toast.success("Kích hoạt gói dùng thử thành công!");
         onSuccess?.();
         onClose();
       } catch (err: any) {
@@ -570,93 +283,11 @@ export function SubscriptionModal({
       return;
     }
 
-    // Gói trả phí: gọi SePay init
-    setSubLoadingId(pkg.id);
-    try {
-      const res = await fetch("/api/payment/sepay/init", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ packageId: pkg.id }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message);
-
-      setCheckoutResult(json.data as SepayInitResult);
-      setCheckoutPkg(pkg);
-      setActiveTab("subscription");
-      startPolling(json.data.orderId, pkg);
-    } catch (err: any) {
-      toast.error("Khởi tạo thanh toán thất bại", { description: err.message });
-    } finally {
-      setSubLoadingId(null);
-    }
-  }, [startPolling, onClose, onSuccess]);
-
-  // Thanh toán bằng Ví LexiCore
-  const handleWalletConfirm = async () => {
-    if (!checkoutPkg) return;
-    setWalletLoading(true);
-    try {
-      const res = await fetch("/api/payment/wallet/pay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ packageId: checkoutPkg.id }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message);
-
-      stopPolling();
-      setWalletConfirmOpen(false);
-      setPaymentDone(true);
-      toast.success(`Đăng ký ${checkoutPkg.name} thành công qua Ví LexiCore!`);
-      onSuccess?.();
-      setTimeout(() => onClose(), 2500);
-    } catch (err: any) {
-      toast.error("Thanh toán ví thất bại", { description: err.message });
-    } finally {
-      setWalletLoading(false);
+    // 3. Gói trả phí: Bàn giao cho QRModal xử lý
+    if (onBuyPackage) {
+      onBuyPackage(pkg);
     }
   };
-
-  const prevOpenRef = useRef(false);
-  const hasAutoCheckedOutRef = useRef(false);
-
-  // Đồng bộ initialTab & initialPackageId & autoCheckout CHỈ KHI VỪA MỞ MODAL
-  useEffect(() => {
-    if (open) {
-      // Chỉ khởi tạo tab và reset state khi modal vừa được bật từ đóng sang mở
-      if (!prevOpenRef.current) {
-        setActiveTab(initialTab || "subscription");
-        if (initialPackageId) {
-          setSelectedSubId(initialPackageId);
-        }
-        setCheckoutResult(null);
-        setCheckoutPkg(null);
-        setPaymentDone(false);
-        hasAutoCheckedOutRef.current = false;
-      }
-
-      // Kích hoạt autoCheckout đúng 1 lần nếu được yêu cầu
-      if (autoCheckout && initialPackageId && !hasAutoCheckedOutRef.current) {
-        const targetPkg = packages.subscription.find((p) => p.id === initialPackageId);
-        if (targetPkg) {
-          hasAutoCheckedOutRef.current = true;
-          handleBuySub(targetPkg);
-        }
-      }
-    } else {
-      // Khi đóng modal: dọn dẹp state và dừng polling
-      if (prevOpenRef.current) {
-        setCheckoutResult(null);
-        setCheckoutPkg(null);
-        setPaymentDone(false);
-        stopPolling();
-      }
-    }
-    prevOpenRef.current = open;
-  }, [open, initialTab, initialPackageId, autoCheckout, packages.subscription, handleBuySub, stopPolling]);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (subScrollRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -664,163 +295,122 @@ export function SubscriptionModal({
     }
   };
 
-  const handleBack = () => {
-    stopPolling();
-    setCheckoutResult(null);
-    setCheckoutPkg(null);
-    setPaymentDone(false);
-  };
-
   return (
-    <>
-      {/* Modal Ví xác nhận (đè lên modal chính) */}
-      {checkoutPkg && (
-        <WalletConfirmModal
-          open={walletConfirmOpen}
-          pkg={checkoutPkg}
-          walletBalance={walletBalance}
-          onConfirm={handleWalletConfirm}
-          onCancel={() => setWalletConfirmOpen(false)}
-          loading={walletLoading}
-        />
-      )}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent
+        className="max-w-4xl sm:max-w-4xl w-[92vw] p-0 flex flex-col gap-0 overflow-hidden bg-background/95 backdrop-blur-md border shadow-2xl rounded-2xl"
+        aria-describedby={undefined}
+      >
+        {/* Header */}
+        <div className="shrink-0 p-6 pb-4 border-b">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl font-black">
+              <Crown className="h-6 w-6 text-amber-500" />
+              Nâng cấp LexiCore
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Khám phá toàn bộ 9 gói theo chu kỳ tuần, tháng và năm kèm chính sách nâng cấp minh bạch.
+          </p>
 
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent
-          className="max-w-4xl sm:max-w-4xl w-[92vw] p-0 flex flex-col gap-0 overflow-hidden bg-background/95 backdrop-blur-md border shadow-2xl"
-          aria-describedby={undefined}
-        >
-          {/* Header */}
-          <div className="shrink-0 p-6 pb-4 border-b">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-2xl font-black">
-                <Crown className="h-6 w-6 text-amber-500" />
-                Nâng cấp LexiCore
-              </DialogTitle>
-            </DialogHeader>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Khám phá toàn bộ 9 gói theo chu kỳ tuần, tháng và năm kèm chính sách nâng cấp minh bạch.
-            </p>
-
-            {/* Tab chuyển đổi: Chỉ còn 2 tab như đã bàn */}
-            <div className="flex mt-4 bg-muted rounded-xl p-1">
-              <TabBtn
-                active={activeTab === "subscription"}
-                onClick={() => {
-                  setCheckoutResult(null);
-                  setActiveTab("subscription");
-                }}
-              >
-                <Crown className="h-3.5 w-3.5 inline mr-1.5 text-amber-500" />
-                Tất cả gói Hội viên
-              </TabBtn>
-              <TabBtn
-                active={activeTab === "info"}
-                onClick={() => {
-                  setCheckoutResult(null);
-                  setActiveTab("info");
-                }}
-              >
-                <FileText className="h-3.5 w-3.5 inline mr-1.5 text-sky-500" />
-                Thông tin và chính sách
-              </TabBtn>
-            </div>
+          {/* Tab chuyển đổi: 2 tab duy nhất */}
+          <div className="flex mt-4 bg-muted rounded-xl p-1">
+            <TabBtn
+              active={activeTab === "subscription"}
+              onClick={() => setActiveTab("subscription")}
+            >
+              <Crown className="h-3.5 w-3.5 inline mr-1.5 text-amber-500" />
+              Tất cả gói Hội viên
+            </TabBtn>
+            <TabBtn
+              active={activeTab === "info"}
+              onClick={() => setActiveTab("info")}
+            >
+              <FileText className="h-3.5 w-3.5 inline mr-1.5 text-sky-500" />
+              Thông tin và chính sách
+            </TabBtn>
           </div>
+        </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Tab: Tất cả các gói */}
+          {activeTab === "subscription" && (
+            <div className="flex flex-col">
+              <div className="w-full min-w-0 overflow-hidden px-6">
+                <div
+                  ref={subScrollRef}
+                  onWheel={handleWheel}
+                  className="w-full overflow-x-auto flex items-stretch gap-5 pt-8 pb-5 px-1.5 select-none scroll-smooth [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50"
+                  style={{ scrollbarWidth: "thin" }}
+                >
+                  {packages.subscription.map((pkg) => (
+                    <SubscriptionFlipCard
+                      key={pkg.id}
+                      pkg={pkg}
+                      selected={selectedSubId === pkg.id}
+                      onSelect={() => setSelectedSubId(pkg.id)}
+                      onBuy={handleBuyClick}
+                    />
+                  ))}
+                </div>
+              </div>
 
-            {/* Tab: Subscription (Tất cả các gói) */}
-            {activeTab === "subscription" && (
-              <div className="flex flex-col">
-                {checkoutResult && checkoutPkg ? (
-                  <QRCheckoutSection
-                    result={checkoutResult}
-                    pkg={checkoutPkg}
-                    walletBalance={walletBalance}
-                    onWalletPay={() => setWalletConfirmOpen(true)}
-                    onBack={handleBack}
-                    paymentDone={paymentDone}
-                  />
-                ) : (
-                  <>
-                    <div className="w-full min-w-0 overflow-hidden px-6">
-                      <div
-                        ref={subScrollRef}
-                        onWheel={handleWheel}
-                        className="w-full overflow-x-auto flex items-stretch gap-5 pt-8 pb-5 px-1.5 select-none scroll-smooth [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50"
-                        style={{ scrollbarWidth: "thin" }}
-                      >
-                        {packages.subscription.map((pkg) => (
-                          <SubscriptionFlipCard
-                            key={pkg.id}
-                            pkg={pkg}
-                            selected={selectedSubId === pkg.id}
-                            onSelect={() => setSelectedSubId(pkg.id)}
-                            onBuy={handleBuySub}
-                          />
-                        ))}
-                      </div>
-                    </div>
+              {/* Footer thanh toán */}
+              <div className="shrink-0 px-6 py-4 bg-muted/40 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Thanh toán qua chuyển khoản VietQR (SePay) hoặc Ví LexiCore
+                </p>
 
-                    {/* Footer thanh toán */}
-                    <div className="shrink-0 px-6 py-4 bg-muted/40 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-                      <p className="text-xs text-muted-foreground">
-                        Thanh toán qua chuyển khoản VietQR (SePay) hoặc Ví LexiCore
-                      </p>
-
-                      {selectedSub && (
-                        <Button
-                          className={`h-10 px-6 text-xs font-bold transition-all shadow-md rounded-xl
-                            ${selectedSub.campaign_id
-                              ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
-                              : selectedSub.is_trial
-                                ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
-                                : selectedSub.tier === "ELITE"
-                                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
-                                  : selectedSub.tier === "PRO"
-                                    ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
-                                    : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
-                            }`}
-                          disabled={subLoadingId === selectedSub.id}
-                          onClick={() => handleBuySub(selectedSub)}
-                        >
-                          {subLoadingId === selectedSub.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              {selectedSub.campaign_id && <Sparkles className="h-4 w-4 mr-1.5" />}
-                              {!selectedSub.campaign_id && selectedSub.is_trial && <Gift className="h-4 w-4 mr-1.5" />}
-                              {!selectedSub.is_trial && selectedSub.tier === "ELITE" && (
-                                <Crown className="h-4 w-4 mr-1.5" />
-                              )}
-                              {!selectedSub.is_trial && selectedSub.tier === "PRO" && (
-                                <Zap className="h-4 w-4 mr-1.5" />
-                              )}
-                              {!selectedSub.is_trial && selectedSub.tier === "STARTER" && (
-                                <Star className="h-4 w-4 mr-1.5" />
-                              )}
-                              {selectedSub.campaign_id
-                                ? `Nhận quà sự kiện miễn phí (${selectedSub.duration_days} ngày)`
-                                : selectedSub.is_trial
-                                  ? `Dùng thử miễn phí ${selectedSub.duration_days ?? 3} ngày`
-                                  : `Mua gói ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))} ${getDurationLabel(selectedSub.duration_days)}`}
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </>
+                {selectedSub && (
+                  <Button
+                    className={`h-10 px-6 text-xs font-bold transition-all shadow-md rounded-xl
+                      ${selectedSub.campaign_id
+                        ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                        : selectedSub.is_trial
+                          ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
+                          : selectedSub.tier === "ELITE"
+                            ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
+                            : selectedSub.tier === "PRO"
+                              ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
+                              : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
+                      }`}
+                    disabled={subLoadingId === selectedSub.id}
+                    onClick={() => handleBuyClick(selectedSub)}
+                  >
+                    {subLoadingId === selectedSub.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        {selectedSub.campaign_id && <Sparkles className="h-4 w-4 mr-1.5" />}
+                        {!selectedSub.campaign_id && selectedSub.is_trial && <Gift className="h-4 w-4 mr-1.5" />}
+                        {!selectedSub.is_trial && selectedSub.tier === "ELITE" && (
+                          <Crown className="h-4 w-4 mr-1.5" />
+                        )}
+                        {!selectedSub.is_trial && selectedSub.tier === "PRO" && (
+                          <Zap className="h-4 w-4 mr-1.5" />
+                        )}
+                        {!selectedSub.is_trial && selectedSub.tier === "STARTER" && (
+                          <Star className="h-4 w-4 mr-1.5" />
+                        )}
+                        {selectedSub.campaign_id
+                          ? `Nhận quà sự kiện miễn phí (${selectedSub.duration_days} ngày)`
+                          : selectedSub.is_trial
+                            ? `Dùng thử miễn phí ${selectedSub.duration_days ?? 3} ngày`
+                            : `Mua gói ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))} ${getDurationLabel(selectedSub.duration_days)}`}
+                      </>
+                    )}
+                  </Button>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Tab: Thông tin và chính sách */}
-            {activeTab === "info" && <InfoTabContent />}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+          {/* Tab: Thông tin và chính sách */}
+          {activeTab === "info" && <InfoTabContent />}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
