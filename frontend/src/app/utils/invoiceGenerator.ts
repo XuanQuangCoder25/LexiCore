@@ -115,12 +115,8 @@ export async function exportInvoiceToPdf(
 
   const customerName = customerInfo?.name || "Học viên LexiCore";
   const customerEmail = customerInfo?.email || "hocvien@lexicore.site";
-  const statusLabel =
-    txn.status === "SUCCESS"
-      ? "ĐÃ THANH TOÁN"
-      : txn.status === "PENDING"
-        ? "ĐANG XỬ LÝ"
-        : "THẤT BẠI";
+  const stampText =
+    txn.status === "FAILED" ? "FAILED" : txn.status === "PENDING" ? "PENDING" : "PAID";
 
   const logoHtml = logoDataUrl
     ? `<img src="${logoDataUrl}" alt="LexiCore Logo" style="width: 48px; height: 48px; object-fit: contain; border-radius: 10px; display: block;" />`
@@ -258,15 +254,14 @@ export async function exportInvoiceToPdf(
 
         <!-- Right: Official PAID Stamp -->
         <div style="text-align: center;">
-          <div style="display: inline-block; border: 2.5px solid #059669; border-radius: 8px; padding: 8px 18px; background-color: #ecfdf5; transform: rotate(-2deg);">
-            <div style="font-size: 13px; font-weight: 800; color: #059669; letter-spacing: 1px;">
-              ${statusLabel}
-            </div>
-            <div style="font-size: 9px; font-weight: 700; color: #047857; margin-top: 1px; letter-spacing: 0.5px;">
-              LEXICORE PAYMENT SYSTEM
-            </div>
-            <div style="font-size: 9px; color: #065f46; font-family: monospace; margin-top: 2px;">
-              ${txn.date}
+          <div style="display: inline-block; border: 2.5px solid #059669; border-radius: 6px; padding: 3px; background-color: #ecfdf5; transform: rotate(-3deg);">
+            <div style="border: 1px solid #059669; border-radius: 4px; padding: 6px 16px; text-align: center;">
+              <div style="font-size: 16px; font-weight: 900; color: #059669; letter-spacing: 2px; text-transform: uppercase; line-height: 1;">
+                ${stampText}
+              </div>
+              <div style="font-size: 8px; font-weight: 800; color: #047857; margin-top: 3px; letter-spacing: 0.8px; text-transform: uppercase;">
+                LEXICORE PAYMENT SYSTEM
+              </div>
             </div>
           </div>
           <div style="font-size: 10px; color: #94a3b8; margin-top: 6px; font-weight: 500;">

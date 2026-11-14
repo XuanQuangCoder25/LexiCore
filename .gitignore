@@ -6,3 +6,4 @@ build/
 .vite/
 *.map
 report/
+docs/dev-conventions.md
