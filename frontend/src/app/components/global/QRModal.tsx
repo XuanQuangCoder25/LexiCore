@@ -59,6 +59,14 @@ export function QRModal({
   const [copied, setCopied] = useState(false);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAutoCloseTimeout = useCallback(() => {
+    if (autoCloseTimeoutRef.current) {
+      clearTimeout(autoCloseTimeoutRef.current);
+      autoCloseTimeoutRef.current = null;
+    }
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -67,7 +75,13 @@ export function QRModal({
     }
   }, []);
 
-  // Polling kiem tra trang thai don hang
+  const handleCloseModal = useCallback(() => {
+    stopPolling();
+    clearAutoCloseTimeout();
+    onClose();
+  }, [stopPolling, clearAutoCloseTimeout, onClose]);
+
+  // Polling kiem tra trang thai don hang moi 2.5 giay
   const startPolling = useCallback(
     (orderId: string, currentPkg: CreditPackage) => {
       stopPolling();
@@ -79,21 +93,36 @@ export function QRModal({
           const json = await res.json();
           if (json.success && json.data?.status === "SUCCESS") {
             stopPolling();
+            clearAutoCloseTimeout();
             setView("SUCCESS");
-            toast.success(`Đăng ký ${currentPkg.name} thành công!`, {
-              description: "Gói đã được kích hoạt. Chúc bạn học tốt!",
-            });
+
+            const isTopup =
+              currentPkg.id === "pkg_wallet_topup" ||
+              currentPkg.slug === "wallet-topup" ||
+              currentPkg.name === "Nạp tiền Ví LexiCore";
+
+            toast.success(
+              isTopup ? "Nạp tiền vào Ví LexiCore thành công!" : `Đăng ký ${currentPkg.name} thành công!`,
+              {
+                description: isTopup
+                  ? "Số dư Ví LexiCore đã được cập nhật thành công."
+                  : "Gói đã được kích hoạt. Chúc bạn học tốt!",
+              }
+            );
+
             onSuccess?.();
-            setTimeout(() => {
-              onClose();
-            }, 2500);
+
+            // Tu dong dong sau 3 giay neu nguoi dung khong bam nut dong
+            autoCloseTimeoutRef.current = setTimeout(() => {
+              handleCloseModal();
+            }, 3000);
           }
         } catch {
           // Bo qua loi mang tam thoi trong qua trinh polling
         }
-      }, 4000);
+      }, 2500);
     },
-    [stopPolling, onSuccess, onClose]
+    [stopPolling, clearAutoCloseTimeout, onSuccess, handleCloseModal]
   );
 
   // Khoi tao thanh toan SePay khi mo modal
@@ -137,14 +166,16 @@ export function QRModal({
         });
     } else {
       stopPolling();
+      clearAutoCloseTimeout();
       setInitResult(null);
       setView("QR");
     }
 
     return () => {
       stopPolling();
+      clearAutoCloseTimeout();
     };
-  }, [open, pkg, startPolling, stopPolling, onClose]);
+  }, [open, pkg, startPolling, stopPolling, clearAutoCloseTimeout, onClose]);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -168,12 +199,13 @@ export function QRModal({
       if (!json.success) throw new Error(json.message);
 
       stopPolling();
+      clearAutoCloseTimeout();
       setView("SUCCESS");
       toast.success(`Đăng ký ${pkg.name} thành công qua Ví LexiCore!`);
       onSuccess?.();
-      setTimeout(() => {
-        onClose();
-      }, 2500);
+      autoCloseTimeoutRef.current = setTimeout(() => {
+        handleCloseModal();
+      }, 3000);
     } catch (err: any) {
       toast.error("Thanh toán ví thất bại", { description: err.message });
     } finally {
@@ -193,7 +225,7 @@ export function QRModal({
   const canAffordWallet = remainingWallet >= 0;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleCloseModal}>
       <DialogContent
         className="max-w-[92vw] sm:max-w-xl md:max-w-2xl p-0 overflow-hidden bg-background border shadow-2xl rounded-2xl"
         aria-describedby={undefined}
@@ -219,8 +251,7 @@ export function QRModal({
           {onBack && view === "QR" && (
             <button
               onClick={() => {
-                stopPolling();
-                onClose();
+                handleCloseModal();
                 onBack();
               }}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted"
@@ -410,29 +441,40 @@ export function QRModal({
 
           {/* VIEW 3: THANH TOAN THANH CONG */}
           {view === "SUCCESS" && (
-            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
-              <div className="p-3 rounded-full bg-emerald-500/10 text-emerald-500 mb-1">
-                <CheckCircle2 className="h-14 w-14" />
+            <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+              <div className="p-3.5 rounded-full bg-emerald-500/10 text-emerald-500 mb-1">
+                <CheckCircle2 className="h-16 w-16" />
               </div>
-              <h3 className="text-xl font-black text-foreground">
+              <h3 className="text-xl sm:text-2xl font-black text-foreground">
                 {isWalletTopup ? "Nạp tiền thành công!" : "Thanh toán thành công!"}
               </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground max-w-xs">
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-sm leading-relaxed">
                 {isWalletTopup ? (
                   <>
                     Đã nạp thành công{" "}
-                    <strong>{formatVND(initResult?.amountVnd || pkg.price_vnd)}</strong> vào Ví
-                    LexiCore của bạn.
+                    <strong className="text-foreground">
+                      {formatVND(initResult?.amountVnd || pkg.price_vnd)}
+                    </strong>{" "}
+                    vào Ví LexiCore của bạn.
                   </>
                 ) : (
                   <>
-                    Gói <strong>{pkg.name}</strong> đã được kích hoạt thành công vào tài khoản của
-                    bạn.
+                    Gói <strong className="text-foreground">{pkg.name}</strong> đã được kích
+                    hoạt thành công vào tài khoản của bạn.
                   </>
                 )}
               </p>
-              <div className="text-[11px] text-muted-foreground mt-4 animate-pulse">
-                Cửa sổ này sẽ tự động đóng sau giây lát...
+
+              <div className="pt-2 flex flex-col items-center gap-2">
+                <Button
+                  onClick={handleCloseModal}
+                  className="h-10 px-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md shadow-emerald-500/20 cursor-pointer"
+                >
+                  Hoàn tất
+                </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  (Tự động đóng sau 3 giây)
+                </span>
               </div>
             </div>
           )}

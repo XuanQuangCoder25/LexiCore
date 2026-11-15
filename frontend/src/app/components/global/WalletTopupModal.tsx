@@ -2,11 +2,10 @@ import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Wallet, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { Wallet, ArrowRight, ShieldCheck, WalletCards } from "lucide-react";
 import { formatVND } from "./subscription-cards";
 
 export interface WalletTopupModalProps {
@@ -89,10 +88,9 @@ export function WalletTopupModal({
                     type="button"
                     onClick={() => handleSelectPreset(val)}
                     className={`py-2 px-1 text-xs font-bold rounded-xl border transition-all text-center
-                      ${
-                        isSelected
-                          ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-sm"
-                          : "border-border hover:border-muted-foreground/40 bg-card text-foreground"
+                      ${isSelected
+                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-sm"
+                        : "border-border hover:border-muted-foreground/40 bg-card text-foreground"
                       }`}
                   >
                     {formatVND(val)}
@@ -134,7 +132,7 @@ export function WalletTopupModal({
           {/* Tips */}
           <div className="rounded-xl p-3 bg-muted/40 border border-border/60 space-y-1 text-[11px] text-muted-foreground">
             <div className="flex items-center gap-1.5 font-semibold text-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <WalletCards className="h-3.5 w-3.5 text-amber-500" />
               Lợi ích khi nạp Ví LexiCore:
             </div>
             <ul className="space-y-0.5 list-disc list-inside">

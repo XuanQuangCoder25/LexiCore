@@ -206,6 +206,35 @@ export async function getUserOrders(userId: string, limit = 20): Promise<Payment
     return rows as PaymentOrder[];
 }
 
+export async function cancelPendingOrdersOfUser(userId: string): Promise<number> {
+    const [result] = await pool.execute(
+        `UPDATE payment_orders 
+         SET status = 'CANCELLED', updated_at = NOW() 
+         WHERE user_id = ? AND status = 'PENDING'`,
+        [userId]
+    ) as any;
+    return result?.affectedRows ?? 0;
+}
+
+export async function cleanupOldOrders(): Promise<{ deletedPending: number; deletedCancelled: number }> {
+    // 1. Xóa đơn PENDING quá 24 giờ (đơn nháp bỏ dở sinh ra do lựa gói)
+    const [resPending] = await pool.execute(
+        `DELETE FROM payment_orders 
+         WHERE status = 'PENDING' AND created_at < NOW() - INTERVAL 24 HOUR`
+    ) as any;
+
+    // 2. Xóa đơn CANCELLED quá 7 ngày
+    const [resCancelled] = await pool.execute(
+        `DELETE FROM payment_orders 
+         WHERE status = 'CANCELLED' AND created_at < NOW() - INTERVAL 7 DAY`
+    ) as any;
+
+    return {
+        deletedPending: resPending?.affectedRows ?? 0,
+        deletedCancelled: resCancelled?.affectedRows ?? 0,
+    };
+}
+
 // Lấy lịch sử giao dịch đã format cho frontend
 export async function getUserTransactions(userId: string, limit = 30): Promise<UserTransaction[]> {
     const [rows] = await pool.execute<RowDataPacket[]>(
@@ -220,14 +249,25 @@ export async function getUserTransactions(userId: string, limit = 30): Promise<U
             po.amount_vnd,
             po.status
          FROM payment_orders po
-         JOIN credit_packages cp ON po.package_id = cp.id
-         WHERE po.user_id = ?
+         LEFT JOIN credit_packages cp ON po.package_id = cp.id
+         WHERE po.user_id = ? AND po.status IN ('SUCCESS', 'PENDING')
          ORDER BY po.created_at DESC
-         LIMIT ?`,
-        [userId, limit]
+         LIMIT 60`,
+        [userId]
     );
 
-    return rows.map((r) => {
+    let hasFoundPending = false;
+    const formatted: UserTransaction[] = [];
+
+    for (const r of rows) {
+        const status = (r.status as string).toUpperCase();
+
+        // Chỉ hiển thị tối đa 1 đơn PENDING duy nhất (đơn được tạo gần đây nhất)
+        if (status === 'PENDING') {
+            if (hasFoundPending) continue;
+            hasFoundPending = true;
+        }
+
         const d = new Date(r.created_at as string);
         const pad = (n: number) => String(n).padStart(2, '0');
         const dateStr = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -240,15 +280,18 @@ export async function getUserTransactions(userId: string, limit = 30): Promise<U
             ? (r.payment_reference as string) 
             : (r.id ? (r.id as string).slice(0, 8).toUpperCase() : '');
 
-        const status = (r.status as string).toUpperCase();
-        return {
+        formatted.push({
             id: displayId,
             date: dateStr,
             description,
             amountVnd: Number(r.amount_vnd),
-            status: (status === 'SUCCESS' ? 'SUCCESS' : status === 'PENDING' ? 'PENDING' : 'FAILED') as UserTransaction['status'],
-        };
-    });
+            status: (status === 'SUCCESS' ? 'SUCCESS' : 'PENDING') as UserTransaction['status'],
+        });
+
+        if (formatted.length >= limit) break;
+    }
+
+    return formatted;
 }
 
 // ============================================================

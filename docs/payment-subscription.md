@@ -117,7 +117,26 @@ Hệ thống loại bỏ hoàn toàn các cổng thanh toán doanh nghiệp ph�
 
 ---
 
-## 5. DANH SÁCH API ENDPOINTS THANH TOÁN
+## 5. QUY TẮC VÒNG ĐỜI ĐƠN HÀNG & LỊCH SỬ GIAO DỊCH
+
+Để giữ cho bảng lịch sử giao dịch luôn sạch đẹp và giải phóng tài nguyên cơ sở dữ liệu:
+
+1. **Hiển thị có chọn lọc trên giao diện (Curated Transaction History):**
+   - **Giao dịch SUCCESS:** Hiển thị toàn bộ lịch sử thanh toán thành công từ trước đến nay.
+   - **Giao dịch PENDING:** Chỉ hiển thị tối đa **01 giao dịch PENDING duy nhất** (nếu là giao dịch được tạo gần đây nhất mà người dùng đang chờ thanh toán).
+   - **Giao dịch CANCELLED:** Ẩn hoàn toàn khỏi bảng lịch sử giao dịch để người dùng không bị phân tâm bởi các lượt mở xem thử mã QR.
+2. **Cơ chế "Đơn PENDING duy nhất" (Single Active Pending Order):**
+   - Khi người dùng bấm tạo mã QR cho bất kỳ gói mới nào (hoặc nạp ví mới), backend tự động đánh dấu tất cả các đơn `PENDING` cũ trước đó của người dùng đó thành `CANCELLED`.
+   - Đảm bảo mỗi tài khoản tại một thời điểm chỉ có tối đa 1 đơn chờ thanh toán có hiệu lực.
+3. **Dọn dẹp cơ sở dữ liệu định kỳ (Housekeeping Cronjob):**
+   - Tự động chạy ngầm hàng ngày lúc **00:30 (giờ Việt Nam)**:
+     - Xóa vĩnh viễn các đơn `PENDING` quá **24 giờ** (đơn nháp bỏ dở).
+     - Xóa vĩnh viễn các đơn `CANCELLED` quá **07 ngày**.
+   - Giúp bảng `payment_orders` luôn tinh gọn và duy trì hiệu năng truy vấn cao.
+
+---
+
+## 6. DANH SÁCH API ENDPOINTS THANH TOÁN
 
 | Phương thức | Endpoint | Quyền hạn | Mô tả |
 | :--- | :--- | :--- | :--- |
@@ -137,7 +156,7 @@ Hệ thống loại bỏ hoàn toàn các cổng thanh toán doanh nghiệp ph�
 
 ---
 
-## 5. THIẾT KẾ CƠ SỞ DỮ LIỆU LIÊN QUAN
+## 7. THIẾT KẾ CƠ SỞ DỮ LIỆU LIÊN QUAN
 
 Module thanh toán được cấu thành từ 4 bảng MySQL chính trong `schema.sql`:
 
@@ -148,7 +167,7 @@ Module thanh toán được cấu thành từ 4 bảng MySQL chính trong `schem
 
 ---
 
-## 6. LƯU Ý PHÁT TRIỂN & TEST SANDBOX
+## 8. LƯU Ý PHÁT TRIỂN & TEST SANDBOX
 
 - **Môi trường Dev:** Cổng thanh toán giả lập `MOCK` được lưu trữ ở backend cho lập trình viên test nghiệp vụ nội bộ, tuyệt đối không hiển thị tùy chọn Mock trên giao diện người dùng production.
 - **Quy chuẩn văn bản giao diện:** Tuyệt đối không dùng các ký tự Unicode lạ (`·`, `—`, `–`) trong JSX hiển thị mà dùng các ký tự chuẩn (`-`, `|`, `:`, `(`, `)`).

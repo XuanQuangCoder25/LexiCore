@@ -21,6 +21,8 @@ import {
     markTrialUsed,
     getOrderByReference,
     getInvoiceByOrderId,
+    cancelPendingOrdersOfUser,
+    cleanupOldOrders,
     CreditPackage,
 } from './payment.repository';
 import { getActiveCampaigns } from './campaign.repository';
@@ -257,6 +259,9 @@ export const initMockPayment = async (userId: string, packageId: string) => {
     const pkg = await getPackageById(packageId);
     if (!pkg) throw new AppError('Gói không tồn tại', 404);
 
+    // Tự động hủy các đơn PENDING cũ của user trước khi tạo đơn mới
+    await cancelPendingOrdersOfUser(userId);
+
     const finalPrice = calcFinalPrice(pkg);
     const { orderId } = await createPaymentOrder(userId, packageId, finalPrice, 'MOCK');
 
@@ -329,6 +334,9 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
         throw new AppError('Gói miễn phí không cần thanh toán qua ngân hàng', 400);
     }
 
+    // Tự động hủy các đơn PENDING cũ của user trước khi tạo đơn mới
+    await cancelPendingOrdersOfUser(userId);
+
     // Tạo đơn trước để lấy order_number tự tăng
     const { orderId, orderNumber } = await createPaymentOrder(userId, packageId, finalPrice, 'SEPAY');
 
@@ -361,6 +369,9 @@ export const initWalletTopup = async (userId: string, amountVnd: number) => {
     if (amountVnd > 50000000) {
         throw new AppError('Số tiền nạp tối đa mỗi lần là 50.000.000 VNĐ', 400);
     }
+
+    // Tự động hủy các đơn PENDING cũ của user trước khi tạo đơn nạp mới
+    await cancelPendingOrdersOfUser(userId);
 
     // Đảm bảo gói ảo pkg_wallet_topup tồn tại trong database
     const [existing] = await (pool as any).execute(

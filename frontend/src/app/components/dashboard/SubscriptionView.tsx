@@ -581,7 +581,7 @@ export function SubscriptionView() {
           });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // State cho SubscriptionModal (Xem tất cả các gói & bảng giá)
@@ -865,11 +865,10 @@ export function SubscriptionView() {
 
             {/* Hiển thị 3 card (căn đều 3 cột) hoặc 4 card (căn đều 4 cột) cân xứng */}
             <div
-              className={`w-full pt-6 pb-2 ${
-                featuredSubs.length === 3
-                  ? "grid grid-cols-1 md:grid-cols-3 gap-6"
-                  : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
-              }`}
+              className={`w-full pt-6 pb-2 ${featuredSubs.length === 3
+                ? "grid grid-cols-1 md:grid-cols-3 gap-6"
+                : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+                }`}
             >
               {featuredSubs.map((pkg) => (
                 <SubscriptionFlipCard
@@ -889,12 +888,6 @@ export function SubscriptionView() {
                 <Wallet className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-xs text-muted-foreground">
                   Số dư Ví: <span className="font-bold text-foreground">{formatVND(membership.walletBalanceVnd)}</span>
-                  <button
-                    onClick={() => setWalletTopupOpen(true)}
-                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 underline underline-offset-2 ml-1.5 cursor-pointer"
-                  >
-                    Nạp thêm
-                  </button>
                 </span>
                 <span className="text-xs text-muted-foreground mx-1">|</span>
                 <span className="text-xs text-muted-foreground">Thanh toán 1 lần hoặc dùng Ví LexiCore</span>
@@ -906,19 +899,18 @@ export function SubscriptionView() {
                   return (
                     <Button
                       size="sm"
-                      className={`h-9 px-5 text-xs font-bold transition-all shadow-md rounded-xl border-none gap-1.5 ${
-                        !sub
-                          ? "bg-primary text-white"
-                          : sub.campaign_id
-                            ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
-                            : sub.is_trial
-                              ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
-                              : sub.tier === "ELITE"
-                                ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
-                                : sub.tier === "PRO"
-                                  ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
-                                  : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
-                      }`}
+                      className={`h-9 px-5 text-xs font-bold transition-all shadow-md rounded-xl border-none gap-1.5 ${!sub
+                        ? "bg-primary text-white"
+                        : sub.campaign_id
+                          ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                          : sub.is_trial
+                            ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
+                            : sub.tier === "ELITE"
+                              ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
+                              : sub.tier === "PRO"
+                                ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
+                                : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
+                        }`}
                       disabled={!sub || isSubLoading}
                       onClick={() => {
                         if (sub) handleBuySub(sub);
@@ -1028,9 +1020,9 @@ export function SubscriptionView() {
         onBack={
           qrFromSubModal
             ? () => {
-                setQrModalOpen(false);
-                setModalOpen(true);
-              }
+              setQrModalOpen(false);
+              setModalOpen(true);
+            }
             : undefined
         }
       />

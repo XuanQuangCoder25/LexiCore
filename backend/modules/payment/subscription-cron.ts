@@ -6,6 +6,7 @@ import {
     expireSubscriptions,
     deductWalletVnd,
     activateSubscription,
+    cleanupOldOrders,
 } from '../payment/payment.repository';
 
 // ============================================================
@@ -178,6 +179,24 @@ async function cleanupExpiredSales(): Promise<void> {
 }
 
 // ============================================================
+// Dọn dẹp đơn hàng PENDING > 24h và CANCELLED > 7 ngày
+// ============================================================
+
+async function cleanupHousekeepingOrders(): Promise<void> {
+    try {
+        console.log('[Subscription Cron] Bắt đầu dọn dẹp đơn hàng PENDING và CANCELLED cũ...');
+        const result = await cleanupOldOrders();
+        if (result.deletedPending > 0 || result.deletedCancelled > 0) {
+            console.log(
+                `[Subscription Cron] 🧹 Đã dọn dẹp ${result.deletedPending} đơn PENDING quá 24h và ${result.deletedCancelled} đơn CANCELLED quá 7 ngày.`
+            );
+        }
+    } catch (err) {
+        console.error('[Subscription Cron] Lỗi khi dọn dẹp đơn hàng cũ:', err);
+    }
+}
+
+// ============================================================
 // Init
 // ============================================================
 
@@ -192,11 +211,19 @@ export const initSubscriptionCron = () => {
         await processAutoRenew();
     }, { timezone: 'Asia/Ho_Chi_Minh' });
 
+    // Dọn dẹp đơn hàng rác PENDING (>24h) và CANCELLED (>7d): 00:30 mỗi ngày
+    cron.schedule('30 0 * * *', async () => {
+        await cleanupHousekeepingOrders();
+    }, { timezone: 'Asia/Ho_Chi_Minh' });
+
     // Nhắc sắp hết hạn (3 ngày): 09:00 mỗi ngày
     cron.schedule('0 9 * * *', async () => {
         await sendExpiryReminders();
     }, { timezone: 'Asia/Ho_Chi_Minh' });
 
-    console.log('Subscription Cron đã khởi động (dọn dẹp 00:00, auto-renew 00:05, nhắn hạn 09:00 ICT).');
+    // Chạy dọn dẹp 1 lần khi server vừa khởi động
+    cleanupHousekeepingOrders().catch(() => {});
+
+    console.log('Subscription Cron đã khởi động (dọn dẹp 00:00, auto-renew 00:05, housekeeping 00:30, nhắn hạn 09:00 ICT).');
 };
 
