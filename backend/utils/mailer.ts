@@ -34,7 +34,7 @@ export const sendStudyReminderEmail = async (params: {
         const data = await resend.emails.send({
             from: 'LexiCore <onboarding@resend.dev>',
             to: toEmail,
-            subject: '🔥 Đã đến giờ học từ vựng cùng LexiCore!',
+            subject: 'Đã đến giờ học từ vựng cùng LexiCore!',
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
                     <div style="text-align: center; margin-bottom: 24px;">
@@ -123,6 +123,68 @@ export const sendSubscriptionExpiryEmail = async (params: {
         return data;
     } catch (error) {
         console.error(`[Subscription Expiry Email Error] Lỗi khi gửi đến ${toEmail}:`, error);
+        return { error };
+    }
+};
+
+export const sendAutoRenewFailedEmail = async (params: {
+    toEmail: string;
+    fullName: string;
+    packageName: string;
+    priceVnd: number;
+    walletBalance: number;
+}) => {
+    const { toEmail, fullName, packageName, priceVnd, walletBalance } = params;
+    const priceFormatted = `${priceVnd.toLocaleString('vi-VN')} ₫`;
+    const balanceFormatted = `${walletBalance.toLocaleString('vi-VN')} ₫`;
+
+    try {
+        if (!process.env.RESEND_API_KEY) {
+            console.log(`[Email Mock] Gửi thông báo gia hạn thất bại gói ${packageName} đến ${toEmail} (${fullName}). Số dư ví: ${balanceFormatted}, cần: ${priceFormatted}. Đã tự động tắt tính năng tự động gia hạn.`);
+            return { id: 'mock-email-id', mock: true };
+        }
+
+        const clientUrl = process.env.CLIENT_URL || 'https://lexicore.site';
+        const data = await resend.emails.send({
+            from: 'LexiCore <onboarding@resend.dev>',
+            to: toEmail,
+            subject: `[LexiCore] Không thể tự động gia hạn gói ${packageName} do số dư ví không đủ`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h1 style="color: #4f46e5; margin: 0; font-size: 26px;">LexiCore</h1>
+                        <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Thông báo gia hạn gói dịch vụ</p>
+                    </div>
+                    <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444; margin-bottom: 20px;">
+                        <h2 style="color: #991b1b; font-size: 17px; margin-top: 0;">Gia hạn tự động không thành công</h2>
+                        <p style="color: #334155; line-height: 1.6; font-size: 14px;">Chào <strong>${fullName || 'bạn'}</strong>,</p>
+                        <p style="color: #334155; line-height: 1.6; font-size: 14px;">
+                            Hệ thống vừa cố gắng thực hiện tự động gia hạn gói hội viên <strong>${packageName}</strong> cho bạn với mức phí <strong>${priceFormatted}</strong>, tuy nhiên số dư Ví LexiCore hiện tại của bạn (<strong>${balanceFormatted}</strong>) không đủ để thanh toán.
+                        </p>
+                        <p style="color: #b91c1c; line-height: 1.6; font-size: 14px; font-weight: bold; margin-top: 12px;">
+                            Hệ thống đã tự động tắt tính năng tự động gia hạn trên tài khoản của bạn để tránh phát sinh lỗi lặp lại.
+                        </p>
+                    </div>
+                    <div style="background-color: #f8fafc; padding: 16px 20px; border-radius: 8px; margin-bottom: 24px; font-size: 13px; color: #475569;">
+                        <p style="margin: 0 0 6px 0;"><strong>Trạng thái tài khoản:</strong> Gói cước của bạn sẽ chuyển về hạng Miễn phí (Free) khi hết hạn.</p>
+                        <p style="margin: 0;">Bạn có thể nạp thêm tiền vào Ví LexiCore và bật lại tính năng này, hoặc chủ động gia hạn gói bất cứ lúc nào để duy trì đặc quyền học tập.</p>
+                    </div>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <a href="${clientUrl}" style="background-color: #059669; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; display: inline-block;">
+                            Nạp tiền Ví LexiCore ngay
+                        </a>
+                    </div>
+                    <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
+                    <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
+                        Email tự động từ hệ thống quản lý Gói Hội viên LexiCore. Vui lòng không trả lời email này.
+                    </p>
+                </div>
+            `
+        });
+        console.log(`[Auto-Renew Failed Email] Đã gửi thông báo đến ${toEmail}:`, data);
+        return data;
+    } catch (error) {
+        console.error(`[Auto-Renew Failed Email Error] Lỗi khi gửi đến ${toEmail}:`, error);
         return { error };
     }
 };

@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { pool } from '../../config/mysql';
-import { sendSubscriptionExpiryEmail } from '../../utils/mailer';
+import { sendSubscriptionExpiryEmail, sendAutoRenewFailedEmail } from '../../utils/mailer';
 import {
     getExpiringSubscriptions,
     expireSubscriptions,
@@ -39,10 +39,19 @@ async function processAutoRenew(): Promise<void> {
                         [sub.user_id]
                     );
                     console.warn(
-                        `[Subscription Cron] User ${sub.user_id} (${sub.email}) không đủ số dư Ví. Đã tắt auto-renew.`
+                        `[Subscription Cron] User ${sub.user_id} (${sub.email}) không đủ số dư Ví. Đã tự động tắt auto-renew.`
                     );
-                    // Ghi notification in-app
+
+                    // 1. Ghi nhận đơn hàng THẤT BẠI vào payment_orders để hiển thị minh bạch trong Lịch sử giao dịch
                     const { v4: uuidv4 } = await import('uuid');
+                    const failedOrderId = uuidv4();
+                    await conn.execute(
+                        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
+                         VALUES (?, ?, ?, ?, 'WALLET', 'FAILED', ?)`,
+                        [failedOrderId, sub.user_id, sub.package_id, price, `FAIL_${failedOrderId.slice(0, 8).toUpperCase()}`]
+                    );
+
+                    // 2. Ghi notification in-app
                     await conn.execute(
                         `INSERT INTO notifications (id, user_id, type, title, body)
                          VALUES (?, ?, 'subscription', ?, ?)`,
@@ -50,9 +59,21 @@ async function processAutoRenew(): Promise<void> {
                             uuidv4(),
                             sub.user_id,
                             'Không thể tự động gia hạn gói hội viên',
-                            `Số dư Ví LexiCore của bạn (${Number(sub.vnd_balance).toLocaleString('vi-VN')}đ) không đủ để gia hạn gói ${sub.package_name}. Vui lòng nạp thêm tiền vào ví để duy trì quyền lợi.`,
+                            `Số dư Ví LexiCore của bạn (${Number(sub.vnd_balance).toLocaleString('vi-VN')}đ) không đủ để gia hạn gói ${sub.package_name} (${price.toLocaleString('vi-VN')}đ). Hệ thống đã tự động tắt tính năng tự động gia hạn trên tài khoản của bạn. Vui lòng nạp thêm tiền vào ví để duy trì đặc quyền.`,
                         ]
                     );
+
+                    // 3. Gửi email thông báo gia hạn thất bại
+                    if (sub.email) {
+                        await sendAutoRenewFailedEmail({
+                            toEmail: sub.email,
+                            fullName: sub.full_name,
+                            packageName: sub.package_name,
+                            priceVnd: price,
+                            walletBalance: Number(sub.vnd_balance),
+                        });
+                    }
+
                     await conn.commit();
                     continue;
                 }

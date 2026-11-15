@@ -104,7 +104,19 @@ Hệ thống loại bỏ hoàn toàn các cổng thanh toán doanh nghiệp ph�
   - Khi bấm chọn "Thanh toán bằng Ví LexiCore", giao diện chuyển đổi trực tiếp ngay trong `QRModal` hiển thị: Số dư hiện tại, Số tiền trừ và Số dư còn lại sau giao dịch.
   - Khi người dùng bấm "Xác nhận trừ tiền", backend kiểm tra `vnd_balance >= amount_vnd`, thực hiện trừ tiền và kích hoạt gói ngay lập tức trong 1 thao tác duy nhất.
 
-### 3. Nạp tiền vào Ví LexiCore qua VietQR (SePay)
+### 3. Cơ chế Tự động gia hạn (Auto-Renew) & Xử lý khi thiếu số dư ví
+- **Nguyên lý hoạt động:**
+  - Người dùng có thể bật tính năng "Tự động gia hạn" tại trang Gói Hội viên (có modal xác nhận chi tiết tên gói, mức phí định kỳ và cam kết minh bạch).
+  - Tính năng **chỉ áp dụng cho các gói trả phí chính thức** (thuộc 9 gói), tuyệt đối không áp dụng cho gói dùng thử (Trial) hoặc gói sự kiện miễn phí.
+  - **Thời điểm ghi nhận giao dịch thành công:** Hệ thống **chỉ tạo và ghi nhận giao dịch thành công (`SUCCESS`) vào đúng ngày hết hạn chu kỳ cũ** (lúc 00:05) khi tiền ví được trừ thành công và chu kỳ mới được kích hoạt (mã đơn `#RENEW_xxxx`). Khi bật toggle ở giữa tháng, hệ thống chỉ lưu cấu hình, không trừ tiền và không tạo đơn hàng.
+- **Xử lý khi số dư Ví LexiCore không đủ để gia hạn:**
+  1. **Tự động tắt tính năng gia hạn:** Backend cập nhật ngay `auto_renew = FALSE` trong database, toggle trên giao diện người dùng tự động chuyển về trạng thái **TẮT** để tránh quét trừ tiền lặp lại.
+  2. **Ghi nhận giao dịch Thất bại (FAILED):** Tạo 1 bản ghi trong `payment_orders` với `status = 'FAILED'`, `gateway = 'WALLET'`, mã đơn `#FAIL_xxxx` để hiển thị minh bạch trong bảng Lịch sử giao dịch.
+  3. **Gửi thông báo In-app:** Bắn thông báo quả chuông nêu rõ số dư hiện tại không đủ và thông báo đã tắt tính năng tự động gia hạn.
+  4. **Gửi Email thông báo chính thức:** Gửi email đến hòm thư người dùng qua Resend, trong mail ghi rõ: *"Hệ thống đã tự động tắt tính năng tự động gia hạn trên tài khoản của bạn để tránh phát sinh lỗi. Bạn vui lòng nạp thêm tiền vào ví để duy trì đặc quyền."*
+  5. **Chuyển gói về Miễn phí:** Gói cước hết hạn chu kỳ sẽ tự động chuyển về hạng `FREE`, tuyệt đối không trừ âm tiền ví hay phát sinh nợ phí.
+
+### 4. Nạp tiền vào Ví LexiCore qua VietQR (SePay)
 - **Nguyên lý:** Người dùng nhập số tiền linh hoạt (tối thiểu 10.000đ, tối đa 50.000.000đ) để nạp thêm số dư VNĐ vào Ví LexiCore.
 - **Quy trình hoạt động:**
   1. Người dùng bấm nút "Nạp tiền" tại thẻ Ví LexiCore trên trang `SubscriptionView` -> Mở `WalletTopupModal`.
