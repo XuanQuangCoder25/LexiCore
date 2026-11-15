@@ -14,97 +14,100 @@ import {
 // ============================================================
 
 async function processAutoRenew(): Promise<void> {
-    console.log('[Subscription Cron] Bat dau kiem tra tu dong gia han...');
+    console.log('[Subscription Cron] Bắt đầu kiểm tra tự động gia hạn...');
 
-    // 1. Expire các gói đã hết hạn
-    const expired = await expireSubscriptions();
-    if (expired > 0) {
-        console.log(`[Subscription Cron] Da danh dau ${expired} goi het han.`);
-    }
-
-    // 2. Lấy gói sắp hết hạn trong 24h + auto_renew = TRUE
+    // 1. Lấy danh sách gói cần tự động gia hạn (gói trả phí sắp hết hạn hoặc vừa hết hạn trong 24h qua có auto_renew = TRUE)
+    // Xử lý gia hạn TRƯỚC KHI đánh dấu expire để không làm mất lượt của người dùng
     const expiring = await getExpiringSubscriptions(1);
-    if (expiring.length === 0) {
-        console.log('[Subscription Cron] Khong co goi nao can gia han hom nay.');
-        return;
-    }
+    if (expiring.length > 0) {
+        console.log(`[Subscription Cron] Tìm thấy ${expiring.length} gói đủ điều kiện tự động gia hạn.`);
 
-    console.log(`[Subscription Cron] Tim thay ${expiring.length} goi can tu dong gia han.`);
+        for (const sub of expiring) {
+            if (!sub.auto_renew) continue;
 
-    for (const sub of expiring) {
-        if (!sub.auto_renew) continue;
+            const conn = await (pool as any).getConnection();
+            try {
+                await conn.beginTransaction();
 
-        const conn = await (pool as any).getConnection();
-        try {
-            await conn.beginTransaction();
+                const price = Number(sub.price_vnd);
+                const ok = await deductWalletVnd(conn, sub.user_id, price);
 
-            const price = Number(sub.price_vnd);
-            const ok = await deductWalletVnd(conn, sub.user_id, price);
+                if (!ok) {
+                    // Không đủ số dư: tắt auto_renew, để gói tự expire
+                    await conn.execute(
+                        `UPDATE user_subscription SET auto_renew = FALSE, updated_at = NOW() WHERE user_id = ?`,
+                        [sub.user_id]
+                    );
+                    console.warn(
+                        `[Subscription Cron] User ${sub.user_id} (${sub.email}) không đủ số dư Ví. Đã tắt auto-renew.`
+                    );
+                    // Ghi notification in-app
+                    const { v4: uuidv4 } = await import('uuid');
+                    await conn.execute(
+                        `INSERT INTO notifications (id, user_id, type, title, body)
+                         VALUES (?, ?, 'subscription', ?, ?)`,
+                        [
+                            uuidv4(),
+                            sub.user_id,
+                            'Không thể tự động gia hạn gói hội viên',
+                            `Số dư Ví LexiCore của bạn (${Number(sub.vnd_balance).toLocaleString('vi-VN')}đ) không đủ để gia hạn gói ${sub.package_name}. Vui lòng nạp thêm tiền vào ví để duy trì quyền lợi.`,
+                        ]
+                    );
+                    await conn.commit();
+                    continue;
+                }
 
-            if (!ok) {
-                // Không đủ số dư: tắt auto_renew, để gói tự expire
+                // Gia hạn đúng gói đang sử dụng: cộng nối tiếp vào thời hạn hiện tại để không mất ngày
+                const durationDays = Number(sub.pkg_duration_days || sub.duration_days || 30);
+                const currentExpiryTime = new Date(sub.expires_at).getTime();
+                const baseTime = currentExpiryTime > Date.now() ? currentExpiryTime : Date.now();
+                const newExpiry = new Date(baseTime + durationDays * 86400 * 1000);
+
                 await conn.execute(
-                    `UPDATE user_subscription SET auto_renew = FALSE, updated_at = NOW() WHERE user_id = ?`,
-                    [sub.user_id]
+                    `UPDATE user_subscription 
+                     SET expires_at = ?, status = 'ACTIVE', updated_at = NOW()
+                     WHERE user_id = ?`,
+                    [newExpiry, sub.user_id]
                 );
-                console.warn(
-                    `[Subscription Cron] User ${sub.user_id} (${sub.email}) khong du so du Vi. Auto-renew da tat.`
-                );
-                // Ghi notification in-app
+
+                // Tạo payment_order ghi lại lịch sử gia hạn đúng gói đó
                 const { v4: uuidv4 } = await import('uuid');
+                const orderId = uuidv4();
+                await conn.execute(
+                    `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
+                     VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?)`,
+                    [orderId, sub.user_id, sub.package_id, price, `RENEW_${orderId.slice(0, 8).toUpperCase()}`]
+                );
+
+                // Thông báo gia hạn thành công
                 await conn.execute(
                     `INSERT INTO notifications (id, user_id, type, title, body)
                      VALUES (?, ?, 'subscription', ?, ?)`,
                     [
                         uuidv4(),
                         sub.user_id,
-                        'Khong the tu dong gia han goi hoi vien',
-                        `So du Vi LexiCore cua ban (${Number(sub.vnd_balance).toLocaleString('vi-VN')}d) khong du de gia han goi ${sub.package_name}. Vui long nap them hoac gia han thu cong.`,
+                        'Gói hội viên đã được gia hạn',
+                        `Gói ${sub.package_name} của bạn đã được tự động gia hạn thành công đến ngày ${newExpiry.toLocaleDateString('vi-VN')}. Số tiền đã trừ: ${price.toLocaleString('vi-VN')}đ.`,
                     ]
                 );
+
                 await conn.commit();
-                continue;
+                console.log(`[Subscription Cron] Đã gia hạn thành công gói ${sub.package_name} cho user ${sub.user_id} (${sub.email}).`);
+            } catch (err) {
+                await conn.rollback();
+                console.error(`[Subscription Cron] Lỗi khi gia hạn cho user ${sub.user_id}:`, err);
+            } finally {
+                conn.release();
             }
-
-            // Gia hạn gói: extend expires_at
-            const { duration_days } = sub;
-            const newExpiry = new Date(Date.now() + Number(duration_days) * 86400 * 1000);
-            await conn.execute(
-                `UPDATE user_subscription 
-                 SET expires_at = ?, status = 'ACTIVE', updated_at = NOW()
-                 WHERE user_id = ?`,
-                [newExpiry, sub.user_id]
-            );
-
-            // Tạo payment_order ghi lại lịch sử gia hạn
-            const { v4: uuidv4 } = await import('uuid');
-            const orderId = uuidv4();
-            await conn.execute(
-                `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
-                 VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?)`,
-                [orderId, sub.user_id, sub.package_id, price, `RENEW_${orderId.slice(0, 8).toUpperCase()}`]
-            );
-
-            // Thông báo gia hạn thành công
-            await conn.execute(
-                `INSERT INTO notifications (id, user_id, type, title, body)
-                 VALUES (?, ?, 'subscription', ?, ?)`,
-                [
-                    uuidv4(),
-                    sub.user_id,
-                    'Goi hoi vien da duoc gia han',
-                    `Goi ${sub.package_name} cua ban da duoc tu dong gia han den ${newExpiry.toLocaleDateString('vi-VN')}. So tien tru: ${price.toLocaleString('vi-VN')}d.`,
-                ]
-            );
-
-            await conn.commit();
-            console.log(`[Subscription Cron] Da gia han goi cho user ${sub.user_id} (${sub.email}).`);
-        } catch (err) {
-            await conn.rollback();
-            console.error(`[Subscription Cron] Loi khi gia han cho user ${sub.user_id}:`, err);
-        } finally {
-            conn.release();
         }
+    } else {
+        console.log('[Subscription Cron] Không có gói nào cần tự động gia hạn hôm nay.');
+    }
+
+    // 2. Sau khi đã xử lý auto-renew xong, đánh dấu EXPIRED cho các gói quá hạn còn lại (những người không bật auto-renew hoặc không đủ tiền)
+    const expired = await expireSubscriptions();
+    if (expired > 0) {
+        console.log(`[Subscription Cron] Đã đánh dấu ${expired} gói hết hạn.`);
     }
 }
 

@@ -368,15 +368,20 @@ export async function expireSubscriptions(): Promise<number> {
 }
 
 // Lấy danh sách subscription sắp hết hạn trong vòng N ngày (dành cho cron)
+// Chỉ lấy các gói trả phí chính thức (loại trừ Trial và gói sự kiện miễn phí)
 export async function getExpiringSubscriptions(withinDays: number): Promise<any[]> {
     const [rows] = await pool.execute<RowDataPacket[]>(
-        `SELECT s.*, u.email, u.full_name, cp.price_vnd, cp.name as package_name, w.vnd_balance
+        `SELECT s.*, u.email, u.full_name, cp.price_vnd, cp.name as package_name, cp.is_trial, cp.duration_days as pkg_duration_days, cp.tier as pkg_tier, w.vnd_balance
          FROM user_subscription s
          JOIN users u           ON s.user_id    = u.id
          JOIN credit_packages cp ON s.package_id = cp.id
          JOIN wallets w         ON s.user_id    = w.user_id
          WHERE s.status = 'ACTIVE'
-           AND s.expires_at BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL ? DAY)`,
+           AND s.auto_renew = TRUE
+           AND s.tier != 'TRIAL'
+           AND cp.is_trial = FALSE
+           AND cp.price_vnd > 0
+           AND s.expires_at BETWEEN DATE_SUB(NOW(), INTERVAL 1 DAY) AND DATE_ADD(NOW(), INTERVAL ? DAY)`,
         [withinDays]
     );
     return rows as any[];

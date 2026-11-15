@@ -25,6 +25,12 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -61,6 +67,8 @@ type Tier = "FREE" | "STARTER" | "PRO" | "ELITE";
 
 interface UserMembership {
   tier: Tier;
+  packageId?: string | null;
+  durationDays?: number | null;
   startedAt: string | null;
   expiresAt: string | null;
   autoRenew: boolean;
@@ -361,18 +369,136 @@ function MembershipCard({
 }
 
 // ============================================================
+// AutoRenewConfirmModal
+// ============================================================
+interface AutoRenewConfirmModalProps {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  packageName: string;
+  priceVnd: number;
+  durationDays: number;
+  walletBalance: number;
+  expiresAt: string | null;
+  loading: boolean;
+}
+
+function AutoRenewConfirmModal({
+  open,
+  onClose,
+  onConfirm,
+  packageName,
+  priceVnd,
+  durationDays,
+  walletBalance,
+  expiresAt,
+  loading,
+}: AutoRenewConfirmModalProps) {
+  if (!open) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent
+        className="max-w-[92vw] sm:max-w-md p-0 overflow-hidden bg-background border shadow-2xl rounded-2xl"
+        aria-describedby={undefined}
+      >
+        <div className="p-6 pb-4 border-b bg-muted/20">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+              <RefreshCw className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-base sm:text-lg font-bold">
+                Xác nhận tự động gia hạn
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Duy trì quyền lợi hội viên liên tục bằng Ví LexiCore
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="bg-muted/40 rounded-xl p-4 space-y-2.5 border border-border/60 text-xs sm:text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Gói gia hạn:</span>
+              <span className="font-bold text-foreground">{packageName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Chu kỳ gia hạn:</span>
+              <span className="font-semibold text-foreground">{durationDays} ngày</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Số tiền trừ từ Ví:</span>
+              <span className="font-bold text-primary">{formatVND(priceVnd)}</span>
+            </div>
+            <div className="flex justify-between pt-1 border-t border-border/60">
+              <span className="text-muted-foreground">Số dư Ví hiện tại:</span>
+              <span className="font-semibold text-foreground">{formatVND(walletBalance)}</span>
+            </div>
+            {expiresAt && (
+              <div className="flex justify-between pt-1 border-t border-border/60">
+                <span className="text-muted-foreground">Thời điểm gia hạn tiếp theo:</span>
+                <span className="font-semibold text-foreground">{formatDate(expiresAt)}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs border border-amber-500/20 space-y-1">
+            <p className="font-semibold">Cơ chế hoạt động:</p>
+            <p>
+              Hệ thống sẽ <strong>chỉ trừ tiền từ Ví LexiCore vào đúng thời điểm gói hết hạn</strong> để gia hạn chính xác gói này cho bạn (cộng nối tiếp số ngày, không bị mất ngày nào).
+            </p>
+            <p>
+              Nếu số dư Ví không đủ khi đến hạn, gói sẽ tự động trở về Miễn phí mà không phát sinh thêm bất kỳ chi phí nào. Bạn có thể tắt tính năng này bất cứ lúc nào.
+            </p>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="outline"
+              className="flex-1 text-xs"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Hủy
+            </Button>
+            <Button
+              className="flex-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+              onClick={onConfirm}
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Xác nhận kích hoạt"
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================
 // MembershipDetails (phải)
 // ============================================================
 function MembershipDetails({
   membership,
+  currentPackage,
   onToggleAutoRenew,
   onToggleEmailReminder,
 }: {
   membership: UserMembership;
+  currentPackage?: CreditPackage;
   onToggleAutoRenew: () => void;
   onToggleEmailReminder: () => void;
 }) {
   const isFree = membership.tier === "FREE";
+  const isTrial = Boolean(currentPackage?.is_trial);
+  const disableAutoRenew = isFree || isTrial;
+
   return (
     <Card className="h-full flex flex-col justify-between">
       <CardHeader className="pb-3">
@@ -425,16 +551,19 @@ function MembershipDetails({
                     <TooltipTrigger asChild>
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[200px] text-xs">
-                      Hệ thống tự động gia hạn bằng số dư Ví LexiCore khi đến hạn.
-                      Nếu không đủ số dư, gói sẽ về Free và bạn sẽ nhận email thông báo.
+                    <TooltipContent side="top" className="max-w-[220px] text-xs">
+                      {isTrial
+                        ? "Gói dùng thử không áp dụng tính năng tự động gia hạn."
+                        : isFree
+                          ? "Chỉ áp dụng khi bạn đang sử dụng gói hội viên trả phí."
+                          : "Hệ thống tự động gia hạn gói đang dùng bằng số dư Ví LexiCore khi đến hạn. Nếu không đủ số dư, gói sẽ về Free."}
                     </TooltipContent>
                   </Tooltip>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">Trừ từ Ví LexiCore khi đến hạn</p>
               </div>
             </div>
-            <Switch checked={membership.autoRenew} onCheckedChange={onToggleAutoRenew} disabled={isFree} className="shrink-0" />
+            <Switch checked={membership.autoRenew} onCheckedChange={onToggleAutoRenew} disabled={disableAutoRenew} className="shrink-0" />
           </div>
         </div>
       </CardContent>
@@ -634,6 +763,8 @@ export function SubscriptionView() {
       const [subData, pkgData, txData] = await Promise.all([
         apiFetch<{
           tier: string;
+          packageId?: string | null;
+          durationDays?: number | null;
           startedAt: string | null;
           expiresAt: string | null;
           autoRenew: boolean;
@@ -650,6 +781,8 @@ export function SubscriptionView() {
 
       setMembership({
         tier: realTier,
+        packageId: subData.packageId ?? null,
+        durationDays: subData.durationDays ?? null,
         startedAt: subData.startedAt,
         expiresAt: subData.expiresAt,
         autoRenew: subData.autoRenew,
@@ -688,18 +821,62 @@ export function SubscriptionView() {
   const isFree = membership.tier === "FREE";
   const cfg = TIER_CFG[membership.tier];
 
-  const handleToggleAutoRenew = async () => {
-    const next = !membership.autoRenew;
-    setMembership((m) => ({ ...m, autoRenew: next }));
+  // Gói đang sử dụng hiện tại
+  const currentPackage = useMemo(() => {
+    if (!membership.packageId) return undefined;
+    return packages.subscription.find((p) => p.id === membership.packageId);
+  }, [packages.subscription, membership.packageId]);
+
+  const [autoRenewModalOpen, setAutoRenewModalOpen] = useState(false);
+  const [autoRenewLoading, setAutoRenewLoading] = useState(false);
+
+  const handleToggleAutoRenew = () => {
+    // Nếu đang BẬT -> bấm để TẮT trực tiếp
+    if (membership.autoRenew) {
+      setMembership((m) => ({ ...m, autoRenew: false }));
+      apiFetch("/my-subscription", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auto_renew: false }),
+      })
+        .then(() => {
+          toast.success("Đã tắt tính năng tự động gia hạn.");
+        })
+        .catch(() => {
+          setMembership((m) => ({ ...m, autoRenew: true }));
+          toast.error("Không thể cập nhật cài đặt. Vui lòng thử lại.");
+        });
+      return;
+    }
+
+    // Nếu đang TẮT -> bấm để BẬT: kiểm tra điều kiện
+    if (isFree || Boolean(currentPackage?.is_trial)) {
+      toast.warning("Tính năng tự động gia hạn chỉ áp dụng cho các gói hội viên trả phí chính thức.");
+      return;
+    }
+
+    // Mở modal xác nhận trước khi kích hoạt
+    setAutoRenewModalOpen(true);
+  };
+
+  const handleConfirmAutoRenew = async () => {
+    setAutoRenewLoading(true);
     try {
       await apiFetch("/my-subscription", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ auto_renew: next }),
+        body: JSON.stringify({ auto_renew: true }),
       });
-    } catch {
-      setMembership((m) => ({ ...m, autoRenew: !next }));
-      toast.error("Không thể cập nhật cài đặt. Vui lòng thử lại.");
+      setMembership((m) => ({ ...m, autoRenew: true }));
+      toast.success("Đã kích hoạt tự động gia hạn thành công!", {
+        description: `Gói ${currentPackage?.name || membership.tier} sẽ được tự động gia hạn bằng Ví LexiCore khi đến hạn.`,
+      });
+      setAutoRenewModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Lỗi không xác định";
+      toast.error(msg);
+    } finally {
+      setAutoRenewLoading(false);
     }
   };
 
@@ -832,6 +1009,7 @@ export function SubscriptionView() {
             />
             <MembershipDetails
               membership={membership}
+              currentPackage={currentPackage}
               onToggleAutoRenew={handleToggleAutoRenew}
               onToggleEmailReminder={handleToggleEmailReminder}
             />
@@ -1033,6 +1211,19 @@ export function SubscriptionView() {
         onClose={() => setWalletTopupOpen(false)}
         walletBalance={membership.walletBalanceVnd}
         onProceedToQR={handleProceedWalletTopup}
+      />
+
+      {/* Modal xác nhận tự động gia hạn */}
+      <AutoRenewConfirmModal
+        open={autoRenewModalOpen}
+        onClose={() => setAutoRenewModalOpen(false)}
+        onConfirm={handleConfirmAutoRenew}
+        packageName={currentPackage?.name || `Gói ${membership.tier}`}
+        priceVnd={currentPackage ? getFinalPrice(currentPackage) : 0}
+        durationDays={currentPackage?.duration_days || membership.durationDays || 30}
+        walletBalance={membership.walletBalanceVnd}
+        expiresAt={membership.expiresAt}
+        loading={autoRenewLoading}
       />
     </TooltipProvider>
   );

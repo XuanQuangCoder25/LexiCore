@@ -114,6 +114,8 @@ export const getMySubscription = async (userId: string) => {
 
     return {
         tier:              sub ? sub.tier : 'FREE',
+        packageId:         sub ? (sub as any).package_id : null,
+        durationDays:      sub ? (sub as any).duration_days : null,
         startedAt:         sub ? sub.started_at : null,
         expiresAt:         sub ? sub.expires_at : null,
         autoRenew:         sub ? sub.auto_renew : false,
@@ -140,6 +142,22 @@ export const patchSubscriptionSettings = async (
     userId: string,
     body: { auto_renew?: boolean; email_reminder?: boolean }
 ) => {
+    // Nếu người dùng muốn BẬT tự động gia hạn, kiểm tra điều kiện gói hợp lệ
+    if (body.auto_renew === true) {
+        const sub = await getUserSubscription(userId);
+        if (!sub) {
+            throw new AppError('Bạn chưa đăng ký gói hội viên nào để bật tự động gia hạn', 400);
+        }
+        if (sub.tier === 'TRIAL') {
+            throw new AppError('Gói dùng thử không áp dụng tính năng tự động gia hạn', 400);
+        }
+        // Kiểm tra thông tin gói cước trong credit_packages
+        const pkg = await getPackageById((sub as any).package_id);
+        if (pkg && (pkg.is_trial || pkg.price_vnd <= 0)) {
+            throw new AppError('Gói dùng thử hoặc gói sự kiện miễn phí không áp dụng tính năng tự động gia hạn', 400);
+        }
+    }
+
     await updateSubscriptionSettings(userId, body.auto_renew, body.email_reminder);
     return { success: true };
 };
