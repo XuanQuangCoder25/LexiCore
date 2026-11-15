@@ -24,7 +24,7 @@
 - **File storage:** Cloudinary — ảnh vật phẩm, avatar, cover photo
 - **AI:** OpenAI Whisper (speech-to-text phát âm), Google Gemini (giải thích ngữ cảnh, tóm tắt video)
 - **Real-time:** Socket.IO (Arena PvP 1v1, Social/Chat namespace)
-- **Email:** Resend API — OTP, nhắc nhở hết hạn gói
+- **Email:** Resend API — OTP, biên lai SePay, nhắc hết hạn gói, cảnh báo gia hạn, nhắc học tập giữ streak (Module Email tách biệt Template & Service)
 - **Payment:** SePay VietQR — cổng thanh toán cá nhân, miễn phí, webhook tự động
 - **CI/CD:** Vercel (frontend, auto-deploy từ GitHub `main`) + Render (backend, auto-deploy từ GitHub `main`)
 
@@ -276,7 +276,24 @@ Chính sách mua/nâng cấp, bảng giá, Prorated → xem [payment-subscriptio
 
 ---
 
-## 10. TÁC VỤ NỀN ĐỊNH KỲ (CRON JOBS)
+## 10. MODULE EMAIL (THÔNG BÁO & BIÊN LAI)
+
+Áp dụng nguyên lý tách biệt trách nhiệm (**Separation of Concerns**) giữa Giao diện HTML (Templates) và Hàm thực thi (Service).
+
+**File chính:**
+- `backend/modules/email/email.service.ts` — Đầu mối gửi thư duy nhất, quản lý Resend client và danh sách địa chỉ người gửi (SENDERS).
+- `backend/modules/email/templates/auth.template.ts` — Giao diện mã OTP, xác thực tài khoản.
+- `backend/modules/email/templates/billing.template.ts` — Giao diện biên lai SePay thành công, thông báo gói sắp hết hạn (3 ngày), cảnh báo tự động gia hạn thất bại do số dư ví không đủ.
+- `backend/modules/email/templates/reminder.template.ts` — Giao diện nhắc học tập hàng ngày, cảnh báo chuỗi Streak.
+
+**Danh sách Senders (Địa chỉ người gửi):**
+- `AUTH`: `auth@lexicore.site` (OTP, bảo mật)
+- `BILLING`: `billing@lexicore.site` (Biên lai thanh toán, gia hạn)
+- `REMINDER`: `reminder@lexicore.site` (Nhắc học bài, streak)
+
+---
+
+## 11. TÁC VỤ NỀN ĐỊNH KỲ (CRON JOBS)
 
 | Lịch | Tác vụ | File |
 |---|---|---|
@@ -289,7 +306,7 @@ Chính sách mua/nâng cấp, bảng giá, Prorated → xem [payment-subscriptio
 
 ---
 
-## 11. CẤU TRÚC THƯ MỤC MÃ NGUỒN
+## 12. CẤU TRÚC THƯ MỤC MÃ NGUỒN
 
 ```text
 LexiCore/
@@ -307,6 +324,7 @@ LexiCore/
 │   │   ├── creator/       # Creator Studio, đơn đăng ký
 │   │   ├── dashboard/     # Tổng quan trang chủ
 │   │   ├── economy/       # Cửa hàng, kho đồ, mua, trang bị
+│   │   ├── email/         # Resend service, SENDERS mapping, email templates (auth, billing, reminder)
 │   │   ├── exam/          # Exam Builder, bài kiểm tra
 │   │   ├── gamification/  # Goals, Achievements, Collections, Leaderboard
 │   │   ├── notification/  # In-app + email notifications

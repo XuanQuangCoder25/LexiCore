@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { otpTemplate } from './templates/auth.template';
+import { otpTemplate, OtpEmailType } from './templates/auth.template';
 import {
     subscriptionSuccessTemplate,
     subscriptionExpiryTemplate,
@@ -9,10 +9,10 @@ import { studyReminderTemplate } from './templates/reminder.template';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Danh sach dia chi gui theo tung phan he (chi hoat dong sau khi verify domain tren Resend)
+// Danh sách địa chỉ gửi theo từng phân hệ (chỉ hoạt động sau khi verify domain trên Resend)
 const SENDERS = {
-    AUTH:     process.env.EMAIL_FROM_AUTH     || process.env.EMAIL_FROM || 'LexiCore <onboarding@resend.dev>',
-    BILLING:  process.env.EMAIL_FROM_BILLING  || process.env.EMAIL_FROM || 'LexiCore <onboarding@resend.dev>',
+    AUTH: process.env.EMAIL_FROM_AUTH || process.env.EMAIL_FROM || 'LexiCore <onboarding@resend.dev>',
+    BILLING: process.env.EMAIL_FROM_BILLING || process.env.EMAIL_FROM || 'LexiCore <onboarding@resend.dev>',
     REMINDER: process.env.EMAIL_FROM_REMINDER || process.env.EMAIL_FROM || 'LexiCore <onboarding@resend.dev>',
 };
 
@@ -20,18 +20,26 @@ const SENDERS = {
 // Auth
 // ============================================================
 
-export const sendOtpEmail = async (toEmail: string, otp: string) => {
+export const sendOtpEmail = async (
+    toEmail: string,
+    otp: string,
+    type: OtpEmailType = 'REGISTER'
+) => {
     try {
+        const subject = type === 'FORGOT_PASSWORD'
+            ? '[LexiCore] Yêu cầu đặt lại mật khẩu'
+            : '[LexiCore] Mã xác thực tài khoản của bạn';
+
         const data = await resend.emails.send({
-            from:    SENDERS.AUTH,
-            to:      toEmail,
-            subject: 'Ma xac thuc LexiCore cua ban',
-            html:    otpTemplate({ otp }),
+            from: SENDERS.AUTH,
+            to: toEmail,
+            subject,
+            html: otpTemplate({ otp, type }),
         });
-        console.log('[Email] Gui OTP thanh cong:', data);
+        console.log(`[Email] Gui OTP (${type}) thanh cong:`, data);
         return data;
     } catch (error) {
-        console.error('[Email] Loi khi gui OTP:', error);
+        console.error(`[Email] Loi khi gui OTP (${type}):`, error);
         throw error;
     }
 };
@@ -52,10 +60,10 @@ export const sendSubscriptionSuccessEmail = async (params: {
     const { toEmail, ...templateParams } = params;
     try {
         const data = await resend.emails.send({
-            from:    SENDERS.BILLING,
-            to:      toEmail,
+            from: SENDERS.BILLING,
+            to: toEmail,
             subject: `[LexiCore] Xac nhan thanh toan thanh cong goi ${params.packageName}`,
-            html:    subscriptionSuccessTemplate(templateParams),
+            html: subscriptionSuccessTemplate(templateParams),
         });
         console.log(`[Email] Gui xac nhan thanh toan thanh cong den ${toEmail}:`, data);
         return data;
@@ -74,10 +82,10 @@ export const sendSubscriptionExpiryEmail = async (params: {
     const { toEmail, ...templateParams } = params;
     try {
         const data = await resend.emails.send({
-            from:    SENDERS.BILLING,
-            to:      toEmail,
+            from: SENDERS.BILLING,
+            to: toEmail,
             subject: `Goi hoi vien ${params.packageName} cua ban sap het han`,
-            html:    subscriptionExpiryTemplate(templateParams),
+            html: subscriptionExpiryTemplate(templateParams),
         });
         console.log(`[Email] Gui nhac het han thanh cong den ${toEmail}:`, data);
         return data;
@@ -97,10 +105,10 @@ export const sendAutoRenewFailedEmail = async (params: {
     const { toEmail, ...templateParams } = params;
     try {
         const data = await resend.emails.send({
-            from:    SENDERS.BILLING,
-            to:      toEmail,
+            from: SENDERS.BILLING,
+            to: toEmail,
             subject: `[LexiCore] Khong the tu dong gia han goi ${params.packageName} do so du vi khong du`,
-            html:    autoRenewFailedTemplate(templateParams),
+            html: autoRenewFailedTemplate(templateParams),
         });
         console.log(`[Email] Gui canh bao gia han that bai den ${toEmail}:`, data);
         return data;
@@ -127,10 +135,10 @@ export const sendStudyReminderEmail = async (params: {
             return { id: 'mock-email-id', mock: true };
         }
         const data = await resend.emails.send({
-            from:    SENDERS.REMINDER,
-            to:      toEmail,
+            from: SENDERS.REMINDER,
+            to: toEmail,
             subject: 'Da den gio hoc tu vung cung LexiCore!',
-            html:    studyReminderTemplate(templateParams),
+            html: studyReminderTemplate(templateParams),
         });
         console.log(`[Email] Gui nhac hoc tap thanh cong den ${toEmail}:`, data);
         return data;

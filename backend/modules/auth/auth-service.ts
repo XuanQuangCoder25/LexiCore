@@ -24,7 +24,7 @@ export const registerUser = async (userData: any) => {
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await saveOtp(userData.email, otp, 'REGISTER');
-        await sendOtpEmail(userData.email, otp);
+        await sendOtpEmail(userData.email, otp, 'REGISTER');
 
         return {
             message: "Email chưa xác thực. Một mã OTP mới đã được gửi, vui lòng kiểm tra email.",
@@ -37,7 +37,7 @@ export const registerUser = async (userData: any) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await saveOtp(userData.email, otp, 'REGISTER');
-    await sendOtpEmail(userData.email, otp);
+    await sendOtpEmail(userData.email, otp, 'REGISTER');
 
     return {
         message: 'Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP xác thực.',
@@ -67,7 +67,7 @@ export const loginUser = async (userData: any) => {
     if (user.status === 'PENDING') {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await saveOtp(user.email, otp, 'REGISTER');
-        await sendOtpEmail(user.email, otp);
+        await sendOtpEmail(user.email, otp, 'REGISTER');
         throw new AppError('Tài khoản chưa được xác thực. Mã OTP mới đã được gửi tới email của bạn.', 403);
     }
 
@@ -130,7 +130,7 @@ export const forgotPassword = async (data: any) => {
     if (user) {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await saveOtp(data.email, otp, 'FORGOT_PASSWORD');
-        await sendOtpEmail(data.email, otp);
+        await sendOtpEmail(data.email, otp, 'FORGOT_PASSWORD');
     }
 
     return { message: 'Nếu email tồn tại trong hệ thống, mã OTP sẽ được gửi đến hộp thư của bạn.' };
@@ -165,13 +165,13 @@ export const resendOtp = async (data: { email: string; mode: 'REGISTER' | 'FORGO
         }
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await saveOtp(data.email, otp, 'REGISTER');
-        await sendOtpEmail(data.email, otp);
+        await sendOtpEmail(data.email, otp, 'REGISTER');
     } else {
         const user = await findUserByEmail(data.email);
         if (user) {
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             await saveOtp(data.email, otp, 'FORGOT_PASSWORD');
-            await sendOtpEmail(data.email, otp);
+            await sendOtpEmail(data.email, otp, 'FORGOT_PASSWORD');
         }
     }
 
