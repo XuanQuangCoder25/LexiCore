@@ -6,6 +6,7 @@ import {
     patchSubscription,
     myTransactions,
     walletPay,
+    walletTopup,
     activateTrial,
     initMock,
     confirmMock,
@@ -14,6 +15,7 @@ import {
     myOrders,
     orderStatus,
     claimCampaign,
+    getInvoice,
 } from './payment.controller';
 
 const router = Router();
@@ -41,6 +43,9 @@ router.post('/sepay/init', initSepay);
 // Thanh toán qua Ví LexiCore
 router.post('/wallet/pay', walletPay);
 
+// Nạp tiền vào Ví LexiCore qua VietQR (SePay)
+router.post('/wallet/topup', walletTopup);
+
 // Dùng thử
 router.post('/trial/activate', activateTrial);
 
@@ -57,5 +62,8 @@ router.get('/order-status/:orderId', orderStatus);
 
 // Nhận quà gói sự kiện từ chiến dịch của Admin
 router.post('/campaign/claim', claimCampaign);
+
+// Chi tiết hóa đơn điện tử
+router.get('/invoice/:orderId', getInvoice);
 
 export default router;

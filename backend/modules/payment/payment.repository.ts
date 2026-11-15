@@ -132,7 +132,7 @@ export async function getOrderStatus(orderId: string): Promise<{ status: string;
     const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT po.status, cp.tier
          FROM payment_orders po
-         JOIN credit_packages cp ON po.package_id = cp.id
+         LEFT JOIN credit_packages cp ON po.package_id = cp.id
          WHERE po.id = ? LIMIT 1`,
         [orderId]
     );
@@ -142,11 +142,37 @@ export async function getOrderStatus(orderId: string): Promise<{ status: string;
 
 export async function getOrderByReference(paymentReference: string): Promise<any | null> {
     const [rows] = await pool.execute<RowDataPacket[]>(
-        `SELECT po.*, cp.coin_amount, cp.diamond_amount, cp.package_type, cp.duration_days, cp.tier, cp.name as package_name
+        `SELECT po.*, cp.slug, cp.coin_amount, cp.diamond_amount, cp.package_type, cp.duration_days, cp.tier, cp.name as package_name
          FROM payment_orders po
-         JOIN credit_packages cp ON po.package_id = cp.id
+         LEFT JOIN credit_packages cp ON po.package_id = cp.id
          WHERE po.payment_reference = ? LIMIT 1`,
         [paymentReference]
+    );
+    if (rows.length === 0) return null;
+    return rows[0];
+}
+
+export async function getInvoiceByOrderId(orderId: string): Promise<any | null> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT 
+            po.id as order_id,
+            po.payment_reference,
+            po.amount_vnd,
+            po.gateway,
+            po.status,
+            po.created_at,
+            u.full_name as customer_name,
+            u.email as customer_email,
+            cp.name as package_name,
+            cp.package_type,
+            cp.duration_days,
+            cp.tier
+         FROM payment_orders po
+         JOIN users u ON po.user_id = u.id
+         LEFT JOIN credit_packages cp ON po.package_id = cp.id
+         WHERE (po.id = ? OR po.payment_reference = ?)
+         LIMIT 1`,
+        [orderId, orderId]
     );
     if (rows.length === 0) return null;
     return rows[0];

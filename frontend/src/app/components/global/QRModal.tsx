@@ -103,11 +103,21 @@ export function QRModal({
       setLoading(true);
       setInitResult(null);
 
-      fetch("/api/payment/sepay/init", {
+      const isWalletTopup =
+        pkg.id === "pkg_wallet_topup" ||
+        pkg.slug === "wallet-topup" ||
+        pkg.name === "Nạp tiền Ví LexiCore";
+
+      const endpoint = isWalletTopup ? "/api/payment/wallet/topup" : "/api/payment/sepay/init";
+      const requestBody = isWalletTopup
+        ? { amountVnd: pkg.price_vnd }
+        : { packageId: pkg.id };
+
+      fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ packageId: pkg.id }),
+        body: JSON.stringify(requestBody),
       })
         .then((r) => r.json())
         .then((json) => {
@@ -173,6 +183,11 @@ export function QRModal({
 
   if (!pkg) return null;
 
+  const isWalletTopup =
+    pkg.id === "pkg_wallet_topup" ||
+    pkg.slug === "wallet-topup" ||
+    pkg.name === "Nạp tiền Ví LexiCore";
+
   const finalPrice = getFinalPrice(pkg);
   const remainingWallet = walletBalance - finalPrice;
   const canAffordWallet = remainingWallet >= 0;
@@ -186,15 +201,17 @@ export function QRModal({
         {/* ===== HEADER ===== */}
         <div className="shrink-0 px-6 py-4 border-b bg-muted/20 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary">
-              <QrCode className="h-5 w-5" />
+            <div className={`p-2 rounded-xl ${isWalletTopup ? "bg-emerald-500/10 text-emerald-600" : "bg-primary/10 text-primary"}`}>
+              {isWalletTopup ? <Wallet className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold">
-                Thanh toán đơn hàng
+                {isWalletTopup ? "Nạp tiền Ví LexiCore" : "Thanh toán đơn hàng"}
               </DialogTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Gói {pkg.name} {pkg.duration_days ? getDurationLabel(pkg.duration_days) : ""}
+                {isWalletTopup
+                  ? `Số tiền nạp: ${formatVND(initResult?.amountVnd || pkg.price_vnd)}`
+                  : `Gói ${pkg.name} ${pkg.duration_days ? getDurationLabel(pkg.duration_days) : ""}`}
               </p>
             </div>
           </div>
@@ -292,26 +309,34 @@ export function QRModal({
                 <div className="space-y-3">
                   <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
                     <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Hệ thống tự động kích hoạt ngay sau khi nhận được tiền (từ 1 đến 5 phút).</span>
-                  </div>
-
-                  <div className="relative flex items-center gap-2">
-                    <div className="flex-1 border-t border-border/80" />
-                    <span className="text-[11px] text-muted-foreground">hoặc</span>
-                    <div className="flex-1 border-t border-border/80" />
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    className="w-full h-9 text-xs font-semibold border-emerald-500/50 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 gap-2"
-                    onClick={() => setView("WALLET_CONFIRM")}
-                  >
-                    <Wallet className="h-4 w-4" />
-                    Thanh toán bằng Ví LexiCore
-                    <span className="ml-auto text-[11px] font-normal text-muted-foreground">
-                      Ví: {formatVND(walletBalance)}
+                    <span>
+                      {isWalletTopup
+                        ? "Hệ thống tự động cộng tiền vào Ví LexiCore ngay sau khi nhận được chuyển khoản (từ 1 đến 5 phút)."
+                        : "Hệ thống tự động kích hoạt ngay sau khi nhận được tiền (từ 1 đến 5 phút)."}
                     </span>
-                  </Button>
+                  </div>
+
+                  {!isWalletTopup && (
+                    <>
+                      <div className="relative flex items-center gap-2">
+                        <div className="flex-1 border-t border-border/80" />
+                        <span className="text-[11px] text-muted-foreground">hoặc</span>
+                        <div className="flex-1 border-t border-border/80" />
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        className="w-full h-9 text-xs font-semibold border-emerald-500/50 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 gap-2"
+                        onClick={() => setView("WALLET_CONFIRM")}
+                      >
+                        <Wallet className="h-4 w-4" />
+                        Thanh toán bằng Ví LexiCore
+                        <span className="ml-auto text-[11px] font-normal text-muted-foreground">
+                          Ví: {formatVND(walletBalance)}
+                        </span>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -390,10 +415,21 @@ export function QRModal({
                 <CheckCircle2 className="h-14 w-14" />
               </div>
               <h3 className="text-xl font-black text-foreground">
-                Thanh toán thành công!
+                {isWalletTopup ? "Nạp tiền thành công!" : "Thanh toán thành công!"}
               </h3>
               <p className="text-xs sm:text-sm text-muted-foreground max-w-xs">
-                Gói <strong>{pkg.name}</strong> đã được kích hoạt thành công vào tài khoản của bạn.
+                {isWalletTopup ? (
+                  <>
+                    Đã nạp thành công{" "}
+                    <strong>{formatVND(initResult?.amountVnd || pkg.price_vnd)}</strong> vào Ví
+                    LexiCore của bạn.
+                  </>
+                ) : (
+                  <>
+                    Gói <strong>{pkg.name}</strong> đã được kích hoạt thành công vào tài khoản của
+                    bạn.
+                  </>
+                )}
               </p>
               <div className="text-[11px] text-muted-foreground mt-4 animate-pulse">
                 Cửa sổ này sẽ tự động đóng sau giây lát...

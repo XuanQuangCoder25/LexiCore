@@ -20,6 +20,7 @@ import {
     hasUsedTrial,
     markTrialUsed,
     getOrderByReference,
+    getInvoiceByOrderId,
     CreditPackage,
 } from './payment.repository';
 import { getActiveCampaigns } from './campaign.repository';
@@ -353,6 +354,53 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
     };
 };
 
+export const initWalletTopup = async (userId: string, amountVnd: number) => {
+    if (!amountVnd || isNaN(amountVnd) || amountVnd < 10000) {
+        throw new AppError('Số tiền nạp tối thiểu là 10.000 VNĐ', 400);
+    }
+    if (amountVnd > 50000000) {
+        throw new AppError('Số tiền nạp tối đa mỗi lần là 50.000.000 VNĐ', 400);
+    }
+
+    // Đảm bảo gói ảo pkg_wallet_topup tồn tại trong database
+    const [existing] = await (pool as any).execute(
+        `SELECT id FROM credit_packages WHERE slug = 'wallet-topup' OR id = 'pkg_wallet_topup' LIMIT 1`
+    );
+    let packageId = 'pkg_wallet_topup';
+    if (!existing || existing.length === 0) {
+        await (pool as any).execute(
+            `INSERT INTO credit_packages (id, slug, name, package_type, price_vnd, price_usd, coin_amount, diamond_amount, display_order, is_trial, features, is_active)
+             VALUES ('pkg_wallet_topup', 'wallet-topup', 'Nạp tiền Ví LexiCore', 'BUNDLE', 0, 0, 0, 0, 999, FALSE, '["Nạp tiền vào số dư Ví LexiCore"]', TRUE)`
+        );
+    } else {
+        packageId = existing[0].id;
+    }
+
+    // Tạo đơn thanh toán trước để lấy order_number tự tăng
+    const { orderId, orderNumber } = await createPaymentOrder(userId, packageId, amountVnd, 'SEPAY');
+
+    const orderCode = `LC${orderNumber}`;
+    await setOrderCode(orderId, orderCode);
+
+    const bankCode    = process.env.SEPAY_BANK_CODE   || 'BIDV';
+    const accNumber   = process.env.SEPAY_ACC_NUMBER  || '0000000000';
+    const accName     = process.env.SEPAY_ACC_NAME    || 'LEXICORE';
+
+    const qrUrl = `https://qr.sepay.vn/img?acc=${accNumber}&bank=${bankCode}&amount=${amountVnd}&des=${orderCode}`;
+
+    return {
+        orderId,
+        orderCode,
+        amountVnd,
+        bankCode,
+        accountNumber: accNumber,
+        accountName:   accName,
+        qrUrl,
+        packageName: 'Nạp tiền Ví LexiCore',
+        isWalletTopup: true,
+    };
+};
+
 export interface SepayWebhookPayload {
     id: number;
     gateway: string;
@@ -452,37 +500,49 @@ export const handleSepayWebhook = async (
             [gatewayTxnId, JSON.stringify(payload), order.id]
         );
 
-        // Kích hoạt subscription nếu là gói SUBSCRIPTION
-        if (order.package_type === 'SUBSCRIPTION' && order.tier && order.duration_days) {
-            await activateSubscription(
-                conn,
-                order.user_id,
-                order.package_id,
-                order.tier,
-                order.duration_days
-            );
-        }
+        const isWalletTopup =
+            order.package_id === 'pkg_wallet_topup' ||
+            order.slug === 'wallet-topup' ||
+            (order.package_name && String(order.package_name).includes('Ví LexiCore'));
 
-        // Cộng coin / diamond nếu là topup pack
-        if (order.coin_amount > 0 || order.diamond_amount > 0) {
-            await creditWalletAfterPurchase(
-                conn,
-                order.user_id,
-                order.coin_amount,
-                order.diamond_amount
-            );
+        if (isWalletTopup) {
+            // Nạp tiền thẳng vào số dư Ví LexiCore (vnd_balance)
+            await topupWalletVnd(conn, order.user_id, Number(order.amount_vnd));
+            console.log(`[SePay Webhook] Đã nạp thành công ${order.amount_vnd} VNĐ vào Ví LexiCore của user ${order.user_id}`);
+        } else {
+            // Kích hoạt subscription nếu là gói SUBSCRIPTION
+            if (order.package_type === 'SUBSCRIPTION' && order.tier && order.duration_days) {
+                await activateSubscription(
+                    conn,
+                    order.user_id,
+                    order.package_id,
+                    order.tier,
+                    order.duration_days
+                );
+            }
+
+            // Cộng coin / diamond nếu là topup pack
+            if (order.coin_amount > 0 || order.diamond_amount > 0) {
+                await creditWalletAfterPurchase(
+                    conn,
+                    order.user_id,
+                    order.coin_amount,
+                    order.diamond_amount
+                );
+            }
         }
 
         // Tạo thông báo in-app
         const notifId = uuidv4();
+        const notifTitle = isWalletTopup ? 'Nạp tiền ví thành công' : 'Thanh toán thành công';
+        const notifBody = isWalletTopup
+            ? `Bạn đã nạp thành công ${Number(order.amount_vnd).toLocaleString('vi-VN')} VNĐ vào Ví LexiCore!`
+            : `Giao dịch thanh toán gói ${order.package_name} qua chuyển khoản đã hoàn tất thành công!`;
+
         await conn.execute(
             `INSERT INTO notifications (id, user_id, type, title, body)
-             VALUES (?, ?, 'payment', 'Thanh toán thành công', ?)`,
-            [
-                notifId,
-                order.user_id,
-                `Giao dịch thanh toán gói ${order.package_name} qua chuyển khoản đã hoàn tất thành công!`,
-            ]
+             VALUES (?, ?, 'payment', ?, ?)`,
+            [notifId, order.user_id, notifTitle, notifBody]
         );
 
         await conn.commit();
@@ -520,4 +580,42 @@ export const checkOrderStatus = async (userId: string, orderId: string) => {
 
 export const getMyOrders = async (userId: string) => {
     return getUserOrders(userId, 20);
+};
+
+// ============================================================
+// Invoice (Hóa đơn điện tử)
+// ============================================================
+
+export const getInvoiceData = async (userId: string, orderId: string) => {
+    const invoice = await getInvoiceByOrderId(orderId);
+    if (!invoice) {
+        throw new AppError('Hóa đơn không tồn tại', 404);
+    }
+    return {
+        invoiceNumber: `Invoice_${invoice.payment_reference || invoice.order_id.slice(0, 8).toUpperCase()}`,
+        orderId: invoice.order_id,
+        orderCode: invoice.payment_reference || `LC${invoice.order_id.slice(0, 6).toUpperCase()}`,
+        date: new Date(invoice.created_at).toLocaleString('vi-VN'),
+        amountVnd: Number(invoice.amount_vnd),
+        status: invoice.status === 'SUCCESS' ? 'PAID' : invoice.status,
+        paymentMethod: invoice.gateway === 'WALLET' ? 'Ví LexiCore' : 'Chuyển khoản VietQR (SePay)',
+        seller: {
+            companyName: 'CÔNG TY CỔ PHẦN CÔNG NGHỆ LEXICORE',
+            taxCode: '52300055_52300054',
+            address: 'LexiCore Tower, phường Tân Hưng, TP. HCM',
+            email: 'support@lexicore.site',
+            hotline: '52300055 52300044',
+            website: 'https://lexicore.site',
+        },
+        customer: {
+            name: invoice.customer_name || 'Học viên LexiCore',
+            email: invoice.customer_email || 'hocvien@lexicore.site',
+        },
+        item: {
+            name: invoice.package_name || 'Nạp tiền Ví LexiCore',
+            quantity: 1,
+            unitPriceVnd: Number(invoice.amount_vnd),
+            totalVnd: Number(invoice.amount_vnd),
+        },
+    };
 };

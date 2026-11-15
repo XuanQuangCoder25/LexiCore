@@ -9,10 +9,12 @@ import {
     initMockPayment,
     confirmMockPayment,
     initSepayPayment,
+    initWalletTopup,
     handleSepayWebhook,
     getMyOrders,
     checkOrderStatus,
     claimCampaignGift,
+    getInvoiceData,
 } from './payment.service';
 import { getPackageById } from './payment.repository';
 
@@ -73,6 +75,20 @@ export const walletPay = async (req: Request, res: Response, next: NextFunction)
             return;
         }
         const data = await payWithWallet(userId, packageId);
+        res.json({ success: true, data });
+    } catch (err) { next(err); }
+};
+
+// POST /api/payment/wallet/topup
+export const walletTopup = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).user.id as string;
+        const { amountVnd } = req.body as { amountVnd: number };
+        if (!amountVnd || typeof amountVnd !== 'number') {
+            res.status(400).json({ success: false, message: 'Số tiền nạp (amountVnd) là bắt buộc và phải là số hợp lệ' });
+            return;
+        }
+        const data = await initWalletTopup(userId, amountVnd);
         res.json({ success: true, data });
     } catch (err) { next(err); }
 };
@@ -193,5 +209,21 @@ export const claimCampaign = async (req: Request, res: Response, next: NextFunct
         }
         const result = await claimCampaignGift(userId, campaignId);
         res.json(result);
+    } catch (err) { next(err); }
+};
+
+// ─── Invoice ──────────────────────────────────────────────────────────────────
+
+// GET /api/payment/invoice/:orderId
+export const getInvoice = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId  = (req as any).user.id as string;
+        const orderId = req.params.orderId as string;
+        if (!orderId) {
+            res.status(400).json({ success: false, message: 'orderId là bắt buộc' });
+            return;
+        }
+        const data = await getInvoiceData(userId, orderId);
+        res.json({ success: true, data });
     } catch (err) { next(err); }
 };

@@ -101,8 +101,39 @@ Hệ thống loại bỏ hoàn toàn các cổng thanh toán doanh nghiệp ph�
 ### 2. Thanh toán bằng Ví LexiCore (VND Balance)
 - **Nguyên lý:** Cho phép người dùng sử dụng số dư thực trong ví cá nhân (`wallets.vnd_balance`) để thanh toán.
 - **Trải nghiệm người dùng (UX):**
-  - Khi bấm chọn "Thanh toán bằng Ví LexiCore", một modal nhỏ xác nhận sẽ xuất hiện hiển thị: Số dư hiện tại, Số tiền trừ và Số dư còn lại sau giao dịch.
-  - Khi người dùng bấm "Xác nhận", backend kiểm tra `vnd_balance >= amount_vnd`, thực hiện trừ tiền và kích hoạt gói ngay lập tức trong 1 thao tác duy nhất.
+  - Khi bấm chọn "Thanh toán bằng Ví LexiCore", giao diện chuyển đổi trực tiếp ngay trong `QRModal` hiển thị: Số dư hiện tại, Số tiền trừ và Số dư còn lại sau giao dịch.
+  - Khi người dùng bấm "Xác nhận trừ tiền", backend kiểm tra `vnd_balance >= amount_vnd`, thực hiện trừ tiền và kích hoạt gói ngay lập tức trong 1 thao tác duy nhất.
+
+### 3. Nạp tiền vào Ví LexiCore qua VietQR (SePay)
+- **Nguyên lý:** Người dùng nhập số tiền linh hoạt (tối thiểu 10.000đ, tối đa 50.000.000đ) để nạp thêm số dư VNĐ vào Ví LexiCore.
+- **Quy trình hoạt động:**
+  1. Người dùng bấm nút "Nạp tiền" tại thẻ Ví LexiCore trên trang `SubscriptionView` -> Mở `WalletTopupModal`.
+  2. Người dùng nhập số tiền hoặc chọn mức nạp nhanh (`50.000đ`, `100.000đ`, `200.000đ`, `500.000đ`).
+  3. Bấm "Tạo mã QR nạp tiền" -> Frontend gọi `POST /api/payment/wallet/topup`.
+  4. Backend tạo đơn hàng `payment_orders` gắn với gói `pkg_wallet_topup`, tự tăng mã `LC{order_number}` và sinh URL VietQR SePay với đúng số tiền yêu cầu.
+  5. Mở `QRModal` hiển thị mã QR và bảng thông tin chuyển khoản.
+  6. Người dùng chuyển khoản ngân hàng -> SePay gửi Webhook IPN -> Backend cộng tiền vào `wallets.vnd_balance` của người dùng.
+  7. `QRModal` tự động bắt trạng thái thành công qua Polling và hiển thị thông báo: *"Đã nạp thành công {xxx} VNĐ vào Ví LexiCore!"*.
+
+---
+
+## 5. DANH SÁCH API ENDPOINTS THANH TOÁN
+
+| Phương thức | Endpoint | Quyền hạn | Mô tả |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/api/payment/packages` | Công khai | Lấy toàn bộ danh mục gói hội viên, coin pack, diamond pack |
+| **GET** | `/api/payment/my-subscription` | User | Lấy trạng thái gói hội viên hiện tại, số dư ví VNĐ, coin và diamond |
+| **PATCH** | `/api/payment/my-subscription` | User | Cập nhật cài đặt tự động gia hạn (`auto_renew`) và nhắc nhở email (`email_reminder`) |
+| **GET** | `/api/payment/my-transactions` | User | Lấy lịch sử giao dịch (định dạng hiển thị cho bảng lịch sử) |
+| **POST** | `/api/payment/sepay/init` | User | Khởi tạo đơn thanh toán gói qua VietQR SePay (`{ packageId }`) |
+| **POST** | `/api/payment/wallet/topup` | User | Khởi tạo đơn nạp tiền vào Ví LexiCore qua VietQR SePay (`{ amountVnd }`) |
+| **POST** | `/api/payment/wallet/pay` | User | Thanh toán gói cước bằng số dư Ví LexiCore (`{ packageId }`) |
+| **POST** | `/api/payment/trial/activate` | User | Kích hoạt gói dùng thử Pro 3 ngày chào mừng |
+| **POST** | `/api/payment/campaign/claim` | User | Nhận quà sự kiện chiến dịch miễn phí từ Admin (`{ campaignId }`) |
+| **GET** | `/api/payment/order-status/:orderId` | User | Polling kiểm tra trạng thái đơn hàng (PENDING / SUCCESS / FAILED) |
+| **GET** | `/api/payment/invoice/:orderId` | User | Lấy thông tin chi tiết hóa đơn điện tử phục vụ xuất chứng từ |
+| **GET** | `/api/payment/orders` | User / Admin | Lấy danh sách lịch sử đơn hàng thanh toán đối soát |
+| **POST** | `/api/payment/sepay/webhook` | SePay Server | Webhook nhận biến động số dư ngân hàng và tự động kích hoạt dịch vụ / nạp ví |
 
 ---
 

@@ -50,6 +50,7 @@ import {
 } from "../global/subscription-cards";
 import { SubscriptionModal } from "../global/SubscriptionModal";
 import { QRModal } from "../global/QRModal";
+import { WalletTopupModal } from "../global/WalletTopupModal";
 import { toast } from "sonner";
 import { downloadInvoiceWithFallback } from "../../utils/invoiceGenerator";
 
@@ -593,6 +594,9 @@ export function SubscriptionView() {
   const [qrModalPkg, setQrModalPkg] = useState<CreditPackage | null>(null);
   const [qrFromSubModal, setQrFromSubModal] = useState(false);
 
+  // State cho WalletTopupModal (Nạp tiền Ví LexiCore)
+  const [walletTopupOpen, setWalletTopupOpen] = useState(false);
+
   const handleOpenQRModal = (pkg: CreditPackage, fromSubModal = false) => {
     setQrModalPkg(pkg);
     setQrFromSubModal(fromSubModal);
@@ -600,6 +604,26 @@ export function SubscriptionView() {
       setModalOpen(false); // Tạm ẩn SubscriptionModal để tránh modal chồng modal
     }
     setQrModalOpen(true);
+  };
+
+  const handleProceedWalletTopup = (amountVnd: number) => {
+    const topupPkg: CreditPackage = {
+      id: "pkg_wallet_topup",
+      name: "Nạp tiền Ví LexiCore",
+      slug: "wallet-topup",
+      package_type: "BUNDLE",
+      tier: null,
+      price_vnd: amountVnd,
+      price_usd: 0,
+      coin_amount: 0,
+      diamond_amount: 0,
+      duration_days: null,
+      sale_percent: 0,
+      sale_ends_at: null,
+      features: ["Nạp tiền vào số dư Ví LexiCore"],
+      display_order: 999,
+    };
+    handleOpenQRModal(topupPkg, false);
   };
 
   const handleCloseModal = useCallback(() => setModalOpen(false), []);
@@ -804,10 +828,7 @@ export function SubscriptionView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
             <MembershipCard
               membership={membership}
-              onTopup={() => {
-                const el = document.getElementById("topup-section");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }}
+              onTopup={() => setWalletTopupOpen(true)}
             />
             <MembershipDetails
               membership={membership}
@@ -868,6 +889,12 @@ export function SubscriptionView() {
                 <Wallet className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-xs text-muted-foreground">
                   Số dư Ví: <span className="font-bold text-foreground">{formatVND(membership.walletBalanceVnd)}</span>
+                  <button
+                    onClick={() => setWalletTopupOpen(true)}
+                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 underline underline-offset-2 ml-1.5 cursor-pointer"
+                  >
+                    Nạp thêm
+                  </button>
                 </span>
                 <span className="text-xs text-muted-foreground mx-1">|</span>
                 <span className="text-xs text-muted-foreground">Thanh toán 1 lần hoặc dùng Ví LexiCore</span>
@@ -1006,6 +1033,14 @@ export function SubscriptionView() {
               }
             : undefined
         }
+      />
+
+      {/* Modal chọn số tiền nạp vào Ví LexiCore */}
+      <WalletTopupModal
+        open={walletTopupOpen}
+        onClose={() => setWalletTopupOpen(false)}
+        walletBalance={membership.walletBalanceVnd}
+        onProceedToQR={handleProceedWalletTopup}
       />
     </TooltipProvider>
   );
