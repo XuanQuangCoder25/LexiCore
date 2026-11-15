@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { pool } from '../../config/mysql';
-import { sendSubscriptionExpiryEmail, sendAutoRenewFailedEmail } from '../../utils/mailer';
+import { sendSubscriptionExpiryEmail, sendAutoRenewFailedEmail } from '../email/email.service';
 import {
     getExpiringSubscriptions,
     expireSubscriptions,

@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { pool } from '../../config/mysql';
 import { notificationRepository } from './notification-repository';
-import { sendStudyReminderEmail } from '../../utils/mailer';
+import { sendStudyReminderEmail } from '../email/email.service';
 
 export const checkAndSendReminders = async (forcedTime?: string): Promise<number> => {
   try {

@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, checkOtp, activateUser, findUserById, updatePassword, updatePendingUser, findUserWithPasswordById, updatePasswordById } from './auth-repository';
 import { AppError } from '../../errors/AppError';
-import { sendOtpEmail } from '../../utils/mailer';
+import { sendOtpEmail } from '../email/email.service';
 
 export const registerUser = async (userData: any) => {
     if (!userData.email || !userData.password || !userData.full_name) {

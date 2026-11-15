@@ -7,3 +7,4 @@ build/
 *.map
 report/
 docs/dev-conventions.md
+Davinci.md

@@ -27,6 +27,7 @@ import {
 } from './payment.repository';
 import { getActiveCampaigns } from './campaign.repository';
 export { claimCampaignGift } from './campaign.service';
+import { sendSubscriptionSuccessEmail } from '../email/email.service';
 
 // ============================================================
 // Helpers
@@ -576,6 +577,22 @@ export const handleSepayWebhook = async (
 
         await conn.commit();
         console.log(`[SePay Webhook] ✅ Kích hoạt thành công đơn hàng ${order.id} (${matchRef})!`);
+
+        // Gửi email biên lai tự động nếu là gói SUBSCRIPTION và user có email
+        if (order.package_type === 'SUBSCRIPTION' && order.user_email) {
+            const expiresAtDate = new Date(Date.now() + (Number(order.duration_days) || 30) * 86400 * 1000).toISOString();
+            sendSubscriptionSuccessEmail({
+                toEmail: order.user_email,
+                fullName: order.user_full_name || 'Học viên',
+                packageName: order.package_name || 'Hội viên LexiCore',
+                orderCode: matchRef,
+                amountVnd: Number(order.amount_vnd),
+                durationDays: Number(order.duration_days) || 30,
+                expiresAt: expiresAtDate,
+            }).catch(err => {
+                console.error('[SePay Webhook] Lỗi gửi email biên lai:', err);
+            });
+        }
 
         return {
             success: true,
