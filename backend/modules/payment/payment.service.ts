@@ -45,10 +45,10 @@ export function calcFinalPrice(pkg: CreditPackage): number {
 }
 
 // ============================================================
-// Packages (Tự động tích hợp Campaign Free Trial)
+// Packages (Tự động tích hợp Campaign Free Trial và lọc Trial đã dùng)
 // ============================================================
 
-export const getPackages = async () => {
+export const getPackages = async (userId?: string) => {
     let activeCampaigns: any[] = [];
     try {
         activeCampaigns = await getActiveCampaigns();
@@ -56,7 +56,15 @@ export const getPackages = async () => {
         console.error('[Campaign] Chưa thể tải active campaigns (vui lòng kiểm tra migration bảng subscription_campaigns):', err);
     }
     const packages = await getAllPackages();
-    const subscriptions = packages.filter(p => p.package_type === 'SUBSCRIPTION');
+    let subscriptions = packages.filter(p => p.package_type === 'SUBSCRIPTION');
+
+    // Nếu user đã từng dùng trial, ẩn gói trial chào mừng mặc định đi
+    if (userId) {
+        const usedTrial = await hasUsedTrial(userId);
+        if (usedTrial) {
+            subscriptions = subscriptions.filter(p => !p.is_trial);
+        }
+    }
 
     // Nếu có chiến dịch tặng Trial đang hoạt động, chèn vào đầu danh sách
     if (activeCampaigns.length > 0) {
@@ -101,9 +109,10 @@ export const getPackages = async () => {
 // ============================================================
 
 export const getMySubscription = async (userId: string) => {
-    const [sub, vndBalance] = await Promise.all([
+    const [sub, vndBalance, trialUsed] = await Promise.all([
         getUserSubscription(userId),
         getVndBalance(userId),
+        hasUsedTrial(userId),
     ]);
 
     // Lấy coin/diamond balance từ wallets
@@ -124,6 +133,7 @@ export const getMySubscription = async (userId: string) => {
         coinBalance:       Number(wallet.coin_balance),
         diamondBalance:    Number(wallet.diamond_balance),
         walletBalanceVnd:  vndBalance,
+        hasUsedTrial:      trialUsed,
     };
 };
 
@@ -169,7 +179,7 @@ export const patchSubscriptionSettings = async (
 
 export const payWithWallet = async (userId: string, packageId: string) => {
     const pkg = await getPackageById(packageId);
-    if (!pkg) throw new AppError('Goi khong ton tai', 404);
+    if (!pkg) throw new AppError('Gói không tồn tại', 404);
 
     // Gói trial
     if (pkg.is_trial) {
@@ -177,7 +187,7 @@ export const payWithWallet = async (userId: string, packageId: string) => {
     }
 
     const finalPrice = calcFinalPrice(pkg);
-    if (finalPrice === 0) throw new AppError('Logic gia sai', 400);
+    if (finalPrice === 0) throw new AppError('Giá trị gói thanh toán không hợp lệ', 400);
 
     const conn = await (pool as any).getConnection();
     try {
@@ -185,7 +195,7 @@ export const payWithWallet = async (userId: string, packageId: string) => {
 
         // Trừ tiền ví
         const ok = await deductWalletVnd(conn, userId, finalPrice);
-        if (!ok) throw new AppError('So du Vi LexiCore khong du', 400);
+        if (!ok) throw new AppError('Số dư Ví LexiCore không đủ để thanh toán', 400);
 
         // Tạo đơn thanh toán
         const orderId = uuidv4();
@@ -214,7 +224,7 @@ export const payWithWallet = async (userId: string, packageId: string) => {
         return {
             success: true,
             orderId,
-            message: 'Thanh toan thanh cong qua Vi LexiCore!',
+            message: 'Thanh toán thành công qua Ví LexiCore!',
             coinEarned:    pkg.coin_amount,
             diamondEarned: pkg.diamond_amount,
             amountVnd:     finalPrice,
@@ -233,8 +243,8 @@ export const payWithWallet = async (userId: string, packageId: string) => {
 
 export const activateTrialPlan = async (userId: string, pkg: CreditPackage) => {
     const alreadyUsed = await hasUsedTrial(userId);
-    if (alreadyUsed) throw new AppError('Ban da su dung goi dung thu roi', 400);
-    if (!pkg.duration_days) throw new AppError('Goi dung thu cau hinh sai', 500);
+    if (alreadyUsed) throw new AppError('Bạn đã sử dụng gói dùng thử rồi', 400);
+    if (!pkg.duration_days) throw new AppError('Gói dùng thử cấu hình chưa chính xác', 500);
 
     const conn = await (pool as any).getConnection();
     try {
@@ -260,7 +270,7 @@ export const activateTrialPlan = async (userId: string, pkg: CreditPackage) => {
         return {
             success: true,
             orderId,
-            message: 'Kich hoat goi dung thu thanh cong! Chuc ban hoc tot.',
+            message: 'Kích hoạt gói dùng thử thành công! Chúc bạn học tốt.',
         };
     } catch (err) {
         await conn.rollback();
@@ -303,7 +313,7 @@ export const confirmMockPayment = async (userId: string, orderId: string) => {
     );
 
     if (!rows || rows.length === 0) {
-        throw new AppError('Don hang khong ton tai hoac da duoc xu ly', 404);
+        throw new AppError('Đơn hàng không tồn tại hoặc đã được xử lý', 404);
     }
 
     const order = rows[0] as any;
@@ -327,7 +337,7 @@ export const confirmMockPayment = async (userId: string, orderId: string) => {
         await conn.commit();
         return {
             success: true,
-            message: 'Thanh toan thanh cong!',
+            message: 'Thanh toán thành công!',
             coinEarned:    order.coin_amount,
             diamondEarned: order.diamond_amount,
             txnId:         mockTxnId,

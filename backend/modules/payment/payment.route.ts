@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../../middlewares/requireAuth';
+import { requireAuth, optionalAuth } from '../../middlewares/requireAuth';
 import {
     listPackages,
     mySubscription,
@@ -21,8 +21,8 @@ import {
 const router = Router();
 
 // ─── Public ──────────────────────────────────────────────────────────────────
-// Lấy danh sách gói (không cần đăng nhập để xem giá)
-router.get('/packages', listPackages);
+// Lấy danh sách gói (hỗ trợ optionalAuth để tự động ẩn gói trial nếu user đã từng dùng)
+router.get('/packages', optionalAuth, listPackages);
 
 // SePay webhook nhận callback biến động số dư từ ngân hàng (server-to-server)
 router.post('/sepay/webhook', sepayWebhook);

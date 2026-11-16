@@ -23,7 +23,8 @@ import { getPackageById } from './payment.repository';
 // GET /api/payment/packages
 export const listPackages = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const data = await getPackages();
+        const userId = (req as any).user?.id as string | undefined;
+        const data = await getPackages(userId);
         res.json({ success: true, data });
     } catch (err) { next(err); }
 };
@@ -71,7 +72,7 @@ export const walletPay = async (req: Request, res: Response, next: NextFunction)
         const userId    = (req as any).user.id as string;
         const { packageId } = req.body as { packageId: string };
         if (!packageId) {
-            res.status(400).json({ success: false, message: 'packageId la bat buoc' });
+            res.status(400).json({ success: false, message: 'Mã gói (packageId) là bắt buộc' });
             return;
         }
         const data = await payWithWallet(userId, packageId);
@@ -102,12 +103,12 @@ export const activateTrial = async (req: Request, res: Response, next: NextFunct
         // Tìm gói trial trong DB
         const { packageId } = req.body as { packageId?: string };
         if (!packageId) {
-            res.status(400).json({ success: false, message: 'packageId la bat buoc' });
+            res.status(400).json({ success: false, message: 'Mã gói (packageId) là bắt buộc' });
             return;
         }
         const pkg = await getPackageById(packageId);
         if (!pkg || !pkg.is_trial) {
-            res.status(404).json({ success: false, message: 'Goi dung thu khong ton tai' });
+            res.status(404).json({ success: false, message: 'Gói dùng thử không tồn tại' });
             return;
         }
         const data = await activateTrialPlan(userId, pkg);
@@ -123,7 +124,7 @@ export const initMock = async (req: Request, res: Response, next: NextFunction) 
         const userId    = (req as any).user.id as string;
         const { packageId } = req.body as { packageId: string };
         if (!packageId) {
-            res.status(400).json({ success: false, message: 'packageId la bat buoc' });
+            res.status(400).json({ success: false, message: 'Mã gói (packageId) là bắt buộc' });
             return;
         }
         const result = await initMockPayment(userId, packageId);
@@ -137,7 +138,7 @@ export const confirmMock = async (req: Request, res: Response, next: NextFunctio
         const userId  = (req as any).user.id as string;
         const orderId = (req.query.orderId || req.body.orderId) as string;
         if (!orderId) {
-            res.status(400).json({ success: false, message: 'orderId la bat buoc' });
+            res.status(400).json({ success: false, message: 'Mã đơn hàng (orderId) là bắt buộc' });
             return;
         }
         const result = await confirmMockPayment(userId, orderId);
@@ -153,7 +154,7 @@ export const initSepay = async (req: Request, res: Response, next: NextFunction)
         const userId = (req as any).user.id as string;
         const { packageId } = req.body as { packageId: string };
         if (!packageId) {
-            res.status(400).json({ success: false, message: 'packageId la bat buoc' });
+            res.status(400).json({ success: false, message: 'Mã gói (packageId) là bắt buộc' });
             return;
         }
         const result = await initSepayPayment(userId, packageId);
@@ -188,7 +189,7 @@ export const orderStatus = async (req: Request, res: Response, next: NextFunctio
         const userId  = (req as any).user.id as string;
         const orderId = req.params.orderId as string;
         if (!orderId) {
-            res.status(400).json({ success: false, message: 'orderId la bat buoc' });
+            res.status(400).json({ success: false, message: 'Mã đơn hàng (orderId) là bắt buộc' });
             return;
         }
         const data = await checkOrderStatus(userId, orderId);

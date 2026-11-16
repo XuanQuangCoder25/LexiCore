@@ -36,10 +36,10 @@ export const sendOtpEmail = async (
             subject,
             html: otpTemplate({ otp, type }),
         });
-        console.log(`[Email] Gui OTP (${type}) thanh cong:`, data);
+        console.log(`[Email] Gửi OTP (${type}) thành công:`, data);
         return data;
     } catch (error) {
-        console.error(`[Email] Loi khi gui OTP (${type}):`, error);
+        console.error(`[Email] Lỗi khi gửi OTP (${type}):`, error);
         throw error;
     }
 };
@@ -62,13 +62,13 @@ export const sendSubscriptionSuccessEmail = async (params: {
         const data = await resend.emails.send({
             from: SENDERS.BILLING,
             to: toEmail,
-            subject: `[LexiCore] Xac nhan thanh toan thanh cong goi ${params.packageName}`,
+            subject: `[LexiCore] Xác nhận thanh toán thành công gói ${params.packageName}`,
             html: subscriptionSuccessTemplate(templateParams),
         });
-        console.log(`[Email] Gui xac nhan thanh toan thanh cong den ${toEmail}:`, data);
+        console.log(`[Email] Gửi xác nhận thanh toán thành công đến ${toEmail}:`, data);
         return data;
     } catch (error) {
-        console.error(`[Email] Loi khi gui xac nhan thanh toan den ${toEmail}:`, error);
+        console.error(`[Email] Lỗi khi gửi xác nhận thanh toán đến ${toEmail}:`, error);
         return { error };
     }
 };
@@ -84,13 +84,13 @@ export const sendSubscriptionExpiryEmail = async (params: {
         const data = await resend.emails.send({
             from: SENDERS.BILLING,
             to: toEmail,
-            subject: `Goi hoi vien ${params.packageName} cua ban sap het han`,
+            subject: `[LexiCore] Gói hội viên ${params.packageName} của bạn sắp hết hạn`,
             html: subscriptionExpiryTemplate(templateParams),
         });
-        console.log(`[Email] Gui nhac het han thanh cong den ${toEmail}:`, data);
+        console.log(`[Email] Gửi nhắc hết hạn thành công đến ${toEmail}:`, data);
         return data;
     } catch (error) {
-        console.error(`[Email] Loi khi gui nhac het han den ${toEmail}:`, error);
+        console.error(`[Email] Lỗi khi gửi nhắc hết hạn đến ${toEmail}:`, error);
         return { error };
     }
 };
@@ -107,13 +107,13 @@ export const sendAutoRenewFailedEmail = async (params: {
         const data = await resend.emails.send({
             from: SENDERS.BILLING,
             to: toEmail,
-            subject: `[LexiCore] Khong the tu dong gia han goi ${params.packageName} do so du vi khong du`,
+            subject: `[LexiCore] Không thể tự động gia hạn gói ${params.packageName} do số dư ví không đủ`,
             html: autoRenewFailedTemplate(templateParams),
         });
-        console.log(`[Email] Gui canh bao gia han that bai den ${toEmail}:`, data);
+        console.log(`[Email] Gửi cảnh báo gia hạn thất bại đến ${toEmail}:`, data);
         return data;
     } catch (error) {
-        console.error(`[Email] Loi khi gui canh bao gia han that bai den ${toEmail}:`, error);
+        console.error(`[Email] Lỗi khi gửi cảnh báo gia hạn thất bại đến ${toEmail}:`, error);
         return { error };
     }
 };
@@ -131,19 +131,19 @@ export const sendStudyReminderEmail = async (params: {
     const { toEmail, ...templateParams } = params;
     try {
         if (!process.env.RESEND_API_KEY) {
-            console.log(`[Email Mock] Nhac hoc tap den ${toEmail} (${params.fullName}) luc ${params.reminderTime}. Streak: ${params.streakCount} ngay.`);
+            console.log(`[Email Mock] Nhắc học tập đến ${toEmail} (${params.fullName}) lúc ${params.reminderTime}. Streak: ${params.streakCount} ngày.`);
             return { id: 'mock-email-id', mock: true };
         }
         const data = await resend.emails.send({
             from: SENDERS.REMINDER,
             to: toEmail,
-            subject: 'Da den gio hoc tu vung cung LexiCore!',
+            subject: '[LexiCore] Đã đến giờ học từ vựng hôm nay!',
             html: studyReminderTemplate(templateParams),
         });
-        console.log(`[Email] Gui nhac hoc tap thanh cong den ${toEmail}:`, data);
+        console.log(`[Email] Gửi nhắc học tập thành công đến ${toEmail}:`, data);
         return data;
     } catch (error) {
-        console.error(`[Email] Loi khi gui nhac hoc tap den ${toEmail}:`, error);
+        console.error(`[Email] Lỗi khi gửi nhắc học tập đến ${toEmail}:`, error);
         return { error };
     }
 };

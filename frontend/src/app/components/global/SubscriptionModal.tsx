@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ export interface SubscriptionModalProps {
   onClose: () => void;
   initialPackageId?: string;
   initialTab?: "subscription" | "info";
+  hasUsedTrial?: boolean;
   onBuyPackage?: (pkg: CreditPackage) => void;
   onSuccess?: () => void;
 }
@@ -191,6 +192,7 @@ export function SubscriptionModal({
   onClose,
   initialPackageId,
   initialTab = "subscription",
+  hasUsedTrial = false,
   onBuyPackage,
   onSuccess,
 }: SubscriptionModalProps) {
@@ -201,30 +203,39 @@ export function SubscriptionModal({
 
   const subScrollRef = useRef<HTMLDivElement>(null);
 
-  const selectedSub =
-    packages.subscription.find((p) => p.id === selectedSubId) ||
-    packages.subscription[packages.subscription.length - 1];
+  // Lọc bỏ gói trial chào mừng mặc định nếu user đã từng dùng trial
+  const displaySubscriptions = useMemo(() => {
+    if (!hasUsedTrial) return packages.subscription;
+    return packages.subscription.filter((p) => !(p.is_trial && !p.campaign_id));
+  }, [packages.subscription, hasUsedTrial]);
 
-  // Fetch packages từ backend
+  const selectedSub =
+    displaySubscriptions.find((p) => p.id === selectedSubId) ||
+    displaySubscriptions[displaySubscriptions.length - 1];
+
+  // Fetch packages từ backend (kèm credentials để backend nhận auth cookie)
   useEffect(() => {
     if (!open) return;
-    fetch("/api/payment/packages")
+    fetch("/api/payment/packages", { credentials: "include" })
       .then((r) => r.json())
       .then((json) => {
         if (json.success && json.data) {
           setPackages(json.data);
-          const sub = json.data.subscription;
+          const sub = json.data.subscription as CreditPackage[];
           if (sub?.length) {
-            if (initialPackageId && sub.some((p: CreditPackage) => p.id === initialPackageId)) {
+            const availableSubs = hasUsedTrial
+              ? sub.filter((p) => !(p.is_trial && !p.campaign_id))
+              : sub;
+            if (initialPackageId && availableSubs.some((p) => p.id === initialPackageId)) {
               setSelectedSubId(initialPackageId);
-            } else {
-              setSelectedSubId(sub[0].id);
+            } else if (availableSubs.length > 0) {
+              setSelectedSubId(availableSubs[0].id);
             }
           }
         }
       })
       .catch(() => { });
-  }, [open, initialPackageId]);
+  }, [open, initialPackageId, hasUsedTrial]);
 
   useEffect(() => {
     if (open) {
@@ -344,7 +355,7 @@ export function SubscriptionModal({
                   className="w-full overflow-x-auto flex items-stretch gap-5 pt-8 pb-5 px-1.5 select-none scroll-smooth [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50"
                   style={{ scrollbarWidth: "thin" }}
                 >
-                  {packages.subscription.map((pkg) => (
+                  {displaySubscriptions.map((pkg) => (
                     <SubscriptionFlipCard
                       key={pkg.id}
                       pkg={pkg}

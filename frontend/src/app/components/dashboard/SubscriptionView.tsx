@@ -76,6 +76,7 @@ interface UserMembership {
   coinBalance: number;
   diamondBalance: number;
   walletBalanceVnd: number;    // Số dư ví LexiCore (VNĐ thật)
+  hasUsedTrial: boolean;
 }
 
 interface Transaction {
@@ -690,6 +691,7 @@ export function SubscriptionView() {
     coinBalance: 0,
     diamondBalance: 0,
     walletBalanceVnd: 0,
+    hasUsedTrial: false,
   });
   const [packages, setPackages] = useState<GroupedPackages>(MOCK_DATA);
   const [selectedSubId, setSelectedSubId] = useState<string>("");
@@ -772,6 +774,7 @@ export function SubscriptionView() {
           coinBalance: number;
           diamondBalance: number;
           walletBalanceVnd: number;
+          hasUsedTrial?: boolean;
         }>("/my-subscription"),
         apiFetch<GroupedPackages>("/packages"),
         apiFetch<Transaction[]>("/my-transactions"),
@@ -790,6 +793,7 @@ export function SubscriptionView() {
         coinBalance: subData.coinBalance,
         diamondBalance: subData.diamondBalance,
         walletBalanceVnd: subData.walletBalanceVnd,
+        hasUsedTrial: Boolean(subData.hasUsedTrial),
       });
 
       // Đồng bộ tier lên sidebar và toàn bộ ứng dụng CHỈ KHI có dữ liệu thật từ backend
@@ -951,15 +955,18 @@ export function SubscriptionView() {
   };
 
   // Lọc chỉ 3 gói tháng đại diện (Starter, Pro, Elite chu kỳ 30 ngày)
-  // và gói Trial ở vị trí đầu tiên (nếu có trial) -> hiển thị 3 hoặc 4 card
+  // và gói Trial ở vị trí đầu tiên (nếu có trial và user chưa dùng trial) -> hiển thị 3 hoặc 4 card
   const featuredSubs = useMemo(() => {
     const subs = packages.subscription;
     const list: CreditPackage[] = [];
 
-    // 1. Gói Trial ở vị trí đầu tiên nếu có
+    // 1. Gói Trial ở vị trí đầu tiên nếu có VÀ user chưa dùng gói dùng thử (hoặc gói campaign của admin)
     const trialPkg = subs.find((p) => p.is_trial);
     if (trialPkg) {
-      list.push(trialPkg);
+      const canShowTrial = trialPkg.campaign_id ? true : !membership.hasUsedTrial;
+      if (canShowTrial) {
+        list.push(trialPkg);
+      }
     }
 
     // 2. 3 gói tháng đại diện: Starter, Pro, Elite (chu kỳ 30 ngày)
@@ -977,7 +984,7 @@ export function SubscriptionView() {
     });
 
     return list;
-  }, [packages.subscription]);
+  }, [packages.subscription, membership.hasUsedTrial]);
 
   // Tự động chọn gói hợp lệ trong featuredSubs nếu selectedSubId chưa có hoặc không nằm trong featuredSubs
   useEffect(() => {
@@ -1184,6 +1191,7 @@ export function SubscriptionView() {
         onClose={handleCloseModal}
         initialPackageId={modalPackageId}
         initialTab={modalTab}
+        hasUsedTrial={membership.hasUsedTrial}
         onBuyPackage={(pkg) => handleOpenQRModal(pkg, true)}
         onSuccess={fetchAll}
       />

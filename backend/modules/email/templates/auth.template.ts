@@ -1,40 +1,46 @@
-// Template email xác thực và bảo mật tài khoản
+// Template email xac thuc va bao mat tai khoan
+import { emailLayout } from './layout.template';
 
 export type OtpEmailType = 'REGISTER' | 'FORGOT_PASSWORD';
 
-export const otpTemplate = ({
-    otp,
-    type = 'REGISTER',
-}: {
-    otp: string;
-    type?: OtpEmailType;
-}) => {
-    const isForgotPassword = type === 'FORGOT_PASSWORD';
-    const subtitle = isForgotPassword ? 'Dat lai mat khau' : 'Xac thuc tai khoan';
-    const description = isForgotPassword
-        ? 'Ban vua gui yeu cau dat lai mat khau cho tai khoan LexiCore. Ma OTP xac thuc cua ban la:'
-        : 'Chao mung ban den voi LexiCore! Ma OTP de hoan tat dang ky tai khoan cua ban la:';
-    const warning = isForgotPassword
-        ? 'Neu ban khong yeu cau dat lai mat khau, vui long kiem tra lai bao mat tai khoan hoac bo qua email nay.'
-        : 'Neu ban khong yeu cau ma nay, hay bo qua email. Tai khoan cua ban van an toan.';
+export const otpTemplate = ({ otp, type = 'REGISTER' }: { otp: string; type?: OtpEmailType }) => {
+    const isForgot = type === 'FORGOT_PASSWORD';
+    const heading = isForgot ? 'Yeu cau dat lai mat khau' : 'Xac thuc dia chi email';
+    const description = isForgot
+        ? 'Chung toi nhan duoc yeu cau dat lai mat khau cho tai khoan LexiCore cua ban. Su dung ma OTP duoi day de tiep tuc:'
+        : 'Cam on ban da tham gia LexiCore! Su dung ma OTP duoi day de hoan tat xac thuc tai khoan cua ban.';
+    const badgeText = isForgot ? 'Bao mat tai khoan' : 'Xac thuc tai khoan';
 
-    return `
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-    <div style="text-align: center; margin-bottom: 24px;">
-        <h1 style="color: #4f46e5; margin: 0; font-size: 26px;">LexiCore</h1>
-        <p style="color: #64748b; font-size: 14px; margin-top: 4px;">${subtitle}</p>
+    const bodyHtml = `
+<div style="text-align: center; margin-bottom: 24px;">
+    <h2 style="color: #1e293b; font-size: 20px; font-weight: 700; margin: 0 0 8px 0;">${heading}</h2>
+    <p style="color: #64748b; font-size: 14px; margin: 0; line-height: 1.6;">
+        ${description}
+    </p>
+</div>
+
+<div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 24px 16px; margin: 20px 0; text-align: center;">
+    <p style="color: #475569; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 10px 0;">Ma xac thuc cua ban</p>
+    <div style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-size: 34px; font-weight: 800; letter-spacing: 8px; padding: 12px 32px; border-radius: 10px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
+        ${otp}
     </div>
-    <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
-        <p style="color: #334155; font-size: 15px; margin-top: 0; line-height: 1.5;">${description}</p>
-        <div style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 12px 28px; border-radius: 8px; margin: 12px 0;">
-            ${otp}
-        </div>
-        <p style="color: #64748b; font-size: 13px; margin-bottom: 0;">Ma co hieu luc trong <strong>5 phut</strong>. Vui long khong chia se ma nay cho bat ky ai.</p>
-    </div>
-    <hr style="border: none; border-top: 1px solid #f1f5f9; margin: 20px 0;" />
-    <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
-        ${warning}
+    <p style="color: #dc2626; font-size: 12px; font-weight: 600; margin: 12px 0 0 0;">
+        Ma co hieu luc trong 5 phut
+    </p>
+</div>
+
+<div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 12px 16px; margin: 20px 0; text-align: left;">
+    <p style="color: #1e40af; font-size: 13px; margin: 0; line-height: 1.5;">
+        <strong>Luu y bao mat:</strong> Tuyet doi khong chia se ma OTP nay cho bat ky ai, ke ca nhan vien ho tro LexiCore. Neu ban khong yeu cau thao tac nay, vui long bo qua email.
     </p>
 </div>
 `;
+
+    return emailLayout({
+        title: isForgot ? 'Dat lai mat khau LexiCore' : 'Ma xac thuc LexiCore cua ban',
+        badgeText,
+        badgeColor: isForgot ? '#fef3c7' : '#e0e7ff',
+        badgeTextColor: isForgot ? '#92400e' : '#4338ca',
+        bodyHtml,
+    });
 };
