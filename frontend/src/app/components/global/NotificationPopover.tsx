@@ -64,7 +64,7 @@ export function NotificationPopover() {
         brandNewUnread.forEach((n) => {
           toast(n.title, {
             description: n.body,
-            icon: <Flame className="w-5 h-5 text-amber-500" />,
+            icon: <Flame className="w-5 h-5 text-zinc-900 dark:text-zinc-100" strokeWidth={1.75} />,
             duration: 8000,
           });
         });
@@ -143,38 +143,33 @@ export function NotificationPopover() {
   const renderIcon = (type: string, isRead: boolean) => {
     const iconClass = "h-4 w-4";
     let Icon = Bell;
-    let bgClass = "bg-primary/10 text-primary";
 
     if (type === "reminder") {
       Icon = Flame;
-      bgClass = "bg-amber-500/15 text-amber-500";
     } else if (type === "srs") {
       Icon = Brain;
-      bgClass = "bg-pink-500/15 text-pink-500";
     } else if (type === "challenge") {
       Icon = Swords;
-      bgClass = "bg-rose-500/15 text-rose-500";
     } else if (type === "achievement") {
       Icon = CheckCircle2;
-      bgClass = "bg-emerald-500/15 text-emerald-500";
     } else if (type === "friend_request") {
       Icon = UserPlus;
-      bgClass = "bg-indigo-500/15 text-indigo-500";
     } else if (type === "friend_accepted") {
       Icon = UserCheck;
-      bgClass = "bg-teal-500/15 text-teal-500";
     } else {
       Icon = Info;
-      bgClass = "bg-blue-500/15 text-blue-500";
     }
+
+    const activeBg = "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700";
+    const readBg = "bg-muted text-muted-foreground";
 
     return (
       <div
         className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-          !isRead ? bgClass : "bg-muted text-muted-foreground"
+          !isRead ? activeBg : readBg
         }`}
       >
-        <Icon className={iconClass} />
+        <Icon className={iconClass} strokeWidth={1.75} />
       </div>
     );
   };

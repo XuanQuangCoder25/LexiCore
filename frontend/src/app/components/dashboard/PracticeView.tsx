@@ -12,7 +12,8 @@ import {
   ArrowRight,
   Play,
   Trophy,
-  Timer
+  Timer,
+  Check
 } from "lucide-react";
 
 const practiceTools = [
@@ -141,7 +142,9 @@ export function PracticeView() {
                     <p className="text-xs text-muted-foreground truncate">{challenge.description}</p>
                   </div>
                   {challenge.completed && (
-                    <Badge className="bg-green-100 text-green-800 text-xs">✓</Badge>
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs p-1 h-5 w-5 flex items-center justify-center rounded-full">
+                      <Check className="w-3 h-3 shrink-0" strokeWidth={2} />
+                    </Badge>
                   )}
                 </div>
               );

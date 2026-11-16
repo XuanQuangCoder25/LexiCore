@@ -10,7 +10,8 @@ import {
   Target,
   Clock,
   Award,
-  ArrowRight
+  ArrowRight,
+  Flame
 } from "lucide-react";
 
 export function ProgressDashboard() {
@@ -33,8 +34,11 @@ export function ProgressDashboard() {
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl">Welcome back, Sarah! 👋</CardTitle>
-                  <Badge className="bg-green-100 text-green-800">7 day streak</Badge>
+                  <CardTitle className="text-xl">Welcome back, Sarah!</CardTitle>
+                  <Badge variant="secondary" className="bg-zinc-100 text-zinc-900 border border-zinc-200 inline-flex items-center gap-1.5 px-2.5 py-1 font-medium">
+                    <Flame className="w-3.5 h-3.5 shrink-0 text-zinc-900" strokeWidth={1.75} />
+                    <span>7 day streak</span>
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">

@@ -36,6 +36,8 @@ import { LayoutList,
   AlertCircle,
   FileText,
   Crown,
+  Star,
+  ArrowLeft,
 } from "lucide-react";
 
 interface Course {
@@ -418,8 +420,9 @@ const handleOpenEditor = (course: Course) => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <Button variant="ghost" onClick={() => setView("list")} className="mb-1 -ml-2">
-              ← Quay lại danh sách
+            <Button variant="ghost" onClick={() => setView("list")} className="mb-1 -ml-2 inline-flex items-center gap-1.5">
+              <ArrowLeft className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+              <span>Quay lại danh sách</span>
             </Button>
             <h1 className="text-2xl font-bold">{selectedCourse.title}</h1>
             <p className="text-sm text-muted-foreground">{selectedCourse.description || "Chưa có mô tả"}</p>
@@ -930,7 +933,10 @@ const handleOpenEditor = (course: Course) => {
                           className="flex items-center gap-1 bg-zinc-100 px-2 py-0.5 rounded-lg hover:bg-zinc-200 transition-colors cursor-pointer"
                           onClick={(e) => { e.stopPropagation(); openRatingsModal(exam._id); }}
                         >
-                          <span className="font-semibold text-zinc-900">★ {(exam.averageRating || 0).toFixed(1)}</span>
+                          <span className="font-semibold text-zinc-900 inline-flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-current text-zinc-900 shrink-0" />
+                            <span>{(exam.averageRating || 0).toFixed(1)}</span>
+                          </span>
                           <span className="text-zinc-500 text-[11px]">({exam.totalRatings})</span>
                         </div>
                       ) : null}
@@ -974,9 +980,12 @@ const handleOpenEditor = (course: Course) => {
               const pct = ratingsData.length > 0 ? (count / ratingsData.length) * 100 : 0;
               return (
                 <div key={star} className="flex items-center gap-3 text-sm mb-2">
-                  <span className="w-8 font-medium text-muted-foreground">{star} ★</span>
+                  <span className="w-10 font-medium text-muted-foreground inline-flex items-center gap-1">
+                    <span>{star}</span>
+                    <Star className="w-3 h-3 fill-current text-zinc-700 shrink-0" />
+                  </span>
                   <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-yellow-400 transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                    <div className="h-full bg-zinc-900 transition-all duration-500" style={{ width: `${pct}%` }}></div>
                   </div>
                   <span className="w-8 text-right font-medium">{count}</span>
                 </div>
@@ -992,7 +1001,10 @@ const handleOpenEditor = (course: Course) => {
               ratingsData.map((rating, idx) => (
                 <div key={idx} className="border-b pb-4 last:border-0 last:pb-0">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="text-yellow-500 text-sm font-bold">★ {rating.rating}</div>
+                    <div className="text-zinc-900 text-sm font-bold inline-flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 fill-current text-zinc-900 shrink-0" />
+                      <span>{rating.rating}</span>
+                    </div>
                     <div className="text-xs text-muted-foreground">{new Date(rating.createdAt).toLocaleDateString('vi-VN')}</div>
                   </div>
                   <p className="text-sm">{rating.review || <span className="text-muted-foreground italic">Không có nhận xét</span>}</p>

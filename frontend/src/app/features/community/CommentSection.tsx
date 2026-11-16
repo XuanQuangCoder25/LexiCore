@@ -13,6 +13,7 @@ import {
   ChevronDown,
   CheckCircle2,
   Award,
+  X,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -178,7 +179,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
         spread: 70,
         origin: { y: 0.6 },
       });
-      toast.success('🎉 Đã chọn câu trả lời hay nhất! Người giải bài đã nhận được +10 Xu và +20 Exp.');
+      toast.success('Đã chọn câu trả lời hay nhất! Người giải bài đã nhận được +10 Xu và +20 Exp.');
       onBestAnswerMarked?.();
     } catch (error) {
       toast.error(getCommunityErrorMessage(error, 'Không thể chọn lời giải hay nhất.'));
@@ -341,8 +342,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                             </Badge>
                           )}
                           {rootComment.isBestAnswer && (
-                            <Badge className="text-[10px] py-0 h-4 bg-emerald-600 text-white gap-1 font-semibold">
-                              <Award className="w-3 h-3" /> ✓ Lời giải hay nhất (+10 Xu, +20 Exp)
+                            <Badge className="text-[10px] py-0 h-4 bg-emerald-600 text-white gap-1 font-semibold inline-flex items-center">
+                              <Award className="w-3 h-3 shrink-0" strokeWidth={1.75} />
+                              <span>Lời giải hay nhất (+10 Xu, +20 Exp)</span>
                             </Badge>
                           )}
                         </div>
@@ -536,9 +538,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                                   [rootComment.id]: false,
                                 }))
                               }
-                              className="text-xs hover:text-foreground"
+                              className="text-xs hover:text-foreground p-0.5 rounded-sm"
+                              title="Hủy phản hồi"
                             >
-                              ✕
+                              <X className="w-3 h-3" strokeWidth={1.75} />
                             </button>
                           </div>
                         )}

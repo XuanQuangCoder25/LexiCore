@@ -18,7 +18,8 @@ import {
   Target,
   BookImage,
   CircleDollarSign,
-  Gem
+  Gem,
+  CheckCircle2
 } from "lucide-react";
 import { optimizeImageUrl } from "../../services/arena-service";
 
@@ -586,8 +587,9 @@ export function AdminView() {
       </div>
 
       {successMsg && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-600">
-          ✓ {successMsg}
+        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 inline-flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+          <span>{successMsg}</span>
         </div>
       )}
 
@@ -654,7 +656,14 @@ export function AdminView() {
                         <Badge variant="outline">{TYPE_LABELS[item.type] ?? item.type}</Badge>
                       </TableCell>
                       <TableCell className="font-semibold py-3">
-                        {item.price.toLocaleString()} {item.price_type === "DIAMOND" ? "💎" : "xu"}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span>{item.price.toLocaleString()}</span>
+                          {item.price_type === "DIAMOND" ? (
+                            <Gem className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 shrink-0" strokeWidth={1.75} />
+                          ) : (
+                            <span className="text-xs font-normal text-muted-foreground">xu</span>
+                          )}
+                        </span>
                       </TableCell>
                       <TableCell className="py-3">{getStatusBadge(item)}</TableCell>
                       <TableCell className="text-right pr-6 py-3">

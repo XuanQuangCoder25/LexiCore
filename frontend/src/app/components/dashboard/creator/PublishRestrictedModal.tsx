@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Button } from '../../ui/button';
-import { Crown } from 'lucide-react';
+import { Crown, Lightbulb } from 'lucide-react';
 
 export interface PublishRestrictedModalProps {
   open?: boolean;
@@ -46,7 +46,10 @@ export const PublishRestrictedModal: React.FC<PublishRestrictedModalProps> = ({
             Tính năng xuất bản {contentType} công khai chỉ dành riêng cho <strong className="text-foreground font-semibold">Content Creator chính thức</strong>.
           </p>
           <div className="p-3.5 bg-muted/50 rounded-xl border border-border/60 text-xs text-foreground/80 space-y-1 text-left">
-            <p className="font-medium text-foreground">💡 Bạn vẫn hoàn toàn yên tâm:</p>
+            <p className="font-medium text-foreground inline-flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5 text-foreground shrink-0" strokeWidth={1.75} />
+              <span>Bạn vẫn hoàn toàn yên tâm:</span>
+            </p>
             <p>
               Nội dung của bạn được tự động lưu an toàn trong <strong className="text-primary font-semibold">Private Space</strong> để bạn tự do học tập, làm bài tập và ôn luyện bất kỳ lúc nào.
             </p>

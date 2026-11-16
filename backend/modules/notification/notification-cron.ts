@@ -103,7 +103,7 @@ export const checkAndSendReminders = async (forcedTime?: string): Promise<number
     }
 
     if (sentCount > 0) {
-      console.log(`[Notification Cron] ✅ Đã gửi thành công nhắc nhở cho ${sentCount} người dùng.`);
+      console.log(`[Notification Cron] Đã gửi thành công nhắc nhở cho ${sentCount} người dùng.`);
     }
 
     return sentCount;
@@ -119,5 +119,5 @@ export const initNotificationCron = () => {
     await checkAndSendReminders();
   });
 
-  console.log('⏰ Notification Background Cronjob đã được khởi động (Quét định kỳ mỗi phút: * * * * *).');
+  console.log('[Notification Cron] Background Cronjob đã được khởi động (Quét định kỳ mỗi phút: * * * * *).');
 };

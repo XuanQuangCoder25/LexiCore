@@ -184,7 +184,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
       if (res.status === 'success') {
         dispatch({ type: 'SET_META', payload: { isPublished: true, status: 'published' } });
         dispatch({ type: 'MARK_CLEAN' });
-        toast.success('🎉 Khóa học đã được xuất bản công khai thành công!');
+        toast.success('Khóa học đã được xuất bản công khai thành công!');
       } else {
         toast.error(res.message || 'Lỗi khi xuất bản khóa học');
       }

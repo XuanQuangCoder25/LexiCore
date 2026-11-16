@@ -10,6 +10,7 @@ import {
   Languages, 
   HelpCircle, 
   Clock, 
+  Layers, 
   CheckCircle2, 
   ChevronRight, 
   FolderTree, 
@@ -171,11 +172,31 @@ export const CoursePreviewModal: React.FC<CoursePreviewModalProps> = ({
                 {/* Lesson Header */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="secondary" className="text-xs uppercase font-medium">
-                      {currentLesson.type === 'video' && '🎬 Bài giảng Video'}
-                      {currentLesson.type === 'reading' && '📖 Bài đọc lý thuyết'}
-                      {currentLesson.type === 'vocabulary' && '🔤 Từ vựng & Flashcards'}
-                      {currentLesson.type === 'quiz' && '❓ Mini Quiz trắc nghiệm'}
+                    <Badge variant="secondary" className="text-xs uppercase font-medium inline-flex items-center gap-1.5">
+                      {currentLesson.type === 'video' && (
+                        <>
+                          <Video className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+                          <span>Bài giảng Video</span>
+                        </>
+                      )}
+                      {currentLesson.type === 'reading' && (
+                        <>
+                          <BookOpen className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+                          <span>Bài đọc lý thuyết</span>
+                        </>
+                      )}
+                      {currentLesson.type === 'vocabulary' && (
+                        <>
+                          <Layers className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+                          <span>Từ vựng & Flashcards</span>
+                        </>
+                      )}
+                      {currentLesson.type === 'quiz' && (
+                        <>
+                          <HelpCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+                          <span>Mini Quiz trắc nghiệm</span>
+                        </>
+                      )}
                     </Badge>
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Clock className="w-3 h-3" /> {currentLesson.durationMinutes || 5} phút học

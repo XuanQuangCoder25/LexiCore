@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
-import { BookOpen, CalendarCheck, Clock, Layers, Trophy, Sparkles, Loader2, Share2 } from "lucide-react";
+import { BookOpen, CalendarCheck, Clock, Layers, Trophy, Sparkles, Loader2, Share2, Check } from "lucide-react";
 import { Confetti } from "./Confetti";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
@@ -65,7 +65,7 @@ export const CourseCompletion = ({ courseId, courseTitle, stats, onClose, onExit
       setSharingMilestone(true);
       await communityService.shareCourseMilestone({
         courseId,
-        caption: `🎉 Mình vừa hoàn thành 100% khóa học "${courseTitle}"! Thật tự hào và hào hứng!`,
+        caption: `Mình vừa hoàn thành 100% khóa học "${courseTitle}"! Thật tự hào và hào hứng!`,
       });
       setHasShared(true);
       toast.success("Đã đăng thành tích của bạn lên Community Hub!");
@@ -181,12 +181,14 @@ export const CourseCompletion = ({ courseId, courseTitle, stats, onClose, onExit
                 className="bg-zinc-100 hover:bg-zinc-200/80 text-zinc-800 border border-zinc-200 text-xs sm:text-sm font-medium gap-2 shadow-none rounded-xl h-11 px-4 active:scale-[0.98]"
               >
                 {sharingMilestone ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : hasShared ? (
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" strokeWidth={1.75} />
                 ) : (
-                  <Sparkles className="w-4 h-4 text-zinc-700" />
+                  <Sparkles className="w-4 h-4 text-zinc-700 shrink-0" strokeWidth={1.75} />
                 )}
                 <span>
-                  {hasShared ? "Đã khoe lên Community ✓" : "Khoe lên Community (+Exp & Xu)"}
+                  {hasShared ? "Đã khoe lên Community" : "Khoe lên Community (+Exp & Xu)"}
                 </span>
               </Button>
               <Button 

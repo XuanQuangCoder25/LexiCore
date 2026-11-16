@@ -49,4 +49,4 @@ jobs:
 
     - name: Kiểm tra Cú pháp và Khả năng biên dịch Backend
       run: |
-        npx tsx -r dotenv/config -e "console.log('✅ Backend syntax & tsx runtime compilation verified successfully!')"
+        npx tsx -r dotenv/config -e "console.log(' Backend syntax & tsx runtime compilation verified successfully!')"

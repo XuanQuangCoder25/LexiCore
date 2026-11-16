@@ -138,7 +138,7 @@ export function AccountSecuritySection({ settings }: AccountSecuritySectionProps
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Mail className="w-5 h-5 text-indigo-500" />
+            <Mail className="w-5 h-5 text-foreground" strokeWidth={1.75} />
             <div>
               <CardTitle className="text-lg">Địa chỉ Email</CardTitle>
               <CardDescription>Email được sử dụng để đăng nhập và nhận thông báo quan trọng.</CardDescription>
@@ -166,7 +166,7 @@ export function AccountSecuritySection({ settings }: AccountSecuritySectionProps
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-amber-500" />
+            <KeyRound className="w-5 h-5 text-foreground" strokeWidth={1.75} />
             <div>
               <CardTitle className="text-lg">Đổi mật khẩu</CardTitle>
               <CardDescription>Cập nhật mật khẩu thường xuyên để tăng cường an toàn tài khoản.</CardDescription>
@@ -244,7 +244,7 @@ export function AccountSecuritySection({ settings }: AccountSecuritySectionProps
       <Card className="border-border">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
+            <Users className="w-5 h-5 text-foreground" strokeWidth={1.75} />
             <div>
               <CardTitle className="text-lg">Phiên đăng nhập & Tài khoản</CardTitle>
               <CardDescription>

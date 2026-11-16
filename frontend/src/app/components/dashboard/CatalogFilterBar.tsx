@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, RotateCcw, ArrowUpDown, Eye, BookOpen, Layers } from "lucide-react";
+import { Search, X, RotateCcw, ArrowUpDown, Eye, BookOpen, Layers, ChevronDown } from "lucide-react";
 
 export type SortOption = "newest" | "oldest" | "most_viewed" | string;
 
@@ -123,9 +123,7 @@ export function CatalogFilterBar({
                 </option>
               ))}
             </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400 text-xs">
-              ▼
-            </div>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" strokeWidth={1.75} />
           </div>
         </div>
       </div>

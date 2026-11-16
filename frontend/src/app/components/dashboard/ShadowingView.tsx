@@ -668,7 +668,7 @@ export function ShadowingView() {
                       }`}
                     title="Tự dừng video sau mỗi câu để bạn nhại lại"
                   >
-                    <Timer className="h-4 w-4" /> Auto-Pause {autoPause && <span className="text-amber-500">●</span>}
+                    <Timer className="h-4 w-4" /> Auto-Pause {autoPause && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block shrink-0" />}
                   </button>
                 </div>
 
@@ -709,7 +709,7 @@ export function ShadowingView() {
                       }`}
                     title="Lặp lại câu đang học"
                   >
-                    <Repeat className="h-4 w-4" /> Loop {loopSegment && <span className="text-blue-500">●</span>}
+                    <Repeat className="h-4 w-4" /> Loop {loopSegment && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block shrink-0" />}
                   </button>
                 </div>
               </div>

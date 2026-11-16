@@ -827,8 +827,9 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
                         </div>
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold bg-zinc-100 text-zinc-800 px-2.5 py-0.5 rounded-md border border-zinc-200/60">
-                              📚 Bộ thẻ Flashcard đính kèm
+                            <span className="text-xs font-semibold bg-zinc-100 text-zinc-800 px-2.5 py-0.5 rounded-md border border-zinc-200/60 inline-flex items-center gap-1.5">
+                              <BookOpen className="w-3.5 h-3.5 shrink-0 text-zinc-700" strokeWidth={1.75} />
+                              <span>Bộ thẻ Flashcard đính kèm</span>
                             </span>
                             {typeof lessonContent.attachedFlashcardId === 'object' && typeof lessonContent.attachedFlashcardId.cardCount === 'number' && (
                               <span className="text-[11px] font-mono bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md border border-zinc-200/60">

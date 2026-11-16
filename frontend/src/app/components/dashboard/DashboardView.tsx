@@ -6,7 +6,7 @@ import { RetentionChartCard } from "./RetentionChartCard";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { Skeleton } from "../ui/skeleton";
 import { Button } from "../ui/button";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, Rocket } from "lucide-react";
 
 export function DashboardView() {
   const { data, loading, error, refetch } = useDashboardData();
@@ -71,8 +71,8 @@ export function DashboardView() {
   if (isCompletelyNewUser) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] text-center space-y-6 max-w-md mx-auto px-4">
-        <div className="bg-primary/10 p-6 rounded-full mb-2">
-          <span className="text-6xl block">🚀</span>
+        <div className="bg-zinc-100 dark:bg-zinc-800 p-6 rounded-full mb-2 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+          <Rocket className="h-12 w-12 text-zinc-900 dark:text-zinc-100" strokeWidth={1.75} />
         </div>
         <h2 className="text-2xl font-bold">Welcome to LexiCore!</h2>
         <p className="text-muted-foreground text-base">
