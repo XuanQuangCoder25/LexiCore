@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Progress } from "../ui/progress";
@@ -392,12 +392,55 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
   const [completingChapter, setCompletingChapter] = useState(false);
   const [completingCourse, setCompletingCourse] = useState(false);
   const [courseCompletionStats, setCourseCompletionStats] = useState<CourseCompletionStats | null>(null);
+  const [lessonTimeMap, setLessonTimeMap] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem(`lexicore_study_time_${courseId}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const lessonStartRef = useRef<number>(Date.now());
+
+  const saveLessonTimeMap = (nextMap: Record<string, number>) => {
+    setLessonTimeMap(nextMap);
+    try {
+      localStorage.setItem(`lexicore_study_time_${courseId}`, JSON.stringify(nextMap));
+    } catch {
+      // ignore storage quota errors
+    }
+  };
+
+  const commitActiveLessonElapsed = (lessonId?: string): number => {
+    if (!lessonId) return 0;
+    const elapsedSec = Math.max(1, Math.round((Date.now() - lessonStartRef.current) / 1000));
+    lessonStartRef.current = Date.now();
+    const prevSec = Number(lessonTimeMap[lessonId] || 0);
+    const updatedSec = prevSec + elapsedSec;
+    const nextMap = { ...lessonTimeMap, [lessonId]: updatedSec };
+    saveLessonTimeMap(nextMap);
+    return updatedSec;
+  };
 
   const fetchCourseData = async () => {
     try {
       const res = await studentCourseService.getCourseDetails(courseId);
       if (res.status === 'success') {
         setData(res.data);
+        if (res.data.lessonTimeSpent && typeof res.data.lessonTimeSpent === 'object') {
+          setLessonTimeMap((prev) => {
+            const merged = { ...res.data.lessonTimeSpent, ...prev };
+            Object.keys(res.data.lessonTimeSpent).forEach((k) => {
+              merged[k] = Math.max(Number(prev[k] || 0), Number(res.data.lessonTimeSpent[k] || 0));
+            });
+            try {
+              localStorage.setItem(`lexicore_study_time_${courseId}`, JSON.stringify(merged));
+            } catch {
+              // ignore
+            }
+            return merged;
+          });
+        }
         // Tự động chọn bài học đầu tiên nếu chưa chọn
         if (res.data.syllabus.length > 0 && res.data.syllabus[0].lessons.length > 0 && !activeLesson) {
           handleSelectLesson(res.data.syllabus[0].lessons[0]);
@@ -417,6 +460,17 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
   }, [courseId]);
 
   const handleSelectLesson = async (lesson: any) => {
+    if (activeLesson?._id && !summaryChapterId && activeLesson._id !== lesson._id) {
+      const elapsedSec = Math.round((Date.now() - lessonStartRef.current) / 1000);
+      if (elapsedSec > 0) {
+        const nextMap = {
+          ...lessonTimeMap,
+          [activeLesson._id]: Number(lessonTimeMap[activeLesson._id] || 0) + elapsedSec
+        };
+        saveLessonTimeMap(nextMap);
+      }
+    }
+    lessonStartRef.current = Date.now();
     setSummaryChapterId(null);
     setActiveLesson(lesson);
     setLessonContent(null);
@@ -424,6 +478,7 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
     try {
       const res = await studentCourseService.getLessonContent(courseId, lesson._id);
       if (res.status === 'success') {
+        lessonStartRef.current = Date.now();
         setLessonContent(res.data);
       }
     } catch (error: any) {
@@ -435,8 +490,9 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
 
   const handleMarkComplete = async () => {
     if (!activeLesson) return;
+    const totalSpentSec = commitActiveLessonElapsed(activeLesson._id);
     try {
-      const res = await studentCourseService.completeLesson(courseId, activeLesson._id);
+      const res = await studentCourseService.completeLesson(courseId, activeLesson._id, totalSpentSec);
       if (res.status === 'success') {
         toast.success(res.message);
         const fresh = await fetchCourseData(); // Reload progress
@@ -495,10 +551,17 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
   const handleCompleteCourse = async () => {
     setCompletingCourse(true);
     try {
-      const res = await studentCourseService.completeCourse(courseId);
+      const totalCourseSeconds = Object.values(lessonTimeMap).reduce(
+        (acc, val) => acc + (Number(val) || 0),
+        0
+      );
+      const res = await studentCourseService.completeCourse(courseId, totalCourseSeconds);
       if (res.status === 'success') {
         await fetchCourseData(); // Cập nhật isCompleted/completedAt
-        setCourseCompletionStats(res.data);
+        setCourseCompletionStats({
+          ...res.data,
+          timeSpentSeconds: Math.max(totalCourseSeconds, Number(res.data?.timeSpentSeconds || 0))
+        });
         if (!res.data.alreadyCompleted) toast.success(res.message);
       }
     } catch (error: any) {
@@ -626,6 +689,7 @@ export const LearningWorkspace = ({ courseId, onBack }: { courseId: string; onBa
             <ChapterSummary
               chapter={summaryChapter}
               completedLessonIds={completedLessonIds}
+              lessonTimeSpent={lessonTimeMap}
               isChapterCompleted={completedChapterIds.includes(summaryChapter._id)}
               isLastChapter={!summaryNextChapter}
               nextChapterTitle={summaryNextChapter ? `Chương ${summaryNextChapter.order}: ${summaryNextChapter.title}` : undefined}

@@ -1,39 +1,33 @@
-import axios from 'axios';
+import httpClient from './httpClient';
 
-const api = axios.create({
-  baseURL: '/api/v1/student/courses',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const API_BASE = `${(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')}/api/v1/student/courses`;
 
 export const studentCourseService = {
   getPublishedCourses: async (params?: { level?: string; search?: string; sort?: string }) => {
-    return (await api.get('/', { params })).data;
+    return (await httpClient.get(`${API_BASE}/`, { params })).data;
   },
   
   getCourseDetails: async (id: string) => {
-    return (await api.get(`/${id}`)).data;
+    return (await httpClient.get(`${API_BASE}/${id}`)).data;
   },
   
   enrollCourse: async (id: string) => {
-    return (await api.post(`/${id}/enroll`)).data;
+    return (await httpClient.post(`${API_BASE}/${id}/enroll`)).data;
   },
   
   getLessonContent: async (courseId: string, lessonId: string) => {
-    return (await api.get(`/${courseId}/lessons/${lessonId}`)).data;
+    return (await httpClient.get(`${API_BASE}/${courseId}/lessons/${lessonId}`)).data;
   },
   
-  completeLesson: async (courseId: string, lessonId: string) => {
-    return (await api.post(`/${courseId}/lessons/${lessonId}/complete`)).data;
+  completeLesson: async (courseId: string, lessonId: string, timeSpentSeconds?: number) => {
+    return (await httpClient.post(`${API_BASE}/${courseId}/lessons/${lessonId}/complete`, { timeSpentSeconds })).data;
   },
 
   completeChapter: async (courseId: string, chapterId: string) => {
-    return (await api.post(`/${courseId}/chapters/${chapterId}/complete`)).data;
+    return (await httpClient.post(`${API_BASE}/${courseId}/chapters/${chapterId}/complete`)).data;
   },
 
-  completeCourse: async (courseId: string) => {
-    return (await api.post(`/${courseId}/complete`)).data;
+  completeCourse: async (courseId: string, timeSpentSeconds?: number) => {
+    return (await httpClient.post(`${API_BASE}/${courseId}/complete`, { timeSpentSeconds })).data;
   }
 };

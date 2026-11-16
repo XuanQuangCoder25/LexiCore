@@ -141,6 +141,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
         if (res.data?.idMap) {
           dispatch({ type: 'APPLY_ID_MAP', idMap: res.data.idMap });
         }
+        dispatch({ type: 'CLEAR_ERRORS' });
         dispatch({ type: 'MARK_CLEAN' });
         toast.success('Đã lưu toàn bộ khóa học vào Private Space!');
         setShowSavedSuccessModal(true);
@@ -149,8 +150,22 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
       }
     } catch (err: any) {
       console.error('Lỗi lưu tree:', err);
-      const msg = err.response?.data?.message || err.message || 'Lỗi khi lưu cấu trúc khóa học';
-      toast.error(msg);
+      const apiErrors: Array<{ path: string; message: string }> = err.response?.data?.errors;
+      if (Array.isArray(apiErrors) && apiErrors.length > 0) {
+        dispatch({ type: 'SET_ERRORS', errors: apiErrors });
+        toast.error(apiErrors[0].message, {
+          description:
+            apiErrors.length > 1
+              ? `Và ${apiErrors.length - 1} mục khác: ${apiErrors
+                  .slice(1, 3)
+                  .map((e) => e.message)
+                  .join(' | ')}`
+              : undefined
+        });
+      } else {
+        const msg = err.response?.data?.message || err.message || 'Lỗi khi lưu cấu trúc khóa học';
+        toast.error(msg);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -168,7 +183,15 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
     const errors = validateCourse(state.course, state.chapters);
     if (errors.length > 0) {
       dispatch({ type: 'SET_ERRORS', errors });
-      toast.error(`Còn ${errors.length} lỗi cần khắc phục trước khi xuất bản`);
+      toast.error(errors[0].message, {
+        description:
+          errors.length > 1
+            ? `Và ${errors.length - 1} mục khác cần hoàn thiện: ${errors
+                .slice(1, 3)
+                .map((e) => e.message)
+                .join(' | ')}`
+            : 'Vui lòng nhấn "Bổ sung ngay" ở danh sách kiểm tra bên dưới để hoàn thiện.'
+      });
       return;
     }
 
@@ -182,6 +205,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
 
       const res = await courseBuilderService.publishCourse(courseId);
       if (res.status === 'success') {
+        dispatch({ type: 'CLEAR_ERRORS' });
         dispatch({ type: 'SET_META', payload: { isPublished: true, status: 'published' } });
         dispatch({ type: 'MARK_CLEAN' });
         toast.success('Khóa học đã được xuất bản công khai thành công!');
@@ -192,7 +216,21 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
       if (err.response?.status === 403) {
         setShowPublishModal(true);
       } else {
-        toast.error(err.response?.data?.message || 'Không thể xuất bản khóa học');
+        const apiErrors: Array<{ path: string; message: string }> = err.response?.data?.errors;
+        if (Array.isArray(apiErrors) && apiErrors.length > 0) {
+          dispatch({ type: 'SET_ERRORS', errors: apiErrors });
+          toast.error(apiErrors[0].message, {
+            description:
+              apiErrors.length > 1
+                ? `Và ${apiErrors.length - 1} mục khác cần hoàn thiện: ${apiErrors
+                    .slice(1, 3)
+                    .map((e) => e.message)
+                    .join(' | ')}`
+                : err.response?.data?.message
+          });
+        } else {
+          toast.error(err.response?.data?.message || 'Không thể xuất bản khóa học');
+        }
       }
     } finally {
       setIsPublishing(false);
@@ -793,6 +831,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
         <CourseReviewStep
           state={state}
           onBackToStep2={() => dispatch({ type: 'SET_STEP', step: 2 })}
+          onGoToStep1={() => dispatch({ type: 'SET_STEP', step: 1 })}
           onSelectTarget={(target) => dispatch({ type: 'SELECT_ITEM', selection: target })}
           onSaveDraft={handleSaveDraft}
           onPublish={handlePublish}

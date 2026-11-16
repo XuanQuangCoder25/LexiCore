@@ -9,6 +9,19 @@ import { CourseTreeDTO, ValidationErrorItem } from './course.types';
 export const VALID_LEVELS = ['ALL', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 
 /**
+ * Chuẩn hóa trường level về đúng enum hợp lệ của CourseSchema.
+ * Nếu nhận giá trị như 'All Levels', 'All', rỗng hoặc không hợp lệ -> mặc định trả về 'ALL'.
+ */
+export const normalizeCourseLevel = (level?: string): string => {
+  if (!level || typeof level !== 'string') return 'ALL';
+  const upper = level.trim().toUpperCase();
+  if ((VALID_LEVELS as readonly string[]).includes(upper)) {
+    return upper;
+  }
+  return 'ALL';
+};
+
+/**
  * Kiểm tra quyền xuất bản khóa học công khai.
  * Chỉ Admin hoặc Content Creator có trạng thái hoạt động (khác SUSPENDED) mới được xuất bản.
  */
@@ -28,13 +41,16 @@ export const ensureMongoUser = async (userId: string) => {
   if (!user) {
     let email = `user_${userId}@lexicore.local`;
     let username = 'User';
-    let role: any = 'user';
+    let role: 'user' | 'admin' | 'content_creator' = 'user';
     try {
       const mysqlUser = await findUserById(userId);
       if (mysqlUser) {
-        email = mysqlUser.email;
+        email = mysqlUser.email || email;
         username = mysqlUser.full_name || 'User';
-        role = (mysqlUser.role || 'user').toLowerCase();
+        const normalizedRole = (mysqlUser.role || 'user').toLowerCase().replace(/\s+/g, '_');
+        if (normalizedRole === 'admin' || normalizedRole === 'content_creator' || normalizedRole === 'user') {
+          role = normalizedRole;
+        }
       }
     } catch (e) {
       // MySQL connect error / test user fallback
@@ -49,8 +65,21 @@ export const ensureMongoUser = async (userId: string) => {
         role
       });
     } catch (createErr) {
-      // Phòng trường hợp race condition tạo song song
+      // Phòng trường hợp race condition tạo song song hoặc trùng email cũ
       user = await User.findById(userId);
+      if (!user) {
+        try {
+          user = await User.create({
+            _id: userId,
+            email: `user_${userId}_${Date.now()}@lexicore.local`,
+            username,
+            passwordHash: 'synced_from_mysql',
+            role
+          });
+        } catch {
+          user = await User.findById(userId);
+        }
+      }
     }
   }
   return user;
@@ -64,7 +93,11 @@ export const ensureOwnerEnrolled = async (courseId: string, userId: string) => {
   const user = await ensureMongoUser(userId);
   if (!user) return null;
 
-  const exists = user.enrolledCourses.some(e => e.courseId.toString() === courseId);
+  if (!Array.isArray(user.enrolledCourses)) {
+    user.enrolledCourses = [];
+  }
+
+  const exists = user.enrolledCourses.some(e => e.courseId?.toString() === courseId);
   if (!exists) {
     user.enrolledCourses.push({
       courseId: new mongoose.Types.ObjectId(courseId),
@@ -249,7 +282,7 @@ export const syncCourseTreeService = async (
     if (c.shortDescription !== undefined) course.shortDescription = c.shortDescription.trim();
     if (c.description !== undefined) course.description = c.description;
     if (c.thumbnail !== undefined) course.thumbnail = c.thumbnail.trim();
-    if (c.level !== undefined && c.level) course.level = c.level;
+    if (c.level !== undefined && c.level) course.level = normalizeCourseLevel(c.level);
     if (Array.isArray(c.tags)) course.tags = c.tags.map(t => t.trim()).filter(Boolean);
     if (Array.isArray(c.objectives)) course.objectives = c.objectives.map(o => o.trim()).filter(Boolean);
     if (c.price !== undefined && typeof c.price === 'number') course.price = Math.max(0, c.price);
@@ -277,12 +310,16 @@ export const syncCourseTreeService = async (
       chapterDoc = existingChapters.find(ch => ch._id.toString() === String(clientChapterId));
     }
 
+    const cleanTakeaways = Array.isArray(chapterData.keyTakeaways)
+      ? chapterData.keyTakeaways.map((k: any) => String(k || '').trim()).filter(Boolean)
+      : [];
+
     if (chapterDoc) {
       // Cập nhật chapter hiện có
       chapterDoc.title = (chapterData.title || '').trim();
       chapterDoc.description = chapterData.description || '';
       chapterDoc.summary = chapterData.summary || '';
-      chapterDoc.keyTakeaways = Array.isArray(chapterData.keyTakeaways) ? chapterData.keyTakeaways : [];
+      chapterDoc.keyTakeaways = cleanTakeaways;
       chapterDoc.order = cIdx + 1;
       await chapterDoc.save();
     } else {
@@ -292,7 +329,7 @@ export const syncCourseTreeService = async (
         title: (chapterData.title || '').trim(),
         description: chapterData.description || '',
         summary: chapterData.summary || '',
-        keyTakeaways: Array.isArray(chapterData.keyTakeaways) ? chapterData.keyTakeaways : [],
+        keyTakeaways: cleanTakeaways,
         order: cIdx + 1
       });
       await chapterDoc.save();
@@ -474,7 +511,10 @@ export const publishCourseService = async (courseId: string, user: any) => {
 
   const validation = validateCourseTree(fullTree, true);
   if (!validation.isValid) {
-    const error: any = new Error('Khóa học chưa đạt tiêu chuẩn để xuất bản. Vui lòng hoàn thiện các nội dung còn thiếu.');
+    const firstErrorMsg = validation.errors[0]?.message;
+    const error: any = new Error(
+      firstErrorMsg || 'Khóa học chưa đạt tiêu chuẩn để xuất bản. Vui lòng hoàn thiện các nội dung còn thiếu.'
+    );
     error.statusCode = 400;
     error.errors = validation.errors;
     throw error;

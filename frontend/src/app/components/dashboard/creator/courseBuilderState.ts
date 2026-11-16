@@ -432,31 +432,97 @@ export const courseBuilderReducer = (
 
 export const validateCourse = (course: ICourseMeta, chapters: IChapterItem[]): Array<{ path: string; message: string }> => {
   const errors: Array<{ path: string; message: string }> = [];
+  const trimmedTitle = (course.title || '').trim();
 
-  if (!course.title || !course.title.trim()) {
-    errors.push({ path: 'course.title', message: 'Tên khóa học không được để trống' });
+  if (!trimmedTitle) {
+    errors.push({ path: 'course.title', message: 'Tên khóa học không được để trống (Bước 1: Tổng quan).' });
+  } else if (trimmedTitle.length < 3) {
+    errors.push({ path: 'course.title', message: `Tên khóa học "${trimmedTitle}" quá ngắn — cần ít nhất 3 ký tự (Bước 1: Tổng quan).` });
+  } else if (trimmedTitle.length > 120) {
+    errors.push({ path: 'course.title', message: 'Tên khóa học không được vượt quá 120 ký tự (Bước 1: Tổng quan).' });
+  }
+
+  if (course.shortDescription && course.shortDescription.length > 250) {
+    errors.push({ path: 'course.shortDescription', message: 'Mô tả ngắn không được vượt quá 250 ký tự (Bước 1: Tổng quan).' });
   }
 
   if (!chapters || chapters.length === 0) {
-    errors.push({ path: 'chapters', message: 'Khóa học phải có ít nhất 1 chương' });
+    errors.push({ path: 'chapters', message: 'Khóa học phải có ít nhất 1 chương học để xuất bản.' });
   }
 
   chapters.forEach((ch, chIdx) => {
+    const chLabel = ch.title?.trim() ? `Chương ${chIdx + 1} ("${ch.title.trim()}")` : `Chương ${chIdx + 1}`;
     if (!ch.title || !ch.title.trim()) {
-      errors.push({ path: `chapters[${chIdx}].title`, message: `Chương ${chIdx + 1} chưa có tiêu đề` });
+      errors.push({ path: `chapters[${chIdx}].title`, message: `${chLabel} chưa có tên chương.` });
     }
     if (!ch.lessons || ch.lessons.length === 0) {
       errors.push({
         path: `chapters[${chIdx}].lessons`,
-        message: `Chương "${ch.title || chIdx + 1}" chưa có bài học nào. Mọi chương phải có ít nhất 1 bài học.`
+        message: `${chLabel} chưa có bài học nào. Vui lòng thêm ít nhất 1 bài học hoặc xóa chương rỗng.`
       });
     } else {
       ch.lessons.forEach((ls, lsIdx) => {
+        const lsLabel = ls.title?.trim() ? `"${ls.title.trim()}"` : `Bài số ${lsIdx + 1}`;
         if (!ls.title || !ls.title.trim()) {
           errors.push({
             path: `chapters[${chIdx}].lessons[${lsIdx}].title`,
-            message: `Bài học ${lsIdx + 1} trong chương "${ch.title || chIdx + 1}" chưa có tiêu đề`
+            message: `Bài học số ${lsIdx + 1} thuộc ${chLabel} chưa có tiêu đề.`
           });
+        }
+
+        const type = ls.type || 'reading';
+        if (type === 'video' && !(ls.videoUrl || '').trim()) {
+          errors.push({
+            path: `chapters[${chIdx}].lessons[${lsIdx}].videoUrl`,
+            message: `Bài giảng Video ${lsLabel} (${chLabel}) chưa điền đường dẫn (URL) video.`
+          });
+        }
+
+        if (type === 'reading' && !(ls.content || '').trim() && (!ls.blocks || ls.blocks.length === 0)) {
+          errors.push({
+            path: `chapters[${chIdx}].lessons[${lsIdx}].content`,
+            message: `Bài lý thuyết ${lsLabel} (${chLabel}) chưa có nội dung văn bản.`
+          });
+        }
+
+        if (type === 'vocabulary') {
+          const validVocab = Array.isArray(ls.vocabulary)
+            ? ls.vocabulary.filter(v => (v.term || '').trim() && (v.meaning || '').trim())
+            : [];
+          const hasDeck = !!ls.attachedFlashcardId && ls.attachedFlashcardId !== 'none';
+          if (validVocab.length === 0 && !hasDeck) {
+            errors.push({
+              path: `chapters[${chIdx}].lessons[${lsIdx}].vocabulary`,
+              message: `Bài từ vựng ${lsLabel} (${chLabel}) cần nhập ít nhất 1 từ vựng (đủ Từ & Nghĩa) hoặc liên kết với một bộ Flashcard.`
+            });
+          }
+        }
+
+        if (type === 'quiz') {
+          const questions = Array.isArray(ls.quiz) ? ls.quiz : [];
+          const hasExam = !!ls.attachedExamId && ls.attachedExamId !== 'none';
+          if (questions.length === 0 && !hasExam) {
+            errors.push({
+              path: `chapters[${chIdx}].lessons[${lsIdx}].quiz`,
+              message: `Bài Mini-quiz ${lsLabel} (${chLabel}) cần có ít nhất 1 câu hỏi trắc nghiệm hoặc đính kèm đề thi.`
+            });
+          } else if (questions.length > 0 && !hasExam) {
+            questions.forEach((q, qIdx) => {
+              if (!(q.question || '').trim()) {
+                errors.push({
+                  path: `chapters[${chIdx}].lessons[${lsIdx}].quiz[${qIdx}].question`,
+                  message: `Câu hỏi ${qIdx + 1} trong bài Mini-quiz ${lsLabel} (${chLabel}) chưa nhập nội dung câu hỏi.`
+                });
+              }
+              const validOpts = Array.isArray(q.options) ? q.options.map(o => String(o).trim()).filter(Boolean) : [];
+              if (validOpts.length < 2) {
+                errors.push({
+                  path: `chapters[${chIdx}].lessons[${lsIdx}].quiz[${qIdx}].options`,
+                  message: `Câu hỏi ${qIdx + 1} trong bài Mini-quiz ${lsLabel} (${chLabel}) phải có ít nhất 2 đáp án không trống.`
+                });
+              }
+            });
+          }
         }
       });
     }

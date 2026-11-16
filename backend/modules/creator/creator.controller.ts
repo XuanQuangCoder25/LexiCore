@@ -21,23 +21,35 @@ const canPublishContent = (req: Request): boolean => {
 // --- COURSES (FLASHCARD DECKS) ---
 export const createCourse = async (req: Request, res: Response) => {
   try {
-    const { title, description, thumbnail } = req.body;
-    const creatorId = req.user?.id;
-    if (!creatorId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    const { title, description, thumbnail, level } = req.body || {};
+    const creatorId = req.user?.id || (req.user as any)?._id;
+    if (!creatorId) return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập.' });
+
+    const trimmedTitle = String(title || '').trim();
+    if (!trimmedTitle) {
+      return res.status(400).json({ success: false, message: 'Tiêu đề không được để trống.' });
+    }
+
+    const validLevels = ['ALL', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+    const normalizedLevel = level && validLevels.includes(String(level).trim().toUpperCase())
+      ? String(level).trim().toUpperCase()
+      : 'ALL';
 
     // Luôn tạo ở trạng thái private/draft ban đầu
     const course = new Course({ 
-      title, 
-      description, 
-      thumbnail, 
+      title: trimmedTitle, 
+      description: String(description || ''), 
+      thumbnail: String(thumbnail || '').trim(), 
+      level: normalizedLevel,
       isPublished: false, 
-      creatorId, 
+      status: 'draft',
+      creatorId: String(creatorId), 
       type: 'flashcard' 
     });
     await course.save();
     res.status(201).json({ success: true, data: course });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Lỗi server' });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error?.message || 'Lỗi khi tạo khóa học' });
   }
 };
 

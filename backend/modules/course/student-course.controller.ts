@@ -121,6 +121,8 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
         let completedChapters: string[] = [];
         let isCompleted = false;
         let completedAt: Date | null = null;
+        let timeSpentSeconds = 0;
+        let lessonTimeSpent: Record<string, number> = {};
         
         if (userId) {
             // Tự động đồng bộ và ghi nhận enrollment cho chủ sở hữu / admin để học thử mượt mà
@@ -147,7 +149,9 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
                             progressPercentage: 0,
                             completedChapters: [],
                             isCompleted: false,
-                            completedAt: null
+                            completedAt: null,
+                            timeSpentSeconds: 0,
+                            lessonTimeSpent: {}
                         });
                         await user.save();
                     }
@@ -160,6 +164,12 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
                     completedChapters = (enrollment.completedChapters ?? []).map(cid => cid.toString());
                     isCompleted = !!enrollment.isCompleted;
                     completedAt = enrollment.completedAt ?? null;
+                    timeSpentSeconds = Number(enrollment.timeSpentSeconds || 0);
+                    if (enrollment.lessonTimeSpent && typeof enrollment.lessonTimeSpent === 'object') {
+                        lessonTimeSpent = enrollment.lessonTimeSpent instanceof Map
+                            ? Object.fromEntries(enrollment.lessonTimeSpent)
+                            : { ...enrollment.lessonTimeSpent };
+                    }
                 }
                 completedLessons = user.completedLessons.map(cid => cid.toString());
             }
@@ -169,7 +179,9 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
             return {
                 ...chapter,
                 summary: chapter.summary || '',
-                keyTakeaways: chapter.keyTakeaways || [],
+                keyTakeaways: Array.isArray(chapter.keyTakeaways)
+                    ? chapter.keyTakeaways.map((k: any) => String(k || '').trim()).filter(Boolean)
+                    : [],
                 lessons: lessons.filter(lesson => lesson.chapterId.toString() === chapter._id.toString())
                     // Trả về đầy đủ trường cho học viên / xem trước
                     .map(l => ({ 
@@ -193,6 +205,8 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
                 completedChapters,
                 isCompleted,
                 completedAt,
+                timeSpentSeconds,
+                lessonTimeSpent,
                 // Owner/Admin xem trước toàn bộ; học viên chỉ mở chương theo tiến độ
                 unlockedChapterIds: (isOwner || isAdmin)
                     ? chapters.map(c => c._id.toString())
@@ -395,6 +409,8 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
         }
 
         const lessonObjId = new mongoose.Types.ObjectId(String(lessonId));
+        const rawSpent = Number(req.body?.timeSpentSeconds);
+        const spentSeconds = Number.isFinite(rawSpent) && rawSpent > 0 ? Math.max(1, Math.round(rawSpent)) : 0;
         
         // Kiểm tra đã hoàn thành chưa?
         if (user.completedLessons.includes(lessonObjId)) {
@@ -404,7 +420,7 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
         
         user.completedLessons.push(lessonObjId);
 
-        // --- Cập nhật % tiến độ khóa học ---
+        // --- Cập nhật % tiến độ khóa học & thời gian học thực tế ---
         const totalLessons = await Lesson.countDocuments({ courseId });
         const courseLessons = await Lesson.find({ courseId }).select('_id');
         const courseLessonIds = courseLessons.map(l => l._id.toString());
@@ -416,10 +432,22 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
 
         const progress = totalLessons === 0 ? 0 : Math.round((completedInThisCourse / totalLessons) * 100);
 
-        // Cập nhật tiến độ vào enrolledCourses
+        // Cập nhật tiến độ và thời gian làm bài thực tế vào enrolledCourses
         const enrollmentIndex = user.enrolledCourses.findIndex(e => e.courseId.toString() === courseId);
         if (enrollmentIndex > -1) {
             user.enrolledCourses[enrollmentIndex].progressPercentage = progress;
+            if (spentSeconds > 0) {
+                const currentMap = (user.enrolledCourses[enrollmentIndex].lessonTimeSpent && typeof user.enrolledCourses[enrollmentIndex].lessonTimeSpent === 'object')
+                    ? { ...user.enrolledCourses[enrollmentIndex].lessonTimeSpent }
+                    : {};
+                currentMap[String(lessonId)] = spentSeconds;
+                user.enrolledCourses[enrollmentIndex].lessonTimeSpent = currentMap;
+                const totalCourseSeconds = Object.entries(currentMap)
+                    .filter(([k]) => courseLessonIds.includes(String(k)))
+                    .reduce((acc, [, val]) => acc + (Number(val) || 0), 0);
+                user.enrolledCourses[enrollmentIndex].timeSpentSeconds = totalCourseSeconds;
+                user.markModified(`enrolledCourses.${enrollmentIndex}.lessonTimeSpent`);
+            }
         }
 
         // --- Tích hợp Gamification ---
@@ -430,7 +458,7 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
         res.status(200).json({ 
             status: 'success', 
             message: 'Chúc mừng bạn đã hoàn thành bài học!',
-            data: { progressPercentage: progress }
+            data: { progressPercentage: progress, timeSpentSeconds: spentSeconds }
         });
     } catch (error: any) {
         res.status(500).json({ status: 'error', message: error.message });
@@ -617,11 +645,16 @@ export const completeCourse = async (req: Request, res: Response): Promise<void>
         }
 
         const totalDurationMinutes = lessons.reduce((sum, l) => sum + (l.durationMinutes || 0), 0);
+        const clientTimeSpentSeconds = Number(req.body?.timeSpentSeconds || 0);
+        const savedTimeSpentSeconds = Number(enrollment.timeSpentSeconds || 0);
+        const actualTimeSpentSeconds = Math.max(clientTimeSpentSeconds, savedTimeSpentSeconds);
+
         const stats = {
             totalChapters: chapters.length,
             totalLessons: lessons.length,
             completedLessons: lessons.length,
             totalDurationMinutes,
+            timeSpentSeconds: actualTimeSpentSeconds,
             progressPercentage: 100
         };
 

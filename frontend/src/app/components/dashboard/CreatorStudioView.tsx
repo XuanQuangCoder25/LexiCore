@@ -6,6 +6,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Separator } from "../ui/separator";
@@ -97,9 +98,21 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
   const [newActualCourseDesc, setNewActualCourseDesc] = useState("");
   const [newCourseThumb, setNewCourseThumb] = useState("");
   const [newActualCourseThumb, setNewActualCourseThumb] = useState("");
+  const [newActualCourseLevel, setNewActualCourseLevel] = useState("B1");
+  const [newCourseLevel, setNewCourseLevel] = useState("B1");
   const [isSavingCourse, setIsSavingCourse] = useState(false);
   const [isSavingActualCourse, setIsSavingActualCourse] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  const COURSE_LEVEL_OPTIONS = [
+    { value: "ALL", label: "ALL - Tất cả trình độ (Mọi đối tượng)" },
+    { value: "A1", label: "A1 - Người mới bắt đầu (Beginner)" },
+    { value: "A2", label: "A2 - Sơ cấp (Elementary)" },
+    { value: "B1", label: "B1 - Trung cấp (Intermediate)" },
+    { value: "B2", label: "B2 - Trung cao cấp (Upper Intermediate)" },
+    { value: "C1", label: "C1 - Cao cấp (Advanced)" },
+    { value: "C2", label: "C2 - Thành thạo (Mastery)" },
+  ];
 
   useEffect(() => {
     fetchCourses();
@@ -209,7 +222,20 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
       if (error?.response?.status === 403) {
         setShowPublishRestrictedModal(true);
       } else {
-        toast.error(error?.response?.data?.message || "Lỗi cập nhật trạng thái khóa học");
+        const apiErrors: Array<{ path: string; message: string }> = error?.response?.data?.errors;
+        if (Array.isArray(apiErrors) && apiErrors.length > 0) {
+          toast.error(apiErrors[0].message, {
+            description:
+              apiErrors.length > 1
+                ? `Và ${apiErrors.length - 1} mục khác cần hoàn thiện: ${apiErrors
+                    .slice(1, 3)
+                    .map((e) => e.message)
+                    .join(' | ')}`
+                : error?.response?.data?.message
+          });
+        } else {
+          toast.error(error?.response?.data?.message || "Lỗi cập nhật trạng thái khóa học");
+        }
       }
     }
   };
@@ -268,33 +294,40 @@ const handleOpenEditor = (course: Course) => {
   };
 
   const handleCreateActualCourse = async () => {
-    if (!newActualCourseTitle.trim()) {
+    const trimmedTitle = newActualCourseTitle.trim();
+    if (!trimmedTitle) {
       toast.error("Tiêu đề khóa học là bắt buộc");
+      return;
+    }
+    if (trimmedTitle.length < 3) {
+      toast.error("Tiêu đề khóa học phải có ít nhất 3 ký tự");
       return;
     }
     
     setIsSavingActualCourse(true);
     try {
       const res = await courseBuilderService.createCourse({
-        title: newActualCourseTitle,
-        description: newActualCourseDesc,
-        thumbnail: newActualCourseThumb,
-        level: 'All Levels',
+        title: trimmedTitle,
+        description: newActualCourseDesc.trim(),
+        thumbnail: newActualCourseThumb.trim(),
+        level: newActualCourseLevel || 'ALL',
         tags: [],
+        objectives: [],
         price: 0
       });
-      if (res.status === 'success') {
+      if (res.status === 'success' || res.success) {
         setActualCourses((prev) => [res.data, ...prev]);
         setNewActualCourseTitle("");
         setNewActualCourseDesc("");
         setNewActualCourseThumb("");
+        setNewActualCourseLevel("B1");
         setShowNewActualCourseDialog(false);
         toast.success("Đã tạo khóa học mới");
         setSelectedCourse(res.data);
         setView("course_builder");
       }
-    } catch (error) {
-      toast.error("Lỗi khi tạo khóa học");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Lỗi khi tạo khóa học");
     } finally {
       setIsSavingActualCourse(false);
     }
@@ -309,9 +342,10 @@ const handleOpenEditor = (course: Course) => {
     setIsSavingCourse(true);
     try {
       const res = await creatorService.createCourse({
-        title: newCourseTitle,
-        description: newCourseDesc,
-        thumbnail: newCourseThumb,
+        title: newCourseTitle.trim(),
+        description: newCourseDesc.trim(),
+        thumbnail: newCourseThumb.trim(),
+        level: newCourseLevel || 'ALL',
         isPublished: false
       });
       if (res.success) {
@@ -319,11 +353,12 @@ const handleOpenEditor = (course: Course) => {
         setNewCourseTitle("");
         setNewCourseDesc("");
         setNewCourseThumb("");
+        setNewCourseLevel("B1");
         setShowNewCourseDialog(false);
         toast.success("Đã tạo khóa học mới");
       }
-    } catch (error) {
-      toast.error("Lỗi khi tạo khóa học");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Lỗi khi tạo khóa học");
     } finally {
       setIsSavingCourse(false);
     }
@@ -619,6 +654,9 @@ const handleOpenEditor = (course: Course) => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-semibold text-zinc-900 truncate">{course.title}</p>
+                            <Badge variant="outline" className="shrink-0 text-[11px] rounded-full border-zinc-200 bg-zinc-50 text-zinc-700 font-mono">
+                              {course.level || "ALL"}
+                            </Badge>
                             <Badge variant={course.isPublished ? "default" : "secondary"} className="shrink-0 text-xs rounded-full border-zinc-200">
                               {course.isPublished ? <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" /> : <AlertCircle className="h-3 w-3 mr-1 text-zinc-500" />}
                               {course.isPublished ? "Đã xuất bản" : "Bản nháp"}
@@ -683,8 +721,23 @@ const handleOpenEditor = (course: Course) => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Tiêu đề *</Label>
+              <Label>Tiêu đề * <span className="text-xs font-normal text-muted-foreground">(tối thiểu 3 ký tự)</span></Label>
               <Input value={newActualCourseTitle} onChange={(e) => setNewActualCourseTitle(e.target.value)} placeholder="Ví dụ: IELTS Vocabulary 7.0+" className="mt-1" />
+            </div>
+            <div>
+              <Label>Cấp bậc / Trình độ (CEFR) *</Label>
+              <Select value={newActualCourseLevel} onValueChange={setNewActualCourseLevel}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Chọn trình độ khóa học" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COURSE_LEVEL_OPTIONS.map((lvl) => (
+                    <SelectItem key={lvl.value} value={lvl.value}>
+                      {lvl.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Mô tả</Label>
@@ -765,6 +818,9 @@ const handleOpenEditor = (course: Course) => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-semibold text-zinc-900 truncate">{course.title}</p>
+                            <Badge variant="outline" className="shrink-0 text-[11px] rounded-full border-zinc-200 bg-zinc-50 text-zinc-700 font-mono">
+                              {course.level || "ALL"}
+                            </Badge>
                             <Badge variant={course.isPublished ? "default" : "secondary"} className="shrink-0 text-xs rounded-full border-zinc-200">
                               {course.isPublished ? <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" /> : <AlertCircle className="h-3 w-3 mr-1 text-zinc-500" />}
                               {course.isPublished ? "Đã xuất bản" : "Bản nháp"}

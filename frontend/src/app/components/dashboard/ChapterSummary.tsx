@@ -18,6 +18,7 @@ import {
 interface ChapterSummaryProps {
   chapter: any; // { _id, order, title, description, lessons[] }
   completedLessonIds: string[];
+  lessonTimeSpent?: Record<string, number>; // Thời gian làm bài thực tế của từng bài học (giây)
   isChapterCompleted: boolean; // Chương đã được xác nhận hoàn thành trên server
   isLastChapter: boolean;
   nextChapterTitle?: string;
@@ -31,16 +32,24 @@ interface ChapterSummaryProps {
   onCompleteCourse?: () => void;
 }
 
-const formatDuration = (totalMinutes: number) => {
-  if (totalMinutes < 60) return `${totalMinutes} phút`;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+const formatActualDuration = (totalSeconds: number) => {
+  const sec = Math.max(0, Math.round(totalSeconds || 0));
+  if (sec === 0) return "< 1 phút";
+  if (sec < 60) return `${sec} giây`;
+  if (sec < 3600) {
+    const minutes = Math.floor(sec / 60);
+    const seconds = sec % 60;
+    return seconds > 0 ? `${minutes} phút ${seconds}s` : `${minutes} phút`;
+  }
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
   return minutes === 0 ? `${hours} giờ` : `${hours} giờ ${minutes} phút`;
 };
 
 export const ChapterSummary = ({
   chapter,
   completedLessonIds,
+  lessonTimeSpent = {},
   isChapterCompleted,
   isLastChapter,
   nextChapterTitle,
@@ -54,10 +63,16 @@ export const ChapterSummary = ({
 }: ChapterSummaryProps) => {
   const lessons: any[] = chapter.lessons ?? [];
   const completedCount = lessons.filter((l) => completedLessonIds.includes(l._id)).length;
-  const totalMinutes = lessons.reduce((sum, l) => sum + (l.durationMinutes || 0), 0);
-  const quizCount = lessons.filter((l) => l.attachedExamId).length;
-  const deckCount = lessons.filter((l) => l.attachedFlashcardId).length;
+  const actualChapterSeconds = lessons.reduce(
+    (sum, l) => sum + (Number(lessonTimeSpent?.[l._id]) || 0),
+    0
+  );
+  const quizCount = lessons.filter((l) => l.attachedExamId || l.type === 'quiz').length;
+  const deckCount = lessons.filter((l) => l.attachedFlashcardId || l.type === 'vocabulary').length;
   const percent = lessons.length === 0 ? 100 : Math.round((completedCount / lessons.length) * 100);
+  const validTakeaways = Array.isArray(chapter.keyTakeaways)
+    ? chapter.keyTakeaways.map((k: string) => String(k || '').trim()).filter(Boolean)
+    : [];
 
   const ctaLabel = isLastChapter
     ? "Hoàn thành chương cuối"
@@ -67,7 +82,7 @@ export const ChapterSummary = ({
 
   const stats = [
     { icon: BookOpen, label: "Bài đã học", value: `${completedCount}/${lessons.length}` },
-    { icon: Clock, label: "Tổng thời lượng", value: formatDuration(totalMinutes) },
+    { icon: Clock, label: "Thời gian làm bài", value: formatActualDuration(actualChapterSeconds) },
     { icon: FileText, label: "Bài kiểm tra", value: String(quizCount) },
     { icon: Layers, label: "Bộ flashcard", value: String(deckCount) },
   ];
@@ -106,7 +121,7 @@ export const ChapterSummary = ({
       </div>
 
       {/* Chapter Summary & Key Takeaways Card */}
-      {(chapter.summary || (chapter.keyTakeaways && chapter.keyTakeaways.length > 0)) && (
+      {(chapter.summary || validTakeaways.length > 0) && (
         <Card className="border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] bg-white rounded-2xl overflow-hidden">
           <CardContent className="p-6 space-y-4">
             {chapter.summary && (
@@ -120,13 +135,13 @@ export const ChapterSummary = ({
               </div>
             )}
 
-            {chapter.keyTakeaways && chapter.keyTakeaways.length > 0 && (
-              <div className="space-y-2 pt-3 border-t border-zinc-100">
+            {validTakeaways.length > 0 && (
+              <div className={`space-y-2 ${chapter.summary ? 'pt-3 border-t border-zinc-100' : ''}`}>
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                   <Sparkles className="w-3.5 h-3.5 text-zinc-700" /> Các điểm cốt lõi bạn đã làm chủ (Key Takeaways)
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {chapter.keyTakeaways.map((point: string, idx: number) => (
+                  {validTakeaways.map((point: string, idx: number) => (
                     <div
                       key={idx}
                       className="p-3 rounded-xl border border-zinc-200/60 bg-zinc-50/60 flex items-start gap-2.5 text-xs text-zinc-800"
@@ -165,6 +180,7 @@ export const ChapterSummary = ({
           </div>
           {lessons.map((lesson) => {
             const done = completedLessonIds.includes(lesson._id);
+            const lessonSeconds = Number(lessonTimeSpent?.[lesson._id] || 0);
             return (
               <button
                 key={lesson._id}
@@ -176,7 +192,13 @@ export const ChapterSummary = ({
                 <span className="flex-1 text-xs sm:text-sm font-medium text-zinc-800 leading-tight">
                   {lesson.order}. {lesson.title}
                 </span>
-                <span className="shrink-0 text-xs text-zinc-400 font-mono">{lesson.durationMinutes} phút</span>
+                <span className="shrink-0 text-xs text-zinc-400 font-mono">
+                  {lessonSeconds > 0
+                    ? formatActualDuration(lessonSeconds)
+                    : done
+                    ? "< 1 phút"
+                    : `${lesson.durationMinutes || 5} phút`}
+                </span>
               </button>
             );
           })}

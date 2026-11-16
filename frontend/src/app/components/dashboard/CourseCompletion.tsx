@@ -12,6 +12,7 @@ export interface CourseCompletionStats {
   totalLessons: number;
   completedLessons: number;
   totalDurationMinutes: number;
+  timeSpentSeconds?: number;
   progressPercentage: number;
   completedAt?: string | Date | null;
 }
@@ -24,10 +25,17 @@ interface CourseCompletionProps {
   onExit: () => void; // Quay về danh sách khóa học
 }
 
-const formatDuration = (totalMinutes: number) => {
-  if (totalMinutes < 60) return `${totalMinutes} phút`;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+const formatCompletionDuration = (timeSpentSeconds?: number) => {
+  const sec = Math.max(0, Math.round(timeSpentSeconds || 0));
+  if (sec === 0) return "< 1 phút";
+  if (sec < 60) return `${sec} giây`;
+  if (sec < 3600) {
+    const minutes = Math.floor(sec / 60);
+    const seconds = sec % 60;
+    return seconds > 0 ? `${minutes} phút ${seconds}s` : `${minutes} phút`;
+  }
+  const hours = Math.floor(sec / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
   return minutes === 0 ? `${hours} giờ` : `${hours} giờ ${minutes} phút`;
 };
 
@@ -104,7 +112,7 @@ export const CourseCompletion = ({ courseId, courseTitle, stats, onClose, onExit
   const items = [
     { icon: BookOpen, label: "Bài học đã hoàn thành", value: `${lessons}/${stats.totalLessons}` },
     { icon: Layers, label: "Chương đã hoàn thành", value: `${stats.totalChapters}/${stats.totalChapters}` },
-    { icon: Clock, label: "Tổng thời lượng", value: formatDuration(stats.totalDurationMinutes) },
+    { icon: Clock, label: "Thời gian làm bài", value: formatCompletionDuration(stats.timeSpentSeconds) },
     { icon: CalendarCheck, label: "Ngày hoàn thành", value: completedDate ?? "Hôm nay" },
   ];
 
