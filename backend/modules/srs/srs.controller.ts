@@ -10,6 +10,11 @@ export const getDueCards = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { courseId, limit = '20' } = req.query;
 
+    // Tự động tăng lượt xem/học thực tế của bộ thẻ/khóa học
+    if (courseId && mongoose.isValidObjectId(String(courseId))) {
+      await Course.findByIdAndUpdate(courseId, { $inc: { viewsCount: 1 } });
+    }
+
     const limitNum = parseInt(limit as string, 10);
 
     // 1. Lấy thẻ due
@@ -242,8 +247,36 @@ export const getSrsStats = async (req: Request, res: Response) => {
 export const getDecks = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    // Lấy danh sách khoá học đã xuất bản
-    const courses = await Course.find({ isPublished: true });
+    const { search, level, sort } = req.query;
+
+    let query: any = { isPublished: true };
+
+    // Lọc theo cấp bậc CEFR (A1..C2)
+    if (level && level !== 'ALL' && level !== 'All Levels') {
+      query.level = String(level).toUpperCase();
+    }
+
+    // Tìm kiếm đa trường không phân biệt hoa thường
+    if (search && String(search).trim()) {
+      const searchRegex = { $regex: String(search).trim(), $options: 'i' };
+      query.$or = [
+        { title: searchRegex },
+        { shortDescription: searchRegex },
+        { description: searchRegex },
+        { tags: searchRegex }
+      ];
+    }
+
+    // Sắp xếp: Mới nhất (newest), Cũ nhất (oldest), Xem nhiều nhất (most_viewed)
+    let sortObj: any = { createdAt: -1 };
+    if (sort === 'oldest') {
+      sortObj = { createdAt: 1 };
+    } else if (sort === 'most_viewed') {
+      sortObj = { viewsCount: -1, createdAt: -1 };
+    }
+
+    // Lấy danh sách khoá học / bộ thẻ đã xuất bản
+    const courses = await Course.find(query).sort(sortObj);
     
     const decks = await Promise.all(courses.map(async (course) => {
       const totalCards = await Flashcard.countDocuments({ courseId: course._id });
@@ -273,13 +306,16 @@ export const getDecks = async (req: Request, res: Response) => {
         title: course.title,
         description: course.description,
         thumbnail: course.thumbnail,
+        level: course.level || 'B1',
+        viewsCount: course.viewsCount || 0,
+        createdAt: (course as any).createdAt,
         totalCards,
         studiedCards,
         masteredCards: reviewCards, // Thẻ đã vào trạng thái Review
         newCards: Math.max(0, totalCards - studiedCards),
         reviewCards: dueCardsCount, // Chính xác là số thẻ CẦN ÔN TẬP
-        category: 'Từ vựng',
-        difficulty: 'Cơ bản'
+        category: course.type === 'flashcard' ? 'Flashcard Deck' : 'Khóa học',
+        difficulty: course.level || 'B1'
       };
     }));
 

@@ -22,6 +22,7 @@ export interface ICourse extends Document {
   type: 'course' | 'flashcard';
   allowClone?: boolean; // Cho phép clone về Private Space (mặc định: true)
   cardCount?: number;   // Số thẻ trong bộ flashcard
+  viewsCount: number;   // Lượt xem / lượt học thực tế
   stats?: ICourseStats;
 }
 
@@ -34,13 +35,14 @@ const CourseSchema = new Schema<ICourse>({
   isPublished: { type: Boolean, default: false },
   status: { type: String, enum: ['draft', 'published'], default: 'draft' },
   publishedAt: { type: Date, default: null },
-  level: { type: String, default: 'ALL' },
+  level: { type: String, enum: ['ALL', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'], default: 'B1' },
   tags: [{ type: String }],
   objectives: [{ type: String }],
   price: { type: Number, default: 0 },
   type: { type: String, enum: ['course', 'flashcard'], default: 'course' },
   allowClone: { type: Boolean, default: true },
   cardCount: { type: Number, default: 0 },
+  viewsCount: { type: Number, default: 0 },
   stats: {
     totalChapters: { type: Number, default: 0 },
     totalLessons: { type: Number, default: 0 },
@@ -50,7 +52,8 @@ const CourseSchema = new Schema<ICourse>({
 
 // Tối ưu hóa truy vấn: lọc nội dung cá nhân (Private Space) & nội dung cộng đồng
 CourseSchema.index({ creatorId: 1, type: 1, isPublished: 1 });
-CourseSchema.index({ isPublished: 1, type: 1 });
+CourseSchema.index({ isPublished: 1, type: 1, createdAt: -1 });
+CourseSchema.index({ isPublished: 1, type: 1, viewsCount: -1 });
 CourseSchema.index({ creatorId: 1, createdAt: -1 });
 
 export default mongoose.model<ICourse>('Course', CourseSchema);

@@ -1,23 +1,38 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../ui/dialog';
 import { Button } from '../../ui/button';
-import { Crown } from 'lucide-react';
+import { Crown, Lightbulb } from 'lucide-react';
 
-interface PublishRestrictedModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+export interface PublishRestrictedModalProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  onNavigateToApplication?: () => void;
   onNavigateTab?: (tab: string) => void;
-  contentType?: 'khóa học' | 'bài kiểm tra' | 'bộ thẻ';
+  contentType?: 'khóa học' | 'bài kiểm tra' | 'bộ thẻ' | 'nội dung';
 }
 
 export const PublishRestrictedModal: React.FC<PublishRestrictedModalProps> = ({
   open,
   onOpenChange,
+  isOpen,
+  onClose,
+  onNavigateToApplication,
   onNavigateTab,
   contentType = 'khóa học'
 }) => {
+  const resolvedOpen = open ?? isOpen ?? false;
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(nextOpen);
+    } else if (!nextOpen && onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={resolvedOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md animate-in fade-in zoom-in-95 duration-200" aria-describedby={undefined}>
         <DialogHeader>
           <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3 shadow-inner border border-amber-500/20">
@@ -31,7 +46,10 @@ export const PublishRestrictedModal: React.FC<PublishRestrictedModalProps> = ({
             Tính năng xuất bản {contentType} công khai chỉ dành riêng cho <strong className="text-foreground font-semibold">Content Creator chính thức</strong>.
           </p>
           <div className="p-3.5 bg-muted/50 rounded-xl border border-border/60 text-xs text-foreground/80 space-y-1 text-left">
-            <p className="font-medium text-foreground">💡 Bạn vẫn hoàn toàn yên tâm:</p>
+            <p className="font-medium text-foreground inline-flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5 text-foreground shrink-0" strokeWidth={1.75} />
+              <span>Bạn vẫn hoàn toàn yên tâm:</span>
+            </p>
             <p>
               Nội dung của bạn được tự động lưu an toàn trong <strong className="text-primary font-semibold">Private Space</strong> để bạn tự do học tập, làm bài tập và ôn luyện bất kỳ lúc nào.
             </p>
@@ -42,13 +60,17 @@ export const PublishRestrictedModal: React.FC<PublishRestrictedModalProps> = ({
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row sm:justify-center gap-2 pt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Để sau (Giữ làm bản nháp)
           </Button>
           <Button
             className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium gap-2 shadow-md shadow-amber-500/20"
             onClick={() => {
-              onOpenChange(false);
+              if (onNavigateToApplication) {
+                onNavigateToApplication();
+                return;
+              }
+              handleOpenChange(false);
               if (onNavigateTab) {
                 onNavigateTab("profile");
               }

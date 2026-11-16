@@ -104,7 +104,16 @@ const SortableBlock = ({ block, updateBlock, removeBlock, updateMetadata }: { bl
   );
 };
 
-export const LessonBlockEditor = ({ blocks, setBlocks }: { blocks: ILessonBlock[], setBlocks: (b: ILessonBlock[]) => void }) => {
+export const LessonBlockEditor = ({
+  blocks,
+  setBlocks,
+  onChange
+}: {
+  blocks: ILessonBlock[];
+  setBlocks?: (b: ILessonBlock[]) => void;
+  onChange?: (b: ILessonBlock[]) => void;
+}) => {
+  const updateBlocksList = setBlocks || onChange || (() => {});
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -115,7 +124,7 @@ export const LessonBlockEditor = ({ blocks, setBlocks }: { blocks: ILessonBlock[
     if (active.id !== over.id) {
       const oldIndex = blocks.findIndex(b => b.id === active.id);
       const newIndex = blocks.findIndex(b => b.id === over.id);
-      setBlocks(arrayMove(blocks, oldIndex, newIndex));
+      updateBlocksList(arrayMove(blocks, oldIndex, newIndex));
     }
   };
 
@@ -124,19 +133,19 @@ export const LessonBlockEditor = ({ blocks, setBlocks }: { blocks: ILessonBlock[
     if (type === 'video') {
       initialMetadata = { showTranscript: true, enablePronunciationCheck: false, enableRecording: false, enableLoop: false };
     }
-    setBlocks([...blocks, { id: Date.now().toString(), type, content: '', metadata: initialMetadata }]);
+    updateBlocksList([...blocks, { id: Date.now().toString(), type, content: '', metadata: initialMetadata }]);
   };
 
   const updateBlock = (id: string, content: string) => {
-    setBlocks(blocks.map(b => b.id === id ? { ...b, content } : b));
+    updateBlocksList(blocks.map(b => b.id === id ? { ...b, content } : b));
   };
   
   const updateMetadata = (id: string, metadata: any) => {
-    setBlocks(blocks.map(b => b.id === id ? { ...b, metadata } : b));
+    updateBlocksList(blocks.map(b => b.id === id ? { ...b, metadata } : b));
   };
 
   const removeBlock = (id: string) => {
-    setBlocks(blocks.filter(b => b.id !== id));
+    updateBlocksList(blocks.filter(b => b.id !== id));
   };
 
   return (

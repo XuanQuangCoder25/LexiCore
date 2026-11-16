@@ -30,7 +30,7 @@ import { ChatButton } from "./components/global/ChatButton";
 import { ChatDialog } from "./components/global/ChatDialog";
 import { SocialProvider, useSocial } from "./features/social/SocialContext";
 import { Badge } from "./components/ui/badge";
-import { CircleDollarSign } from "lucide-react";
+import { CircleDollarSign, Flame } from "lucide-react";
 
 const TAB_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -198,8 +198,9 @@ function AppContent() {
               {/* Notifications */}
               <NotificationPopover />
               {/* User badge */}
-              <Badge variant="secondary" className="text-xs px-2 py-1">
-                🔥 7 day streak
+              <Badge variant="secondary" className="text-xs px-2.5 py-1 inline-flex items-center gap-1.5 font-medium">
+                <Flame className="w-3.5 h-3.5 shrink-0 text-zinc-900 dark:text-zinc-100" strokeWidth={1.75} />
+                <span>7 day streak</span>
               </Badge>
             </div>
           </header>

@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
-import Course, { ICourse } from '../../database/models/Course';
+import Course from '../../database/models/Course';
 import Chapter from '../../database/models/Chapter';
 import Lesson from '../../database/models/Lesson';
 import User from '../../database/models/User';
 import { findUserById } from '../auth/auth-repository';
-import { CourseTreeDTO, ValidationErrorItem, ChapterDTO, LessonDTO } from './course.types';
+import { CourseTreeDTO, ValidationErrorItem } from './course.types';
 
 export const VALID_LEVELS = ['ALL', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 

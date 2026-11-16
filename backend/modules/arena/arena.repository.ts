@@ -609,7 +609,7 @@ export async function getLeaderboard(options: {
     });
 
     // 3. Tính thứ hạng của chính người dùng hiện tại (nếu đã đăng nhập)
-    let myRank = null;
+    let myRank: any = null;
     if (options.currentUserId) {
         const [myWalletRows] = await pool.execute(
             `SELECT arena_rank, rank_point, leaderboard_point, arena_total_wins, arena_total_matches

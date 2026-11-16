@@ -5,7 +5,6 @@ import {
     getExpiringSubscriptions,
     expireSubscriptions,
     deductWalletVnd,
-    activateSubscription,
     cleanupOldOrders,
 } from '../payment/payment.repository';
 

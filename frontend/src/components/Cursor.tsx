@@ -28,7 +28,7 @@ export const Cursor: React.FC = () => {
     };
 
     const onMouseOut = (e: MouseEvent) => {
-      if (!e.relatedTarget && !e.toElement) {
+      if (!e.relatedTarget && !(e as any).toElement) {
         setIsVisible(false);
       }
     };

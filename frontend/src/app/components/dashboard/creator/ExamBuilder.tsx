@@ -813,7 +813,7 @@ function ReadingForm({ question, onChange }: { question: any, onChange: (q: any)
                 <Input 
                   value={sq.explanation || ''} 
                   onChange={e => updateSubQuestion(sqIdx, { ...sq, explanation: e.target.value })}
-                  placeholder="💡 Giải thích đáp án cho câu hỏi này (Trích dẫn dòng/đoạn chứng minh)..."
+                  placeholder="Giải thích đáp án cho câu hỏi này (Trích dẫn dòng/đoạn chứng minh)..."
                   className="text-xs h-8 text-muted-foreground"
                 />
               </div>
@@ -1127,7 +1127,7 @@ function MediaForm({ question, onUpload, onChange }: { question: any, onUpload: 
                 <Input 
                   value={sq.explanation || ''} 
                   onChange={e => updateSubQuestion(sqIdx, { ...sq, explanation: e.target.value })}
-                  placeholder="💡 Giải thích đáp án cho câu hỏi phụ này..."
+                  placeholder="Giải thích đáp án cho câu hỏi phụ này..."
                   className="text-xs h-8 text-muted-foreground"
                 />
               </div>

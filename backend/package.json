@@ -12,7 +12,6 @@
     "test:community:all": "tsx tests/community_integration.test.ts && tsx tests/community_cross_module.test.ts && tsx tests/community_socket.test.ts",
     "test:socket": "tsx tests/social_socket.test.ts",
     "test:all": "tsx tests/social_integration.test.ts && tsx tests/social_socket.test.ts",
-    "postinstall": "prisma skills sync || exit 0",
     "dev": "tsx watch server.ts",
     "type-check": "tsc --noEmit",
     "build": "echo 'No build step - tsx handles TypeScript directly'",

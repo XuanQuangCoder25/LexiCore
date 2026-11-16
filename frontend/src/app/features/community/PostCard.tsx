@@ -161,7 +161,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     if (!isLiked) {
       handleToggleLike();
     }
-    toast.success(`Bạn đã gửi lời chúc mừng tới ${post.author.full_name}! 🎉`);
+    toast.success(`Bạn đã gửi lời chúc mừng tới ${post.author.full_name}!`);
   };
 
   const handleCloneDeck = async () => {
@@ -486,13 +486,13 @@ export const PostCard: React.FC<PostCardProps> = ({
               variant={hasCelebrated ? 'outline' : 'default'}
               className={`h-8 text-xs font-semibold gap-1.5 shrink-0 shadow-sm ${
                 hasCelebrated
-                  ? 'border-amber-500 text-amber-600 bg-amber-500/10'
-                  : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white'
+                  ? 'border-zinc-300 text-zinc-900 bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-100'
+                  : 'bg-zinc-900 hover:bg-zinc-800 text-white'
               }`}
               onClick={handleCelebrate}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{hasCelebrated ? 'Đã chúc mừng 🎉' : 'Chúc mừng 🎉'}</span>
+              <span>{hasCelebrated ? 'Đã chúc mừng' : 'Chúc mừng'}</span>
             </Button>
           </div>
         )}

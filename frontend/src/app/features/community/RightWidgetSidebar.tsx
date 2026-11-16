@@ -71,14 +71,14 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({ onSelect
       {/* Widget 2: Mẹo học tập */}
       <Card className="border-border/60 bg-gradient-to-br from-primary/5 via-card to-card">
         <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
-            <Lightbulb className="w-4 h-4 text-amber-500 fill-amber-500/20" />
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+            <Lightbulb className="w-4 h-4 text-foreground" strokeWidth={1.75} />
             <span>Mẹo học hôm nay</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 text-xs text-muted-foreground leading-relaxed space-y-2">
           <p>
-            💡 Đừng chỉ học từ vựng riêng lẻ! Hãy kèm theo <strong>Collocations</strong> và tự đặt
+            Đừng chỉ học từ vựng riêng lẻ! Hãy kèm theo <strong>Collocations</strong> và tự đặt
             1 câu ngắn thực tế vào bộ thẻ Flashcard để tăng khả năng ghi nhớ dài hạn lên 3 lần.
           </p>
         </CardContent>
@@ -87,8 +87,8 @@ export const RightWidgetSidebar: React.FC<RightWidgetSidebarProps> = ({ onSelect
       {/* Widget 3: Văn hóa cộng đồng */}
       <Card className="border-border/60 bg-card/80">
         <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+            <ShieldCheck className="w-4 h-4 text-foreground" strokeWidth={1.75} />
             <span>Quy chuẩn cộng đồng</span>
           </CardTitle>
         </CardHeader>

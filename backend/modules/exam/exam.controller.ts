@@ -92,16 +92,34 @@ export const updateExam = async (req: Request, res: Response) => {
 export const getExams = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
-    const { search, sort } = req.query;
+    const { search, level, sort } = req.query;
 
     const query: any = { status: 'Published' };
-    if (search) {
-      query.title = { $regex: search, $options: 'i' };
+
+    // Lọc cấp bậc CEFR (A1..C2)
+    if (level && level !== 'ALL' && level !== 'All') {
+      query.level = String(level).toUpperCase();
     }
 
+    // Tìm kiếm đa trường không phân biệt hoa thường: title, description, skills
+    if (search && String(search).trim()) {
+      const searchRegex = { $regex: String(search).trim(), $options: 'i' };
+      query.$or = [
+        { title: searchRegex },
+        { description: searchRegex },
+        { skills: searchRegex }
+      ];
+    }
+
+    // Sắp xếp: Mới nhất (newest), Cũ nhất (oldest), Xem nhiều nhất (most_viewed), Đánh giá cao (highest_rated)
     let sortObj: any = { createdAt: -1 };
-    if (sort === 'oldest') sortObj = { createdAt: 1 };
-    if (sort === 'highest_rated') sortObj = { averageRating: -1, createdAt: -1 };
+    if (sort === 'oldest') {
+      sortObj = { createdAt: 1 };
+    } else if (sort === 'most_viewed') {
+      sortObj = { viewsCount: -1, createdAt: -1 };
+    } else if (sort === 'highest_rated') {
+      sortObj = { averageRating: -1, createdAt: -1 };
+    }
 
     const exams = await Exam.find(query).sort(sortObj).lean();
     
@@ -116,6 +134,7 @@ export const getExams = async (req: Request, res: Response) => {
       const { password, ...rest } = exam;
       return {
         ...rest,
+        viewsCount: (exam as any).viewsCount || 0,
         hasPassword: !!password,
         progress: resultByExamId[exam._id.toString()] || null
       };
@@ -131,7 +150,13 @@ export const getExams = async (req: Request, res: Response) => {
 export const getExamById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const exam = await Exam.findById(id).lean();
+
+    // Tự động tăng lượt xem bài thi khi học viên mở làm bài
+    const exam = await Exam.findByIdAndUpdate(
+      id,
+      { $inc: { viewsCount: 1 } },
+      { new: true }
+    ).lean();
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
 
     console.log(`Fetching exam with id: ${id}`);

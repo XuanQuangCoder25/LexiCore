@@ -1,4 +1,4 @@
-import mongoose, { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { pool } from '../../config/mysql';
 import CommunityPost, { ICommunityPost, CommunityTopic } from '../../database/models/CommunityPost';
 import CommunityComment, { ICommunityComment } from '../../database/models/CommunityComment';

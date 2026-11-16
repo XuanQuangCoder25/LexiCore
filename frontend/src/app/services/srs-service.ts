@@ -9,7 +9,8 @@ const api = axios.create({
 });
 
 export const srsService = {
-  getDecks: async () => (await api.get('/decks')).data,
+  getDecks: async (params?: { search?: string; level?: string; sort?: string }) => 
+    (await api.get('/decks', { params })).data,
   getDueCards: async (courseId?: string) => (await api.get(`/due${courseId ? `?courseId=${courseId}` : ''}`)).data,
   submitReview: async (data: { cardId: string; courseId: string; quality: number; responseTimeMs: number }) => 
     (await api.post('/review', data)).data,

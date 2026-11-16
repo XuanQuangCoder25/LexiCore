@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { TrendingUp, Award, ArrowRight } from "lucide-react";
+import { TrendingUp, Award, ArrowRight, Sparkles, Rocket } from "lucide-react";
 import { DashboardActivities } from "./hooks/useDashboardData";
 
 interface ActivitySidebarProps {
@@ -34,7 +34,10 @@ export function ActivitySidebar({ streak, activities }: ActivitySidebarProps) {
           {daysLeft > 0 ? (
             <p className="text-sm text-muted-foreground">{daysLeft} more days to reach your goal!</p>
           ) : (
-            <p className="text-sm font-medium text-green-600">You hit your {streakGoal}-day goal! 🎉</p>
+            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5">
+              <span>You hit your {streakGoal}-day goal!</span>
+              <Sparkles className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+            </p>
           )}
         </CardContent>
       </Card>
@@ -67,7 +70,10 @@ export function ActivitySidebar({ streak, activities }: ActivitySidebarProps) {
       <Card className="bg-primary/5 border-primary/20 overflow-hidden relative">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-primary/10 rounded-full blur-2xl"></div>
         <CardContent className="p-6 text-center relative z-10">
-          <h3 className="font-bold text-lg mb-2 text-foreground">Keep it up! 🚀</h3>
+          <h3 className="font-bold text-lg mb-2 text-foreground inline-flex items-center justify-center gap-1.5">
+            <span>Keep it up!</span>
+            <Rocket className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+          </h3>
           <p className="text-sm text-muted-foreground mb-5">
             You're <strong className="text-foreground">{activities.weeklyActivityScore}%</strong> more active than average learners this week
           </p>

@@ -1,18 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "../ui/card";
 import { Badge } from "../ui/badge";
-import { Input } from "../ui/input";
-import { Clock, Users, Search, Play, BookOpen, AlertCircle } from "lucide-react";
+import { Clock, Users, Play, BookOpen, AlertCircle, Eye, CheckCircle2 } from "lucide-react";
 import { studentCourseService } from "../../services/student-course-service";
 import { LearningWorkspace } from "./LearningWorkspace";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { toast } from "sonner";
+import { CatalogFilterBar, CatalogEmptyState, SortOption } from "./CatalogFilterBar";
 
 export const CoursesView = () => {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Search & Filter state
   const [search, setSearch] = useState("");
+  const [level, setLevel] = useState("ALL");
+  const [sort, setSort] = useState<SortOption>("newest");
   
   // Navigation State
   const [activeWorkspaceCourseId, setActiveWorkspaceCourseId] = useState<string | null>(null);
@@ -22,13 +26,14 @@ export const CoursesView = () => {
   const [courseDetails, setCourseDetails] = useState<any>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
-  useEffect(() => {
-    fetchCourses();
-  }, [search]);
-
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await studentCourseService.getPublishedCourses({ search });
+      const res = await studentCourseService.getPublishedCourses({
+        search,
+        level: level === "ALL" ? undefined : level,
+        sort,
+      });
       if (res.status === 'success') {
         setCourses(res.data);
       }
@@ -37,6 +42,16 @@ export const CoursesView = () => {
     } finally {
       setLoading(false);
     }
+  }, [search, level, sort]);
+
+  useEffect(() => {
+    fetchCourses();
+  }, [fetchCourses]);
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setLevel("ALL");
+    setSort("newest");
   };
 
   const handleOpenDetails = async (id: string) => {
@@ -80,34 +95,43 @@ export const CoursesView = () => {
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto p-4 md:p-6 animate-in fade-in duration-300">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Khám Phá Khóa Học</h1>
-          <p className="text-zinc-500 mt-1 text-sm md:text-base">Tìm kiếm khóa học ngoại ngữ theo lộ trình chuẩn hóa</p>
-        </div>
-        
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <Input 
-            placeholder="Tìm kiếm khóa học..." 
-            className="pl-10 h-11 rounded-xl border border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 focus:outline-none transition-all duration-200 text-sm shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+    <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6 animate-in fade-in duration-300">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Khám Phá Khóa Học</h1>
+        <p className="text-zinc-500 mt-1 text-sm md:text-base">
+          Tìm kiếm khóa học ngoại ngữ theo lộ trình chuẩn hóa quốc tế
+        </p>
       </div>
 
+      {/* Catalog Filter Bar chuẩn Monochrome */}
+      <div className="bg-white p-4 md:p-5 rounded-2xl border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <CatalogFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          level={level}
+          onLevelChange={setLevel}
+          sort={sort}
+          onSortChange={setSort}
+          totalResults={courses.length}
+          resultLabel="khóa học"
+          searchPlaceholder="Tìm kiếm khóa học theo tiêu đề, mô tả, từ khóa..."
+          onReset={handleResetFilters}
+        />
+      </div>
+
+      {/* Grid danh sách khóa học */}
       {loading ? (
-        <div className="flex justify-center p-20">
+        <div className="flex flex-col items-center justify-center p-20">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-900 border-t-transparent"></div>
+          <p className="text-xs text-zinc-500 mt-3 font-medium">Đang tải danh sách khóa học...</p>
         </div>
       ) : courses.length === 0 ? (
-        <div className="text-center p-16 border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/60">
-          <BookOpen className="w-10 h-10 mx-auto text-zinc-400 mb-3" />
-          <h3 className="text-base font-semibold text-zinc-900">Chưa có khóa học nào</h3>
-          <p className="text-sm text-zinc-500 mt-0.5">Vui lòng quay lại sau hoặc liên hệ quản trị viên.</p>
-        </div>
+        <CatalogEmptyState
+          title="Không tìm thấy khóa học nào"
+          description="Hãy thử đổi từ khóa tìm kiếm hoặc chọn cấp bậc khác để khám phá các khóa học phù hợp."
+          onReset={handleResetFilters}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses.map((course) => (
@@ -129,9 +153,14 @@ export const CoursesView = () => {
                       <BookOpen className="w-10 h-10 opacity-40" />
                     </div>
                   )}
-                  <div className="absolute top-3 right-3 flex gap-2">
-                    <span className="bg-[#161616]/85 text-white backdrop-blur-sm border-none shadow-sm text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                      {course.level}
+                  {/* Level & Views Badges */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5 flex-wrap justify-end">
+                    <span className="bg-zinc-900/90 text-white backdrop-blur-sm border-none shadow-sm text-xs font-bold px-2.5 py-0.5 rounded-full font-mono">
+                      {course.level || "B1"}
+                    </span>
+                    <span className="bg-white/95 text-zinc-800 backdrop-blur-sm shadow-sm text-[11px] font-medium px-2 py-0.5 rounded-full font-mono flex items-center gap-1 border border-zinc-200/60">
+                      <Eye className="w-3 h-3 text-zinc-500" />
+                      {course.viewsCount || 0}
                     </span>
                   </div>
                 </div>
@@ -160,7 +189,7 @@ export const CoursesView = () => {
                 <div className="flex items-center gap-1.5 text-xs text-zinc-600 font-medium">
                   <BookOpen className="w-3.5 h-3.5 text-zinc-900" /> Miễn phí
                 </div>
-                <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 text-zinc-800 group-hover:bg-[#161616] group-hover:text-white transition-all duration-200">
+                <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-zinc-100 text-zinc-800 group-hover:bg-zinc-900 group-hover:text-white transition-all duration-200">
                   <Play className="w-3.5 h-3.5 ml-0.5 group-hover:translate-x-0.5 transition-transform duration-200" />
                 </div>
               </CardFooter>
@@ -191,76 +220,75 @@ export const CoursesView = () => {
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent"></div>
                 <div className="absolute bottom-5 left-6 right-6">
-                  <span className="inline-block bg-white/20 text-white backdrop-blur-md text-xs font-semibold px-2.5 py-0.5 rounded-full mb-2">
-                    {courseDetails.course.level}
-                  </span>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
-                    {courseDetails.course.title}
-                  </h2>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-block bg-white/20 text-white backdrop-blur-md text-xs font-bold px-2.5 py-0.5 rounded-full font-mono">
+                      {courseDetails.course.level}
+                    </span>
+                    <span className="inline-flex items-center gap-1 bg-black/40 text-zinc-200 backdrop-blur-md text-xs font-medium px-2.5 py-0.5 rounded-full font-mono border border-white/10">
+                      <Eye className="w-3 h-3 text-zinc-400" />
+                      {courseDetails.course.viewsCount || 0} lượt xem
+                    </span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-1 leading-tight">{courseDetails.course.title}</h2>
+                  <p className="text-zinc-300 text-xs line-clamp-1">{courseDetails.course.shortDescription || courseDetails.course.description}</p>
                 </div>
               </div>
-              
+
               <div className="p-6 space-y-6">
                 <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Giới thiệu khóa học</h3>
-                  <p className="text-zinc-700 text-sm leading-relaxed">{courseDetails.course.description}</p>
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-2">Giới thiệu khóa học</h4>
+                  <p className="text-sm text-zinc-600 leading-relaxed">{courseDetails.course.description}</p>
                 </div>
-                
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
-                    <BookOpen className="w-4 h-4 text-zinc-900" /> Lộ trình học (Syllabus)
-                  </h3>
+
+                {courseDetails.course.objectives?.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-2">Mục tiêu đầu ra</h4>
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {courseDetails.course.objectives.map((obj: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-zinc-700">
+                          <CheckCircle2 className="w-4 h-4 text-zinc-900 shrink-0 mt-0.5" />
+                          <span>{obj}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Syllabus */}
+                <div>
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-3">Lộ trình học tập (Syllabus)</h4>
                   <div className="space-y-3">
-                    {courseDetails.syllabus.map((chapter: any) => (
-                      <div key={chapter._id} className="border border-zinc-200/80 rounded-xl p-4 bg-zinc-50/50 hover:border-zinc-300 transition-colors">
-                        <div className="font-semibold text-sm text-zinc-900 mb-2.5">
-                          Chương {chapter.order}: {chapter.title}
+                    {courseDetails.chapters?.map((chap: any, idx: number) => (
+                      <div key={chap._id} className="border border-zinc-200/80 rounded-xl p-4 bg-zinc-50/50">
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-semibold text-sm text-zinc-900">
+                            Chương {idx + 1}: {chap.title}
+                          </h5>
+                          <span className="text-xs text-zinc-400 font-mono">
+                            {courseDetails.lessons?.filter((l: any) => l.chapterId === chap._id).length} bài học
+                          </span>
                         </div>
-                        <div className="space-y-1.5">
-                          {chapter.lessons.map((lesson: any) => (
-                            <div key={lesson._id} className="flex justify-between items-center text-xs py-2 px-3 rounded-lg bg-white border border-zinc-200/60">
-                              <span className="flex items-center gap-2 font-medium text-zinc-800">
-                                <Play className="w-3.5 h-3.5 text-zinc-900" /> {lesson.order}. {lesson.title}
-                              </span>
-                              <span className="text-zinc-500 font-mono">{lesson.durationMinutes} phút</span>
-                            </div>
-                          ))}
-                        </div>
+                        {chap.description && <p className="text-xs text-zinc-500 mt-1">{chap.description}</p>}
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
-              
-              <div className="sticky bottom-0 p-4 bg-white/95 backdrop-blur-md border-t border-zinc-200 flex justify-between items-center rounded-b-2xl shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
-                <div>
-                  {courseDetails.isEnrolled ? (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-semibold text-zinc-900 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 text-zinc-700" /> Đã đăng ký khóa học
-                      </span>
-                      <span className="text-xs text-zinc-500">Tiến độ: {courseDetails.progress}%</span>
-                    </div>
-                  ) : (
-                    <span className="font-bold text-base text-zinc-900">Miễn phí trọn đời</span>
-                  )}
-                </div>
+
+              <DialogFooter className="p-4 border-t border-zinc-100 bg-zinc-50/60 flex items-center justify-between sm:justify-between">
+                <Button variant="ghost" onClick={() => setSelectedCourseId(null)} className="rounded-xl text-zinc-600 hover:text-zinc-900">
+                  Đóng
+                </Button>
                 {courseDetails.isEnrolled ? (
-                  <Button 
-                    className="bg-[#161616] text-white hover:bg-zinc-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-150 rounded-xl px-5 h-10 text-sm font-medium gap-2 group" 
-                    onClick={handleStartLearning}
-                  >
-                    Vào Học Ngay <Play className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-200" />
+                  <Button onClick={handleStartLearning} className="bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl px-5 text-sm font-semibold gap-1.5">
+                    <Play className="w-4 h-4 fill-white" /> Vào học ngay
                   </Button>
                 ) : (
-                  <Button 
-                    className="bg-[#161616] text-white hover:bg-zinc-800 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)] active:scale-[0.98] transition-all duration-150 rounded-xl px-5 h-10 text-sm font-medium" 
-                    onClick={handleEnroll}
-                  >
-                    Đăng Ký Khóa Học
+                  <Button onClick={handleEnroll} className="bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl px-5 text-sm font-semibold">
+                    Đăng ký khóa học (Miễn phí)
                   </Button>
                 )}
-              </div>
+              </DialogFooter>
             </>
           )}
         </DialogContent>

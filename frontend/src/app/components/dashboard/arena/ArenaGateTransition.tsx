@@ -45,7 +45,7 @@ export const ArenaGateTransition = forwardRef<ArenaGateHandle, ArenaGateProps>(
     const [countdownStep, setCountdownStep] = useState<string | null>(null);
 
     // Timeout refs để dọn dẹp khi unmount
-    const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+    const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
     const clearAllTimeouts = () => {
       timeoutsRef.current.forEach(clearTimeout);

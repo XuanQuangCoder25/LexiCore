@@ -52,19 +52,35 @@ const computeUnlockedChapterIds = (
 // 1. Khám phá khóa học (Marketplace)
 export const getPublishedCourses = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { level, search } = req.query;
+        const { level, search, sort } = req.query;
         
         let query: any = { isPublished: true, type: 'course' };
         
-        if (level && level !== 'All Levels') {
-            query.level = level;
+        // Lọc cấp bậc CEFR (A1..C2)
+        if (level && level !== 'ALL' && level !== 'All Levels') {
+            query.level = String(level).toUpperCase();
         }
         
-        if (search) {
-            query.title = { $regex: search, $options: 'i' };
+        // Tìm kiếm không phân biệt hoa thường theo title, shortDescription, description, tags
+        if (search && String(search).trim()) {
+            const searchRegex = { $regex: String(search).trim(), $options: 'i' };
+            query.$or = [
+                { title: searchRegex },
+                { shortDescription: searchRegex },
+                { description: searchRegex },
+                { tags: searchRegex }
+            ];
         }
 
-        const courses = await Course.find(query).sort({ createdAt: -1 });
+        // Sắp xếp: Mới nhất (newest), Cũ nhất (oldest), Xem nhiều nhất (most_viewed)
+        let sortObj: any = { createdAt: -1 };
+        if (sort === 'oldest') {
+            sortObj = { createdAt: 1 };
+        } else if (sort === 'most_viewed') {
+            sortObj = { viewsCount: -1, createdAt: -1 };
+        }
+
+        const courses = await Course.find(query).sort(sortObj);
         res.status(200).json({ status: 'success', data: courses });
     } catch (error: any) {
         res.status(500).json({ status: 'error', message: error.message });
@@ -77,7 +93,12 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
         const { id } = req.params;
         const userId = req.user?.id; // Có thể null nếu gọi API public
 
-        const course = await Course.findById(id).lean();
+        // Tự động tăng lượt xem khóa học khi người dùng xem chi tiết / bắt đầu học
+        const course = await Course.findByIdAndUpdate(
+            id,
+            { $inc: { viewsCount: 1 } },
+            { new: true }
+        ).lean();
         if (!course) {
             res.status(404).json({ status: 'error', message: 'Không tìm thấy khóa học.' });
             return;
@@ -216,6 +237,11 @@ export const enrollCourse = async (req: Request, res: Response): Promise<void> =
                 res.status(404).json({ status: 'error', message: 'Người dùng không tồn tại.' });
                 return;
             }
+        }
+
+        if (!user) {
+            res.status(404).json({ status: 'error', message: 'Người dùng không tồn tại.' });
+            return;
         }
 
         // Kiểm tra đã đăng ký chưa

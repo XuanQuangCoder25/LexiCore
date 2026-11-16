@@ -184,7 +184,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
       if (res.status === 'success') {
         dispatch({ type: 'SET_META', payload: { isPublished: true, status: 'published' } });
         dispatch({ type: 'MARK_CLEAN' });
-        toast.success('🎉 Khóa học đã được xuất bản công khai thành công!');
+        toast.success('Khóa học đã được xuất bản công khai thành công!');
       } else {
         toast.error(res.message || 'Lỗi khi xuất bản khóa học');
       }
@@ -236,10 +236,13 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
   let selectedLesson: ILessonItem | undefined;
 
   if (state.selection.type === 'chapter') {
-    selectedChapter = state.chapters.find((c) => c.id === state.selection.chapterId);
+    const targetChapterId = state.selection.chapterId;
+    selectedChapter = state.chapters.find((c) => c.id === targetChapterId);
   } else if (state.selection.type === 'lesson') {
-    selectedChapter = state.chapters.find((c) => c.id === state.selection.chapterId);
-    selectedLesson = selectedChapter?.lessons.find((l) => l.id === state.selection.lessonId);
+    const targetChapterId = state.selection.chapterId;
+    const targetLessonId = state.selection.lessonId;
+    selectedChapter = state.chapters.find((c) => c.id === targetChapterId);
+    selectedLesson = selectedChapter?.lessons.find((l) => l.id === targetLessonId);
   }
 
   if (loading) {

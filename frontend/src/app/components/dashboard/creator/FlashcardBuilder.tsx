@@ -31,7 +31,8 @@ import {
   Eye, 
   EyeOff,
   Image as ImageIcon,
-  Tag
+  Tag,
+  Lightbulb
 } from 'lucide-react';
 
 interface FlashcardBuilderProps {
@@ -940,8 +941,9 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
                         )}
 
                         {activeCard?.note && (
-                          <p className="text-[11px] text-zinc-700 italic text-left bg-zinc-100 p-2.5 rounded-xl border border-zinc-200">
-                            💡 Mẹo nhớ: {activeCard.note}
+                          <p className="text-[11px] text-zinc-700 italic text-left bg-zinc-100 p-2.5 rounded-xl border border-zinc-200 inline-flex items-start gap-1.5 w-full">
+                            <Lightbulb className="w-3.5 h-3.5 text-zinc-700 shrink-0 mt-0.5" strokeWidth={1.75} />
+                            <span>Mẹo nhớ: {activeCard.note}</span>
                           </p>
                         )}
 
