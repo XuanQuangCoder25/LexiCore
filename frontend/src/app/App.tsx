@@ -68,7 +68,9 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [coins, setCoins] = useState(0);
+  const [userStreak, setUserStreak] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [creatorStatus, setCreatorStatus] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("Guest");
   const [userTier, setUserTier] = useState<"STARTER" | "PRO" | "ELITE" | null>(() => {
     return (localStorage.getItem("lexicore_user_tier") as any) || null;
@@ -123,7 +125,15 @@ function AppContent() {
       .then((data) => {
         if (!data) return;
         if (data?.coin_balance !== undefined) setCoins(data.coin_balance);
-        if (data?.role) setUserRole(data.role.toLowerCase());
+        if (data?.current_streak !== undefined) setUserStreak(Number(data.current_streak || 0));
+        if (data?.role) {
+          const normalizedRole = data.role.toLowerCase();
+          setUserRole(normalizedRole);
+          localStorage.setItem("lexicore_user_role", normalizedRole);
+        }
+        const statusVal = data?.creator_status ?? null;
+        setCreatorStatus(statusVal);
+        localStorage.setItem("lexicore_creator_status", statusVal || "");
         if (data?.full_name) setUserName(data.full_name);
         if (data?.tier !== undefined) {
           setUserTier(data.tier);
@@ -175,7 +185,7 @@ function AppContent() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case "dashboard": return <DashboardView />;
+      case "dashboard": return <DashboardView onNavigateTab={setActiveTab} userName={userName} />;
       case "courses": return <CoursesView />;
       case "flashcards": return <FlashcardsView />;
       case "shadowing": return <ShadowingView />;
@@ -183,8 +193,8 @@ function AppContent() {
       case "exam": return <ExamView />;
       case "arena": return <ArenaView />;
       case "community": return <CommunityView />;
-      case "private-space": return <PrivateSpaceView onNavigateTab={setActiveTab} userRole={userRole || "user"} />;
-      case "creator": return <CreatorStudioView onNavigateTab={setActiveTab} userRole={userRole || "user"} />;
+      case "private-space": return <PrivateSpaceView onNavigateTab={setActiveTab} userRole={userRole || "user"} creatorStatus={creatorStatus} />;
+      case "creator": return <CreatorStudioView onNavigateTab={setActiveTab} userRole={userRole || "user"} creatorStatus={creatorStatus} />;
       case "store": return <StoreView />;
       case "achievements": return <AchievementsView />;
       case "admin":
@@ -197,7 +207,7 @@ function AppContent() {
       case "profile": return <ProfileView />;
       case "settings": return <SettingsView onNavigateTab={setActiveTab} userRole={userRole || "user"} />;
       case "subscription": return <SubscriptionView />;
-      default: return <DashboardView />;
+      default: return <DashboardView onNavigateTab={setActiveTab} userName={userName} />;
     }
   };
 
@@ -247,7 +257,7 @@ function AppContent() {
               {/* User badge */}
               <Badge variant="secondary" className="text-xs px-2.5 py-1 inline-flex items-center gap-1.5 font-medium">
                 <Flame className="w-3.5 h-3.5 shrink-0 text-zinc-900 dark:text-zinc-100" strokeWidth={1.75} />
-                <span>7 day streak</span>
+                <span>{userStreak} day streak</span>
               </Badge>
             </div>
           </header>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -60,6 +60,27 @@ const navigationItems = [
 ];
 
 export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = "Guest", userRole = "user", userTier = null }: AppSidebarProps) {
+  const [dailyGoalProgress, setDailyGoalProgress] = useState<{ completed: number; total: number; title: string }>({
+    completed: 0,
+    total: 0,
+    title: "Nhiệm vụ hàng ngày",
+  });
+
+  useEffect(() => {
+    fetch("/api/v1/dashboard/activities", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.dailyGoals && typeof data.dailyGoals.total === "number") {
+          setDailyGoalProgress(data.dailyGoals);
+        }
+      })
+      .catch(() => {});
+  }, [activeTab]);
+
+  const dailyGoalPercent =
+    dailyGoalProgress.total > 0
+      ? Math.min(100, Math.round((dailyGoalProgress.completed / dailyGoalProgress.total) * 100))
+      : 0;
   // Tier icon, color & badge gradient cho nút sidebar
   const tierLabel =
     userTier === "ELITE" ? "Elite" :
@@ -232,18 +253,28 @@ export function AppSidebar({ activeTab, onTabChange, coins, isAdmin, userName = 
           {/* ===== BOTTOM WIDGETS: DAILY GOAL & COINS ===== */}
           <div className="mt-3 pt-3 border-t space-y-2 shrink-0">
             {/* Daily Goal */}
-            <div className="rounded-xl border bg-card/60 p-2.5 space-y-1.5 shadow-2xs">
+            <div
+              onClick={() => onTabChange("achievements")}
+              className="rounded-xl border bg-card/60 p-2.5 space-y-1.5 shadow-2xs cursor-pointer hover:bg-muted/40 transition-colors"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Trophy className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium">Daily Goal</span>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">1/2</span>
+                <span className="text-xs text-muted-foreground font-medium font-mono">
+                  {dailyGoalProgress.completed}/{dailyGoalProgress.total}
+                </span>
               </div>
               <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                <div className="bg-[#151515] h-1.5 rounded-full transition-all duration-300" style={{ width: "60%" }} />
+                <div
+                  className="bg-[#151515] h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${dailyGoalPercent}%` }}
+                />
               </div>
-              <p className="text-[11px] text-muted-foreground leading-tight">Complete 2 lessons today</p>
+              <p className="text-[11px] text-muted-foreground leading-tight truncate">
+                {dailyGoalProgress.title}
+              </p>
             </div>
 
             {/* Coins Display */}

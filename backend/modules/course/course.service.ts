@@ -22,12 +22,21 @@ export const normalizeCourseLevel = (level?: string): string => {
 };
 
 /**
+ * Kiểm tra xem tài khoản Creator có đang bị tạm đình chỉ (SUSPENDED) hay không.
+ */
+export const isCreatorSuspended = (user?: { role?: string; creator_status?: string | null }): boolean => {
+  const role = user?.role?.toLowerCase().replace(/\s+/g, '_');
+  const creatorStatus = user?.creator_status?.toUpperCase();
+  return role === 'content_creator' && creatorStatus === 'SUSPENDED';
+};
+
+/**
  * Kiểm tra quyền xuất bản khóa học công khai.
  * Chỉ Admin hoặc Content Creator có trạng thái hoạt động (khác SUSPENDED) mới được xuất bản.
  */
 export const canPublishCourse = (user?: { role?: string; creator_status?: string | null }): boolean => {
   const role = user?.role?.toLowerCase().replace(/\s+/g, '_');
-  const creatorStatus = user?.creator_status;
+  const creatorStatus = user?.creator_status?.toUpperCase();
   const isAdmin = role === 'admin';
   const isActiveCreator = role === 'content_creator' && creatorStatus !== 'SUSPENDED';
   return isAdmin || isActiveCreator;
@@ -472,7 +481,32 @@ export const syncCourseTreeService = async (
  * Kiểm tra phân quyền và validate toàn diện toàn bộ cây bài học trước khi public.
  */
 export const publishCourseService = async (courseId: string, user: any) => {
-  if (!canPublishCourse(user)) {
+  // Đồng bộ trạng thái role và creator_status mới nhất từ MySQL nếu có thể
+  let effectiveUser = { ...user };
+  if (user?.id) {
+    try {
+      const freshUser = await findUserById(user.id);
+      if (freshUser) {
+        effectiveUser = {
+          ...effectiveUser,
+          role: freshUser.role || effectiveUser.role,
+          creator_status: freshUser.creator_status ?? effectiveUser.creator_status
+        };
+      }
+    } catch {
+      // Nếu lỗi kết nối MySQL tạm thời hoặc môi trường test thì dùng thông tin trong token
+    }
+  }
+
+  if (isCreatorSuspended(effectiveUser)) {
+    const error: any = new Error('Quyền Content Creator của bạn hiện đang bị tạm đình chỉ (Suspended). Bạn không thể xuất bản khóa học ra cộng đồng lúc này.');
+    error.statusCode = 403;
+    error.code = 'CREATOR_SUSPENDED';
+    error.creator_suspended = true;
+    throw error;
+  }
+
+  if (!canPublishCourse(effectiveUser)) {
     const error: any = new Error('Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản khóa học ra cộng đồng.');
     error.statusCode = 403;
     error.code = 'CREATOR_REQUIRED';

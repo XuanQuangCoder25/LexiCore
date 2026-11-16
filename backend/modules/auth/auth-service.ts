@@ -93,7 +93,8 @@ export const loginUser = async (userData: any) => {
             id: user.id,
             email: user.email,
             full_name: user.full_name,
-            role: user.role
+            role: user.role,
+            creator_status: user.creator_status ?? null
         }
     };
 };
@@ -128,6 +129,9 @@ export const getMe = async (userId: string) => {
     const user = await findUserById(userId);
     if (!user) {
         throw new AppError('Không tìm thấy người dùng', 404);
+    }
+    if (user.status === 'BANNED') {
+        throw new AppError('Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.', 403);
     }
     return user;
 };
@@ -238,7 +242,8 @@ export const refreshAccessToken = async (refreshToken?: string) => {
             id: user.id,
             email: user.email,
             full_name: user.full_name,
-            role: user.role
+            role: user.role,
+            creator_status: user.creator_status ?? null
         }
     };
 };

@@ -1,41 +1,69 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import httpClient from '../../../services/httpClient';
+
+const API_BASE = `${(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')}/api/v1/dashboard`;
 
 export interface DashboardStats {
+  userName?: string;
   lessonsCompleted: number;
   durationHours: number;
+  durationMinutes?: number;
+  durationSeconds?: number;
+  formattedDuration?: string;
   wordsLearned: number;
   level: string;
   streak: number;
+  dueCardsToday?: number;
+  examsCompleted?: number;
 }
 
 export interface RetentionPoint {
   day: string;
+  date?: string;
   retention: number;
   withReview: number;
+  reviewsCount?: number;
 }
 
 export interface CourseProgress {
-  id: number;
+  id: string;
   title: string;
+  level?: string;
+  thumbnail?: string;
   progress: number;
+  completedLessons?: number;
+  totalLessons?: number;
+  isCompleted?: boolean;
 }
 
 export interface NextLesson {
-  id: number;
+  id: string;
+  courseId?: string;
   title: string;
   course: string;
   duration: string;
+  type?: string;
 }
 
 export interface Achievement {
-  id: number;
+  id: string;
   title: string;
   description: string;
+  icon?: string;
+  category?: string;
+  unlockedAt?: string;
+}
+
+export interface DailyGoalsSummary {
+  completed: number;
+  total: number;
+  title: string;
 }
 
 export interface DashboardActivities {
   achievements: Achievement[];
   weeklyActivityScore: number;
+  dailyGoals?: DailyGoalsSummary;
 }
 
 export interface DashboardData {
@@ -54,63 +82,44 @@ export function useDashboardData() {
     nextLessons: [],
     activities: null,
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const fetchOptions = { credentials: 'include' as RequestCredentials };
-
-      // Tối ưu hoá gọi API đồng thời với Promise.all, sử dụng relative path để Vite Proxy xử lý
       const [statsRes, retRes, coursesRes, lessonsRes, activitiesRes] = await Promise.all([
-        fetch(`/api/v1/dashboard/stats`, fetchOptions),
-        fetch(`/api/v1/dashboard/retention`, fetchOptions),
-        fetch(`/api/v1/dashboard/courses`, fetchOptions),
-        fetch(`/api/v1/dashboard/lessons`, fetchOptions),
-        fetch(`/api/v1/dashboard/activities`, fetchOptions),
-      ]);
-
-      if (statsRes.status === 401 || retRes.status === 401) {
-        throw new Error('UNAUTHORIZED');
-      }
-
-      if (!statsRes.ok || !retRes.ok || !coursesRes.ok || !lessonsRes.ok || !activitiesRes.ok) {
-        throw new Error('Failed to fetch some dashboard data');
-      }
-
-      const [stats, retentionData, courses, nextLessons, activities] = await Promise.all([
-        statsRes.json(),
-        retRes.json(),
-        coursesRes.json(),
-        lessonsRes.json(),
-        activitiesRes.json(),
+        httpClient.get<DashboardStats>(`${API_BASE}/stats`),
+        httpClient.get<RetentionPoint[]>(`${API_BASE}/retention`),
+        httpClient.get<CourseProgress[]>(`${API_BASE}/courses`),
+        httpClient.get<NextLesson[]>(`${API_BASE}/lessons`),
+        httpClient.get<DashboardActivities>(`${API_BASE}/activities`),
       ]);
 
       setData({
-        stats,
-        retentionData,
-        courses,
-        nextLessons,
-        activities,
+        stats: statsRes.data,
+        retentionData: Array.isArray(retRes.data) ? retRes.data : [],
+        courses: Array.isArray(coursesRes.data) ? coursesRes.data : [],
+        nextLessons: Array.isArray(lessonsRes.data) ? lessonsRes.data : [],
+        activities: activitiesRes.data || { achievements: [], weeklyActivityScore: 0 },
       });
     } catch (err: any) {
       console.error('Lỗi khi tải dữ liệu dashboard:', err);
-      if (err.message === 'UNAUTHORIZED') {
+      if (err?.response?.status === 401) {
         setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
       } else {
-        setError(err.message || 'Có lỗi xảy ra khi kết nối máy chủ');
+        setError(err?.response?.data?.message || err.message || 'Có lỗi xảy ra khi kết nối máy chủ');
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
 
   return { data, loading, error, refetch: fetchDashboardData };
 }

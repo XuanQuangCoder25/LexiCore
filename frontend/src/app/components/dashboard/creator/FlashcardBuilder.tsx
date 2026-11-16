@@ -39,6 +39,7 @@ interface FlashcardBuilderProps {
   deckId?: string | null;
   onBack: () => void;
   userRole?: string;
+  creatorStatus?: string | null;
   onNavigateTab?: (tab: string) => void;
 }
 
@@ -61,9 +62,12 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
   deckId,
   onBack,
   userRole = 'user',
+  creatorStatus = null,
   onNavigateTab
 }) => {
-  const isCreatorOrAdmin = userRole.toLowerCase() === 'content_creator' || userRole.toLowerCase() === 'admin';
+  const effectiveCreatorStatus = (creatorStatus ?? localStorage.getItem('lexicore_creator_status') ?? '').toUpperCase();
+  const isSuspendedCreator = userRole.toLowerCase() === 'content_creator' && effectiveCreatorStatus === 'SUSPENDED';
+  const isCreatorOrAdmin = (userRole.toLowerCase() === 'content_creator' && !isSuspendedCreator) || userRole.toLowerCase() === 'admin';
 
   // Deck metadata
   const [deckTitle, setDeckTitle] = useState('');
@@ -88,6 +92,7 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
   const [isDirty, setIsDirty] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishModalReason, setPublishModalReason] = useState<'creator_required' | 'creator_suspended'>('creator_required');
 
   // Fetch existing deck if deckId provided
   useEffect(() => {
@@ -316,6 +321,7 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
 
     // Phân quyền xuất bản
     if (publishToSet && !isCreatorOrAdmin) {
+      setPublishModalReason(isSuspendedCreator ? 'creator_suspended' : 'creator_required');
       setShowPublishModal(true);
       return;
     }
@@ -368,7 +374,8 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
         onBack();
       }
     } catch (error: any) {
-      if (error?.response?.status === 403 && error?.response?.data?.requires_creator) {
+      if (error?.response?.status === 403 && (error?.response?.data?.requires_creator || error?.response?.data?.creator_suspended)) {
+        setPublishModalReason(error?.response?.data?.creator_suspended || isSuspendedCreator ? 'creator_suspended' : 'creator_required');
         setShowPublishModal(true);
       } else {
         toast.error(error?.response?.data?.message || 'Lỗi khi lưu bộ thẻ');
@@ -1006,6 +1013,9 @@ export const FlashcardBuilder: React.FC<FlashcardBuilderProps> = ({
         onOpenChange={setShowPublishModal}
         onNavigateTab={onNavigateTab}
         contentType="bộ thẻ"
+        reason={publishModalReason}
+        userRole={userRole}
+        creatorStatus={creatorStatus}
       />
     </div>
   );
