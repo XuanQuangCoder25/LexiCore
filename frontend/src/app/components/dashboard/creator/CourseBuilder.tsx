@@ -59,6 +59,7 @@ interface CourseBuilderProps {
   courseId: string;
   onBack: () => void;
   userRole?: string;
+  creatorStatus?: string | null;
   onNavigateTab?: (tab: string) => void;
 }
 
@@ -66,6 +67,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
   courseId,
   onBack,
   userRole = 'user',
+  creatorStatus = null,
   onNavigateTab
 }) => {
   const [state, dispatch] = useReducer(courseBuilderReducer, createInitialState(courseId));
@@ -84,13 +86,16 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
   const [newLessonTitle, setNewLessonTitle] = useState('');
   const [newLessonType, setNewLessonType] = useState<LessonType>('video');
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishModalReason, setPublishModalReason] = useState<'creator_required' | 'creator_suspended'>('creator_required');
   const [showSavedSuccessModal, setShowSavedSuccessModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // Collapsed chapters map
   const [collapsedChapters, setCollapsedChapters] = useState<Record<string, boolean>>({});
 
-  const isCreatorOrAdmin = userRole?.toLowerCase() === 'content_creator' || userRole?.toLowerCase() === 'admin';
+  const effectiveCreatorStatus = (creatorStatus ?? localStorage.getItem('lexicore_creator_status') ?? '').toUpperCase();
+  const isSuspendedCreator = userRole?.toLowerCase() === 'content_creator' && effectiveCreatorStatus === 'SUSPENDED';
+  const isCreatorOrAdmin = (userRole?.toLowerCase() === 'content_creator' && !isSuspendedCreator) || userRole?.toLowerCase() === 'admin';
 
   // 1. Fetch Course Data & Resources
   const fetchData = async () => {
@@ -175,6 +180,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
   const handlePublish = async () => {
     // If not creator/admin, show permission restriction modal immediately
     if (!isCreatorOrAdmin) {
+      setPublishModalReason(isSuspendedCreator ? 'creator_suspended' : 'creator_required');
       setShowPublishModal(true);
       return;
     }
@@ -214,6 +220,7 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
       }
     } catch (err: any) {
       if (err.response?.status === 403) {
+        setPublishModalReason(err.response?.data?.creator_suspended || isSuspendedCreator ? 'creator_suspended' : 'creator_required');
         setShowPublishModal(true);
       } else {
         const apiErrors: Array<{ path: string; message: string }> = err.response?.data?.errors;
@@ -943,14 +950,19 @@ export const CourseBuilder: React.FC<CourseBuilderProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* 3. Publish Restricted Modal for Regular Users */}
+      {/* 3. Publish Restricted Modal */}
       <PublishRestrictedModal
         isOpen={showPublishModal}
         onClose={() => setShowPublishModal(false)}
+        onNavigateTab={onNavigateTab}
+        contentType="khóa học"
+        reason={publishModalReason}
+        userRole={userRole}
+        creatorStatus={creatorStatus}
         onNavigateToApplication={() => {
           setShowPublishModal(false);
           if (onNavigateTab) {
-            onNavigateTab('creator_application');
+            onNavigateTab('profile');
           }
         }}
       />

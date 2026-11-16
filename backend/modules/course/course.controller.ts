@@ -209,6 +209,7 @@ export const publishCourse = async (req: Request, res: Response): Promise<void> 
       status: 'error',
       code: error.code,
       requires_creator: !!error.requires_creator,
+      creator_suspended: !!error.creator_suspended,
       message: error.message,
       errors: error.errors
     });

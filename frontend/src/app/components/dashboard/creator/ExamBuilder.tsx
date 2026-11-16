@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import httpClient from "../../../services/httpClient";
 import { toast } from "sonner";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -26,15 +26,19 @@ interface ExamBuilderProps {
   examId: string;
   onBack: () => void;
   userRole?: string;
+  creatorStatus?: string | null;
   onNavigateTab?: (tab: string) => void;
 }
 
 const AVAILABLE_SKILLS = ['Listening', 'Reading', 'Grammar', 'Vocabulary', 'General'];
 const CEFR_LEVELS = ['All', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
-export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }: ExamBuilderProps) {
-  const isCreatorOrAdmin = userRole?.toLowerCase() === "content_creator" || userRole?.toLowerCase() === "admin";
+export function ExamBuilder({ examId, onBack, userRole = "user", creatorStatus = null, onNavigateTab }: ExamBuilderProps) {
+  const effectiveCreatorStatus = (creatorStatus ?? localStorage.getItem("lexicore_creator_status") ?? "").toUpperCase();
+  const isSuspendedCreator = userRole?.toLowerCase() === "content_creator" && effectiveCreatorStatus === "SUSPENDED";
+  const isCreatorOrAdmin = (userRole?.toLowerCase() === "content_creator" && !isSuspendedCreator) || userRole?.toLowerCase() === "admin";
   const [showPublishRestrictedModal, setShowPublishRestrictedModal] = useState(false);
+  const [publishModalReason, setPublishModalReason] = useState<'creator_required' | 'creator_suspended'>('creator_required');
   const [exam, setExam] = useState<any>({
     title: "",
     description: "",
@@ -57,7 +61,7 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
 
   const fetchExam = async () => {
     try {
-      const res = await axios.get(`/api/v1/creator/exams/${examId}`, { withCredentials: true });
+      const res = await httpClient.get(`/api/v1/creator/exams/${examId}`);
       if (res.data.success) {
         const data = res.data.data;
         setExam({
@@ -87,7 +91,7 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
         questions: questions.map((q, idx) => ({ ...q, order: idx }))
       };
 
-      const res = await axios.post(`/api/v1/creator/exams/${examId}/save-full`, payload, { withCredentials: true });
+      const res = await httpClient.post(`/api/v1/creator/exams/${examId}/save-full`, payload);
       if (res.data.success) {
         setExam((prev: any) => ({ ...prev, status: 'Draft' }));
         toast.success("Đã lưu nháp bài kiểm tra thành công");
@@ -104,6 +108,7 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
 
   const handlePublish = async () => {
     if (!isCreatorOrAdmin) {
+      setPublishModalReason(isSuspendedCreator ? 'creator_suspended' : 'creator_required');
       setShowPublishRestrictedModal(true);
       return;
     }
@@ -119,13 +124,14 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
         questions: questions.map((q, idx) => ({ ...q, order: idx }))
       };
 
-      const res = await axios.post(`/api/v1/creator/exams/${examId}/save-full`, payload, { withCredentials: true });
+      const res = await httpClient.post(`/api/v1/creator/exams/${examId}/save-full`, payload);
       if (res.data.success) {
         setExam((prev: any) => ({ ...prev, status: 'Published' }));
         toast.success("Xuất bản bài kiểm tra ra cộng đồng thành công!");
       }
     } catch (err: any) {
-      if (err.response?.status === 403 && err.response?.data?.requires_creator) {
+      if (err.response?.status === 403 && (err.response?.data?.requires_creator || err.response?.data?.creator_suspended)) {
+        setPublishModalReason(err.response?.data?.creator_suspended || isSuspendedCreator ? 'creator_suspended' : 'creator_required');
         setShowPublishRestrictedModal(true);
       } else {
         toast.error(err.response?.data?.message || "Lỗi khi xuất bản bài kiểm tra");
@@ -138,7 +144,7 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
   const handleUnpublish = async () => {
     setSaving(true);
     try {
-      const res = await axios.post(`/api/v1/creator/exams/${examId}/unpublish`, {}, { withCredentials: true });
+      const res = await httpClient.post(`/api/v1/creator/exams/${examId}/unpublish`, {});
       if (res.data.success) {
         setExam((prev: any) => ({ ...prev, status: 'Draft' }));
         toast.success("Đã chuyển bài kiểm tra về Bản nháp trong Private Space.");
@@ -209,7 +215,9 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await axios.post('/api/upload/media', formData, { withCredentials: true });
+      const res = await httpClient.post('/api/upload/media', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       return res.data.data.url;
     } catch (err) {
       toast.error("Tải tệp media thất bại");
@@ -555,6 +563,9 @@ export function ExamBuilder({ examId, onBack, userRole = "user", onNavigateTab }
         onOpenChange={setShowPublishRestrictedModal}
         onNavigateTab={onNavigateTab}
         contentType="bài kiểm tra"
+        reason={publishModalReason}
+        userRole={userRole}
+        creatorStatus={creatorStatus}
       />
     </div>
   );

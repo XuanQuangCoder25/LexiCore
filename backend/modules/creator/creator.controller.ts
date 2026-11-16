@@ -8,14 +8,56 @@ import Question from '../../database/models/Question';
 import ExamResult from '../../database/models/ExamResult';
 import ExamReport from '../../database/models/ExamReport';
 import ExamRating from '../../database/models/ExamRating';
+import { findUserById } from '../auth/auth-repository';
 
-// Helper kiểm tra quyền xuất bản (Admin hoặc Content Creator ACTIVE)
-const canPublishContent = (req: Request): boolean => {
-  const role = req.user?.role?.toLowerCase().replace(/\s+/g, '_');
-  const creatorStatus = req.user?.creator_status;
-  const isAdmin = role === 'admin';
-  const isActiveCreator = role === 'content_creator' && creatorStatus !== 'SUSPENDED';
-  return isAdmin || isActiveCreator;
+// Helper kiểm tra quyền xuất bản (Admin hoặc Content Creator ACTIVE) và phân biệt rõ Creator bị đình chỉ vs User thường
+const checkPublishPermission = async (req: Request, contentLabel: string) => {
+  let role = req.user?.role?.toLowerCase().replace(/\s+/g, '_');
+  let creatorStatus = req.user?.creator_status?.toUpperCase() || null;
+
+  if (req.user?.id) {
+    try {
+      const freshUser = await findUserById(req.user.id);
+      if (freshUser) {
+        role = (freshUser.role || role || '').toLowerCase().replace(/\s+/g, '_');
+        creatorStatus = freshUser.creator_status ? String(freshUser.creator_status).toUpperCase() : creatorStatus;
+      }
+    } catch {
+      // fallback to JWT claims
+    }
+  }
+
+  if (role === 'admin') {
+    return { allowed: true as const };
+  }
+
+  if (role === 'content_creator' && creatorStatus === 'SUSPENDED') {
+    return {
+      allowed: false as const,
+      payload: {
+        success: false,
+        code: 'CREATOR_SUSPENDED',
+        creator_suspended: true,
+        requires_creator: false,
+        message: `Quyền Content Creator của bạn hiện đang bị tạm đình chỉ (Suspended). Bạn không thể xuất bản ${contentLabel} ra cộng đồng lúc này.`
+      }
+    };
+  }
+
+  if (role === 'content_creator') {
+    return { allowed: true as const };
+  }
+
+  return {
+    allowed: false as const,
+    payload: {
+      success: false,
+      code: 'CREATOR_REQUIRED',
+      requires_creator: true,
+      creator_suspended: false,
+      message: `Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản ${contentLabel} ra cộng đồng.`
+    }
+  };
 };
 
 // --- COURSES (FLASHCARD DECKS) ---
@@ -58,13 +100,12 @@ export const updateCourse = async (req: Request, res: Response) => {
     const { id } = req.params;
     const creatorId = req.user?.id;
 
-    // Chặn role user xuất bản ra cộng đồng
-    if (req.body.isPublished === true && !canPublishContent(req)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bộ thẻ ra cộng đồng.',
-        requires_creator: true
-      });
+    // Chặn role user hoặc creator bị đình chỉ xuất bản ra cộng đồng
+    if (req.body.isPublished === true) {
+      const perm = await checkPublishPermission(req, 'bộ thẻ');
+      if (!perm.allowed) {
+        return res.status(403).json(perm.payload);
+      }
     }
 
     const course = await Course.findOneAndUpdate({ _id: id, creatorId }, req.body, { new: true });
@@ -91,12 +132,17 @@ export const deleteCourse = async (req: Request, res: Response) => {
 
 export const getCourses = async (req: Request, res: Response) => {
   try {
-    const { all } = req.query;
-    const query: any = { type: 'flashcard' };
-    if (!all && req.user?.role !== 'admin') {
-      query.$or = [{ creatorId: req.user?.id }, { isPublished: true }];
+    const userId = req.user?.id || (req.user as any)?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập.' });
     }
-    const courses = await Course.find(query).sort({ createdAt: -1 });
+
+    // Chỉ lấy danh sách bộ thẻ Flashcard do chính user đang đăng nhập tạo ra (Data Isolation)
+    const courses = await Course.find({
+      creatorId: String(userId),
+      type: 'flashcard'
+    }).sort({ createdAt: -1 }).lean();
+
     res.json({ success: true, data: courses });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -169,7 +215,7 @@ export const getFlashcards = async (req: Request, res: Response) => {
 export const getDeckById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.id || (req.user as any)?._id;
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
     if (!mongoose.Types.ObjectId.isValid(String(id))) {
@@ -179,10 +225,7 @@ export const getDeckById = async (req: Request, res: Response) => {
     const deck = await Course.findOne({ 
       _id: id, 
       type: 'flashcard',
-      $or: [
-        { creatorId: userId },
-        { isPublished: true }
-      ]
+      creatorId: String(userId)
     });
 
     if (!deck) {
@@ -215,13 +258,12 @@ export const saveFullDeck = async (req: Request, res: Response) => {
 
     const isPublished = Boolean(deckInput.isPublished);
 
-    // Chặn role user xuất bản ra ngoài cộng đồng
-    if (isPublished && !canPublishContent(req)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bộ thẻ ra cộng đồng.',
-        requires_creator: true
-      });
+    // Chặn role user hoặc creator bị đình chỉ xuất bản ra ngoài cộng đồng
+    if (isPublished) {
+      const perm = await checkPublishPermission(req, 'bộ thẻ');
+      if (!perm.allowed) {
+        return res.status(403).json(perm.payload);
+      }
     }
 
     // Không cho phép xuất bản bộ thẻ không có thẻ nào
@@ -392,12 +434,9 @@ export const publishDeck = async (req: Request, res: Response) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    if (!canPublishContent(req)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bộ thẻ ra cộng đồng.',
-        requires_creator: true
-      });
+    const perm = await checkPublishPermission(req, 'bộ thẻ');
+    if (!perm.allowed) {
+      return res.status(403).json(perm.payload);
     }
 
     const deck = await Course.findOne({ _id: id, creatorId: userId, type: 'flashcard' });
@@ -526,7 +565,12 @@ export const cloneDirectDeck = async (req: Request, res: Response) => {
 // --- EXAMS (CREATOR) ---
 export const getCreatorExams = async (req: Request, res: Response) => {
   try {
-    const exams = await Exam.find({ createdBy: req.user?.id }).sort({ createdAt: -1 }).lean();
+    const userId = req.user?.id || (req.user as any)?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập.' });
+    }
+
+    const exams = await Exam.find({ createdBy: String(userId) }).sort({ createdAt: -1 }).lean();
     
     const examsWithDistribution = await Promise.all(exams.map(async (exam) => {
       const ratings = await ExamRating.find({ examId: exam._id });
@@ -548,7 +592,12 @@ export const getCreatorExams = async (req: Request, res: Response) => {
 export const getCreatorExamById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const exam = await Exam.findOne({ _id: id, createdBy: req.user?.id }).lean();
+    const userId = req.user?.id || (req.user as any)?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập.' });
+    }
+
+    const exam = await Exam.findOne({ _id: id, createdBy: String(userId) }).lean();
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
 
     const questions = await Question.find({ examId: new mongoose.Types.ObjectId(String(id)) }).sort({ order: 1 }).lean();
@@ -576,13 +625,12 @@ export const createExam = async (req: Request, res: Response) => {
     const creatorId = req.user?.id;
     if (!creatorId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    // Chặn role user xuất bản bài thi ra cộng đồng
-    if (status === 'Published' && !canPublishContent(req)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bài kiểm tra ra cộng đồng.',
-        requires_creator: true
-      });
+    // Chặn role user hoặc creator bị đình chỉ xuất bản bài thi ra cộng đồng
+    if (status === 'Published') {
+      const perm = await checkPublishPermission(req, 'bài kiểm tra');
+      if (!perm.allowed) {
+        return res.status(403).json(perm.payload);
+      }
     }
 
     const exam = new Exam({ 
@@ -637,13 +685,12 @@ export const updateExam = async (req: Request, res: Response) => {
       questions 
     } = req.body;
 
-    // Chặn role user xuất bản bài thi ra cộng đồng
-    if (status === 'Published' && !canPublishContent(req)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bài kiểm tra ra cộng đồng.',
-        requires_creator: true
-      });
+    // Chặn role user hoặc creator bị đình chỉ xuất bản bài thi ra cộng đồng
+    if (status === 'Published') {
+      const perm = await checkPublishPermission(req, 'bài kiểm tra');
+      if (!perm.allowed) {
+        return res.status(403).json(perm.payload);
+      }
     }
 
     const updateFields: any = {};
@@ -771,12 +818,9 @@ export const saveFullExam = async (req: Request, res: Response) => {
 
     // Kiểm tra quyền xuất bản nếu status là Published
     if (status === 'Published') {
-      if (!canPublishContent(req)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản đề thi ra cộng đồng.',
-          requires_creator: true
-        });
+      const perm = await checkPublishPermission(req, 'đề thi');
+      if (!perm.allowed) {
+        return res.status(403).json(perm.payload);
       }
       if (!Array.isArray(questions) || questions.length === 0) {
         return res.status(400).json({
@@ -860,12 +904,9 @@ export const publishExam = async (req: Request, res: Response) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    if (!canPublishContent(req)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản đề thi ra cộng đồng.',
-        requires_creator: true
-      });
+    const perm = await checkPublishPermission(req, 'đề thi');
+    if (!perm.allowed) {
+      return res.status(403).json(perm.payload);
     }
 
     const exam = await Exam.findOne({ _id: id, createdBy: userId });
@@ -996,12 +1037,9 @@ export const bulkActionExams = async (req: Request, res: Response) => {
       await ExamRating.deleteMany({ examId: { $in: validIds } });
       
     } else if (action === 'publish') {
-      if (!canPublishContent(req)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Chỉ tài khoản Content Creator hoặc Admin mới có quyền xuất bản bài kiểm tra ra cộng đồng.',
-          requires_creator: true
-        });
+      const perm = await checkPublishPermission(req, 'bài kiểm tra');
+      if (!perm.allowed) {
+        return res.status(403).json(perm.payload);
       }
       await Exam.updateMany({ _id: { $in: ids }, createdBy: creatorId }, { status: 'Published' });
     } else if (action === 'unpublish') {

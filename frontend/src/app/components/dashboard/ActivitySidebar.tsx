@@ -6,60 +6,74 @@ import { DashboardActivities } from "./hooks/useDashboardData";
 interface ActivitySidebarProps {
   streak: number;
   activities: DashboardActivities;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export function ActivitySidebar({ streak, activities }: ActivitySidebarProps) {
-  const streakGoal = 10;
+export function ActivitySidebar({ streak, activities, onNavigateTab }: ActivitySidebarProps) {
+  const streakGoal = streak < 7 ? 7 : streak < 14 ? 14 : 30;
   const streakPercent = Math.min((streak / streakGoal) * 100, 100);
   const daysLeft = Math.max(streakGoal - streak, 0);
 
+  const handleGoToAchievements = () => {
+    if (onNavigateTab) {
+      onNavigateTab("achievements");
+    } else {
+      window.dispatchEvent(new CustomEvent("navigate-tab", { detail: { tab: "achievements" } }));
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+      <Card className="border border-zinc-200/80 bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-bold text-zinc-900 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-zinc-900" />
             Learning Streak
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-center">
-          <div className="text-5xl font-bold mb-2 text-primary">{streak}</div>
-          <div className="text-muted-foreground mb-4">Days in a row</div>
-          <div className="w-full bg-secondary rounded-full h-2.5 mb-4 overflow-hidden">
-            <div 
-              className="bg-primary h-full rounded-full transition-all duration-1000 ease-out" 
+        <CardContent className="text-center pt-2">
+          <div className="text-5xl font-extrabold mb-1 text-zinc-900 font-mono">{streak}</div>
+          <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">Days in a row</div>
+          <div className="w-full bg-zinc-100 rounded-full h-2.5 mb-3 overflow-hidden">
+            <div
+              className="bg-zinc-900 h-full rounded-full transition-all duration-700 ease-out"
               style={{ width: `${streakPercent}%` }}
-            ></div>
+            />
           </div>
           {daysLeft > 0 ? (
-            <p className="text-sm text-muted-foreground">{daysLeft} more days to reach your goal!</p>
+            <p className="text-xs text-zinc-500">
+              Còn <strong className="text-zinc-900">{daysLeft} ngày</strong> nữa để đạt mốc {streakGoal} ngày liên tiếp!
+            </p>
           ) : (
-            <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5">
-              <span>You hit your {streakGoal}-day goal!</span>
+            <p className="text-xs font-semibold text-emerald-600 inline-flex items-center justify-center gap-1.5">
+              <span>Bạn đã chinh phục mốc {streakGoal} ngày liên tiếp!</span>
               <Sparkles className="w-4 h-4 shrink-0" strokeWidth={1.75} />
             </p>
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Achievements</CardTitle>
+      <Card className="border border-zinc-200/80 bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-bold text-zinc-900">Recent Achievements</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {activities.achievements.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg">
-              No recent achievements yet.
+        <CardContent className="space-y-3">
+          {!activities?.achievements || activities.achievements.length === 0 ? (
+            <div className="text-xs text-zinc-500 text-center py-6 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50">
+              Chưa có thành tựu nào được mở khóa gần đây.
             </div>
           ) : (
             activities.achievements.map((achievement) => (
-              <div key={achievement.id} className="flex items-center gap-4 bg-muted/30 p-3 rounded-xl">
-                <div className="bg-primary/10 p-2.5 rounded-full shrink-0">
-                  <Award className="h-6 w-6 text-primary" />
+              <div
+                key={achievement.id}
+                className="flex items-center gap-3.5 bg-zinc-50/70 border border-zinc-200/70 p-3 rounded-xl"
+              >
+                <div className="bg-zinc-900 text-white p-2.5 rounded-xl shrink-0">
+                  <Award className="h-5 w-5" />
                 </div>
-                <div>
-                  <p className="font-medium text-sm leading-tight">{achievement.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{achievement.description}</p>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm text-zinc-900 leading-tight truncate">{achievement.title}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{achievement.description}</p>
                 </div>
               </div>
             ))
@@ -67,19 +81,22 @@ export function ActivitySidebar({ streak, activities }: ActivitySidebarProps) {
         </CardContent>
       </Card>
 
-      <Card className="bg-primary/5 border-primary/20 overflow-hidden relative">
-        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-primary/10 rounded-full blur-2xl"></div>
+      <Card className="border border-zinc-200/80 bg-zinc-50/70 rounded-2xl overflow-hidden relative shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <CardContent className="p-6 text-center relative z-10">
-          <h3 className="font-bold text-lg mb-2 text-foreground inline-flex items-center justify-center gap-1.5">
+          <h3 className="font-bold text-base mb-1.5 text-zinc-900 inline-flex items-center justify-center gap-1.5">
             <span>Keep it up!</span>
-            <Rocket className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+            <Rocket className="w-4 h-4 shrink-0 text-zinc-900" strokeWidth={1.75} />
           </h3>
-          <p className="text-sm text-muted-foreground mb-5">
-            You're <strong className="text-foreground">{activities.weeklyActivityScore}%</strong> more active than average learners this week
+          <p className="text-xs text-zinc-600 mb-4 leading-relaxed">
+            Chỉ số hoạt động tuần này của bạn đạt <strong className="text-zinc-900 font-mono">{activities?.weeklyActivityScore || 0}%</strong> dựa trên tiến độ học tập thực tế.
           </p>
-          <Button variant="default" size="sm" className="w-full rounded-full">
-            View Full Report
-            <ArrowRight className="h-4 w-4 ml-2" />
+          <Button
+            onClick={handleGoToAchievements}
+            size="sm"
+            className="w-full rounded-xl bg-[#161616] hover:bg-black text-white text-xs font-semibold h-9"
+          >
+            Xem Thành tựu & Nhiệm vụ
+            <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
           </Button>
         </CardContent>
       </Card>

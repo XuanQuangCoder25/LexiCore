@@ -4,74 +4,187 @@ import { RetentionPoint } from "./hooks/useDashboardData";
 
 interface RetentionChartProps {
   data: RetentionPoint[];
+  dueCardsToday?: number;
 }
 
 function RetentionChartSVG({ data }: { data: RetentionPoint[] }) {
-  const W = 560;
-  const H = 200;
-  const pl = 36; const pr = 16; const pt = 16; const pb = 24;
+  const W = 640;
+  const H = 235;
+  const pl = 44;
+  const pr = 24;
+  const pt = 22;
+  const pb = 42;
   const cw = W - pl - pr;
   const ch = H - pt - pb;
 
   if (data.length === 0) return null;
 
-  const x = (i: number) => (i / (data.length - 1)) * cw;
-  const y = (v: number) => ch - (v / 100) * ch;
+  const divisor = Math.max(1, data.length - 1);
+  const x = (i: number) => (data.length === 1 ? cw / 2 : (i / divisor) * cw);
+  const y = (v: number) => ch - (Math.min(100, Math.max(0, v)) / 100) * ch;
 
-  const retPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.retention).toFixed(1)}`).join(" ");
-  const revPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.withReview).toFixed(1)}`).join(" ");
+  const retPath = data
+    .map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.retention).toFixed(1)}`)
+    .join(" ");
+  const revPath = data
+    .map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.withReview).toFixed(1)}`)
+    .join(" ");
+
+  const areaPath =
+    data.length > 1
+      ? `${revPath} L${x(data.length - 1).toFixed(1)},${ch} L${x(0).toFixed(1)},${ch} Z`
+      : "";
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto max-h-[280px]" aria-label="Memory retention chart">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto max-h-[280px] overflow-visible" aria-label="Memory retention chart">
+      <defs>
+        <linearGradient id="retentionAreaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#18181b" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#18181b" stopOpacity="0.0" />
+        </linearGradient>
+      </defs>
+
       <g transform={`translate(${pl},${pt})`}>
         {/* Lưới ngang (Grid) */}
         {[0, 25, 50, 75, 100].map((v) => (
           <g key={v}>
-            <line x1={0} y1={y(v)} x2={cw} y2={y(v)} stroke="hsl(var(--border))" strokeDasharray="4 4" opacity={0.6} />
-            <text x={-8} y={y(v) + 4} textAnchor="end" fontSize={11} fill="hsl(var(--muted-foreground))">{v}%</text>
+            <line
+              x1={0}
+              y1={y(v)}
+              x2={cw}
+              y2={y(v)}
+              stroke="#e4e4e7"
+              strokeWidth={1}
+              strokeDasharray={v === 0 ? undefined : "4 4"}
+            />
+            <text
+              x={-10}
+              y={y(v) + 4}
+              textAnchor="end"
+              fontSize={11}
+              fontWeight={500}
+              fill="#71717a"
+            >
+              {v}%
+            </text>
           </g>
         ))}
-        {/* Nhãn trục X (Ngày) */}
+
+        {/* Nhãn trục X (Ngày & Số lượt ôn tập thực tế) */}
         {data.map((d, i) => (
-          <text key={d.day} x={x(i)} y={ch + 20} textAnchor="middle" fontSize={12} fill="hsl(var(--muted-foreground))">{d.day}</text>
+          <g key={`${d.day}-${i}`}>
+            <text
+              x={x(i)}
+              y={ch + 20}
+              textAnchor="middle"
+              fontSize={11}
+              fontWeight={500}
+              fill="#52525b"
+            >
+              {d.day}
+            </text>
+            <text
+              x={x(i)}
+              y={ch + 34}
+              textAnchor="middle"
+              fontSize={9.5}
+              fontWeight={500}
+              fill={d.reviewsCount && d.reviewsCount > 0 ? "#18181b" : "#a1a1aa"}
+            >
+              {d.reviewsCount && d.reviewsCount > 0 ? `${d.reviewsCount} lượt ôn` : "0 lượt ôn"}
+            </text>
+          </g>
         ))}
-        {/* Đường mờ - Forgetting Curve */}
-        <path d={retPath} fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth={2.5} strokeDasharray="6 6" strokeOpacity={0.4} />
-        {/* Đường đậm - With Review */}
-        <path d={revPath} fill="none" stroke="hsl(var(--primary))" strokeWidth={3.5} className="drop-shadow-sm" />
-        {/* Các điểm neo (Dots) */}
+
+        {/* Vùng đổ bóng dưới đường SRS */}
+        {areaPath && <path d={areaPath} fill="url(#retentionAreaGrad)" />}
+
+        {/* Đường nét đứt nối các điểm - Forgetting Curve (Without Review) */}
+        <path
+          d={retPath}
+          fill="none"
+          stroke="#a1a1aa"
+          strokeWidth={2.25}
+          strokeDasharray="6 5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Các điểm trên đường Forgetting Curve */}
         {data.map((d, i) => (
-          <circle key={`dot-${d.day}`} cx={x(i)} cy={y(d.withReview)} r={5} fill="hsl(var(--background))" stroke="hsl(var(--primary))" strokeWidth={2.5} className="drop-shadow-sm" />
+          <circle
+            key={`ret-dot-${d.day}-${i}`}
+            cx={x(i)}
+            cy={y(d.retention)}
+            r={3.5}
+            fill="#ffffff"
+            stroke="#a1a1aa"
+            strokeWidth={2}
+          />
+        ))}
+
+        {/* Đường liền đậm nối các điểm - With SRS Review */}
+        <path
+          d={revPath}
+          fill="none"
+          stroke="#18181b"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Các điểm neo (Dots) + Nhãn % trên đường SRS Review */}
+        {data.map((d, i) => (
+          <g key={`dot-${d.day}-${i}`}>
+            <circle
+              cx={x(i)}
+              cy={y(d.withReview)}
+              r={5}
+              fill="#ffffff"
+              stroke="#18181b"
+              strokeWidth={2.75}
+            />
+            <text
+              x={x(i)}
+              y={y(d.withReview) - 10}
+              textAnchor="middle"
+              fontSize={10}
+              fontWeight={700}
+              fill="#18181b"
+            >
+              {d.withReview}%
+            </text>
+          </g>
         ))}
       </g>
     </svg>
   );
 }
 
-export function RetentionChartCard({ data }: RetentionChartProps) {
+export function RetentionChartCard({ data, dueCardsToday = 0 }: RetentionChartProps) {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="bg-muted/20 border-b border-border/40">
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-primary" />
+    <Card className="overflow-hidden border border-zinc-200/80 bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+      <CardHeader className="bg-zinc-50/70 border-b border-zinc-200/80">
+        <CardTitle className="flex items-center gap-2 text-lg font-bold text-zinc-900">
+          <Brain className="h-5 w-5 text-zinc-900" />
           Memory Retention Rate — This Week
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-6">
         {data.length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
-            Not enough data to calculate retention curve yet. Complete more reviews!
+          <div className="text-center py-10 text-zinc-500 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50 text-sm">
+            Chưa có lịch sử ôn tập thẻ nhớ (SRS) để tính toán đường cong ghi nhớ. Hãy ôn tập bộ thẻ đầu tiên của bạn!
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-6 mb-6 text-sm justify-center sm:justify-start">
+            <div className="flex flex-wrap items-center gap-6 mb-6 text-xs sm:text-sm justify-center sm:justify-start">
               <div className="flex items-center gap-2">
-                <div className="h-3 w-6 rounded-full bg-muted-foreground/30 border border-muted-foreground/20" />
-                <span className="text-muted-foreground">Without review (forgetting curve)</span>
+                <span className="inline-block w-6 border-t-2 border-dashed border-zinc-400" />
+                <span className="text-zinc-500">Without review (forgetting curve)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-3 w-6 rounded-full bg-primary shadow-sm" />
-                <span className="text-foreground font-medium">With SRS review (your retention)</span>
+                <span className="inline-block w-6 h-1 rounded-full bg-zinc-900" />
+                <span className="text-zinc-900 font-semibold">With SRS review (your retention)</span>
               </div>
             </div>
 
@@ -79,11 +192,14 @@ export function RetentionChartCard({ data }: RetentionChartProps) {
               <RetentionChartSVG data={data} />
             </div>
 
-            <div className="mt-6 p-4 bg-muted/40 rounded-xl text-center">
-              <p className="text-sm text-muted-foreground">
-                SRS reviews keep your retention above 90%. The dashed line shows natural forgetting without review.
+            <div className="mt-6 p-4 bg-zinc-50 border border-zinc-200/70 rounded-xl text-center">
+              <p className="text-xs sm:text-sm text-zinc-600">
+                Ôn tập ngắt quãng (SRS) giúp duy trì tỷ lệ ghi nhớ từ vựng lâu dài. Đường nét đứt thể hiện tốc độ quên tự nhiên nếu không ôn tập.
                 <br className="hidden sm:block mt-1" />
-                Next batch: <strong className="font-semibold text-primary">50 cards due today</strong>
+                Thẻ cần ôn tập hôm nay:{" "}
+                <strong className="font-bold text-zinc-900 font-mono">
+                  {dueCardsToday} cards due today
+                </strong>
               </p>
             </div>
           </>

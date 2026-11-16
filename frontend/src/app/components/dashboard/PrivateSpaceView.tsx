@@ -39,9 +39,10 @@ import { ShareDeckModal } from "../../features/community/ShareDeckModal";
 interface PrivateSpaceViewProps {
   onNavigateTab?: (tab: string) => void;
   userRole?: string;
+  creatorStatus?: string | null;
 }
 
-export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSpaceViewProps) {
+export function PrivateSpaceView({ onNavigateTab, userRole = "user", creatorStatus = null }: PrivateSpaceViewProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{
     courses: any[];
@@ -168,6 +169,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
           fetchPrivateContent();
         }}
         userRole={userRole}
+        creatorStatus={creatorStatus}
         onNavigateTab={onNavigateTab}
       />
     );
@@ -184,6 +186,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
           fetchPrivateContent();
         }}
         userRole={userRole}
+        creatorStatus={creatorStatus}
         onNavigateTab={onNavigateTab}
       />
     );
@@ -200,6 +203,7 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
           fetchPrivateContent();
         }}
         userRole={userRole}
+        creatorStatus={creatorStatus}
         onNavigateTab={onNavigateTab}
       />
     );
@@ -211,21 +215,18 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header Banner - Luxury Minimalist Charcoal */}
-      <div className="relative overflow-hidden rounded-3xl bg-[#151515] p-6 md:p-8 text-white shadow-xl border border-zinc-800">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-zinc-800/30 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-20 -mb-10 w-48 h-48 bg-zinc-700/20 rounded-full blur-2xl pointer-events-none" />
-
+      {/* Header Banner - Clean White Minimalist */}
+      <div className="relative overflow-hidden rounded-3xl bg-white p-6 md:p-8 text-zinc-900 shadow-[0_1px_3px_rgba(0,0,0,0.02)] border border-zinc-200/80">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-800/80 text-zinc-300 text-xs font-medium border border-zinc-700/80">
-              <FolderLock className="w-3.5 h-3.5 text-zinc-300" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 text-xs font-medium border border-zinc-200/80">
+              <FolderLock className="w-3.5 h-3.5 text-zinc-700" />
               <span>Kho học liệu cá nhân</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-zinc-900">
               Private Space
             </h1>
-            <p className="text-zinc-400 text-sm md:text-base leading-relaxed">
+            <p className="text-zinc-500 text-sm md:text-base leading-relaxed">
               Không gian riêng lưu trữ toàn bộ các bộ thẻ, khóa học và đề thi cá nhân của bạn. Tự do ôn luyện, kiểm tra kiến thức và quản lý nội dung bất kỳ lúc nào.
             </p>
           </div>
@@ -236,14 +237,14 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
               size="sm"
               onClick={fetchPrivateContent}
               disabled={loading}
-              className="bg-zinc-800/90 hover:bg-zinc-700 text-zinc-200 border-zinc-700 rounded-xl transition-all duration-200"
+              className="bg-white hover:bg-zinc-50 text-zinc-800 border-zinc-200 hover:border-zinc-300 rounded-xl transition-all duration-200"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Làm mới
             </Button>
             <Button
               onClick={() => onNavigateTab?.("creator")}
-              className="bg-white hover:bg-zinc-100 text-zinc-950 font-medium shadow-md shadow-white/5 gap-2 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]"
+              className="bg-[#161616] hover:bg-black text-white font-semibold shadow-xs gap-2 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]"
             >
               <Plus className="w-4 h-4" /> Tạo nội dung mới
             </Button>
@@ -251,42 +252,42 @@ export function PrivateSpaceView({ onNavigateTab, userRole = "user" }: PrivateSp
         </div>
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mt-6 pt-6 border-t border-zinc-800">
-          <div onClick={() => setActiveTab("flashcards")} className="bg-zinc-900/80 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 rounded-2xl p-4 border border-zinc-800 hover:border-zinc-700">
-            <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium mb-1">
-              <Brain className="w-4 h-4 text-zinc-400" /> Flashcards
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mt-6 pt-6 border-t border-zinc-200/80">
+          <div onClick={() => setActiveTab("flashcards")} className="bg-zinc-50/70 hover:bg-zinc-100/80 cursor-pointer transition-all duration-200 rounded-2xl p-4 border border-zinc-200/80 hover:border-zinc-300">
+            <div className="flex items-center gap-2 text-zinc-600 text-xs font-medium mb-1">
+              <Brain className="w-4 h-4 text-zinc-700" /> Flashcards
             </div>
-            <div className="text-2xl font-extrabold text-white font-mono">{data.stats?.totalFlashcardDecks || 0}</div>
+            <div className="text-2xl font-extrabold text-zinc-900 font-mono">{data.stats?.totalFlashcardDecks || 0}</div>
             <div className="text-xs text-zinc-500 mt-0.5">
               {data.stats?.privateDecks || 0} bộ riêng tư
             </div>
           </div>
 
-          <div onClick={() => setActiveTab("courses")} className="bg-zinc-900/80 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 rounded-2xl p-4 border border-zinc-800 hover:border-zinc-700">
-            <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium mb-1">
-              <BookOpen className="w-4 h-4 text-zinc-400" /> Khóa học
+          <div onClick={() => setActiveTab("courses")} className="bg-zinc-50/70 hover:bg-zinc-100/80 cursor-pointer transition-all duration-200 rounded-2xl p-4 border border-zinc-200/80 hover:border-zinc-300">
+            <div className="flex items-center gap-2 text-zinc-600 text-xs font-medium mb-1">
+              <BookOpen className="w-4 h-4 text-zinc-700" /> Khóa học
             </div>
-            <div className="text-2xl font-extrabold text-white font-mono">{data.stats?.totalCourses || 0}</div>
+            <div className="text-2xl font-extrabold text-zinc-900 font-mono">{data.stats?.totalCourses || 0}</div>
             <div className="text-xs text-zinc-500 mt-0.5">
               {data.stats?.privateCourses || 0} bản nháp
             </div>
           </div>
 
-          <div onClick={() => setActiveTab("exams")} className="bg-zinc-900/80 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 rounded-2xl p-4 border border-zinc-800 hover:border-zinc-700">
-            <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium mb-1">
-              <ClipboardList className="w-4 h-4 text-zinc-400" /> Đề kiểm tra
+          <div onClick={() => setActiveTab("exams")} className="bg-zinc-50/70 hover:bg-zinc-100/80 cursor-pointer transition-all duration-200 rounded-2xl p-4 border border-zinc-200/80 hover:border-zinc-300">
+            <div className="flex items-center gap-2 text-zinc-600 text-xs font-medium mb-1">
+              <ClipboardList className="w-4 h-4 text-zinc-700" /> Đề kiểm tra
             </div>
-            <div className="text-2xl font-extrabold text-white font-mono">{data.stats?.totalExams || 0}</div>
+            <div className="text-2xl font-extrabold text-zinc-900 font-mono">{data.stats?.totalExams || 0}</div>
             <div className="text-xs text-zinc-500 mt-0.5">
               {data.stats?.privateExams || 0} đề riêng tư
             </div>
           </div>
 
-          <div onClick={() => setFilterStatus("private")} className="bg-zinc-900/80 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 rounded-2xl p-4 border border-zinc-800 hover:border-zinc-700">
-            <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium mb-1">
-              <Lock className="w-4 h-4 text-zinc-400" /> Tổng riêng tư
+          <div onClick={() => setFilterStatus("private")} className="bg-zinc-50/70 hover:bg-zinc-100/80 cursor-pointer transition-all duration-200 rounded-2xl p-4 border border-zinc-200/80 hover:border-zinc-300">
+            <div className="flex items-center gap-2 text-zinc-600 text-xs font-medium mb-1">
+              <Lock className="w-4 h-4 text-zinc-700" /> Tổng riêng tư
             </div>
-            <div className="text-2xl font-extrabold text-white font-mono">
+            <div className="text-2xl font-extrabold text-zinc-900 font-mono">
               {(data.stats?.privateDecks || 0) +
                 (data.stats?.privateCourses || 0) +
                 (data.stats?.privateExams || 0)}

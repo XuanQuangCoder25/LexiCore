@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Separator } from "../ui/separator";
 import { Checkbox } from "../ui/checkbox";
-import axios from "axios";
+import httpClient from "../../services/httpClient";
 import { toast } from "sonner";
 import { creatorService } from '../../services/creator-service';
 import { courseBuilderService } from '../../services/course-builder-service';
@@ -60,11 +60,15 @@ interface Flashcard {
 interface CreatorStudioViewProps {
   onNavigateTab?: (tab: string) => void;
   userRole?: string;
+  creatorStatus?: string | null;
 }
 
-export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorStudioViewProps) {
-  const isCreatorOrAdmin = userRole?.toLowerCase() === "content_creator" || userRole?.toLowerCase() === "admin";
+export function CreatorStudioView({ onNavigateTab, userRole = "user", creatorStatus = null }: CreatorStudioViewProps) {
+  const effectiveCreatorStatus = (creatorStatus ?? localStorage.getItem("lexicore_creator_status") ?? "").toUpperCase();
+  const isSuspendedCreator = userRole?.toLowerCase() === "content_creator" && effectiveCreatorStatus === "SUSPENDED";
+  const isCreatorOrAdmin = (userRole?.toLowerCase() === "content_creator" && !isSuspendedCreator) || userRole?.toLowerCase() === "admin";
   const [showPublishRestrictedModal, setShowPublishRestrictedModal] = useState(false);
+  const [publishModalReason, setPublishModalReason] = useState<'creator_required' | 'creator_suspended'>('creator_required');
   const [view, setView] = useState<"list" | "editor" | "course_builder" | "flashcard_builder">("list");
   const [selectedFlashcardDeckId, setSelectedFlashcardDeckId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -121,9 +125,9 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
 
   const fetchExams = async () => {
     try {
-      const res = await axios.get("/api/v1/creator/exams", { withCredentials: true });
-      if (res.data.success) {
-        setExams(res.data.data);
+      const res = await creatorService.getExams();
+      if (res.success) {
+        setExams(res.data);
       }
     } catch (error) {
       toast.error("Không thể tải danh sách bài kiểm tra");
@@ -184,6 +188,7 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
 
   const handlePublishToggle = async (course: Course) => {
     if (!course.isPublished && !isCreatorOrAdmin) {
+      setPublishModalReason(isSuspendedCreator ? 'creator_suspended' : 'creator_required');
       setShowPublishRestrictedModal(true);
       return;
     }
@@ -198,13 +203,19 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
         }
         toast.success(course.isPublished ? "Đã chuyển về bản nháp" : "Đã xuất bản thành công");
       }
-    } catch (error) {
-      toast.error("Lỗi cập nhật trạng thái");
+    } catch (error: any) {
+      if (error?.response?.status === 403) {
+        setPublishModalReason(error?.response?.data?.creator_suspended || isSuspendedCreator ? 'creator_suspended' : 'creator_required');
+        setShowPublishRestrictedModal(true);
+      } else {
+        toast.error(error?.response?.data?.message || "Lỗi cập nhật trạng thái");
+      }
     }
   };
 
   const handlePublishActualCourse = async (course: any) => {
     if (!course.isPublished && !isCreatorOrAdmin) {
+      setPublishModalReason(isSuspendedCreator ? 'creator_suspended' : 'creator_required');
       setShowPublishRestrictedModal(true);
       return;
     }
@@ -220,6 +231,7 @@ export function CreatorStudioView({ onNavigateTab, userRole = "user" }: CreatorS
       }
     } catch (error: any) {
       if (error?.response?.status === 403) {
+        setPublishModalReason(error?.response?.data?.creator_suspended || isSuspendedCreator ? 'creator_suspended' : 'creator_required');
         setShowPublishRestrictedModal(true);
       } else {
         const apiErrors: Array<{ path: string; message: string }> = error?.response?.data?.errors;
@@ -366,14 +378,14 @@ const handleOpenEditor = (course: Course) => {
 
   const handleCreateNewExam = async () => {
     try {
-      const res = await axios.post("/api/v1/creator/exams", {
+      const res = await creatorService.createExam({
         title: "Bài kiểm tra mới",
         description: "",
         thumbnail: ""
-      }, { withCredentials: true });
-      if (res.data.success) {
+      });
+      if (res.success) {
         setActiveTab("exams");
-        setBuilderExamId(res.data.data._id);
+        setBuilderExamId(res.data._id);
         fetchExams();
       }
     } catch (error) {
@@ -383,7 +395,7 @@ const handleOpenEditor = (course: Course) => {
 
   const handleDeleteExam = async (id: string) => {
     try {
-      await axios.delete(`/api/v1/creator/exams/${id}`, { withCredentials: true });
+      await creatorService.deleteExam(id);
       setExams((prev) => prev.filter((e) => e._id !== id));
       setSelectedExams((prev) => prev.filter(eid => eid !== id));
       toast.success("Đã xóa bài kiểm tra");
@@ -396,19 +408,25 @@ const handleOpenEditor = (course: Course) => {
 
   const handleBulkAction = async (action: 'delete' | 'publish' | 'unpublish') => {
     if (action === 'publish' && !isCreatorOrAdmin) {
+      setPublishModalReason(isSuspendedCreator ? 'creator_suspended' : 'creator_required');
       setShowPublishRestrictedModal(true);
       return;
     }
     if (selectedExams.length === 0) return;
     try {
-      const res = await axios.post("/api/v1/creator/exams/bulk-action", { ids: selectedExams, action }, { withCredentials: true });
+      const res = await httpClient.post("/api/v1/creator/exams/bulk-action", { ids: selectedExams, action });
       if (res.data.success) {
         toast.success(res.data.message);
         setSelectedExams([]);
         fetchExams();
       }
-    } catch (error) {
-      toast.error("Thao tác thất bại");
+    } catch (error: any) {
+      if (error?.response?.status === 403) {
+        setPublishModalReason(error?.response?.data?.creator_suspended || isSuspendedCreator ? 'creator_suspended' : 'creator_required');
+        setShowPublishRestrictedModal(true);
+      } else {
+        toast.error(error?.response?.data?.message || "Thao tác thất bại");
+      }
     }
   };
 
@@ -416,7 +434,7 @@ const handleOpenEditor = (course: Course) => {
     setViewingRatingsId(examId);
     setRatingsData([]);
     try {
-      const res = await axios.get(`/api/v1/creator/exams/${examId}/ratings`, { withCredentials: true });
+      const res = await httpClient.get(`/api/v1/creator/exams/${examId}/ratings`);
       if (res.data.success) {
         setRatingsData(res.data.data);
       }
@@ -431,6 +449,9 @@ const handleOpenEditor = (course: Course) => {
       onOpenChange={setShowPublishRestrictedModal}
       onNavigateTab={onNavigateTab}
       contentType="nội dung"
+      reason={publishModalReason}
+      userRole={userRole}
+      creatorStatus={creatorStatus}
     />
   );
 
@@ -445,6 +466,7 @@ const handleOpenEditor = (course: Course) => {
           fetchCourses();
         }}
         userRole={userRole}
+        creatorStatus={creatorStatus}
         onNavigateTab={onNavigateTab}
       />
     );
@@ -558,6 +580,7 @@ const handleOpenEditor = (course: Course) => {
           fetchCourses();
         }}
         userRole={userRole}
+        creatorStatus={creatorStatus}
         onNavigateTab={onNavigateTab}
       />
     );
@@ -568,7 +591,7 @@ const handleOpenEditor = (course: Course) => {
       setBuilderExamId(null);
       setActiveTab("exams");
       fetchExams();
-    }} userRole={userRole} onNavigateTab={onNavigateTab} />;
+    }} userRole={userRole} creatorStatus={creatorStatus} onNavigateTab={onNavigateTab} />;
   }
 
   // --- DECK LIST (Courses) ---

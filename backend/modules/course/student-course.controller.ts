@@ -6,6 +6,8 @@ import User from '../../database/models/User';
 import '../../database/models/Exam';
 import mongoose from 'mongoose';
 import { findUserById } from '../auth/auth-repository';
+import { updateStreak } from '../../utils/streak';
+import { updateAchievementProgress, updateGoalProgress } from '../gamification/gamification-repository';
 
 // ---------------------------------------------------------------------------
 // Helpers dùng chung cho luồng tiến độ (Chapter / Course completion)
@@ -450,10 +452,19 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
             }
         }
 
-        // --- Tích hợp Gamification ---
+        // --- Tích hợp Gamification & Streak ---
         user.weeklyActivityScore += 10; // Tăng exp cho user (điểm tích cực)
-        
         await user.save();
+
+        if (userId) {
+            try {
+                await updateStreak(userId);
+                await updateAchievementProgress(userId, 'lessons_completed', 1);
+                await updateGoalProgress(userId, 'lessons_completed', 1);
+            } catch {
+                // Không chặn luồng hoàn thành bài học nếu MySQL gamification tạm lỗi
+            }
+        }
 
         res.status(200).json({ 
             status: 'success', 

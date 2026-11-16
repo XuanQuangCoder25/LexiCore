@@ -4,6 +4,8 @@ import { calculateSM2Plus } from './srs.service';
 import mongoose from 'mongoose';
 import Course from '../../database/models/Course';
 import Flashcard from '../../database/models/Flashcard';
+import { updateStreak } from '../../utils/streak';
+import { updateAchievementProgress, updateGoalProgress } from '../gamification/gamification-repository';
 
 export const getDueCards = async (req: Request, res: Response) => {
   try {
@@ -173,6 +175,17 @@ export const submitReview = async (req: Request, res: Response) => {
     });
 
     await card.save();
+
+    if (userId) {
+      try {
+        await updateStreak(userId);
+        await updateAchievementProgress(userId, 'vocab_studied', 1);
+        await updateGoalProgress(userId, 'vocab_studied', 1);
+      } catch {
+        // Không làm gián đoạn luồng ôn thẻ nếu gamification lỗi
+      }
+    }
+
     res.json({ success: true, data: card });
   } catch (error) {
     console.error('Lỗi khi submit review:', error);
