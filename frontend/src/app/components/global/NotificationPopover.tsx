@@ -15,9 +15,12 @@ import {
   RefreshCw,
   UserCheck,
   UserPlus,
+  Gift,
+  Tag,
 } from "lucide-react";
 import { notificationService, InAppNotification } from "../../services/notification-service";
 import { toast } from "sonner";
+import { RewardClaimModal } from "./RewardClaimModal";
 
 // Hàm tính thời gian hiển thị tương đối
 function formatRelativeTime(dateString: string): string {
@@ -43,6 +46,8 @@ export function NotificationPopover() {
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
+  const [claimModalOpen, setClaimModalOpen] = useState(false);
+  const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
   const isInitialLoadRef = useRef(true);
   const isUnauthorizedRef = useRef(false);
@@ -146,6 +151,10 @@ export function NotificationPopover() {
 
     if (type === "reminder") {
       Icon = Flame;
+    } else if (type === "reward") {
+      Icon = Gift;
+    } else if (type === "sale") {
+      Icon = Tag;
     } else if (type === "srs") {
       Icon = Brain;
     } else if (type === "challenge") {
@@ -175,7 +184,8 @@ export function NotificationPopover() {
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+    <>
+      <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" className="relative h-9 w-9 p-0 rounded-lg">
           <Bell className="h-4 w-4" />
@@ -276,6 +286,40 @@ export function NotificationPopover() {
                         {n.body}
                       </p>
 
+                      {/* Nut hanh dong theo loai thong bao */}
+                      {n.type === "reward" && (
+                        <Button
+                          size="sm"
+                          className="h-6 px-2.5 mt-2 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkRead(n.id, isRead);
+                            setIsOpen(false);
+                            setClaimModalOpen(true);
+                          }}
+                        >
+                          <Gift className="h-3 w-3" /> Nhận quà ngay
+                        </Button>
+                      )}
+
+                      {(n.type === "sale" || n.type === "subscription") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2.5 mt-2 text-[11px] gap-1 text-primary border-primary/30 rounded-md"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkRead(n.id, isRead);
+                            setIsOpen(false);
+                            window.dispatchEvent(
+                              new CustomEvent("navigate-tab", { detail: { tab: "subscription" } })
+                            );
+                          }}
+                        >
+                          Xem ưu đãi
+                        </Button>
+                      )}
+
                       <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted-foreground font-mono">
                         <Clock className="w-3 h-3 opacity-60" />
                         <span>{formatRelativeTime(n.created_at)}</span>
@@ -300,5 +344,13 @@ export function NotificationPopover() {
         </div>
       </PopoverContent>
     </Popover>
+
+    <RewardClaimModal
+      open={claimModalOpen}
+      campaignId={activeCampaignId}
+      onClose={() => setClaimModalOpen(false)}
+      onSuccess={fetchNotifications}
+    />
+    </>
   );
 }

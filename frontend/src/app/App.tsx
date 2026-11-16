@@ -31,6 +31,7 @@ import { ChatDialog } from "./components/global/ChatDialog";
 import { SocialProvider, useSocial } from "./features/social/SocialContext";
 import { Badge } from "./components/ui/badge";
 import { CircleDollarSign, Flame } from "lucide-react";
+import { MaintenancePage } from "./components/global/MaintenancePage";
 
 const TAB_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -72,6 +73,35 @@ function AppContent() {
   const [userTier, setUserTier] = useState<"STARTER" | "PRO" | "ELITE" | null>(() => {
     return (localStorage.getItem("lexicore_user_tier") as any) || null;
   });
+  const [maintenance, setMaintenance] = useState<{
+    active: boolean;
+    title?: string;
+    message?: string;
+    estimatedEnd?: string | null;
+  }>({ active: false });
+
+  // Kiểm tra tình trạng bảo trì hệ thống
+  useEffect(() => {
+    const checkSystemStatus = () => {
+      fetch("/api/system/status")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.success) {
+            setMaintenance({
+              active: Boolean(data.active),
+              title: data.title,
+              message: data.message,
+              estimatedEnd: data.estimatedEnd,
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    checkSystemStatus();
+    const interval = setInterval(checkSystemStatus, 45000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Sync tab khi location state hoặc search params thay đổi
   useEffect(() => {
@@ -117,11 +147,18 @@ function AppContent() {
         else localStorage.removeItem("lexicore_user_tier");
       }
     };
+    const handleWalletChange = (e: any) => {
+      if (e.detail?.coinBalance !== undefined) {
+        setCoins(Number(e.detail.coinBalance));
+      }
+    };
     window.addEventListener("navigate-tab", handleNavigateTab);
     window.addEventListener("membership-tier-change", handleTierChange);
+    window.addEventListener("wallet-balance-change", handleWalletChange);
     return () => {
       window.removeEventListener("navigate-tab", handleNavigateTab);
       window.removeEventListener("membership-tier-change", handleTierChange);
+      window.removeEventListener("wallet-balance-change", handleWalletChange);
     };
   }, []);
 
@@ -163,6 +200,16 @@ function AppContent() {
       default: return <DashboardView />;
     }
   };
+
+  if (maintenance.active && userRole !== "admin") {
+    return (
+      <MaintenancePage
+        title={maintenance.title}
+        message={maintenance.message}
+        estimatedEnd={maintenance.estimatedEnd}
+      />
+    );
+  }
 
   return (
     <SidebarProvider>
