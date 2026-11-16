@@ -33,6 +33,8 @@ export interface ICommunityPost extends Document {
     thumbnail?: string;
     cardCount?: number;
     courseId?: string;
+    deckId?: any;
+    allowClone?: boolean;
     level?: string;
     sampleCards?: Array<{ front: string; back: string }>;
   };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../ui/card";
@@ -29,9 +29,11 @@ import {
   Lock,
   AlertCircle,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  Eye
 } from "lucide-react";
 import { ReportIssueModal } from "../global/ReportIssueModal";
+import { CatalogFilterBar, CatalogEmptyState, SortOption } from "./CatalogFilterBar";
 
 // --- Types ---
 interface Exam {
@@ -48,6 +50,7 @@ interface Exam {
   hasPassword?: boolean;
   totalRatings?: number;
   averageRating?: number;
+  viewsCount?: number;
 }
 
 interface Question {
@@ -479,8 +482,11 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Search & Filter state
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("newest");
+  const [level, setLevel] = useState("ALL");
+  const [sort, setSort] = useState<SortOption>("newest");
   
   const [showPasswordModal, setShowPasswordModal] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
@@ -489,10 +495,14 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
   const [viewingRatingsId, setViewingRatingsId] = useState<string | null>(null);
   const [ratingsData, setRatingsData] = useState<any[]>([]);
 
-  const fetchExams = () => {
+  const fetchExams = useCallback(() => {
     setLoading(true);
     axios.get("/api/exams", { 
-      params: { search, sort },
+      params: { 
+        search, 
+        level: level === "ALL" ? undefined : level, 
+        sort 
+      },
       withCredentials: true 
     })
       .then(res => {
@@ -504,11 +514,17 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
         setError("Không thể tải danh sách bài thi. Vui lòng thử lại sau.");
         setLoading(false);
       });
-  };
+  }, [search, level, sort]);
 
   useEffect(() => {
     fetchExams();
-  }, [sort]);
+  }, [fetchExams]);
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setLevel("ALL");
+    setSort("newest");
+  };
 
   const handleStartExam = (exam: Exam) => {
     if (exam.hasPassword) {
@@ -548,8 +564,9 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
 
   if (loading) {
     return (
-      <div className="flex justify-center p-12">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex flex-col items-center justify-center p-16">
+        <div className="w-8 h-8 border-3 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs text-zinc-500 mt-3 font-medium">Đang tải danh sách bài thi...</p>
       </div>
     );
   }
@@ -564,39 +581,38 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Exam Center</h1>
-          <p className="text-zinc-500 text-sm mt-1">Kiểm tra năng lực ngoại ngữ và đánh giá tiến độ thực tế</p>
-        </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Input 
-            placeholder="Tìm kiếm bài thi..." 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
-            onKeyDown={(e) => e.key === 'Enter' && fetchExams()}
-            className="max-w-[220px] bg-white border-zinc-200 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 rounded-xl transition-all duration-200"
-          />
-          <Button variant="outline" onClick={fetchExams} className="border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50 rounded-xl text-zinc-700">
-            <Search className="h-4 w-4" />
-          </Button>
-          <select 
-            value={sort} 
-            onChange={(e) => setSort(e.target.value)}
-            className="flex h-9 w-[140px] items-center justify-between rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-2xs focus:outline-none focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/5 transition-all"
-          >
-            <option value="newest">Mới nhất</option>
-            <option value="oldest">Cũ nhất</option>
-            <option value="highest_rated">Đánh giá cao</option>
-          </select>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Exam Center</h1>
+        <p className="text-zinc-500 text-sm mt-1">Kiểm tra năng lực ngoại ngữ và đánh giá tiến độ thực tế</p>
+      </div>
+
+      {/* Catalog Filter Bar chuẩn Monochrome */}
+      <div className="bg-white p-4 md:p-5 rounded-2xl border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <CatalogFilterBar
+          search={search}
+          onSearchChange={setSearch}
+          level={level}
+          onLevelChange={setLevel}
+          sort={sort}
+          onSortChange={setSort}
+          totalResults={exams.length}
+          resultLabel="bài thi"
+          searchPlaceholder="Tìm kiếm bài thi theo tiêu đề, mô tả, kỹ năng..."
+          onReset={handleResetFilters}
+          extraSortOptions={[
+            { value: "highest_rated", label: "Đánh giá cao" }
+          ]}
+        />
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {exams.length === 0 ? (
-          <div className="col-span-full text-center py-16 text-zinc-500 border border-dashed border-zinc-300 rounded-2xl bg-zinc-50/50">
-            Chưa có bài thi nào khả dụng. Vui lòng quay lại sau!
-          </div>
+          <CatalogEmptyState
+            title="Không tìm thấy bài thi nào"
+            description="Hãy thử đổi từ khóa tìm kiếm hoặc chọn cấp độ khác để khám phá các bài thi phù hợp."
+            onReset={handleResetFilters}
+          />
         ) : (
           exams.map((exam) => (
             <Card key={exam._id} className="group border border-zinc-200/80 bg-white hover:border-zinc-900 hover:-translate-y-0.5 hover:shadow-[0_10px_26px_-6px_rgba(0,0,0,0.07)] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] rounded-2xl overflow-hidden flex flex-col justify-between">
@@ -609,6 +625,18 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
                       <BookOpen className="h-10 w-10 text-zinc-400" />
                     </div>
                   )}
+
+                  {/* Level & Views Badges */}
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+                    <span className="bg-zinc-900/90 text-white backdrop-blur-sm shadow-sm text-xs font-bold px-2.5 py-0.5 rounded-full font-mono">
+                      {exam.level || "B1"}
+                    </span>
+                    <span className="bg-white/95 text-zinc-800 backdrop-blur-sm shadow-sm text-[11px] font-medium px-2 py-0.5 rounded-full font-mono flex items-center gap-1 border border-zinc-200/60">
+                      <Eye className="w-3 h-3 text-zinc-500" />
+                      {exam.viewsCount || 0}
+                    </span>
+                  </div>
+
                   {exam.progress && exam.progress.status === 'Completed' && (
                     <div className="absolute top-3 right-3">
                       <span className="bg-zinc-900 text-white font-mono text-xs px-2.5 py-1 rounded-full shadow-xs">
@@ -628,11 +656,6 @@ function ExamListView({ onSelectExam }: { onSelectExam: (id: string) => void }) 
                     {exam.durationMinutes && (
                       <Badge variant="outline" className="border-zinc-200 bg-zinc-50 text-zinc-700 text-[11px] font-mono rounded-lg">
                         <Clock className="w-3 h-3 mr-1 text-zinc-500" /> {exam.durationMinutes}p
-                      </Badge>
-                    )}
-                    {exam.level && (
-                      <Badge variant="secondary" className="bg-zinc-100 text-zinc-800 text-[11px] font-medium rounded-lg">
-                        {exam.level}
                       </Badge>
                     )}
                     {exam.passingScore && (

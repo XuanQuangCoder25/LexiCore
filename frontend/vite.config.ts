@@ -26,8 +26,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': `${__dirname}src/app`,
-      'react': `${__dirname}node_modules/react`,
-      'react-dom': `${__dirname}node_modules/react-dom`,
     },
     dedupe: ['react', 'react-dom'],
   },

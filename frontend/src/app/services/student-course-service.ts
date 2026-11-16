@@ -9,7 +9,7 @@ const api = axios.create({
 });
 
 export const studentCourseService = {
-  getPublishedCourses: async (params?: { level?: string; search?: string }) => {
+  getPublishedCourses: async (params?: { level?: string; search?: string; sort?: string }) => {
     return (await api.get('/', { params })).data;
   },
   

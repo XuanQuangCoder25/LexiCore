@@ -160,7 +160,7 @@ export const getDeckById = async (req: Request, res: Response) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!mongoose.Types.ObjectId.isValid(String(id))) {
       return res.status(400).json({ success: false, message: 'ID bộ thẻ không hợp lệ' });
     }
 
