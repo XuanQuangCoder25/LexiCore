@@ -4,11 +4,13 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'backend/**' 
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
 
 jobs:
   build-and-test:
@@ -16,31 +18,31 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./backend 
+        working-directory: ./backend
 
     env:
       NODE_ENV: test
       PORT: 5000
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      MYSQL_URI: ${{ secrets.MYSQL_URI }}
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
-      REDIS_URL: ${{ secrets.REDIS_URL }}
-      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-test-jwt-secret-key-super-safe' }}
+      MYSQL_URI: ${{ secrets.MYSQL_URI || 'mysql://root:password@127.0.0.1:3306/lexicore_test?timezone=Z' }}
+      MONGODB_URI: ${{ secrets.MONGODB_URI || 'mongodb://127.0.0.1:27017/lexicore_test' }}
+      REDIS_URL: ${{ secrets.REDIS_URL || 'redis://127.0.0.1:6379' }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 're_dummy_test_api_key' }}
       CLIENT_URL: 'http://localhost:5173'
 
     steps:
     - name: Checkout mã nguồn
       uses: actions/checkout@v4
 
-    - name: Cài đặt Node.js LTS (v20)
+    - name: Cài đặt Node.js LTS (v22)
       uses: actions/setup-node@v4
       with:
-        node-version: '20.x'
+        node-version: '22.x'
         cache: 'npm'
-        cache-dependency-path: './backend/package.json'
+        cache-dependency-path: './backend/package-lock.json'
 
     - name: Cài đặt Dependencies
-      run: npm install
+      run: npm ci --workspaces=false || npm install --workspaces=false
 
     - name: Kiểm tra Type Check (TypeScript)
       run: npm run type-check

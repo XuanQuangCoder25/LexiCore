@@ -97,7 +97,7 @@ export async function exportInvoiceToPdf(
   ]);
 
   const jsPDF = jspdfModule.jsPDF || (jspdfModule as any).default || jspdfModule;
-  const html2canvas = html2canvasModule.default || html2canvasModule;
+  const html2canvas = (html2canvasModule.default || (html2canvasModule as any)) as typeof html2canvasModule.default;
 
   // Tạo container tạm thời trong DOM để render mẫu hóa đơn HTML
   const container = document.createElement("div");

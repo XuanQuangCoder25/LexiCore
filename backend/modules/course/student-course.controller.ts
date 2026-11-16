@@ -239,6 +239,11 @@ export const enrollCourse = async (req: Request, res: Response): Promise<void> =
             }
         }
 
+        if (!user) {
+            res.status(404).json({ status: 'error', message: 'Người dùng không tồn tại.' });
+            return;
+        }
+
         // Kiểm tra đã đăng ký chưa
         const isEnrolled = user.enrolledCourses.some(e => e.courseId.toString() === id);
         if (isEnrolled) {

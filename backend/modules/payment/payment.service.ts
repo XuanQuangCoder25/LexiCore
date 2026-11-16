@@ -7,7 +7,6 @@ import {
     createPaymentOrder,
     setOrderCode,
     getOrderStatus,
-    updateOrderStatus,
     creditWalletAfterPurchase,
     getUserOrders,
     getUserTransactions,
@@ -22,7 +21,6 @@ import {
     getOrderByReference,
     getInvoiceByOrderId,
     cancelPendingOrdersOfUser,
-    cleanupOldOrders,
     CreditPackage,
 } from './payment.repository';
 import { getActiveCampaigns } from './campaign.repository';

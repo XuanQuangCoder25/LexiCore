@@ -39,9 +39,9 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
   const [isFlippingBack, setIsFlippingBack] = useState<boolean>(false);
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const readyTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const mockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sử dụng Ref để lưu trữ state mới nhất mà không làm re-run useEffect socket
   const matchedDataRef = useRef<MatchedPayload | null>(null);
