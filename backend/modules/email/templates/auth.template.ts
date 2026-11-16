@@ -166,8 +166,8 @@ export const customDirectMessageTemplate = ({
         badgeColor = '#ecfdf5';
         badgeTextColor = '#047857';
     } else if (badgeType === 'info') {
-        badgeColor = '#eff6ff';
-        badgeTextColor = '#1d4ed8';
+        badgeColor = '#e0e7ff';
+        badgeTextColor = '#4338ca';
     }
 
     // Biến đổi các đoạn văn bản xuống dòng thành thẻ paragraph

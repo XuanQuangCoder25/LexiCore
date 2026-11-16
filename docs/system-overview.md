@@ -24,7 +24,7 @@
 - **File storage:** Cloudinary — ảnh vật phẩm, avatar, cover photo
 - **AI:** OpenAI Whisper (speech-to-text phát âm), Google Gemini (giải thích ngữ cảnh, tóm tắt video)
 - **Real-time:** Socket.IO (Arena PvP 1v1, Social/Chat namespace)
-- **Email:** Resend API — OTP, biên lai SePay, nhắc hết hạn gói, cảnh báo gia hạn, nhắc học tập giữ streak (Module Email tách biệt Template & Service)
+- **Email:** Resend API - Hệ thống email thông báo, biên lai, xác thực và quản trị (Module Email phân tầng Master Layout, Domain Templates và Service điều phối)
 - **Payment:** SePay VietQR — cổng thanh toán cá nhân, miễn phí, webhook tự động
 - **CI/CD:** Vercel (frontend, auto-deploy từ GitHub `main`) + Render (backend, auto-deploy từ GitHub `main`)
 
@@ -253,15 +253,16 @@ Chính sách mua/nâng cấp, bảng giá, Prorated → xem [payment-subscriptio
 ## 9. MODULE ADMIN PANEL
 
 **File chính:**
-- `backend/modules/admin/admin.route.ts` + `admin.controller.ts` — HR
-- `backend/modules/admin/gamification-admin.route.ts` — Economy
-- `backend/modules/admin/arena-admin.route.ts` — Arena
+- `backend/modules/admin/admin.route.ts` + `admin.controller.ts` - HR
+- `backend/modules/admin/gamification-admin.route.ts` - Economy
+- `backend/modules/admin/arena-admin.route.ts` - Arena
 - `frontend/.../AdminHRView.tsx` + `AdminEconomyView.tsx`
 
 **AdminHRView:**
-- Duyệt / từ chối đơn xin Content Creator
-- Đình chỉ / kích hoạt lại Creator vi phạm
-- Khoá / mở khoá tài khoản User
+- Duyệt / từ chối đơn xin Content Creator (tự động gửi email thông báo kết quả duyệt hoặc từ chối kèm lý do)
+- Đình chỉ / kích hoạt lại Creator vi phạm (tự động gửi email thông báo đình chỉ quyền sáng tạo)
+- Khoá / mở khoá tài khoản User (tự động gửi email thông báo lý do tài khoản bị vô hiệu hóa)
+- Gửi thư trực tiếp: Modal gửi email trực tiếp tới người dùng theo 4 phân loại màu sắc và biểu tượng (Thông báo, Cảnh báo, Khẩn cấp, Khen thưởng) qua endpoint `POST /api/admin/users/:userId/send-email`
 - Badge đơn chờ duyệt: `GET /api/admin/stats/pending`
 
 **AdminEconomyView (4 tab):**
@@ -271,25 +272,44 @@ Chính sách mua/nâng cấp, bảng giá, Prorated → xem [payment-subscriptio
 - Thành tựu (Achievements): CRUD achievement definitions
 
 **Admin Campaign (Khuyến mãi):**
-- Tạo chiến dịch giảm giá: chọn gói → `sale_percent` + `sale_ends_at`
-- Tạo gói trial đặc biệt: chọn tier (STARTER/PRO/ELITE) → `duration_days` → `available_from` → `available_until`
+- Tạo chiến dịch giảm giá: chọn gói -> `sale_percent` + `sale_ends_at`
+- Tạo gói trial đặc biệt: chọn tier (STARTER/PRO/ELITE) -> `duration_days` -> `available_from` -> `available_until`
 
 ---
 
-## 10. MODULE EMAIL (THÔNG BÁO & BIÊN LAI)
+## 10. MODULE EMAIL (THÔNG BÁO, BIÊN LAI & QUẢN TRỊ)
 
-Áp dụng nguyên lý tách biệt trách nhiệm (**Separation of Concerns**) giữa Giao diện HTML (Templates) và Hàm thực thi (Service).
+Áp dụng nguyên lý tách biệt trách nhiệm (**Separation of Concerns**) giữa Master Layout khung chuẩn, Giao diện HTML theo domain (Templates) và Hàm thực thi (Service).
 
 **File chính:**
-- `backend/modules/email/email.service.ts` — Đầu mối gửi thư duy nhất, quản lý Resend client và danh sách địa chỉ người gửi (SENDERS).
-- `backend/modules/email/templates/auth.template.ts` — Giao diện mã OTP, xác thực tài khoản.
-- `backend/modules/email/templates/billing.template.ts` — Giao diện biên lai SePay thành công, thông báo gói sắp hết hạn (3 ngày), cảnh báo tự động gia hạn thất bại do số dư ví không đủ.
-- `backend/modules/email/templates/reminder.template.ts` — Giao diện nhắc học tập hàng ngày, cảnh báo chuỗi Streak.
+- `backend/modules/email/email.service.ts`: Đầu mối gửi thư duy nhất, quản lý Resend client và danh sách địa chỉ người gửi (SENDERS).
+- `backend/modules/email/templates/layout.template.ts`: Master Layout bao bọc khung chuẩn cho toàn bộ email (Header logo thương hiệu LexiCore, vùng nội dung động, Footer bản quyền và liên hệ hỗ trợ).
+- `backend/modules/email/templates/auth.template.ts`: Mẫu mã xác thực OTP, thông báo kích hoạt tài khoản thành công, thông báo khóa tài khoản (Banned), và mẫu thư quản trị gửi trực tiếp (Direct Message).
+- `backend/modules/email/templates/billing.template.ts`: Biên lai SePay thành công, thông báo gói sắp hết hạn (3 ngày), cảnh báo tự động gia hạn thất bại do số dư ví không đủ.
+- `backend/modules/email/templates/reminder.template.ts`: Thông báo nhắc học tập hàng ngày theo giờ cài đặt, cảnh báo duy trì chuỗi Streak.
+- `backend/modules/email/templates/creator.template.ts`: Thông báo phê duyệt đơn Creator, thông báo từ chối đơn Creator (kèm lý do), thông báo đình chỉ quyền sáng tạo Creator.
 
 **Danh sách Senders (Địa chỉ người gửi):**
-- `AUTH`: `auth@lexicore.site` (OTP, bảo mật)
-- `BILLING`: `billing@lexicore.site` (Biên lai thanh toán, gia hạn)
-- `REMINDER`: `reminder@lexicore.site` (Nhắc học bài, streak)
+- `AUTH`: `auth@lexicore.site` (OTP, kích hoạt tài khoản, thông báo bảo mật và khóa tài khoản)
+- `BILLING`: `billing@lexicore.site` (Biên lai thanh toán SePay, thông báo gia hạn, cảnh báo số dư ví)
+- `REMINDER`: `reminder@lexicore.site` (Nhắc nhở học tập hàng ngày, duy trì chuỗi Streak)
+- `NO_REPLY`: `no-reply@lexicore.site` (Thông báo Creator, thông báo hệ thống, thư trực tiếp do Admin gửi)
+
+**Bảng tổng hợp các kịch bản gửi Email:**
+
+| Kịch bản | Người gửi | Mẫu Template | Kích hoạt bởi |
+|---|---|---|---|
+| Mã OTP xác minh | `AUTH` | `otpTemplate` | Đăng ký tài khoản / Quên mật khẩu |
+| Kích hoạt tài khoản | `AUTH` | `accountActivatedTemplate` | Xác minh mã OTP thành công |
+| Khóa tài khoản User | `AUTH` | `userBannedTemplate` | Admin khóa tài khoản tại HR View |
+| Thư trực tiếp từ Admin | `NO_REPLY` | `customDirectMessageTemplate` | Admin gửi thư trực tiếp tại HR View |
+| Biên lai thanh toán | `BILLING` | `subscriptionSuccessTemplate` | SePay Webhook xử lý nạp/mua gói thành công |
+| Nhắc gói sắp hết hạn | `BILLING` | `subscriptionExpiryTemplate` | Cronjob 09:00 sáng (trước 72 giờ) |
+| Cảnh báo gia hạn lỗi | `BILLING` | `autoRenewFailedTemplate` | Cronjob 00:05 gia hạn thất bại vì ví thiếu tiền |
+| Nhắc học duy trì Streak | `REMINDER` | `studyReminderTemplate` | Notification Cronjob quét theo giờ user cài đặt |
+| Duyệt đơn Creator | `NO_REPLY` | `creatorApprovedTemplate` | Admin duyệt đơn đăng ký Creator |
+| Từ chối đơn Creator | `NO_REPLY` | `creatorRejectedTemplate` | Admin từ chối đơn Creator kèm lý do |
+| Đình chỉ quyền Creator | `NO_REPLY` | `creatorSuspendedTemplate` | Admin đình chỉ quyền sáng tạo tại HR View |
 
 ---
 
@@ -324,7 +344,7 @@ LexiCore/
 │   │   ├── creator/       # Creator Studio, đơn đăng ký
 │   │   ├── dashboard/     # Tổng quan trang chủ
 │   │   ├── economy/       # Cửa hàng, kho đồ, mua, trang bị
-│   │   ├── email/         # Resend service, SENDERS mapping, email templates (auth, billing, reminder)
+│   │   ├── email/         # Resend service, SENDERS mapping, Master Layout và templates (auth, creator, billing, reminder)
 │   │   ├── exam/          # Exam Builder, bài kiểm tra
 │   │   ├── gamification/  # Goals, Achievements, Collections, Leaderboard
 │   │   ├── notification/  # In-app + email notifications

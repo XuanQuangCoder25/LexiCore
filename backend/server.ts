@@ -38,20 +38,34 @@ const app = express();
 const port = process.env.PORT || 5000;
 const httpServer = createServer(app);
 
-// Danh sách origin được phép (thêm domain mới vào đây nếu cần)
+// Danh sách origin được phép
+const normalizeOrigin = (url?: string) => url?.trim().replace(/\/+$/, '');
+const configuredClientUrl = normalizeOrigin(process.env.CLIENT_URL);
+
 const allowedOrigins = [
-    process.env.CLIENT_URL,            // VD: https://lexicore.site
-    'http://localhost:5173',            // Dev local
+    'https://lexicore.site',
+    'https://www.lexicore.site',
+    configuredClientUrl,
+    'http://localhost:5173',
     'http://localhost:3000',
 ].filter(Boolean) as string[];
 
-const corsOptions = {
+const isOriginAllowed = (origin: string): boolean => {
+    if (allowedOrigins.includes(origin)) return true;
+    // Cho phép các subdomain của lexicore.site hoặc các preview deployment của vercel
+    if (/^https:\/\/([a-z0-9-]+\.)?lexicore\.site$/i.test(origin)) return true;
+    if (/^https:\/\/.*\.vercel\.app$/i.test(origin)) return true;
+    return false;
+};
+
+const corsOptions: cors.CorsOptions = {
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        // Cho phép request không có origin (Postman, server-to-server, SePay webhook)
-        if (!origin || allowedOrigins.includes(origin)) {
+        // Cho phép request không có origin (mobile app, curl, server-to-server webhook như SePay)
+        if (!origin || isOriginAllowed(origin)) {
             callback(null, true);
         } else {
-            callback(new Error(`CORS blocked: ${origin}`));
+            console.warn(`[CORS Warning] Origin không được phép: ${origin}`);
+            callback(null, false);
         }
     },
     credentials: true,

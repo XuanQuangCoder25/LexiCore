@@ -39,6 +39,9 @@ export const sendOtpEmail = async (
     otp: string,
     type: OtpEmailType = 'REGISTER'
 ) => {
+    // Luôn ghi log OTP dự phòng vào console của server để dễ test và hỗ trợ người dùng khi Resend gặp sự cố
+    console.log(`[OTP BACKUP] Mã xác thực (${type}) của ${toEmail} là: [ ${otp} ]`);
+
     try {
         const subject = type === 'FORGOT_PASSWORD'
             ? 'Yêu cầu đặt lại mật khẩu'
@@ -50,11 +53,14 @@ export const sendOtpEmail = async (
             subject,
             html: otpTemplate({ otp, type }),
         });
-        console.log(`[Email] Gửi OTP (${type}) thành công:`, data);
+        console.log(`[Email] Gửi OTP (${type}) thành công đến ${toEmail}:`, data);
         return data;
-    } catch (error) {
-        console.error(`[Email] Lỗi khi gửi OTP (${type}):`, error);
-        throw error;
+    } catch (error: any) {
+        console.error(`[Email Error] Không thể gửi OTP (${type}) đến ${toEmail}:`, error?.message || error);
+        console.log(`[OTP RECOVERY] Nhập mã này trên màn hình xác thực: [ ${otp} ]`);
+        // Không ném lỗi thô làm crash 500 cả luồng đăng ký / đăng nhập của người dùng.
+        // Tài khoản vẫn được lưu và chuyển sang màn hình nhập OTP bình thường.
+        return { error: error?.message || 'Email delivery failed', fallbackOtp: otp };
     }
 };
 

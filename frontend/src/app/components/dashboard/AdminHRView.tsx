@@ -9,7 +9,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
-import { Users, CircleDollarSign, Gem, Trophy, Star, CalendarDays, Mail, Send, Loader2 } from "lucide-react";
+import {
+  Users,
+  CircleDollarSign,
+  Gem,
+  Trophy,
+  Star,
+  CalendarDays,
+  Mail,
+  Send,
+  Loader2,
+  AlertTriangle,
+  AlertOctagon,
+  Bell,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { optimizeAvatarUrl } from "../../services/arena-service";
 
@@ -30,6 +44,53 @@ interface UserProfile {
   rank_point: number | null;
 }
 
+const EMAIL_CATEGORIES = [
+  {
+    id: "notice",
+    label: "Thông báo",
+    type: "info" as const,
+    text: "Thông báo",
+    icon: Bell,
+    activeClass: "bg-indigo-500/15 border-indigo-500/60 text-indigo-700 dark:text-indigo-400 font-bold shadow-xs",
+    badgeClass: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/30",
+    glowColor: "border-t-indigo-500",
+    headerIconColor: "text-indigo-500 bg-indigo-500/10",
+  },
+  {
+    id: "warning",
+    label: "Cảnh báo",
+    type: "warning" as const,
+    text: "Cảnh báo",
+    icon: AlertTriangle,
+    activeClass: "bg-amber-500/15 border-amber-500/60 text-amber-700 dark:text-amber-400 font-bold shadow-xs",
+    badgeClass: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+    glowColor: "border-t-amber-500",
+    headerIconColor: "text-amber-500 bg-amber-500/10",
+  },
+  {
+    id: "danger",
+    label: "Khẩn cấp",
+    type: "danger" as const,
+    text: "Khẩn cấp",
+    icon: AlertOctagon,
+    activeClass: "bg-rose-500/15 border-rose-500/60 text-rose-700 dark:text-rose-400 font-bold shadow-xs",
+    badgeClass: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30",
+    glowColor: "border-t-rose-500",
+    headerIconColor: "text-rose-500 bg-rose-500/10",
+  },
+  {
+    id: "success",
+    label: "Khen thưởng",
+    type: "success" as const,
+    text: "Khen thưởng",
+    icon: Sparkles,
+    activeClass: "bg-emerald-500/15 border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-bold shadow-xs",
+    badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+    glowColor: "border-t-emerald-500",
+    headerIconColor: "text-emerald-500 bg-emerald-500/10",
+  },
+];
+
 export function AdminHRView() {
   const [activeTab, setActiveTab] = useState("all");
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -39,8 +100,8 @@ export function AdminHRView() {
   // State cho Modal Soạn thư trực tiếp
   const [emailTargetUser, setEmailTargetUser] = useState<UserProfile | null>(null);
   const [emailSubject, setEmailSubject] = useState("");
-  const [emailBadgeText, setEmailBadgeText] = useState("Cảnh báo");
-  const [emailBadgeType, setEmailBadgeType] = useState<"warning" | "info" | "danger" | "success">("warning");
+  const [emailBadgeText, setEmailBadgeText] = useState("Thông báo");
+  const [emailBadgeType, setEmailBadgeType] = useState<"warning" | "info" | "danger" | "success">("info");
   const [emailMessage, setEmailMessage] = useState("");
   const [emailActionText, setEmailActionText] = useState("");
   const [emailActionUrl, setEmailActionUrl] = useState("");
@@ -49,8 +110,8 @@ export function AdminHRView() {
   const resetEmailForm = () => {
     setEmailTargetUser(null);
     setEmailSubject("");
-    setEmailBadgeText("Cảnh báo");
-    setEmailBadgeType("warning");
+    setEmailBadgeText("Thông báo");
+    setEmailBadgeType("info");
     setEmailMessage("");
     setEmailActionText("");
     setEmailActionUrl("");
@@ -60,8 +121,8 @@ export function AdminHRView() {
   const openEmailModalForUser = (user: UserProfile) => {
     setEmailTargetUser(user);
     setEmailSubject("");
-    setEmailBadgeText("Cảnh báo");
-    setEmailBadgeType("warning");
+    setEmailBadgeText("Thông báo");
+    setEmailBadgeType("info");
     setEmailMessage("");
     setEmailActionText("");
     setEmailActionUrl("");
@@ -255,18 +316,18 @@ export function AdminHRView() {
                     <TableCell className="py-2.5">{getRoleBadge(user.role)}</TableCell>
                     <TableCell className="py-2.5">{getStatusBadge(user)}</TableCell>
                     <TableCell className="text-right pr-6 py-2.5">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => setSelectedUser(user)}>
+                          Chi tiết
+                        </Button>
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="sm"
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                          className="h-8 w-8 p-0 border border-border/80 text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
                           title="Gửi thư cho người này"
                           onClick={() => openEmailModalForUser(user)}
                         >
-                          <Send className="h-4 w-4" />
-                        </Button>
-                        <Button variant="secondary" size="sm" onClick={() => setSelectedUser(user)}>
-                          Chi tiết
+                          <Send className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -401,138 +462,168 @@ export function AdminHRView() {
       <Dialog open={emailTargetUser !== null} onOpenChange={(open) => {
         if (!open && !sendingEmail) resetEmailForm();
       }}>
-        {emailTargetUser && (
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-xl flex items-center gap-2">
-                <Send className="w-5 h-5 text-primary" />
-                <span>Gửi thư trực tiếp</span>
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Thư được gửi trực tiếp từ địa chỉ chính thức của hệ thống (no-reply@lexicore.site).
-              </p>
-            </DialogHeader>
+        {emailTargetUser && (() => {
+          const activeCategory = EMAIL_CATEGORIES.find(
+            (c) => c.text === emailBadgeText && c.type === emailBadgeType
+          ) || EMAIL_CATEGORIES[0];
+          const HeaderIcon = activeCategory.icon;
 
-            <div className="space-y-4 py-2">
-              {/* Thông tin người nhận */}
-              <div className="bg-muted/40 p-3 rounded-xl border flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-muted-foreground">Người nhận: </span>
-                  <span className="font-bold text-foreground">{emailTargetUser.full_name}</span>
+          return (
+            <DialogContent className={`max-w-lg overflow-hidden border-t-4 ${activeCategory.glowColor} transition-colors duration-200`}>
+              <DialogHeader>
+                <div className="flex items-center justify-between pr-6">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${activeCategory.headerIconColor} transition-colors duration-200`}>
+                      <HeaderIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-lg font-bold">
+                        Gửi thư trực tiếp
+                      </DialogTitle>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Người gửi: <span className="font-mono font-medium text-foreground">no-reply@lexicore.site</span>
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={`text-xs px-2.5 py-0.5 font-bold uppercase tracking-wider ${activeCategory.badgeClass}`}>
+                    {activeCategory.text}
+                  </Badge>
                 </div>
-                <span className="font-mono text-muted-foreground">{emailTargetUser.email}</span>
-              </div>
+              </DialogHeader>
 
-              {/* Chọn phân loại thông báo */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phân loại thư</Label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: "Cảnh báo", type: "warning" as const, text: "Cảnh báo" },
-                    { label: "Nhắc nhở", type: "info" as const, text: "Nhắc nhở" },
-                    { label: "Khẩn cấp", type: "danger" as const, text: "Khẩn cấp" },
-                    { label: "Thông báo", type: "info" as const, text: "Thông báo" },
-                    { label: "Khen thưởng", type: "success" as const, text: "Khen thưởng" },
-                  ].map((cat) => (
-                    <button
-                      key={cat.label}
-                      type="button"
-                      onClick={() => {
-                        setEmailBadgeType(cat.type);
-                        setEmailBadgeText(cat.text);
-                      }}
-                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${
-                        emailBadgeText === cat.text && emailBadgeType === cat.type
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
+              <div className="space-y-4 py-2">
+                {/* Thông tin người nhận */}
+                <div className="bg-muted/40 p-3 rounded-xl border flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Avatar className="h-7 w-7 rounded-lg border shrink-0">
+                      {emailTargetUser.avatar_url && (
+                        <AvatarImage
+                          src={optimizeAvatarUrl(emailTargetUser.avatar_url, 60)}
+                          alt={emailTargetUser.full_name}
+                          className="object-cover"
+                        />
+                      )}
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold text-[10px]">
+                        {(emailTargetUser.full_name || '?').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground leading-tight truncate">{emailTargetUser.full_name}</p>
+                      <p className="text-muted-foreground font-mono text-[11px] leading-tight truncate">{emailTargetUser.email}</p>
+                    </div>
+                  </div>
+                  {getRoleBadge(emailTargetUser.role)}
                 </div>
-              </div>
 
-              {/* Tiêu đề thư */}
-              <div className="space-y-1.5">
-                <Label htmlFor="email-subject" className="text-xs font-semibold">Tiêu đề email</Label>
-                <Input
-                  id="email-subject"
-                  placeholder="Ví dụ: Cảnh báo hành vi bất thường trên tài khoản..."
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  disabled={sendingEmail}
-                  className="text-sm"
-                />
-              </div>
+                {/* Chọn phân loại thông báo */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phân loại thư</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {EMAIL_CATEGORIES.map((cat) => {
+                      const IconComp = cat.icon;
+                      const isSelected = emailBadgeText === cat.text && emailBadgeType === cat.type;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => {
+                            setEmailBadgeType(cat.type);
+                            setEmailBadgeText(cat.text);
+                          }}
+                          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${isSelected
+                            ? cat.activeClass
+                            : "bg-muted/30 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                            }`}
+                        >
+                          <IconComp className="w-3.5 h-3.5 shrink-0" />
+                          <span>{cat.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-              {/* Nội dung thư */}
-              <div className="space-y-1.5">
-                <Label htmlFor="email-message" className="text-xs font-semibold">Nội dung thư</Label>
-                <Textarea
-                  id="email-message"
-                  placeholder="Nhập nội dung cần gửi đến người dùng. Xuống dòng để tạo các đoạn văn bản riêng biệt..."
-                  value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)}
-                  disabled={sendingEmail}
-                  rows={5}
-                  className="text-sm leading-relaxed resize-none"
-                />
-              </div>
-
-              {/* Tùy chọn nút liên kết trong thư */}
-              <div className="pt-2 border-t space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground">Nút bấm liên kết đính kèm (không bắt buộc)</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Tiêu đề thư */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="email-subject" className="text-xs font-semibold">Tiêu đề email</Label>
                   <Input
-                    placeholder="Nhãn nút (ví dụ: Xem điều khoản)"
-                    value={emailActionText}
-                    onChange={(e) => setEmailActionText(e.target.value)}
+                    id="email-subject"
+                    placeholder="Ví dụ: Cảnh báo hành vi bất thường"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
                     disabled={sendingEmail}
-                    className="text-xs"
-                  />
-                  <Input
-                    placeholder="Đường dẫn URL (https://...)"
-                    value={emailActionUrl}
-                    onChange={(e) => setEmailActionUrl(e.target.value)}
-                    disabled={sendingEmail}
-                    className="text-xs"
+                    className="text-sm"
                   />
                 </div>
-              </div>
-            </div>
 
-            {/* Footer hành động */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetEmailForm}
-                disabled={sendingEmail}
-              >
-                Hủy
-              </Button>
-              <Button
-                size="sm"
-                className="gap-1.5 font-bold"
-                onClick={handleSendDirectEmail}
-                disabled={sendingEmail}
-              >
-                {sendingEmail ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Đang gửi...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    Gửi thư ngay
-                  </>
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        )}
+                {/* Nội dung thư */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="email-message" className="text-xs font-semibold">Nội dung thư</Label>
+                  <Textarea
+                    id="email-message"
+                    placeholder="Nhập nội dung cần gửi đến người dùng"
+                    value={emailMessage}
+                    onChange={(e) => setEmailMessage(e.target.value)}
+                    disabled={sendingEmail}
+                    rows={5}
+                    className="text-sm leading-relaxed resize-none"
+                  />
+                </div>
+
+                {/* Tùy chọn nút liên kết trong thư */}
+                <div className="pt-2 border-t space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Nút bấm liên kết đính kèm (không bắt buộc)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Nhãn nút"
+                      value={emailActionText}
+                      onChange={(e) => setEmailActionText(e.target.value)}
+                      disabled={sendingEmail}
+                      className="text-xs"
+                    />
+                    <Input
+                      placeholder="Đường dẫn URL"
+                      value={emailActionUrl}
+                      onChange={(e) => setEmailActionUrl(e.target.value)}
+                      disabled={sendingEmail}
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer hành động */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetEmailForm}
+                  disabled={sendingEmail}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-1.5 font-bold"
+                  onClick={handleSendDirectEmail}
+                  disabled={sendingEmail}
+                >
+                  {sendingEmail ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Đang gửi...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      Gửi thư ngay
+                    </>
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          );
+        })()}
       </Dialog>
     </div>
   );
