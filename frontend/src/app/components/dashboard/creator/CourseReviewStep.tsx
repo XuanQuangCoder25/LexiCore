@@ -27,6 +27,7 @@ import { CourseBuilderState, IChapterItem, ILessonItem } from './courseBuilderSt
 interface CourseReviewStepProps {
   state: CourseBuilderState;
   onBackToStep2: () => void;
+  onGoToStep1?: () => void;
   onSelectTarget: (target: any) => void;
   onSaveDraft: () => Promise<void>;
   onPublish: () => Promise<void>;
@@ -38,6 +39,7 @@ interface CourseReviewStepProps {
 export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
   state,
   onBackToStep2,
+  onGoToStep1,
   onSelectTarget,
   onSaveDraft,
   onPublish,
@@ -58,40 +60,84 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
   let quizLessons = 0;
 
   const emptyChapters: IChapterItem[] = [];
-  const incompleteLessons: Array<{ chapter: IChapterItem; lesson: ILessonItem; reason: string }> = [];
+  const untitledChapters: Array<{ chapter: IChapterItem; index: number }> = [];
+  const incompleteLessons: Array<{ chapter: IChapterItem; chapterIndex: number; lesson: ILessonItem; lessonIndex: number; reason: string }> = [];
 
-  chapters.forEach((ch) => {
+  chapters.forEach((ch, chIdx) => {
+    if (!(ch.title || '').trim()) {
+      untitledChapters.push({ chapter: ch, index: chIdx });
+    }
     if (!ch.lessons || ch.lessons.length === 0) {
       emptyChapters.push(ch);
     } else {
       totalLessons += ch.lessons.length;
-      ch.lessons.forEach((l) => {
+      ch.lessons.forEach((l, lIdx) => {
         totalDurationMinutes += Number(l.durationMinutes || 0);
+        const missingReasons: string[] = [];
+
+        if (!(l.title || '').trim()) {
+          missingReasons.push('Chưa nhập tiêu đề bài học');
+        }
+
         if (l.type === 'video') {
           videoLessons++;
-          if (!l.videoUrl) incompleteLessons.push({ chapter: ch, lesson: l, reason: 'Chưa có URL video' });
+          if (!(l.videoUrl || '').trim()) {
+            missingReasons.push('Chưa có đường dẫn (URL) video');
+          }
         } else if (l.type === 'reading') {
           readingLessons++;
-          if (!l.content && (!l.blocks || l.blocks.length === 0)) {
-            incompleteLessons.push({ chapter: ch, lesson: l, reason: 'Chưa có nội dung lý thuyết' });
+          if (!(l.content || '').trim() && (!l.blocks || l.blocks.length === 0)) {
+            missingReasons.push('Chưa có nội dung văn bản lý thuyết');
           }
         } else if (l.type === 'vocabulary') {
           vocabLessons++;
-          if ((!l.vocabulary || l.vocabulary.length === 0) && !l.attachedFlashcardId) {
-            incompleteLessons.push({ chapter: ch, lesson: l, reason: 'Chưa có từ vựng hoặc flashcard liên kết' });
+          const validVocab = Array.isArray(l.vocabulary)
+            ? l.vocabulary.filter((v) => (v.term || '').trim() && (v.meaning || '').trim())
+            : [];
+          const hasDeck = !!l.attachedFlashcardId && l.attachedFlashcardId !== 'none';
+          if (validVocab.length === 0 && !hasDeck) {
+            missingReasons.push('Chưa nhập từ vựng (đủ Từ & Nghĩa) hoặc liên kết bộ Flashcard');
           }
         } else if (l.type === 'quiz') {
           quizLessons++;
-          if ((!l.quiz || l.quiz.length === 0) && !l.attachedExamId) {
-            incompleteLessons.push({ chapter: ch, lesson: l, reason: 'Chưa có câu hỏi trắc nghiệm hoặc đề thi' });
+          const questions = Array.isArray(l.quiz) ? l.quiz : [];
+          const hasExam = !!l.attachedExamId && l.attachedExamId !== 'none';
+          if (questions.length === 0 && !hasExam) {
+            missingReasons.push('Chưa có câu hỏi trắc nghiệm hoặc liên kết đề thi');
+          } else if (questions.length > 0 && !hasExam) {
+            const invalidQuestion = questions.find(
+              (q) =>
+                !(q.question || '').trim() ||
+                !Array.isArray(q.options) ||
+                q.options.map((o) => String(o).trim()).filter(Boolean).length < 2
+            );
+            if (invalidQuestion) {
+              missingReasons.push('Có câu hỏi trắc nghiệm chưa nhập nội dung hoặc chưa đủ 2 đáp án');
+            }
           }
+        }
+
+        if (missingReasons.length > 0) {
+          incompleteLessons.push({
+            chapter: ch,
+            chapterIndex: chIdx,
+            lesson: l,
+            lessonIndex: lIdx,
+            reason: missingReasons.join('; ')
+          });
         }
       });
     }
   });
 
-  const hasBlockingErrors = !course.title.trim() || totalChapters === 0 || emptyChapters.length > 0;
-  const hasWarnings = incompleteLessons.length > 0;
+  const trimmedCourseTitle = (course.title || '').trim();
+  const isCourseTitleValid = trimmedCourseTitle.length >= 3 && trimmedCourseTitle.length <= 120;
+  const hasBlockingErrors =
+    !isCourseTitleValid ||
+    totalChapters === 0 ||
+    emptyChapters.length > 0 ||
+    untitledChapters.length > 0 ||
+    incompleteLessons.length > 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -199,14 +245,33 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
           {/* Rule 1: Course title */}
           <div className="flex items-center justify-between text-xs py-1.5 border-b border-border/40">
             <span className="flex items-center gap-2">
-              {course.title.trim() ? (
+              {isCourseTitleValid ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               ) : (
                 <AlertCircle className="w-4 h-4 text-destructive" />
               )}
-              Tên khóa học hợp lệ
+              Tên khóa học hợp lệ (tối thiểu 3 ký tự)
             </span>
-            <span className="text-muted-foreground">{course.title.trim() ? 'Đạt' : 'Chưa nhập tên'}</span>
+            {isCourseTitleValid ? (
+              <span className="text-emerald-500 font-medium">Đạt</span>
+            ) : (
+              <span className="text-destructive font-medium flex items-center gap-2">
+                {!trimmedCourseTitle
+                  ? 'Chưa nhập tên'
+                  : trimmedCourseTitle.length < 3
+                  ? `Quá ngắn (${trimmedCourseTitle.length}/3 ký tự)`
+                  : 'Vượt quá 120 ký tự'}
+                {onGoToStep1 && (
+                  <button
+                    type="button"
+                    onClick={onGoToStep1}
+                    className="underline font-semibold hover:opacity-80"
+                  >
+                    Sửa ngay (Bước 1)
+                  </button>
+                )}
+              </span>
+            )}
           </div>
 
           {/* Rule 2: Has chapters */}
@@ -219,23 +284,27 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
               )}
               Khung chương trình có ít nhất 1 chương
             </span>
-            <span className="text-muted-foreground">{totalChapters > 0 ? `${totalChapters} chương` : 'Chưa có chương nào'}</span>
+            <span className={totalChapters > 0 ? 'text-emerald-500 font-medium' : 'text-destructive font-medium'}>
+              {totalChapters > 0 ? `${totalChapters} chương` : 'Chưa có chương nào'}
+            </span>
           </div>
 
           {/* Rule 3: No empty chapters */}
           <div className="flex items-center justify-between text-xs py-1.5 border-b border-border/40">
             <span className="flex items-center gap-2">
-              {emptyChapters.length === 0 ? (
+              {emptyChapters.length === 0 && untitledChapters.length === 0 ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               ) : (
                 <AlertCircle className="w-4 h-4 text-destructive" />
               )}
-              Tất cả các chương đều có ít nhất 1 bài học (Không có chương rỗng)
+              Tất cả các chương đều có tên và ít nhất 1 bài học (Không có chương rỗng)
             </span>
-            {emptyChapters.length === 0 ? (
+            {emptyChapters.length === 0 && untitledChapters.length === 0 ? (
               <span className="text-emerald-500 font-medium">Đạt</span>
             ) : (
-              <span className="text-destructive font-medium">{emptyChapters.length} chương bị rỗng</span>
+              <span className="text-destructive font-medium">
+                {emptyChapters.length > 0 ? `${emptyChapters.length} chương bị rỗng` : `${untitledChapters.length} chương thiếu tên`}
+              </span>
             )}
           </div>
 
@@ -245,24 +314,44 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
               {incompleteLessons.length === 0 ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               ) : (
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                <AlertCircle className="w-4 h-4 text-destructive" />
               )}
-              Nội dung các bài học được cấu hình đầy đủ
+              Nội dung các bài học được cấu hình đầy đủ để xuất bản
             </span>
             {incompleteLessons.length === 0 ? (
               <span className="text-emerald-500 font-medium">Đạt</span>
             ) : (
-              <span className="text-amber-500 font-medium">{incompleteLessons.length} bài chưa điền đủ</span>
+              <span className="text-destructive font-medium">{incompleteLessons.length} bài chưa hoàn thiện</span>
             )}
           </div>
 
           {/* Detailed Error List if any */}
+          {!isCourseTitleValid && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive flex items-center justify-between gap-2 mt-2">
+              <span className="flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {!trimmedCourseTitle
+                  ? 'Tên khóa học đang để trống. Vui lòng nhập tên khóa học ở Bước 1.'
+                  : `Tên khóa học "${trimmedCourseTitle}" quá ngắn (cần từ 3 đến 120 ký tự).`}
+              </span>
+              {onGoToStep1 && (
+                <button
+                  type="button"
+                  onClick={onGoToStep1}
+                  className="underline font-semibold shrink-0 hover:opacity-80"
+                >
+                  Sửa tại Bước 1 →
+                </button>
+              )}
+            </div>
+          )}
+
           {emptyChapters.length > 0 && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive space-y-1 mt-2">
               <p className="font-semibold flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4" /> Các chương rỗng cần bổ sung bài học:
               </p>
-              <ul className="list-disc list-inside space-y-0.5 pl-2 text-[11px]">
+              <ul className="list-disc list-inside space-y-1 pl-2 text-[11px]">
                 {emptyChapters.map((ch) => (
                   <li key={ch.id}>
                     Chương "{ch.title || 'Không tên'}"
@@ -272,9 +361,9 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
                         onSelectTarget({ type: 'chapter', chapterId: ch.id });
                         onBackToStep2();
                       }}
-                      className="ml-2 underline font-medium hover:opacity-80"
+                      className="ml-2 underline font-semibold hover:opacity-80"
                     >
-                      Đi tới chương này
+                      Đi tới chương này →
                     </button>
                   </li>
                 ))}
@@ -283,23 +372,31 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
           )}
 
           {incompleteLessons.length > 0 && (
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 space-y-1 mt-2">
-              <p className="font-semibold flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4" /> Lưu ý các bài học chưa hoàn tất cấu hình:
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-2 mt-2">
+              <p className="font-semibold flex items-center gap-1.5 text-rose-700">
+                <AlertCircle className="w-4 h-4 shrink-0" /> Cần hoàn thiện {incompleteLessons.length} bài học sau trước khi xuất bản:
               </p>
-              <ul className="list-disc list-inside space-y-0.5 pl-2 text-[11px]">
-                {incompleteLessons.slice(0, 5).map(({ chapter, lesson, reason }) => (
-                  <li key={lesson.id}>
-                    "{lesson.title || 'Bài học'}" ({reason})
+              <ul className="space-y-1.5 pl-1 text-xs">
+                {incompleteLessons.map(({ chapter, chapterIndex, lesson, lessonIndex, reason }) => (
+                  <li
+                    key={lesson.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-2 rounded-lg bg-white border border-rose-200/80"
+                  >
+                    <div>
+                      <span className="font-semibold text-zinc-900">
+                        Chương {chapterIndex + 1} ({chapter.title || 'Không tên'}) • Bài {lessonIndex + 1}: "{lesson.title || 'Chưa đặt tên'}"
+                      </span>
+                      <p className="text-[11px] text-rose-600 mt-0.5">→ Thiếu: {reason}</p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         onSelectTarget({ type: 'lesson', chapterId: chapter.id, lessonId: lesson.id });
                         onBackToStep2();
                       }}
-                      className="ml-2 underline font-medium hover:opacity-80"
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-semibold text-[11px] hover:bg-rose-700 transition-colors shrink-0 self-start sm:self-center"
                     >
-                      Bổ sung ngay
+                      Bổ sung ngay →
                     </button>
                   </li>
                 ))}
@@ -334,22 +431,48 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
               )}
 
               <div className="pl-7 space-y-1.5 pt-1">
-                {ch.lessons.map((l, lIdx) => (
-                  <div
-                    key={l.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-card/60 border border-border/40 text-xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground text-[10px] w-4">{lIdx + 1}.</span>
-                      {l.type === 'video' && <Video className="w-3.5 h-3.5 text-blue-500" />}
-                      {l.type === 'reading' && <BookOpen className="w-3.5 h-3.5 text-emerald-500" />}
-                      {l.type === 'vocabulary' && <Languages className="w-3.5 h-3.5 text-purple-500" />}
-                      {l.type === 'quiz' && <HelpCircle className="w-3.5 h-3.5 text-amber-500" />}
-                      <span className="font-medium">{l.title || 'Bài học chưa đặt tên'}</span>
+                {ch.lessons.map((l, lIdx) => {
+                  const incompleteInfo = incompleteLessons.find((item) => item.lesson.id === l.id);
+                  return (
+                    <div
+                      key={l.id}
+                      className={`flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg border text-xs ${
+                        incompleteInfo
+                          ? 'bg-rose-50/70 border-rose-200'
+                          : 'bg-card/60 border-border/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-muted-foreground text-[10px] w-4">{lIdx + 1}.</span>
+                        {l.type === 'video' && <Video className="w-3.5 h-3.5 text-blue-500 shrink-0" />}
+                        {l.type === 'reading' && <BookOpen className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                        {l.type === 'vocabulary' && <Languages className="w-3.5 h-3.5 text-purple-500 shrink-0" />}
+                        {l.type === 'quiz' && <HelpCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                        <span className="font-medium truncate">{l.title || 'Bài học chưa đặt tên'}</span>
+                        {incompleteInfo && (
+                          <span className="text-[11px] text-rose-600 font-medium">
+                            ({incompleteInfo.reason})
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {incompleteInfo && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSelectTarget({ type: 'lesson', chapterId: ch.id, lessonId: l.id });
+                              onBackToStep2();
+                            }}
+                            className="text-[11px] font-semibold text-rose-600 underline hover:opacity-80"
+                          >
+                            Bổ sung ngay
+                          </button>
+                        )}
+                        <span className="text-[11px] text-muted-foreground">{l.durationMinutes || 5} phút</span>
+                      </div>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">{l.durationMinutes || 5} phút</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -383,7 +506,7 @@ export const CourseReviewStep: React.FC<CourseReviewStepProps> = ({
           <Button
             type="button"
             onClick={onPublish}
-            disabled={isPublishing || hasBlockingErrors}
+            disabled={isPublishing}
             className="flex-1 sm:flex-none gap-2 bg-[#161616] hover:bg-black text-white shadow-xs rounded-xl active:scale-[0.99] transition-all font-semibold"
           >
             <Rocket className="w-4 h-4" />

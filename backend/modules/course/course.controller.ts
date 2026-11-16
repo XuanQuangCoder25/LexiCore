@@ -7,51 +7,86 @@ import {
   syncCourseTreeService,
   publishCourseService,
   unpublishCourseService,
-  ensureOwnerEnrolled
+  ensureOwnerEnrolled,
+  normalizeCourseLevel
 } from './course.service';
 
 // --- COURSE CREATION & MANAGEMENT ---
 
 export const createCourse = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title, shortDescription, description, thumbnail, level, tags, objectives, price } = req.body;
-    const creatorId = req.user?.id;
+    const {
+      title,
+      shortDescription,
+      description,
+      thumbnail,
+      level,
+      tags,
+      objectives,
+      price,
+      allowClone
+    } = req.body || {};
+
+    const creatorId = req.user?.id || (req.user as any)?._id;
 
     if (!creatorId) {
-      res.status(401).json({ status: 'error', message: 'Vui lòng đăng nhập.' });
+      res.status(401).json({
+        success: false,
+        status: 'error',
+        message: 'Vui lòng đăng nhập.'
+      });
       return;
     }
 
-    const trimmedTitle = (title || '').trim();
+    const trimmedTitle = String(title || '').trim();
     if (!trimmedTitle) {
-      res.status(400).json({ status: 'error', message: 'Tiêu đề khóa học không được để trống.' });
+      res.status(400).json({
+        success: false,
+        status: 'error',
+        message: 'Tiêu đề khóa học không được để trống.'
+      });
       return;
     }
 
     const course = new Course({
       title: trimmedTitle,
-      shortDescription: (shortDescription || '').trim(),
-      description: description || '',
-      thumbnail: (thumbnail || '').trim(),
-      creatorId,
-      level: level || 'ALL',
+      shortDescription: String(shortDescription || '').trim(),
+      description: String(description || ''),
+      thumbnail: String(thumbnail || '').trim(),
+      creatorId: String(creatorId),
+      level: normalizeCourseLevel(level),
       tags: Array.isArray(tags) ? tags.map(t => String(t).trim()).filter(Boolean) : [],
       objectives: Array.isArray(objectives) ? objectives.map(o => String(o).trim()).filter(Boolean) : [],
-      price: typeof price === 'number' ? Math.max(0, price) : 0,
+      price: typeof price === 'number' && !Number.isNaN(price) ? Math.max(0, price) : 0,
       isPublished: false,
       status: 'draft',
       type: 'course',
+      allowClone: allowClone !== undefined ? Boolean(allowClone) : true,
+      cardCount: 0,
+      viewsCount: 0,
       stats: { totalChapters: 0, totalLessons: 0, totalDurationMinutes: 0 }
     });
 
     await course.save();
 
     // Tự động ghi nhận enrollment cho chủ khóa học để có thể tự học thử (Sửa lỗi D7)
-    await ensureOwnerEnrolled(course._id.toString(), creatorId);
+    try {
+      await ensureOwnerEnrolled(course._id.toString(), String(creatorId));
+    } catch (enrollErr) {
+      console.warn('[createCourse] Không thể tự động enroll chủ khóa học:', enrollErr);
+    }
 
-    res.status(201).json({ status: 'success', data: course });
+    res.status(201).json({
+      success: true,
+      status: 'success',
+      data: course
+    });
   } catch (error: any) {
-    res.status(500).json({ status: 'error', message: error.message });
+    res.status(400).json({
+      success: false,
+      status: 'error',
+      message: error.message || 'Lỗi khi tạo khóa học'
+    });
   }
 };
 
@@ -244,7 +279,7 @@ export const updateCourse = async (req: Request, res: Response): Promise<void> =
     if (req.body.shortDescription !== undefined) allowedUpdates.shortDescription = String(req.body.shortDescription).trim();
     if (req.body.description !== undefined) allowedUpdates.description = req.body.description;
     if (req.body.thumbnail !== undefined) allowedUpdates.thumbnail = String(req.body.thumbnail).trim();
-    if (req.body.level !== undefined) allowedUpdates.level = req.body.level;
+    if (req.body.level !== undefined) allowedUpdates.level = normalizeCourseLevel(req.body.level);
     if (Array.isArray(req.body.tags)) allowedUpdates.tags = req.body.tags;
     if (Array.isArray(req.body.objectives)) allowedUpdates.objectives = req.body.objectives;
 
