@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import { createUserWithWallet, findUserByEmail, saveOtp, verifyAndDeleteOtp, checkOtp, activateUser, findUserById, updatePassword, updatePendingUser, findUserWithPasswordById, updatePasswordById } from './auth-repository';
 import { AppError } from '../../errors/AppError';
-import { sendOtpEmail } from '../email/email.service';
+import { sendOtpEmail, sendAccountActivatedEmail } from '../email/email.service';
 
 export const registerUser = async (userData: any) => {
     if (!userData.email || !userData.password || !userData.full_name) {
@@ -109,6 +109,17 @@ export const verifyEmail = async (data: any) => {
     }
 
     await activateUser(data.email);
+
+    // Gửi email chào mừng kích hoạt tài khoản thành công
+    const user = await findUserByEmail(data.email);
+    if (user) {
+        sendAccountActivatedEmail({
+            toEmail: user.email,
+            fullName: user.full_name || 'Học viên',
+        }).catch((err) => {
+            console.error('[Auth] Lỗi gửi email kích hoạt tài khoản:', err);
+        });
+    }
 
     return { message: 'Xác thực email thành công! Tài khoản của bạn đã được kích hoạt.' };
 };

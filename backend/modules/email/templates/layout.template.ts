@@ -1,20 +1,20 @@
-// Khung Master Layout chuan cho toan bo email cua LexiCore
+// Khung Master Layout chuẩn phong cách hiện đại (Clean & Minimalist - giống Upstash / Google)
 
 const clientUrl = process.env.CLIENT_URL || 'https://lexicore.site';
 
 export interface EmailLayoutOptions {
-    title: string;          // Tieu de email (hien thi tren tab/header)
-    badgeText?: string;     // Nhan phan loai (vi du: Xac thuc, Hoa don, Nhac hoc)
-    badgeColor?: string;    // Mau nen nhan
-    badgeTextColor?: string;// Mau chu nhan
-    bodyHtml: string;       // Noi dung HTML chinh cua email
+    title: string;          // Tiêu đề email (hiển thị trên tab/header)
+    badgeText?: string;     // Nhãn góc phải (ví dụ: HÓA ĐƠN, XÁC THỰC)
+    badgeColor?: string;    // Màu nền nhãn
+    badgeTextColor?: string;// Màu chữ nhãn
+    bodyHtml: string;       // Nội dung HTML chính của email
 }
 
 export const emailLayout = ({
     title,
     badgeText,
-    badgeColor = '#e0e7ff',
-    badgeTextColor = '#4338ca',
+    badgeColor = '#f1f5f9',
+    badgeTextColor = '#475569',
     bodyHtml,
 }: EmailLayoutOptions): string => {
     return `
@@ -25,56 +25,63 @@ export const emailLayout = ({
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f1f5f9; padding: 32px 16px;">
+<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #0f172a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; padding: 24px 12px;">
         <tr>
             <td align="center">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                <!-- KHUNG CHÍNH (Border mỏng, nền trắng phẳng, không lồng màu) -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 580px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; text-align: left;">
                     
-                    <!-- HEADER -->
+                    <!-- HEADER (Logo + Tên ở góc trên bên trái theo phong cách Upstash) -->
                     <tr>
-                        <td align="center" style="padding: 32px 24px 20px 24px; background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%); border-bottom: 1px solid #f1f5f9;">
-                            <img src="${clientUrl}/assets/logo_lc.png" alt="LexiCore Logo" width="56" height="56" style="display: block; border-radius: 12px; margin: 0 auto 12px auto; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);" />
-                            <h1 style="margin: 0; font-size: 26px; font-weight: 800; color: #4338ca; letter-spacing: -0.5px;">LexiCore</h1>
-                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500;">Learn smarter, remember longer</p>
-                            ${badgeText ? `
-                            <div style="margin-top: 14px;">
-                                <span style="display: inline-block; background-color: ${badgeColor}; color: ${badgeTextColor}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 14px; border-radius: 9999px;">
-                                    ${badgeText}
-                                </span>
-                            </div>
-                            ` : ''}
+                        <td style="padding: 24px 28px 16px 28px; border-bottom: 1px solid #f1f5f9;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td align="left" style="vertical-align: middle;">
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                                            <tr>
+                                                <td style="vertical-align: middle; padding-right: 10px;">
+                                                    <img src="${clientUrl}/assets/favicon_whale.png" alt="LexiCore Logo" width="28" height="28" style="display: block; border-radius: 6px;" />
+                                                </td>
+                                                <td style="vertical-align: middle;">
+                                                    <span style="font-size: 19px; font-weight: 800; color: #1e1b4b; letter-spacing: -0.5px;">LexiCore</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    ${badgeText ? `
+                                    <td align="right" style="vertical-align: middle;">
+                                        <span style="display: inline-block; background-color: ${badgeColor}; color: ${badgeTextColor}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 6px;">
+                                            ${badgeText}
+                                        </span>
+                                    </td>
+                                    ` : ''}
+                                </tr>
+                            </table>
                         </td>
                     </tr>
 
-                    <!-- BODY CONTENT -->
+                    <!-- BODY CONTENT (Căn lề trái tự nhiên, chữ to rõ ràng) -->
                     <tr>
-                        <td style="padding: 28px 28px 20px 28px;">
+                        <td style="padding: 28px 28px 24px 28px; font-size: 14px; line-height: 1.6; color: #334155;">
                             ${bodyHtml}
                         </td>
                     </tr>
 
-                    <!-- FOOTER -->
+                    <!-- FOOTER (Tối giản, chân trang mờ nhẹ thanh lịch) -->
                     <tr>
-                        <td style="padding: 24px 28px 32px 28px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
-                            <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: #334155;">
-                                LexiCore Education Platform
-                            </p>
-                            <p style="margin: 0 0 16px 0; font-size: 12px; color: #64748b; line-height: 1.5;">
-                                Nen tang hoc tu vung va luyen giao tiep tieng Anh thong minh ung dung AI.
-                            </p>
-                            <div style="margin: 0 0 16px 0; font-size: 12px;">
-                                <a href="${clientUrl}" style="color: #4f46e5; text-decoration: none; margin: 0 8px; font-weight: 600;">Trang chu</a>
-                                <span style="color: #cbd5e1;">|</span>
-                                <a href="${clientUrl}" style="color: #4f46e5; text-decoration: none; margin: 0 8px; font-weight: 600;">Dieu khoan</a>
-                                <span style="color: #cbd5e1;">|</span>
-                                <a href="${clientUrl}" style="color: #4f46e5; text-decoration: none; margin: 0 8px; font-weight: 600;">Bao mat</a>
-                                <span style="color: #cbd5e1;">|</span>
-                                <a href="mailto:support@lexicore.site" style="color: #4f46e5; text-decoration: none; margin: 0 8px; font-weight: 600;">Ho tro</a>
+                        <td style="padding: 20px 28px 24px 28px; border-top: 1px solid #f1f5f9; background-color: #fafafa; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+                            <div style="margin-bottom: 10px;">
+                                <a href="${clientUrl}" style="color: #6366f1; text-decoration: none; margin-right: 14px; font-weight: 600;">Trang chủ</a>
+                                <a href="${clientUrl}" style="color: #6366f1; text-decoration: none; margin-right: 14px; font-weight: 600;">Điều khoản</a>
+                                <a href="${clientUrl}" style="color: #6366f1; text-decoration: none; margin-right: 14px; font-weight: 600;">Bảo mật</a>
+                                <a href="mailto:support@lexicore.site" style="color: #6366f1; text-decoration: none; font-weight: 600;">Hỗ trợ</a>
                             </div>
-                            <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
-                                (c) 2026 LexiCore. All rights reserved.<br />
-                                Ban nhan duoc email nay vi da dang ky tai khoan tai lexicore.site. Vui long khong tra loi truc tiep email tu dong nay.
+                            <p style="margin: 0 0 4px 0; color: #64748b; font-weight: 500;">
+                                (c) 2026 LexiCore Education Platform. Tất cả các quyền được bảo lưu.
+                            </p>
+                            <p style="margin: 0; font-size: 11px;">
+                                Bạn nhận được email này vì đã đăng ký tài khoản tại lexicore.site.
                             </p>
                         </td>
                     </tr>

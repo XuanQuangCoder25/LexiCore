@@ -1,5 +1,11 @@
 import { Request, Response } from 'express';
 import { pool } from '../../config/mysql';
+import {
+    sendCreatorApprovedEmail,
+    sendCreatorRejectedEmail,
+    sendCreatorSuspendedEmail,
+    sendUserBannedEmail,
+} from '../email/email.service';
 
 const db = pool as any;
 
@@ -36,7 +42,11 @@ export const approveApplication = async (req: Request, res: Response): Promise<v
         await conn.beginTransaction();
 
         const [appRows] = await conn.execute(
-            `SELECT user_id, status FROM creator_applications WHERE id = ?`, [id]
+            `SELECT ca.user_id, ca.status, u.email, u.full_name
+             FROM creator_applications ca
+             JOIN users u ON ca.user_id = u.id
+             WHERE ca.id = ?`,
+            [id]
         );
         const app = appRows[0];
 
@@ -55,6 +65,17 @@ export const approveApplication = async (req: Request, res: Response): Promise<v
         );
 
         await conn.commit();
+
+        // Gửi email chúc mừng duyệt Content Creator
+        if (app.email) {
+            sendCreatorApprovedEmail({
+                toEmail: app.email,
+                fullName: app.full_name || 'Creator',
+            }).catch((err) => {
+                console.error('[Admin] Lỗi gửi email duyệt Creator:', err);
+            });
+        }
+
         res.json({ success: true, message: 'Đã duyệt đơn và cấp quyền Content Creator.' });
     } catch (error) {
         await conn.rollback();
@@ -74,7 +95,11 @@ export const rejectApplication = async (req: Request, res: Response): Promise<vo
     }
 
     const [appRows] = await db.execute(
-        `SELECT status FROM creator_applications WHERE id = ?`, [id]
+        `SELECT ca.status, u.email, u.full_name
+         FROM creator_applications ca
+         JOIN users u ON ca.user_id = u.id
+         WHERE ca.id = ?`,
+        [id]
     );
     const app = appRows[0];
 
@@ -84,10 +109,23 @@ export const rejectApplication = async (req: Request, res: Response): Promise<vo
         return;
     }
 
+    const cleanNote = admin_note.trim();
     await db.execute(
         `UPDATE creator_applications SET status = 'REJECTED', admin_note = ?, updated_at = NOW() WHERE id = ?`,
-        [admin_note.trim(), id]
+        [cleanNote, id]
     );
+
+    // Gửi email thông báo từ chối kèm lý do nhận xét
+    if (app.email) {
+        sendCreatorRejectedEmail({
+            toEmail: app.email,
+            fullName: app.full_name || 'Học viên',
+            adminNote: cleanNote,
+        }).catch((err) => {
+            console.error('[Admin] Lỗi gửi email từ chối Creator:', err);
+        });
+    }
+
     res.json({ success: true, message: 'Đã từ chối đơn và ghi nhận lý do.' });
 };
 
@@ -106,8 +144,9 @@ export const getCreators = async (req: Request, res: Response): Promise<void> =>
 
 export const suspendCreator = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
+    const { reason } = req.body || {};
     const [rows] = await db.execute(
-        `SELECT role, creator_status FROM users WHERE id = ?`, [userId]
+        `SELECT role, creator_status, email, full_name FROM users WHERE id = ?`, [userId]
     );
     const user = rows[0];
 
@@ -115,6 +154,18 @@ export const suspendCreator = async (req: Request, res: Response): Promise<void>
     if (user.creator_status === 'SUSPENDED') { res.status(400).json({ success: false, message: 'Creator này đã bị đình chỉ rồi.' }); return; }
 
     await db.execute(`UPDATE users SET creator_status = 'SUSPENDED' WHERE id = ?`, [userId]);
+
+    // Gửi email thông báo tạm đình chỉ quyền Content Creator
+    if (user.email) {
+        sendCreatorSuspendedEmail({
+            toEmail: user.email,
+            fullName: user.full_name || 'Creator',
+            reason,
+        }).catch((err) => {
+            console.error('[Admin] Lỗi gửi email đình chỉ Creator:', err);
+        });
+    }
+
     res.json({ success: true, message: 'Đã đình chỉ tài khoản Creator. Nội dung cũ vẫn được bảo lưu.' });
 };
 
@@ -156,7 +207,26 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
 
 export const banUser = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
+    const { reason } = req.body || {};
+
+    const [rows] = await db.execute(
+        `SELECT email, full_name FROM users WHERE id = ?`, [userId]
+    );
+    const user = rows[0];
+
     await db.execute(`UPDATE users SET status = 'BANNED' WHERE id = ?`, [userId]);
+
+    // Gửi email thông báo khóa tài khoản
+    if (user?.email) {
+        sendUserBannedEmail({
+            toEmail: user.email,
+            fullName: user.full_name || 'Người dùng',
+            reason,
+        }).catch((err) => {
+            console.error('[Admin] Lỗi gửi email khóa tài khoản:', err);
+        });
+    }
+
     res.json({ success: true, message: 'Đã khóa tài khoản người dùng.' });
 };
 
