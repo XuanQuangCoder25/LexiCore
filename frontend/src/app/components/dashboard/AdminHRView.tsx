@@ -6,7 +6,11 @@ import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Switch } from "../ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Users, CircleDollarSign, Gem, Trophy, Star, CalendarDays, Mail } from "lucide-react";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { Label } from "../ui/label";
+import { Users, CircleDollarSign, Gem, Trophy, Star, CalendarDays, Mail, Send, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { optimizeAvatarUrl } from "../../services/arena-service";
 
 const API_BASE = "";
@@ -31,6 +35,80 @@ export function AdminHRView() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+
+  // State cho Modal Soạn thư trực tiếp
+  const [emailTargetUser, setEmailTargetUser] = useState<UserProfile | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBadgeText, setEmailBadgeText] = useState("Cảnh báo");
+  const [emailBadgeType, setEmailBadgeType] = useState<"warning" | "info" | "danger" | "success">("warning");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailActionText, setEmailActionText] = useState("");
+  const [emailActionUrl, setEmailActionUrl] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const resetEmailForm = () => {
+    setEmailTargetUser(null);
+    setEmailSubject("");
+    setEmailBadgeText("Cảnh báo");
+    setEmailBadgeType("warning");
+    setEmailMessage("");
+    setEmailActionText("");
+    setEmailActionUrl("");
+    setSendingEmail(false);
+  };
+
+  const openEmailModalForUser = (user: UserProfile) => {
+    setEmailTargetUser(user);
+    setEmailSubject("");
+    setEmailBadgeText("Cảnh báo");
+    setEmailBadgeType("warning");
+    setEmailMessage("");
+    setEmailActionText("");
+    setEmailActionUrl("");
+  };
+
+  const handleSendDirectEmail = async () => {
+    if (!emailTargetUser) return;
+    if (!emailSubject.trim()) {
+      toast.error("Vui lòng nhập tiêu đề thư");
+      return;
+    }
+    if (!emailMessage.trim()) {
+      toast.error("Vui lòng nhập nội dung thư");
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users/${emailTargetUser.id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          subject: emailSubject.trim(),
+          heading: emailSubject.trim(),
+          badgeText: emailBadgeText.trim() || "Thông báo",
+          badgeType: emailBadgeType,
+          message: emailMessage.trim(),
+          actionText: emailActionText.trim() || undefined,
+          actionUrl: emailActionUrl.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Gửi thư thất bại");
+      }
+
+      toast.success(`Đã gửi thư thành công đến ${emailTargetUser.email}`);
+      resetEmailForm();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Không thể gửi thư");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -177,9 +255,20 @@ export function AdminHRView() {
                     <TableCell className="py-2.5">{getRoleBadge(user.role)}</TableCell>
                     <TableCell className="py-2.5">{getStatusBadge(user)}</TableCell>
                     <TableCell className="text-right pr-6 py-2.5">
-                      <Button variant="secondary" size="sm" onClick={() => setSelectedUser(user)}>
-                        Chi tiết
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                          title="Gửi thư cho người này"
+                          onClick={() => openEmailModalForUser(user)}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => setSelectedUser(user)}>
+                          Chi tiết
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -196,10 +285,27 @@ export function AdminHRView() {
         {selectedUser && (
           <DialogContent className="max-w-xl">
             <DialogHeader>
-              <DialogTitle className="text-xl flex items-center justify-between pr-6">
-                <span>Thông tin Người dùng</span>
-                {getStatusBadge(selectedUser)}
-              </DialogTitle>
+              <div className="flex items-center justify-between pr-6">
+                <DialogTitle className="text-xl">
+                  Thông tin Người dùng
+                </DialogTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                    onClick={() => {
+                      const target = selectedUser;
+                      setSelectedUser(null);
+                      openEmailModalForUser(target);
+                    }}
+                  >
+                    <Send className="w-3.5 h-3.5 text-primary" />
+                    Gửi thư
+                  </Button>
+                  {getStatusBadge(selectedUser)}
+                </div>
+              </div>
             </DialogHeader>
 
             <div className="space-y-6 py-4">
@@ -287,6 +393,143 @@ export function AdminHRView() {
                 </div>
               </div>
 
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
+      {/* Modal Soạn thư trực tiếp cho người dùng */}
+      <Dialog open={emailTargetUser !== null} onOpenChange={(open) => {
+        if (!open && !sendingEmail) resetEmailForm();
+      }}>
+        {emailTargetUser && (
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <Send className="w-5 h-5 text-primary" />
+                <span>Gửi thư trực tiếp</span>
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Thư được gửi trực tiếp từ địa chỉ chính thức của hệ thống (no-reply@lexicore.site).
+              </p>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {/* Thông tin người nhận */}
+              <div className="bg-muted/40 p-3 rounded-xl border flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-muted-foreground">Người nhận: </span>
+                  <span className="font-bold text-foreground">{emailTargetUser.full_name}</span>
+                </div>
+                <span className="font-mono text-muted-foreground">{emailTargetUser.email}</span>
+              </div>
+
+              {/* Chọn phân loại thông báo */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phân loại thư</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: "Cảnh báo", type: "warning" as const, text: "Cảnh báo" },
+                    { label: "Nhắc nhở", type: "info" as const, text: "Nhắc nhở" },
+                    { label: "Khẩn cấp", type: "danger" as const, text: "Khẩn cấp" },
+                    { label: "Thông báo", type: "info" as const, text: "Thông báo" },
+                    { label: "Khen thưởng", type: "success" as const, text: "Khen thưởng" },
+                  ].map((cat) => (
+                    <button
+                      key={cat.label}
+                      type="button"
+                      onClick={() => {
+                        setEmailBadgeType(cat.type);
+                        setEmailBadgeText(cat.text);
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${
+                        emailBadgeText === cat.text && emailBadgeType === cat.type
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tiêu đề thư */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email-subject" className="text-xs font-semibold">Tiêu đề email</Label>
+                <Input
+                  id="email-subject"
+                  placeholder="Ví dụ: Cảnh báo hành vi bất thường trên tài khoản..."
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  disabled={sendingEmail}
+                  className="text-sm"
+                />
+              </div>
+
+              {/* Nội dung thư */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email-message" className="text-xs font-semibold">Nội dung thư</Label>
+                <Textarea
+                  id="email-message"
+                  placeholder="Nhập nội dung cần gửi đến người dùng. Xuống dòng để tạo các đoạn văn bản riêng biệt..."
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  disabled={sendingEmail}
+                  rows={5}
+                  className="text-sm leading-relaxed resize-none"
+                />
+              </div>
+
+              {/* Tùy chọn nút liên kết trong thư */}
+              <div className="pt-2 border-t space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground">Nút bấm liên kết đính kèm (không bắt buộc)</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Nhãn nút (ví dụ: Xem điều khoản)"
+                    value={emailActionText}
+                    onChange={(e) => setEmailActionText(e.target.value)}
+                    disabled={sendingEmail}
+                    className="text-xs"
+                  />
+                  <Input
+                    placeholder="Đường dẫn URL (https://...)"
+                    value={emailActionUrl}
+                    onChange={(e) => setEmailActionUrl(e.target.value)}
+                    disabled={sendingEmail}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer hành động */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetEmailForm}
+                disabled={sendingEmail}
+              >
+                Hủy
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 font-bold"
+                onClick={handleSendDirectEmail}
+                disabled={sendingEmail}
+              >
+                {sendingEmail ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Đang gửi...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    Gửi thư ngay
+                  </>
+                )}
+              </Button>
             </div>
           </DialogContent>
         )}

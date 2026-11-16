@@ -5,6 +5,7 @@ import {
     sendCreatorRejectedEmail,
     sendCreatorSuspendedEmail,
     sendUserBannedEmail,
+    sendDirectCustomEmail,
 } from '../email/email.service';
 
 const db = pool as any;
@@ -234,4 +235,47 @@ export const unbanUser = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
     await db.execute(`UPDATE users SET status = 'ACTIVE' WHERE id = ?`, [userId]);
     res.json({ success: true, message: 'Đã mở khóa tài khoản người dùng.' });
+};
+
+export const sendUserDirectEmail = async (req: Request, res: Response): Promise<void> => {
+    const { userId } = req.params;
+    const { subject, heading, badgeText, badgeType, message, actionText, actionUrl } = req.body;
+
+    if (!subject || !subject.trim()) {
+        res.status(400).json({ success: false, message: 'Vui lòng nhập tiêu đề email.' });
+        return;
+    }
+    if (!message || !message.trim()) {
+        res.status(400).json({ success: false, message: 'Vui lòng nhập nội dung email.' });
+        return;
+    }
+
+    const [rows] = await db.execute(
+        `SELECT email, full_name FROM users WHERE id = ?`, [userId]
+    );
+    const user = rows[0];
+
+    if (!user || !user.email) {
+        res.status(404).json({ success: false, message: 'Không tìm thấy người dùng hoặc người dùng không có email.' });
+        return;
+    }
+
+    try {
+        await sendDirectCustomEmail({
+            toEmail: user.email,
+            fullName: user.full_name || 'Học viên',
+            subject: subject.trim(),
+            heading: (heading && heading.trim()) || subject.trim(),
+            badgeText: badgeText || 'Thông báo',
+            badgeType: badgeType || 'info',
+            message: message.trim(),
+            actionText: actionText ? actionText.trim() : undefined,
+            actionUrl: actionUrl ? actionUrl.trim() : undefined,
+        });
+
+        res.json({ success: true, message: `Đã gửi email thành công đến ${user.email}.` });
+    } catch (err: any) {
+        console.error('[Admin] Lỗi gửi email trực tiếp:', err);
+        res.status(500).json({ success: false, message: err?.message || 'Lỗi khi gửi email qua dịch vụ Resend.' });
+    }
 };

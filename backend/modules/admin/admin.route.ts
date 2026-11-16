@@ -11,7 +11,8 @@ import {
     getPendingCounts,
     getAllUsers,
     banUser,
-    unbanUser
+    unbanUser,
+    sendUserDirectEmail,
 } from './admin.controller';
 import {
     getCampaigns,
@@ -43,6 +44,7 @@ router.post('/creators/:userId/reactivate', reactivateCreator);
 router.get('/users', getAllUsers);
 router.post('/users/:userId/ban', banUser);
 router.post('/users/:userId/unban', unbanUser);
+router.post('/users/:userId/send-email', sendUserDirectEmail);
 
 // ── Subscription Campaigns Management ──────────────────────
 router.get('/campaigns', getCampaigns);

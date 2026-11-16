@@ -7,6 +7,7 @@ import {
     OtpEmailType,
     accountActivatedTemplate,
     userBannedTemplate,
+    customDirectMessageTemplate,
 } from './templates/auth.template';
 import {
     creatorApprovedTemplate,
@@ -93,6 +94,40 @@ export const sendUserBannedEmail = async (params: {
     } catch (error) {
         console.error(`[Email] Lỗi khi gửi thông báo khóa tài khoản đến ${params.toEmail}:`, error);
         return { error };
+    }
+};
+
+export const sendDirectCustomEmail = async (params: {
+    toEmail: string;
+    fullName: string;
+    subject: string;
+    heading: string;
+    badgeText?: string;
+    badgeType?: 'info' | 'warning' | 'danger' | 'success';
+    message: string;
+    actionText?: string;
+    actionUrl?: string;
+}) => {
+    try {
+        const data = await resend.emails.send({
+            from: SENDERS.AUTH,
+            to: params.toEmail,
+            subject: params.subject,
+            html: customDirectMessageTemplate({
+                fullName: params.fullName,
+                heading: params.heading,
+                badgeText: params.badgeText,
+                badgeType: params.badgeType,
+                message: params.message,
+                actionText: params.actionText,
+                actionUrl: params.actionUrl,
+            }),
+        });
+        console.log(`[Email] Gửi email trực tiếp đến ${params.toEmail} thành công:`, data);
+        return data;
+    } catch (error) {
+        console.error(`[Email] Lỗi khi gửi email trực tiếp đến ${params.toEmail}:`, error);
+        throw error;
     }
 };
 

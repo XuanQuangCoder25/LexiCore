@@ -134,3 +134,79 @@ export const userBannedTemplate = ({
         bodyHtml,
     });
 };
+
+// 3. Template email gửi thư trực tiếp từ Admin (cảnh báo, nhắc nhở, thông báo cá nhân)
+export const customDirectMessageTemplate = ({
+    fullName,
+    heading,
+    badgeText = 'Thông báo',
+    badgeType = 'info',
+    message,
+    actionText,
+    actionUrl,
+}: {
+    fullName: string;
+    heading: string;
+    badgeText?: string;
+    badgeType?: 'info' | 'warning' | 'danger' | 'success';
+    message: string;
+    actionText?: string;
+    actionUrl?: string;
+}) => {
+    let badgeColor = '#f1f5f9';
+    let badgeTextColor = '#475569';
+
+    if (badgeType === 'warning') {
+        badgeColor = '#fffbeb';
+        badgeTextColor = '#b45309';
+    } else if (badgeType === 'danger') {
+        badgeColor = '#fef2f2';
+        badgeTextColor = '#dc2626';
+    } else if (badgeType === 'success') {
+        badgeColor = '#ecfdf5';
+        badgeTextColor = '#047857';
+    } else if (badgeType === 'info') {
+        badgeColor = '#eff6ff';
+        badgeTextColor = '#1d4ed8';
+    }
+
+    // Biến đổi các đoạn văn bản xuống dòng thành thẻ paragraph
+    const paragraphsHtml = message
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((p) => `<p style="color: #475569; font-size: 14px; margin: 0 0 14px 0; line-height: 1.6;">${p}</p>`)
+        .join('');
+
+    const actionButtonHtml = (actionText && actionUrl)
+        ? `
+<div style="margin: 20px 0 8px 0;">
+    <a href="${actionUrl}" style="background-color: #4f46e5; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block;">
+        ${actionText}
+    </a>
+</div>
+`
+        : '';
+
+    const bodyHtml = `
+<h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 14px 0; letter-spacing: -0.5px;">
+    ${heading}
+</h1>
+
+<p style="color: #475569; font-size: 14px; margin: 0 0 16px 0; line-height: 1.6;">
+    Kính gửi <strong>${fullName || 'bạn'}</strong>,
+</p>
+
+${paragraphsHtml}
+
+${actionButtonHtml}
+`;
+
+    return emailLayout({
+        title: heading,
+        badgeText,
+        badgeColor,
+        badgeTextColor,
+        bodyHtml,
+    });
+};
