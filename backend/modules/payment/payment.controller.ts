@@ -14,6 +14,8 @@ import {
     getMyOrders,
     checkOrderStatus,
     claimCampaignGift,
+    claimRewardCampaign,
+    getActiveRewardCampaigns,
     getInvoiceData,
 } from './payment.service';
 import { getPackageById } from './payment.repository';
@@ -226,5 +228,29 @@ export const getInvoice = async (req: Request, res: Response, next: NextFunction
         }
         const data = await getInvoiceData(userId, orderId);
         res.json({ success: true, data });
+    } catch (err) { next(err); }
+};
+
+// ─── Reward Campaigns (Coin / Diamond / Item) ─────────────────────────────────
+
+// GET /api/payment/reward-campaigns/active
+export const listActiveRewardCampaigns = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await getActiveRewardCampaigns();
+        res.json({ success: true, data });
+    } catch (err) { next(err); }
+};
+
+// POST /api/payment/reward-campaign/claim
+export const claimReward = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).user.id as string;
+        const { campaignId } = req.body as { campaignId: string };
+        if (!campaignId) {
+            res.status(400).json({ success: false, message: 'campaignId là bắt buộc' });
+            return;
+        }
+        const result = await claimRewardCampaign(userId, campaignId);
+        res.json(result);
     } catch (err) { next(err); }
 };

@@ -14,6 +14,23 @@ export interface SubscriptionCampaign {
     total_claims?: number;
 }
 
+export interface RewardCampaign {
+    id: string;
+    name: string;
+    description: string | null;
+    coin_amount: number;
+    diamond_amount: number;
+    item_id: string | null;
+    fallback_coin: number;
+    starts_at: string;
+    ends_at: string;
+    is_active: boolean;
+    created_at?: string;
+    item_name?: string | null;
+    item_type?: string | null;
+    item_image?: string | null;
+}
+
 // ── Admin: Lấy tất cả chiến dịch kèm thống kê lượt nhận ─────────────────────
 export async function getAllCampaigns(): Promise<SubscriptionCampaign[]> {
     const [rows] = await pool.execute<RowDataPacket[]>(
@@ -132,8 +149,79 @@ export async function recordUserClaim(conn: any, userId: string, campaignId: str
 // ── Lấy danh sách campaign_id mà user này đã claim ─────────────────────────
 export async function getUserClaimedCampaignIds(userId: string): Promise<string[]> {
     const [rows] = await pool.execute<RowDataPacket[]>(
-        `SELECT campaign_id FROM user_campaign_claims WHERE user_id = ?`,
+        `SELECT campaign_id FROM user_campaign_claims WHERE user_id = ? AND campaign_id IS NOT NULL`,
         [userId]
     );
     return rows.map((r) => r.campaign_id as string);
+}
+
+// ── Lấy chi tiết Reward Campaign theo ID ────────────────────────────────────
+export async function getRewardCampaignById(id: string): Promise<RewardCampaign | null> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT rc.*, i.name as item_name, i.type as item_type, i.image_url as item_image
+         FROM reward_campaigns rc
+         LEFT JOIN items i ON rc.item_id = i.id
+         WHERE rc.id = ? LIMIT 1`,
+        [id]
+    );
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+        ...r,
+        coin_amount: Number(r.coin_amount || 0),
+        diamond_amount: Number(r.diamond_amount || 0),
+        fallback_coin: Number(r.fallback_coin || 50),
+        is_active: Boolean(r.is_active),
+    } as RewardCampaign;
+}
+
+// ── Lấy các Reward Campaign đang có hiệu lực ────────────────────────────────
+export async function getActiveRewardCampaigns(): Promise<RewardCampaign[]> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT rc.*, i.name as item_name, i.type as item_type, i.image_url as item_image
+         FROM reward_campaigns rc
+         LEFT JOIN items i ON rc.item_id = i.id
+         WHERE rc.is_active = TRUE
+           AND rc.starts_at <= NOW()
+           AND rc.ends_at >= NOW()
+         ORDER BY rc.created_at DESC`
+    );
+    return rows.map((r) => ({
+        ...r,
+        coin_amount: Number(r.coin_amount || 0),
+        diamond_amount: Number(r.diamond_amount || 0),
+        fallback_coin: Number(r.fallback_coin || 50),
+        is_active: Boolean(r.is_active),
+    })) as RewardCampaign[];
+}
+
+// ── Kiểm tra user đã nhận quà Reward Campaign này chưa ─────────────────────
+export async function hasUserClaimedRewardCampaign(userId: string, rewardCampaignId: string): Promise<boolean> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT id FROM user_campaign_claims 
+         WHERE user_id = ? AND reward_campaign_id = ? 
+         LIMIT 1`,
+        [userId, rewardCampaignId]
+    );
+    return rows.length > 0;
+}
+
+// ── Ghi nhận user nhận quà Reward Campaign (trong transaction) ─────────────
+export async function recordUserRewardClaim(conn: any, userId: string, rewardCampaignId: string): Promise<void> {
+    const id = uuidv4();
+    await conn.execute(
+        `INSERT INTO user_campaign_claims (id, user_id, campaign_type, reward_campaign_id, claimed_at)
+         VALUES (?, ?, 'REWARD', ?, NOW())`,
+        [id, userId, rewardCampaignId]
+    );
+}
+
+// ── Lấy danh sách reward_campaign_id mà user đã claim ──────────────────────
+export async function getUserClaimedRewardCampaignIds(userId: string): Promise<string[]> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT reward_campaign_id FROM user_campaign_claims 
+         WHERE user_id = ? AND campaign_type = 'REWARD' AND reward_campaign_id IS NOT NULL`,
+        [userId]
+    );
+    return rows.map((r) => r.reward_campaign_id as string);
 }

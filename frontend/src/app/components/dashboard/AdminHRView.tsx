@@ -22,7 +22,7 @@ import {
   AlertTriangle,
   AlertOctagon,
   Bell,
-  Sparkles,
+  Award,
 } from "lucide-react";
 import { toast } from "sonner";
 import { optimizeAvatarUrl } from "../../services/arena-service";
@@ -83,7 +83,7 @@ const EMAIL_CATEGORIES = [
     label: "Khen thưởng",
     type: "success" as const,
     text: "Khen thưởng",
-    icon: Sparkles,
+    icon: Award,
     activeClass: "bg-emerald-500/15 border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-bold shadow-xs",
     badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
     glowColor: "border-t-emerald-500",

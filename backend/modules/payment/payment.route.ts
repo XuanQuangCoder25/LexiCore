@@ -16,6 +16,8 @@ import {
     orderStatus,
     claimCampaign,
     getInvoice,
+    listActiveRewardCampaigns,
+    claimReward,
 } from './payment.controller';
 
 const router = Router();
@@ -23,6 +25,9 @@ const router = Router();
 // ─── Public ──────────────────────────────────────────────────────────────────
 // Lấy danh sách gói (hỗ trợ optionalAuth để tự động ẩn gói trial nếu user đã từng dùng)
 router.get('/packages', optionalAuth, listPackages);
+
+// Lấy các chiến dịch quà tặng đang diễn ra (public)
+router.get('/reward-campaigns/active', listActiveRewardCampaigns);
 
 // SePay webhook nhận callback biến động số dư từ ngân hàng (server-to-server)
 router.post('/sepay/webhook', sepayWebhook);
@@ -62,6 +67,9 @@ router.get('/order-status/:orderId', orderStatus);
 
 // Nhận quà gói sự kiện từ chiến dịch của Admin
 router.post('/campaign/claim', claimCampaign);
+
+// Nhận quà tặng Coin / Diamond / Item từ chiến dịch của Admin
+router.post('/reward-campaign/claim', claimReward);
 
 // Chi tiết hóa đơn điện tử
 router.get('/invoice/:orderId', getInvoice);

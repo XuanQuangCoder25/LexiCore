@@ -18,6 +18,7 @@ export interface CreditPackage {
     diamond_amount: number;
     duration_days: number | null;
     sale_percent: number;
+    sale_starts_at?: string | null;
     sale_ends_at: string | null;
     features: string[] | null;
     display_order: number;

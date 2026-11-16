@@ -25,7 +25,7 @@ import {
     CreditPackage,
 } from './payment.repository';
 import { getActiveCampaigns } from './campaign.repository';
-export { claimCampaignGift } from './campaign.service';
+export { claimCampaignGift, claimRewardCampaign, getActiveRewardCampaigns } from './campaign.service';
 import { sendSubscriptionSuccessEmail } from '../email/email.service';
 
 // ============================================================
@@ -35,8 +35,9 @@ import { sendSubscriptionSuccessEmail } from '../email/email.service';
 export function calcFinalPrice(pkg: CreditPackage): number {
     if (pkg.sale_percent > 0 && pkg.sale_ends_at) {
         const now = new Date();
+        const saleStart = pkg.sale_starts_at ? new Date(pkg.sale_starts_at) : new Date(0);
         const saleEnd = new Date(pkg.sale_ends_at);
-        if (now < saleEnd) {
+        if (now >= saleStart && now < saleEnd) {
             return Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100));
         }
     }

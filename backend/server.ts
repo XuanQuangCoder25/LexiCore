@@ -31,6 +31,7 @@ import socialRoute from './modules/social/social.route';
 import communityRoute from './modules/community/community.route';
 import { initSocialSocket } from './modules/social/social-socket';
 import { initArenaSocket } from './modules/arena/arena-socket';
+import { checkMaintenance, getMaintenanceStatus } from './middlewares/checkMaintenance';
 import { createServer } from 'http';
 import { Server as SocketIO } from 'socket.io';
 
@@ -81,6 +82,19 @@ const io = new SocketIO(httpServer, {
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
+
+// Endpoint kiem tra trang thai bao tri he thong cong khai
+app.get('/api/system/status', async (_req, res) => {
+    try {
+        const status = await getMaintenanceStatus();
+        res.json({ success: true, ...status });
+    } catch {
+        res.json({ success: true, active: false });
+    }
+});
+
+// Middleware kiem tra che do bao tri khan cap (Admin duoc phep bo qua)
+app.use('/api', checkMaintenance);
 
 // Đăng ký các Routes
 app.use('/api/v1/dashboard', dashboardRoutes);
