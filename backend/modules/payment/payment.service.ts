@@ -5,6 +5,7 @@ import {
     getAllPackages,
     getPackageById,
     createPaymentOrder,
+    generateUniqueOrderCode,
     setOrderCode,
     getOrderStatus,
     creditWalletAfterPurchase,
@@ -290,7 +291,7 @@ export const initMockPayment = async (userId: string, packageId: string) => {
     await cancelPendingOrdersOfUser(userId);
 
     const finalPrice = calcFinalPrice(pkg);
-    const { orderId } = await createPaymentOrder(userId, packageId, finalPrice, 'MOCK');
+    const orderId = await createPaymentOrder(userId, packageId, finalPrice, 'MOCK');
 
     return {
         orderId,
@@ -364,11 +365,11 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
     // Tự động hủy các đơn PENDING cũ của user trước khi tạo đơn mới
     await cancelPendingOrdersOfUser(userId);
 
-    // Tạo đơn trước để lấy order_number tự tăng
-    const { orderId, orderNumber } = await createPaymentOrder(userId, packageId, finalPrice, 'SEPAY');
+    // Tạo đơn trước, sau đó sinh order code duy nhất
+    const orderId = await createPaymentOrder(userId, packageId, finalPrice, 'SEPAY');
 
-    // Sinh order_code từ order_number (ví dụ: LC105)
-    const orderCode = `LC${orderNumber}`;
+    // Sinh order_code ngẫu nhiên, đảm bảo không trùng (ví dụ: LC583421)
+    const orderCode = await generateUniqueOrderCode();
     await setOrderCode(orderId, orderCode);
 
     const bankCode    = process.env.SEPAY_BANK_CODE   || 'BIDV';
@@ -414,10 +415,10 @@ export const initWalletTopup = async (userId: string, amountVnd: number) => {
         packageId = existing[0].id;
     }
 
-    // Tạo đơn thanh toán trước để lấy order_number tự tăng
-    const { orderId, orderNumber } = await createPaymentOrder(userId, packageId, amountVnd, 'SEPAY');
+    // Tạo đơn thanh toán, sau đó sinh order code duy nhất
+    const orderId = await createPaymentOrder(userId, packageId, amountVnd, 'SEPAY');
 
-    const orderCode = `LC${orderNumber}`;
+    const orderCode = await generateUniqueOrderCode();
     await setOrderCode(orderId, orderCode);
 
     const bankCode    = process.env.SEPAY_BANK_CODE   || 'BIDV';

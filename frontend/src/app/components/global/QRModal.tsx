@@ -60,13 +60,11 @@ export function QRModal({
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearAutoCloseTimeout = useCallback(() => {
-    if (autoCloseTimeoutRef.current) {
-      clearTimeout(autoCloseTimeoutRef.current);
-      autoCloseTimeoutRef.current = null;
-    }
-  }, []);
+  // Dùng ref để polling callback luôn truy cập được giá trị mới nhất mà không làm useEffect chạy lại
+  const onSuccessRef = useRef(onSuccess);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onSuccessRef.current = onSuccess; }, [onSuccess]);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -75,107 +73,120 @@ export function QRModal({
     }
   }, []);
 
+  const clearAutoCloseTimeout = useCallback(() => {
+    if (autoCloseTimeoutRef.current) {
+      clearTimeout(autoCloseTimeoutRef.current);
+      autoCloseTimeoutRef.current = null;
+    }
+  }, []);
+
   const handleCloseModal = useCallback(() => {
     stopPolling();
     clearAutoCloseTimeout();
-    onClose();
-  }, [stopPolling, clearAutoCloseTimeout, onClose]);
+    onCloseRef.current?.();
+  }, [stopPolling, clearAutoCloseTimeout]);
 
-  // Polling kiem tra trang thai don hang moi 2.5 giay
-  const startPolling = useCallback(
-    (orderId: string, currentPkg: CreditPackage) => {
-      stopPolling();
-      pollingRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/payment/order-status/${orderId}`, {
-            credentials: "include",
-          });
-          const json = await res.json();
-          if (json.success && json.data?.status === "SUCCESS") {
-            stopPolling();
-            clearAutoCloseTimeout();
-            setView("SUCCESS");
-
-            const isTopup =
-              currentPkg.id === "pkg_wallet_topup" ||
-              currentPkg.slug === "wallet-topup" ||
-              currentPkg.name === "Nạp tiền Ví LexiCore";
-
-            toast.success(
-              isTopup ? "Nạp tiền vào Ví LexiCore thành công!" : `Đăng ký ${currentPkg.name} thành công!`,
-              {
-                description: isTopup
-                  ? "Số dư Ví LexiCore đã được cập nhật thành công."
-                  : "Gói đã được kích hoạt. Chúc bạn học tốt!",
-              }
-            );
-
-            onSuccess?.();
-
-            // Tu dong dong sau 3 giay neu nguoi dung khong bam nut dong
-            autoCloseTimeoutRef.current = setTimeout(() => {
-              handleCloseModal();
-            }, 3000);
-          }
-        } catch {
-          // Bo qua loi mang tam thoi trong qua trinh polling
-        }
-      }, 2500);
-    },
-    [stopPolling, clearAutoCloseTimeout, onSuccess, handleCloseModal]
-  );
-
-  // Khoi tao thanh toan SePay khi mo modal
+  // Khởi tạo thanh toán SePay khi mở modal — chỉ chạy lại khi open/pkg thực sự thay đổi
   useEffect(() => {
-    if (open && pkg) {
-      setView("QR");
-      setLoading(true);
-      setInitResult(null);
-
-      const isWalletTopup =
-        pkg.id === "pkg_wallet_topup" ||
-        pkg.slug === "wallet-topup" ||
-        pkg.name === "Nạp tiền Ví LexiCore";
-
-      const endpoint = isWalletTopup ? "/api/payment/wallet/topup" : "/api/payment/sepay/init";
-      const requestBody = isWalletTopup
-        ? { amountVnd: pkg.price_vnd }
-        : { packageId: pkg.id };
-
-      fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(requestBody),
-      })
-        .then((r) => r.json())
-        .then((json) => {
-          if (json.success && json.data) {
-            setInitResult(json.data as SepayInitResult);
-            startPolling(json.data.orderId, pkg);
-          } else {
-            throw new Error(json.message || "Không thể khởi tạo thanh toán");
-          }
-        })
-        .catch((err: any) => {
-          toast.error("Khởi tạo thanh toán thất bại", { description: err.message });
-          onClose();
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
+    if (!open || !pkg) {
       stopPolling();
       clearAutoCloseTimeout();
       setInitResult(null);
       setView("QR");
+      return;
     }
 
+    setView("QR");
+    setLoading(true);
+    setInitResult(null);
+    stopPolling();
+
+    const isWalletTopup =
+      pkg.id === "pkg_wallet_topup" ||
+      pkg.slug === "wallet-topup" ||
+      pkg.name === "Nạp tiền Ví LexiCore";
+
+    const endpoint = isWalletTopup ? "/api/payment/wallet/topup" : "/api/payment/sepay/init";
+    const requestBody = isWalletTopup
+      ? { amountVnd: pkg.price_vnd }
+      : { packageId: pkg.id };
+
+    let cancelled = false;
+
+    fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(requestBody),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return;
+        if (json.success && json.data) {
+          const result = json.data as SepayInitResult;
+          const capturedPkg = pkg;
+          setInitResult(result);
+
+          // Bắt đầu polling kiểm tra trạng thái đơn hàng mỗi 2.5 giây
+          pollingRef.current = setInterval(async () => {
+            try {
+              const res = await fetch(`/api/payment/order-status/${result.orderId}`, {
+                credentials: "include",
+              });
+              const statusJson = await res.json();
+              if (statusJson.success && statusJson.data?.status === "SUCCESS") {
+                stopPolling();
+                clearAutoCloseTimeout();
+                setView("SUCCESS");
+
+                const isTopupPkg =
+                  capturedPkg.id === "pkg_wallet_topup" ||
+                  capturedPkg.slug === "wallet-topup" ||
+                  capturedPkg.name === "Nạp tiền Ví LexiCore";
+
+                toast.success(
+                  isTopupPkg
+                    ? "Nạp tiền vào Ví LexiCore thành công!"
+                    : `Đăng ký ${capturedPkg.name} thành công!`,
+                  {
+                    description: isTopupPkg
+                      ? "Số dư Ví LexiCore đã được cập nhật thành công."
+                      : "Gói đã được kích hoạt. Chúc bạn học tốt!",
+                  }
+                );
+
+                onSuccessRef.current?.();
+
+                // Tự động đóng sau 3 giây nếu người dùng không bấm nút đóng
+                autoCloseTimeoutRef.current = setTimeout(() => {
+                  onCloseRef.current?.();
+                }, 3000);
+              }
+            } catch {
+              // Bỏ qua lỗi mạng tạm thời trong quá trình polling
+            }
+          }, 2500);
+        } else {
+          throw new Error(json.message || "Không thể khởi tạo thanh toán");
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Lỗi không xác định";
+        toast.error("Khởi tạo thanh toán thất bại", { description: message });
+        onCloseRef.current?.();
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
     return () => {
+      cancelled = true;
       stopPolling();
       clearAutoCloseTimeout();
     };
-  }, [open, pkg, startPolling, stopPolling, clearAutoCloseTimeout, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pkg?.id]);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
