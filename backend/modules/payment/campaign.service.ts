@@ -20,12 +20,12 @@ import { activateSubscription } from './payment.repository';
 
 export { getActiveRewardCampaigns };
 
-// ── Admin: Lấy danh sách chiến dịch ────────────────────────────────────────
+// -- Admin: Lấy danh sách chiến dịch ----------------------------------------
 export async function adminGetCampaigns(): Promise<SubscriptionCampaign[]> {
     return getAllCampaigns();
 }
 
-// ── Admin: Tạo chiến dịch mới ──────────────────────────────────────────────
+// -- Admin: Tạo chiến dịch mới ----------------------------------------------
 export async function adminCreateCampaign(data: {
     name: string;
     tier: 'STARTER' | 'PRO' | 'ELITE';
@@ -64,7 +64,7 @@ export async function adminCreateCampaign(data: {
     return { id, message: 'Tạo chiến dịch thành công' };
 }
 
-// ── Admin: Bật/tắt trạng thái chiến dịch ───────────────────────────────────
+// -- Admin: Bật/tắt trạng thái chiến dịch -----------------------------------
 export async function adminToggleCampaign(id: string): Promise<{ is_active: boolean; message: string }> {
     const campaign = await getCampaignById(id);
     if (!campaign) throw new AppError('Chiến dịch không tồn tại', 404);
@@ -76,7 +76,7 @@ export async function adminToggleCampaign(id: string): Promise<{ is_active: bool
     };
 }
 
-// ── Admin: Xóa chiến dịch ──────────────────────────────────────────────────
+// -- Admin: Xóa chiến dịch --------------------------------------------------
 export async function adminDeleteCampaign(id: string): Promise<{ message: string }> {
     const campaign = await getCampaignById(id);
     if (!campaign) throw new AppError('Chiến dịch không tồn tại', 404);
@@ -85,7 +85,7 @@ export async function adminDeleteCampaign(id: string): Promise<{ message: string
     return { message: 'Đã xóa chiến dịch thành công' };
 }
 
-// ── User: Nhận quà gói sự kiện (ACID Transaction) ──────────────────────────
+// -- User: Nhận quà gói sự kiện (ACID Transaction) --------------------------
 export async function claimCampaignGift(userId: string, campaignId: string) {
     const campaign = await getCampaignById(campaignId);
     if (!campaign) {
@@ -161,7 +161,7 @@ export async function claimCampaignGift(userId: string, campaignId: string) {
     }
 }
 
-// ── User: Nhận quà Reward Campaign (Coin / Diamond / Item) (ACID Transaction) ──
+// -- User: Nhận quà Reward Campaign (Coin / Diamond / Item) (ACID Transaction) --
 export async function claimRewardCampaign(userId: string, campaignId: string) {
     const campaign = await getRewardCampaignById(campaignId);
     if (!campaign) {

@@ -14,7 +14,7 @@ CREATE TABLE users (
     creator_status ENUM('ACTIVE', 'SUSPENDED') NULL DEFAULT NULL,
     avatar_url VARCHAR(255) NULL,
     cover_url VARCHAR(255) NULL,
-    has_used_trial BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Da kich hoat goi trial mac dinh khi dang ky chua',
+    has_used_trial BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Đã kích hoạt gói dùng thử Pro mặc định khi đăng ký tài khoản chưa',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -47,7 +47,7 @@ CREATE TABLE wallets (
     last_study_date DATE,
     previous_streak INT DEFAULT 0,
     diamond_balance INT DEFAULT 0,
-    vnd_balance INT NOT NULL DEFAULT 0 COMMENT 'So du Vi LexiCore (VND thuc)',
+    vnd_balance INT NOT NULL DEFAULT 0 COMMENT 'Số dư Ví LexiCore (VNĐ thực tế), đơn vị: đồng',
     exp INT DEFAULT 0,
     level INT DEFAULT 1,
     rank_point INT DEFAULT 0,
@@ -426,15 +426,16 @@ CREATE TABLE IF NOT EXISTS credit_packages (
         'ELITE',
         'TRIAL'
     ) NULL,
-    is_trial BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'TRUE = goi dung thu (trial default hoac campaign)',
-    available_from DATETIME NULL COMMENT 'Campaign: goi chi hien tu ngay nay (NULL = hien luon)',
-    available_until DATETIME NULL COMMENT 'Campaign: goi tu an sau ngay nay (NULL = khong gioi han)',
+    is_trial BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'TRUE = gói dùng thử (gói mặc định hoặc sự kiện của Admin)',
+    available_from DATETIME NULL COMMENT 'Chiến dịch: gói chỉ hiển thị từ ngày này (NULL = hiển thị ngay)',
+    available_until DATETIME NULL COMMENT 'Chiến dịch: gói tự ẩn sau ngày này (NULL = không giới hạn)',
     price_vnd INT NOT NULL DEFAULT 0,
     price_usd DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     coin_amount INT NOT NULL DEFAULT 0,
     diamond_amount INT NOT NULL DEFAULT 0,
     duration_days INT NULL, -- Thời hạn subscription (ngày), NULL = không có subscription
     sale_percent INT NOT NULL DEFAULT 0, -- Sale
+    sale_starts_at DATETIME NULL COMMENT 'Ngày bắt đầu đợt giảm giá. NULL = áp dụng ngay lập tức. Sắp diễn ra nếu > NOW()',
     sale_ends_at DATETIME NULL,
     features JSON NULL, -- Danh sách features dạng JSON array
     display_order INT NOT NULL DEFAULT 0, -- Thứ tự hiển thị
@@ -446,11 +447,12 @@ CREATE TABLE IF NOT EXISTS credit_packages (
 -- 2. Bảng lịch sử đơn thanh toán
 CREATE TABLE IF NOT EXISTS payment_orders (
     id VARCHAR(36) PRIMARY KEY DEFAULT(UUID()),
+    order_number INT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id VARCHAR(36) NOT NULL,
     package_id VARCHAR(36) NOT NULL,
     amount_vnd INT NOT NULL, -- Số tiền thực tế tính phí (sau giảm giá)
     gateway ENUM('SEPAY', 'WALLET', 'MOCK') NOT NULL DEFAULT 'SEPAY',
-    payment_reference VARCHAR(50) UNIQUE NULL COMMENT 'Ma tham chieu noi dung chuyen khoan (SePay match noi dung VietQR)',
+    payment_reference VARCHAR(50) UNIQUE NULL COMMENT 'Mã tham chiếu nội dung chuyển khoản (SePay khớp nội dung VietQR)',
     status ENUM(
         'PENDING',
         'SUCCESS',
@@ -463,6 +465,7 @@ CREATE TABLE IF NOT EXISTS payment_orders (
     metadata JSON NULL, -- Metadata bổ sung
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_order_number (order_number),
     INDEX idx_payment_orders_user (user_id, status),
     INDEX idx_payment_orders_gateway_txn (gateway_txn_id),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
@@ -523,25 +526,112 @@ CREATE TABLE IF NOT EXISTS payment_announcements (
     INDEX idx_ann_active (is_active, ends_at)
 );
 
--- 5. Bảng quản lý chiến dịch sự kiện của Admin
-CREATE TABLE subscription_campaigns (
+-- 5. Bảng quản lý chiến dịch gói cước sự kiện của Admin (Credit Packages)
+CREATE TABLE IF NOT EXISTS subscription_campaigns (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255) NOT NULL, -- Ví dụ: 'Mừng tựu trường', 'Kỷ niệm thành lập'
+    description TEXT NULL COMMENT 'Mô tả sự kiện hiển thị cho học viên',
+    banner_color VARCHAR(20) NULL DEFAULT '#7c3aed' COMMENT 'Màu accent thẻ sự kiện trên trang Subscription (hex)',
     tier ENUM('STARTER', 'PRO', 'ELITE') NOT NULL,
     duration_days INT NOT NULL,
     starts_at DATETIME NOT NULL,
     ends_at DATETIME NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_by VARCHAR(36) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 );
 
--- 6. Bảng theo dõi lượt nhận quà (Mỗi user nhận đúng 1 lần / chiến dịch)
-CREATE TABLE user_campaign_claims (
-    id VARCHAR(36) PRIMARY KEY,
+-- 6. Bảng chiến dịch quà tặng (Coin, Diamond, Item) do Admin ban hành
+CREATE TABLE IF NOT EXISTS reward_campaigns (
+    id VARCHAR(36) PRIMARY KEY DEFAULT(UUID()),
+    name VARCHAR(255) NOT NULL COMMENT 'Tên chiến dịch sự kiện',
+    description TEXT NULL COMMENT 'Nội dung hiển thị trong modal nhận quà',
+    coin_amount INT NOT NULL DEFAULT 0,
+    diamond_amount INT NOT NULL DEFAULT 0,
+    item_id VARCHAR(36) NULL COMMENT 'ID vật phẩm tặng kèm trong bảng items, NULL nếu không tặng',
+    fallback_coin INT NOT NULL DEFAULT 50 COMMENT 'Số Coin đền bù nếu học viên đã sở hữu vật phẩm này',
+    starts_at DATETIME NOT NULL,
+    ends_at DATETIME NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by VARCHAR(36) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+    INDEX idx_reward_active (is_active, starts_at, ends_at)
+);
+
+-- 7. Bảng theo dõi lượt nhận quà của học viên (Mỗi user nhận đúng 1 lần / chiến dịch)
+CREATE TABLE IF NOT EXISTS user_campaign_claims (
+    id VARCHAR(36) PRIMARY KEY DEFAULT(UUID()),
     user_id VARCHAR(36) NOT NULL,
-    campaign_id VARCHAR(36) NOT NULL,
+    campaign_type ENUM('SUBSCRIPTION', 'REWARD') NOT NULL DEFAULT 'SUBSCRIPTION',
+    campaign_id VARCHAR(36) NULL COMMENT 'ID chiến dịch subscription_campaigns (nếu là SUBSCRIPTION)',
+    reward_campaign_id VARCHAR(36) NULL COMMENT 'ID chiến dịch reward_campaigns (nếu là REWARD)',
     claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_user_trial (user_id, campaign_id) -- Mỗi user chỉ được nhận 1 lần trong suốt đợt
+    UNIQUE KEY uq_user_sub_claim (user_id, campaign_id),
+    UNIQUE KEY uq_user_reward_claim (user_id, reward_campaign_id),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (campaign_id) REFERENCES subscription_campaigns (id) ON DELETE CASCADE,
+    FOREIGN KEY (reward_campaign_id) REFERENCES reward_campaigns (id) ON DELETE CASCADE
+);
+
+-- 8. Bảng thông báo hệ thống và chế độ bảo trì máy chủ khẩn cấp
+CREATE TABLE IF NOT EXISTS system_announcements (
+    id VARCHAR(36) PRIMARY KEY DEFAULT(UUID()),
+    type ENUM('MAINTENANCE', 'ANNOUNCEMENT') NOT NULL DEFAULT 'ANNOUNCEMENT',
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    is_maintenance_active BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'TRUE = đang bật chế độ bảo trì khẩn',
+    estimated_end DATETIME NULL COMMENT 'Thời gian dự kiến hoàn tất bảo trì',
+    starts_at DATETIME NULL,
+    ends_at DATETIME NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by VARCHAR(36) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+);
+
+-- 9. Bảng nhật ký gửi email diện rộng cho học viên (Email Blast)
+CREATE TABLE IF NOT EXISTS email_blast_logs (
+    id VARCHAR(36) PRIMARY KEY DEFAULT(UUID()),
+    subject VARCHAR(255) NOT NULL,
+    target_audience ENUM(
+        'ALL',
+        'CREATORS',
+        'STARTER',
+        'PRO',
+        'ELITE',
+        'FREE'
+    ) NOT NULL,
+    total_recipients INT NOT NULL DEFAULT 0,
+    sent_count INT NOT NULL DEFAULT 0,
+    failed_count INT NOT NULL DEFAULT 0,
+    status ENUM(
+        'PENDING',
+        'SENDING',
+        'DONE',
+        'FAILED'
+    ) NOT NULL DEFAULT 'PENDING',
+    heading VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    badge_text VARCHAR(100) NULL,
+    badge_type ENUM(
+        'info',
+        'warning',
+        'danger',
+        'success'
+    ) NULL DEFAULT 'info',
+    action_text VARCHAR(100) NULL,
+    action_url VARCHAR(500) NULL,
+    created_by VARCHAR(36) NULL,
+    started_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 );
 
 -- X. NOTIFICATIONS & SETTINGS

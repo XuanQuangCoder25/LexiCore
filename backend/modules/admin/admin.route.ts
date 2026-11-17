@@ -59,29 +59,29 @@ router.post('/users/:userId/ban', banUser);
 router.post('/users/:userId/unban', unbanUser);
 router.post('/users/:userId/send-email', sendUserDirectEmail);
 
-// ── Subscription Campaigns Management ──────────────────────
+// -- Subscription Campaigns Management ------------------------------
 router.get('/campaigns', getCampaigns);
 router.post('/campaigns', createNewCampaign);
 router.patch('/campaigns/:id/toggle', toggleCampaignStatus);
 router.delete('/campaigns/:id', removeCampaign);
 
-// ── Marketing & Sale Management ────────────────────────────
+// -- Marketing & Sale Management ------------------------------------
 router.get('/packages/with-sale', getPackagesWithSale);
 router.patch('/packages/:id/sale', setPackageSale);
 
-// ── Reward Campaigns Management ───────────────────────────
+// -- Reward Campaigns Management -----------------------------------
 router.get('/campaigns/reward', listRewardCampaigns);
 router.post('/campaigns/reward', createRewardCampaign);
 router.patch('/campaigns/reward/:id/toggle', toggleRewardCampaign);
 router.delete('/campaigns/reward/:id', deleteRewardCampaign);
 
-// ── System Announcements & Maintenance ─────────────────────
+// -- System Announcements & Maintenance -----------------------------
 router.get('/system-announcements', getSystemAnnouncements);
 router.post('/maintenance/start', startMaintenance);
 router.patch('/maintenance/:id/end', endMaintenance);
 router.patch('/maintenance/end', endMaintenance);
 
-// ── Email Blast ───────────────────────────────────────────
+// -- Email Blast ---------------------------------------------------
 router.get('/email-blast/logs', getEmailBlastLogs);
 router.post('/email-blast', sendEmailBlast);
 

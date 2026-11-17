@@ -22,7 +22,7 @@ import {
 
 const router = Router();
 
-// ─── Public ──────────────────────────────────────────────────────────────────
+// --- Public ------------------------------------------------------------------
 // Lấy danh sách gói (hỗ trợ optionalAuth để tự động ẩn gói trial nếu user đã từng dùng)
 router.get('/packages', optionalAuth, listPackages);
 
@@ -32,7 +32,7 @@ router.get('/reward-campaigns/active', listActiveRewardCampaigns);
 // SePay webhook nhận callback biến động số dư từ ngân hàng (server-to-server)
 router.post('/sepay/webhook', sepayWebhook);
 
-// ─── Protected ───────────────────────────────────────────────────────────────
+// --- Protected ---------------------------------------------------------------
 router.use(requireAuth);
 
 // Trạng thái hội viên & cài đặt

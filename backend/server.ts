@@ -83,7 +83,7 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 
-// Endpoint kiem tra trang thai bao tri he thong cong khai
+// Endpoint kiểm tra trạng thái bảo trì hệ thống công khai
 app.get('/api/system/status', async (_req, res) => {
     try {
         const status = await getMaintenanceStatus();
@@ -93,7 +93,7 @@ app.get('/api/system/status', async (_req, res) => {
     }
 });
 
-// Middleware kiem tra che do bao tri khan cap (Admin duoc phep bo qua)
+// Middleware kiểm tra chế độ bảo trì khẩn cấp (Admin được phép bỏ qua)
 app.use('/api', checkMaintenance);
 
 // Đăng ký các Routes

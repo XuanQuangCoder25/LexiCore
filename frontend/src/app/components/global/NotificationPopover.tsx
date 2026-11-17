@@ -286,7 +286,7 @@ export function NotificationPopover() {
                         {n.body}
                       </p>
 
-                      {/* Nut hanh dong theo loai thong bao */}
+                      {/* Nút hành động theo loại thông báo */}
                       {n.type === "reward" && (
                         <Button
                           size="sm"

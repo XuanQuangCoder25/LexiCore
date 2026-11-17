@@ -586,7 +586,7 @@ export const handleSepayWebhook = async (
         );
 
         await conn.commit();
-        console.log(`[SePay Webhook] ✅ Kích hoạt thành công đơn hàng ${order.id} (${matchRef})!`);
+        console.log(`[SePay Webhook] Kích hoạt thành công đơn hàng ${order.id} (${matchRef})!`);
 
         // Gửi email biên lai tự động nếu là gói SUBSCRIPTION và user có email
         if (order.package_type === 'SUBSCRIPTION' && order.user_email) {

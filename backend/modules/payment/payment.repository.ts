@@ -123,7 +123,7 @@ export async function createPaymentOrder(
 
 export async function generateUniqueOrderCode(): Promise<string> {
     for (let attempt = 0; attempt < 10; attempt++) {
-        // Sinh 6 chữ số ngẫu nhiên: LC100000 → LC999999
+        // Sinh 6 chữ số ngẫu nhiên: LC100000 -> LC999999
         const suffix = Math.floor(100000 + Math.random() * 900000).toString();
         const code = `LC${suffix}`;
         const [rows] = await pool.execute<RowDataPacket[]>(

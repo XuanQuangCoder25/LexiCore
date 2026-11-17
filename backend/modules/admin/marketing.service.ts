@@ -77,7 +77,7 @@ export interface EmailBlastLog {
 }
 
 // ============================================================
-// Helper: Day thong bao In-App cho toan bo hoc vien
+// Helper: Đẩy thông báo In-App cho toàn bộ học viên
 // ============================================================
 
 export async function pushNotificationToAllActiveUsers(params: {
@@ -91,7 +91,7 @@ export async function pushNotificationToAllActiveUsers(params: {
         );
         if (users.length === 0) return;
 
-        // Chia thanh cac batch 200 user de tranh cau lenh SQL qua dai
+        // Chia thành các đợt 200 người dùng để tránh câu lệnh SQL quá dài
         const batchSize = 200;
         for (let i = 0; i < users.length; i += batchSize) {
             const batch = users.slice(i, i + batchSize);
@@ -107,12 +107,12 @@ export async function pushNotificationToAllActiveUsers(params: {
             );
         }
     } catch (err) {
-        console.error('[Notification Push Error] Khong the day thong bao:', err);
+        console.error('[Notification Push Error] Không thể đẩy thông báo:', err);
     }
 }
 
 // ============================================================
-// 1. Quan ly Giam gia (Sale %)
+// 1. Quản lý Giảm giá (Sale %)
 // ============================================================
 
 export async function adminGetAllPackagesWithSaleStatus(): Promise<PackageSaleStatus[]> {
@@ -182,7 +182,7 @@ export async function adminSetPackageSale(data: {
     }
     const pkg = rows[0];
 
-    // Xoa giam gia
+    // Xóa giảm giá
     if (salePercent <= 0) {
         await pool.execute(
             `UPDATE credit_packages
@@ -214,7 +214,7 @@ export async function adminSetPackageSale(data: {
         [salePercent, saleStartsAt ? new Date(saleStartsAt) : null, end, packageId]
     );
 
-    // Day thong bao in-app ve su kien giam gia
+    // Đẩy thông báo in-app về sự kiện giảm giá
     const formattedEnd = end.toLocaleDateString('vi-VN');
     pushNotificationToAllActiveUsers({
         type: 'sale',
@@ -228,7 +228,7 @@ export async function adminSetPackageSale(data: {
 }
 
 // ============================================================
-// 2. Quan ly Reward Campaigns (Tang Coin / Diamond / Item)
+// 2. Quản lý Chiến dịch quà tặng (Tặng Coin / Diamond / Vật phẩm)
 // ============================================================
 
 export async function adminListRewardCampaigns(): Promise<AdminRewardCampaign[]> {
@@ -328,7 +328,7 @@ export async function adminCreateRewardCampaign(data: {
         ]
     );
 
-    // Day thong bao vao Notification Bell cho tat ca user de hien modal nhan qua
+    // Đẩy thông báo vào Notification Bell cho tất cả học viên để hiện modal nhận quà
     const rewardDetails: string[] = [];
     if (coinAmount > 0) rewardDetails.push(`${coinAmount.toLocaleString('vi-VN')} Coin`);
     if (diamondAmount > 0) rewardDetails.push(`${diamondAmount.toLocaleString('vi-VN')} Diamond`);
@@ -372,7 +372,7 @@ export async function adminDeleteRewardCampaign(id: string) {
 }
 
 // ============================================================
-// 3. Thong bao He thong & Bao tri May chu
+// 3. Thông báo Hệ thống & Bảo trì Máy chủ
 // ============================================================
 
 export async function adminGetSystemAnnouncements(): Promise<SystemAnnouncement[]> {
@@ -414,7 +414,7 @@ export async function adminStartMaintenance(data: {
         throw new AppError('Nội dung bảo trì không được để trống', 400);
     }
 
-    // Tat cac che do bao tri dang active cu
+    // Tắt các chế độ bảo trì đang hoạt động trước đó
     await pool.execute(
         `UPDATE system_announcements SET is_maintenance_active = FALSE WHERE type = 'MAINTENANCE'`
     );
@@ -430,10 +430,10 @@ export async function adminStartMaintenance(data: {
         [id, title.trim(), message.trim(), estDate, createdBy || null]
     );
 
-    // Xoa cache de middleware checkMaintenance co hieu luc ngay tuc khac
+    // Xóa cache để middleware checkMaintenance có hiệu lực ngay lập tức
     invalidateMaintenanceCache();
 
-    // Neu admin tick chon gui email thong bao dien rong
+    // Nếu admin chọn gửi email thông báo diện rộng
     if (sendEmail) {
         adminSendEmailBlast({
             subject: `[Thông báo bảo trì] ${title.trim()}`,
@@ -444,7 +444,7 @@ export async function adminStartMaintenance(data: {
             targetAudience: 'ALL',
             createdBy: createdBy || 'admin',
         }).catch((err) => {
-            console.error('[Maintenance Email Blast Error] Loi khi gui email bao tri:', err);
+            console.error('[Maintenance Email Blast Error] Lỗi khi gửi email bảo trì:', err);
         });
     }
 
@@ -468,7 +468,7 @@ export async function adminEndMaintenance(announcementId?: string) {
 }
 
 // ============================================================
-// 4. Gui Email Dien rong (Email Blast)
+// 4. Gửi Email Diện rộng (Email Blast)
 // ============================================================
 
 export async function adminGetEmailBlastLogs(): Promise<EmailBlastLog[]> {
@@ -511,7 +511,7 @@ export async function adminSendEmailBlast(data: {
     if (!heading || heading.trim() === '') throw new AppError('Tiêu đề email không được để trống', 400);
     if (!message || message.trim() === '') throw new AppError('Nội dung email không được để trống', 400);
 
-    // 1. Query danh sach email theo targetAudience
+    // 1. Truy vấn danh sách email theo đối tượng mục tiêu
     let query = `SELECT email, full_name FROM users WHERE status = 'ACTIVE'`;
     const queryParams: any[] = [];
 
@@ -571,11 +571,11 @@ export async function adminSendEmailBlast(data: {
         };
     }
 
-    // 2. Chay background process gui email theo batch (khong chan HTTP response cua admin)
+    // 2. Chạy tiến trình nền gửi email theo từng đợt (không chặn phản hồi HTTP của admin)
     setImmediate(async () => {
         let sentCount = 0;
         let failedCount = 0;
-        const batchSize = 10; // Batch 10 email moi lan
+        const batchSize = 10; // Mỗi đợt 10 email
 
         for (let i = 0; i < recipients.length; i += batchSize) {
             const batch = recipients.slice(i, i + batchSize);
@@ -597,27 +597,27 @@ export async function adminSendEmailBlast(data: {
                         sentCount++;
                     } catch (err) {
                         failedCount++;
-                        console.error(`[Blast Failed] Gui email den ${user.email} that bai:`, err);
+                        console.error(`[Blast Failed] Gửi email đến ${user.email} thất bại:`, err);
                     }
                 })
             );
 
-            // Cap nhat tien do vao DB sau moi batch
+            // Cập nhật tiến độ vào DB sau mỗi đợt
             await pool.execute(
                 `UPDATE email_blast_logs SET sent_count = ?, failed_count = ? WHERE id = ?`,
                 [sentCount, failedCount, blastId]
             );
 
-            // Delay 1 giay giua cac batch de tranh vuot rate limit cua nha cung cap
+            // Tạm dừng 1 giây giữa các đợt để tránh vượt giới hạn tốc độ của nhà cung cấp
             await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
-        // Hoan tat toan bo tien trinh
+        // Hoàn tất toàn bộ tiến trình
         await pool.execute(
             `UPDATE email_blast_logs SET status = 'DONE', completed_at = NOW() WHERE id = ?`,
             [blastId]
         );
-        console.log(`[Email Blast Finished] Id ${blastId}: Gui thanh cong ${sentCount}/${totalRecipients}, that bai ${failedCount}`);
+        console.log(`[Email Blast Finished] Id ${blastId}: Gửi thành công ${sentCount}/${totalRecipients}, thất bại ${failedCount}`);
     });
 
     return {

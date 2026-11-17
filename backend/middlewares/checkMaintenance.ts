@@ -3,7 +3,7 @@ import { pool } from '../config/mysql';
 import { RowDataPacket } from 'mysql2';
 import jwt from 'jsonwebtoken';
 
-// Cache trang thai bao tri trong 30 giay de khong query DB moi request
+// Cache trạng thái bảo trì trong 30 giây để không query DB mỗi request
 let maintenanceCache: { active: boolean; title: string; message: string; estimatedEnd: string | null } | null = null;
 let cacheExpiry = 0;
 
@@ -32,7 +32,7 @@ export async function getMaintenanceStatus() {
         cacheExpiry = now + 30 * 1000;
         return maintenanceCache;
     } catch (error) {
-        // Neu bang chua duoc tao hoac loi DB thi tra ve khong bao tri de he thong hoat dong
+        // Nếu bảng chưa được tạo hoặc lỗi DB thì trả về không bảo trì để hệ thống hoạt động
         return {
             active: false,
             title: '',
@@ -54,14 +54,14 @@ export const checkMaintenance = async (req: Request, res: Response, next: NextFu
             return next();
         }
 
-        // Cho phep qua cac route dac biet: health check, system status, dang nhap, route quan tri
+        // Cho phép qua các route đặc biệt: health check, system status, đăng nhập, route quản trị
         const path = req.path;
         const allowedPaths = ['/health', '/api/health', '/api/system/status', '/api/auth/login', '/api/auth/logout'];
         if (allowedPaths.some((p) => path.startsWith(p)) || path.startsWith('/api/admin')) {
             return next();
         }
 
-        // Kiem tra quyen Admin qua JWT cookie hoac Authorization header
+        // Kiểm tra quyền Admin qua JWT cookie hoặc Authorization header
         try {
             const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
             if (token && process.env.JWT_SECRET) {
@@ -71,7 +71,7 @@ export const checkMaintenance = async (req: Request, res: Response, next: NextFu
                 }
             }
         } catch {
-            // Bo qua neu token het han hoac khong hop le
+            // Bỏ qua nếu token hết hạn hoặc không hợp lệ
         }
 
         return res.status(503).json({
@@ -82,6 +82,6 @@ export const checkMaintenance = async (req: Request, res: Response, next: NextFu
             estimatedEnd: status.estimatedEnd,
         });
     } catch {
-        next();
+        next(); // Không chặn người dùng nếu truy vấn DB gặp sự cố
     }
 };

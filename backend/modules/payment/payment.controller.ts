@@ -20,7 +20,7 @@ import {
 } from './payment.service';
 import { getPackageById } from './payment.repository';
 
-// ─── Packages ─────────────────────────────────────────────────────────────────
+// --- Packages -----------------------------------------------------------------
 
 // GET /api/payment/packages
 export const listPackages = async (req: Request, res: Response, next: NextFunction) => {
@@ -31,7 +31,7 @@ export const listPackages = async (req: Request, res: Response, next: NextFuncti
     } catch (err) { next(err); }
 };
 
-// ─── My Subscription ──────────────────────────────────────────────────────────
+// --- My Subscription ----------------------------------------------------------
 
 // GET /api/payment/my-subscription
 export const mySubscription = async (req: Request, res: Response, next: NextFunction) => {
@@ -55,7 +55,7 @@ export const patchSubscription = async (req: Request, res: Response, next: NextF
     } catch (err) { next(err); }
 };
 
-// ─── My Transactions ─────────────────────────────────────────────────────────
+// --- My Transactions ---------------------------------------------------------
 
 // GET /api/payment/my-transactions
 export const myTransactions = async (req: Request, res: Response, next: NextFunction) => {
@@ -66,7 +66,7 @@ export const myTransactions = async (req: Request, res: Response, next: NextFunc
     } catch (err) { next(err); }
 };
 
-// ─── Wallet Pay ──────────────────────────────────────────────────────────────
+// --- Wallet Pay --------------------------------------------------------------
 
 // POST /api/payment/wallet/pay
 export const walletPay = async (req: Request, res: Response, next: NextFunction) => {
@@ -96,7 +96,7 @@ export const walletTopup = async (req: Request, res: Response, next: NextFunctio
     } catch (err) { next(err); }
 };
 
-// ─── Trial ───────────────────────────────────────────────────────────────────
+// --- Trial -------------------------------------------------------------------
 
 // POST /api/payment/trial/activate
 export const activateTrial = async (req: Request, res: Response, next: NextFunction) => {
@@ -118,7 +118,7 @@ export const activateTrial = async (req: Request, res: Response, next: NextFunct
     } catch (err) { next(err); }
 };
 
-// ─── Mock Payment ─────────────────────────────────────────────────────────────
+// --- Mock Payment -------------------------------------------------------------
 
 // POST /api/payment/mock/init
 export const initMock = async (req: Request, res: Response, next: NextFunction) => {
@@ -148,7 +148,7 @@ export const confirmMock = async (req: Request, res: Response, next: NextFunctio
     } catch (err) { next(err); }
 };
 
-// ─── SePay ───────────────────────────────────────────────────────────────────
+// --- SePay -------------------------------------------------------------------
 
 // POST /api/payment/sepay/init
 export const initSepay = async (req: Request, res: Response, next: NextFunction) => {
@@ -174,7 +174,7 @@ export const sepayWebhook = async (req: Request, res: Response, next: NextFuncti
     } catch (err) { next(err); }
 };
 
-// ─── Orders ──────────────────────────────────────────────────────────────────
+// --- Orders ------------------------------------------------------------------
 
 // GET /api/payment/orders
 export const myOrders = async (req: Request, res: Response, next: NextFunction) => {
@@ -199,7 +199,7 @@ export const orderStatus = async (req: Request, res: Response, next: NextFunctio
     } catch (err) { next(err); }
 };
 
-// ─── Campaign Claim ──────────────────────────────────────────────────────────
+// --- Campaign Claim ----------------------------------------------------------
 
 // POST /api/payment/campaign/claim
 export const claimCampaign = async (req: Request, res: Response, next: NextFunction) => {
@@ -215,7 +215,7 @@ export const claimCampaign = async (req: Request, res: Response, next: NextFunct
     } catch (err) { next(err); }
 };
 
-// ─── Invoice ──────────────────────────────────────────────────────────────────
+// --- Invoice ------------------------------------------------------------------
 
 // GET /api/payment/invoice/:orderId
 export const getInvoice = async (req: Request, res: Response, next: NextFunction) => {
@@ -231,7 +231,7 @@ export const getInvoice = async (req: Request, res: Response, next: NextFunction
     } catch (err) { next(err); }
 };
 
-// ─── Reward Campaigns (Coin / Diamond / Item) ─────────────────────────────────
+// --- Reward Campaigns (Coin / Diamond / Item) ---------------------------------
 
 // GET /api/payment/reward-campaigns/active
 export const listActiveRewardCampaigns = async (_req: Request, res: Response, next: NextFunction) => {

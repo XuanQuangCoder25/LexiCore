@@ -178,7 +178,7 @@ export const sendEmailBlast = async (req: Request, res: Response, next: NextFunc
             createdBy: userId,
         });
 
-        // Tra ve 202 Accepted vi email blast chay ngam trong background
+        // Trả về 202 Accepted vì email blast chạy ngầm trong tiến trình nền
         res.status(202).json({ success: true, ...result });
     } catch (err) {
         next(err);
