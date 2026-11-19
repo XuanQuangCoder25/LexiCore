@@ -392,8 +392,8 @@ export function useSaleActive(salePercent: number, saleEndsAt: string | null): b
 
 // ============================================================
 // CompactCountdown
-// size="sm" → topup cards (nhỏ)
-// size="md" → subscription cards (to, nổi bật như badge "Best Value" cũ)
+// size="sm": topup cards (nhỏ)
+// size="md": subscription cards (to, nổi bật như badge "Best Value" cũ)
 // ============================================================
 export function CompactCountdown({
   endsAt,
@@ -848,10 +848,33 @@ export function getSubscriptionActionInfo(
 
   // 1. Gói Campaign
   if (selectedPkg.campaign_id) {
+    const currentRank = TIER_RANKS[membership.tier?.toUpperCase()] ?? 0;
+    const targetRank = TIER_RANKS[selectedPkg.tier?.toUpperCase()] ?? 1;
+
+    // Hạ gói -> Khóa nút (Downgrade Prevention)
+    if (currentRank > targetRank) {
+      return {
+        type: "DOWNGRADE",
+        disabled: true,
+        buttonText: `Đã bao gồm trong ${membership.tier}`,
+        badgeText: "Đang có gói cao hơn",
+        finalPrice: 0,
+        originalPrice: 0,
+        unusedOldValue: 0,
+        remainingDays: 0,
+        targetTier: selectedPkg.tier,
+        currentTier: membership.tier,
+      };
+    }
+
+    // Cùng hạng -> Cộng dồn thêm ngày
+    const isSameTier = currentRank === targetRank && membership.tier !== "FREE";
     return {
-      type: "NEW",
+      type: isSameTier ? "EXTEND" : (currentRank > 0 ? "UPGRADE" : "NEW"),
       disabled: false,
-      buttonText: `Nhận quà sự kiện (${selectedPkg.duration_days} ngày)`,
+      buttonText: isSameTier
+        ? `Cộng thêm ${selectedPkg.duration_days} ngày ${selectedPkg.tier}`
+        : `Nhận quà sự kiện (${selectedPkg.duration_days} ngày)`,
       finalPrice: 0,
       originalPrice: 0,
       unusedOldValue: 0,
@@ -861,8 +884,23 @@ export function getSubscriptionActionInfo(
     };
   }
 
-  // 2. Gói Trial
+  // 2. Gói Trial mặc định
   if (selectedPkg.is_trial) {
+    const isPaidActive = membership.tier && membership.tier !== "FREE" && (!membership.expiresAt || new Date(membership.expiresAt).getTime() > Date.now());
+    if (isPaidActive) {
+      return {
+        type: "DOWNGRADE",
+        disabled: true,
+        buttonText: `Đang có gói ${membership.tier}`,
+        badgeText: "Chỉ dành cho tài khoản Miễn phí",
+        finalPrice: 0,
+        originalPrice: 0,
+        unusedOldValue: 0,
+        remainingDays: 0,
+        targetTier: selectedPkg.tier,
+        currentTier: membership.tier,
+      };
+    }
     return {
       type: "NEW",
       disabled: false,

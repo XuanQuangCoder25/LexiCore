@@ -18,21 +18,25 @@ Hệ thống cung cấp 3 hạng gói hội viên chính thức phân chia theo 
 
 ---
 
-## 2. CHÍNH SÁCH GÓI DÙNG THỬ (TRIAL PLAN)
+## 2. CHÍNH SÁCH GÓI DÙNG THỬ (TRIAL PLAN) & QUÀ TẶNG SỰ KIỆN
 
-Hệ thống hỗ trợ 2 hình thức cấp gói Trial:
+Hệ thống hỗ trợ 2 hình thức cấp gói dùng thử / sự kiện với quy tắc bảo vệ đặc quyền nghiêm ngặt:
 
 1. **Gói Trial mặc định cho người dùng mới (Onboarding Trial):**
    - **Thời hạn:** 3 ngày hạng **PRO**, giá 0đ (`slug = 'sub-trial-default'`).
-   - **Cơ chế kích hoạt:** Tự động kích hoạt ngay khi đăng ký tài khoản thành công.
-   - **Kiểm soát lạm dụng:** Trường `has_used_trial` trong bảng `users` được đánh dấu `TRUE`. Mỗi tài khoản chỉ được hưởng ưu đãi này duy nhất một lần.
+   - **Đối tượng áp dụng:** Chỉ dành riêng cho tài khoản Miễn phí (`FREE`) chưa từng sử dụng Trial.
+   - **Kiểm soát lạm dụng & Bảo vệ gói trả phí:**
+     - Trường `has_used_trial` trong bảng `users` được đánh dấu `TRUE`. Mỗi tài khoản chỉ được hưởng ưu đãi này duy nhất một lần.
+     - **Chặn tuyệt đối (Lock / Reject)** đối với học viên đang có gói hội viên trả phí còn hạn (`STARTER`, `PRO`, `ELITE`). Nút trên giao diện bị khóa với text `"Đang có gói {tier}"`, backend từ chối kích hoạt với HTTP 400 để tránh trường hợp học viên vô tình bị hạ gói hoặc mất chu kỳ trả phí.
 
-2. **Gói Trial chiến dịch của Quản trị viên (Admin Campaign Trial):**
-   - Admin có thể tạo các gói trial đặc biệt trong bảng `credit_packages` với `is_trial = TRUE`, `price_vnd = 0` (ví dụ: Tặng gói Elite 5 ngày dịp Tựu trường).
-   - Gói được gắn thời gian hiệu lực qua hai cột:
-     - `available_from`: Thời điểm bắt đầu xuất hiện trên giao diện.
-     - `available_until`: Thời điểm kết thúc chiến dịch (quá hạn sẽ tự động ẩn).
-   - **Chính sách:** Áp dụng cho toàn bộ học viên đăng nhập trong khoảng thời gian diễn ra chiến dịch mà không cần kiểm tra lịch sử tài khoản.
+2. **Gói quà tặng chiến dịch của Quản trị viên (Admin Campaign Trial / Event Gift):**
+   - Admin có thể tạo các gói sự kiện trong bảng `subscription_campaigns` (ví dụ: Tặng gói Elite 5 ngày dịp Tựu trường, Tết Nguyên Đán).
+   - Gói được gắn thời gian hiệu lực qua hai cột `starts_at` và `ends_at`.
+   - **Quy tắc phân tầng bảo vệ quyền lợi học viên:**
+     - **Hạ gói (Downgrade Prevention):** Nếu hạng của gói sự kiện thấp hơn gói học viên đang dùng (ví dụ đang dùng `ELITE` mà sự kiện tặng `PRO`), hệ thống khóa nút với text `"Đã bao gồm trong {tier}"`, backend từ chối nhận quà để tránh hạ cấp đặc quyền.
+     - **Cùng hạng (Extension):** Nếu sự kiện cùng hạng với gói học viên đang có (ví dụ cùng là `ELITE`), hệ thống **cộng dồn nối tiếp số ngày quà tặng** vào hạn dùng cũ (`expires_at = expires_at_cũ + duration_days`).
+     - **Nâng hạng (Upgrade Experience):** Nếu sự kiện có hạng cao hơn gói học viên đang có (ví dụ đang `STARTER` nhận quà `ELITE`), hệ thống nâng hạng trải nghiệm lên `ELITE` và đảm bảo **không bao giờ làm giảm số ngày sử dụng còn lại của gói cũ** (`expires_at = GREATEST(expires_at_cũ, NOW() + duration_days)`).
+     - **Kiểm soát lượt nhận:** Mỗi học viên chỉ được nhận tối đa 1 lần cho mỗi chiến dịch (lưu vết trong bảng `user_campaign_claims`).
 
 ---
 

@@ -15,6 +15,7 @@ import {
   Sparkles,
   Gift,
   Loader2,
+  CircleChevronUp,
 } from "lucide-react";
 import {
   CreditPackage,
@@ -211,11 +212,14 @@ export function SubscriptionModal({
 
   const subScrollRef = useRef<HTMLDivElement>(null);
 
-  // Lọc bỏ gói trial chào mừng mặc định nếu user đã từng dùng trial
+  // Lọc bỏ gói trial chào mừng mặc định nếu user đã từng dùng trial HOẶC đang có gói trả phí
   const displaySubscriptions = useMemo(() => {
-    if (!hasUsedTrial) return packages.subscription;
-    return packages.subscription.filter((p) => !(p.is_trial && !p.campaign_id));
-  }, [packages.subscription, hasUsedTrial]);
+    const isPaid = membership?.tier && membership.tier !== "FREE";
+    if (hasUsedTrial || isPaid) {
+      return packages.subscription.filter((p) => !(p.is_trial && !p.campaign_id));
+    }
+    return packages.subscription;
+  }, [packages.subscription, hasUsedTrial, membership?.tier]);
 
   const selectedSub =
     displaySubscriptions.find((p) => p.id === selectedSubId) ||
@@ -231,7 +235,8 @@ export function SubscriptionModal({
           setPackages(json.data);
           const sub = json.data.subscription as CreditPackage[];
           if (sub?.length) {
-            const availableSubs = hasUsedTrial
+            const isPaid = membership?.tier && membership.tier !== "FREE";
+            const availableSubs = (hasUsedTrial || isPaid)
               ? sub.filter((p) => !(p.is_trial && !p.campaign_id))
               : sub;
             if (initialPackageId && availableSubs.some((p) => p.id === initialPackageId)) {
@@ -243,7 +248,7 @@ export function SubscriptionModal({
         }
       })
       .catch(() => { });
-  }, [open, initialPackageId, hasUsedTrial]);
+  }, [open, initialPackageId, hasUsedTrial, membership?.tier]);
 
   useEffect(() => {
     if (open) {
@@ -416,7 +421,7 @@ export function SubscriptionModal({
                         subAction.buttonText
                       ) : subAction?.type === "UPGRADE" ? (
                         <>
-                          <Sparkles className="h-4 w-4 mr-1.5" />
+                          <CircleChevronUp className="h-4 w-4 mr-1.5" />
                           {subAction.buttonText}
                         </>
                       ) : (

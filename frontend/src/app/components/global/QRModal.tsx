@@ -13,6 +13,8 @@ import {
   Copy,
   Wallet,
   ArrowLeft,
+  ArrowRight,
+  CircleChevronUp,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -274,7 +276,7 @@ export function QRModal({
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-2.5">
               <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${isWalletTopup ? "bg-emerald-500/10 text-emerald-600" : isUpgrade ? "bg-amber-500/10 text-amber-600" : "bg-primary/10 text-primary"}`}>
-                {isWalletTopup ? <Wallet className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}
+                {isWalletTopup ? <Wallet className="h-5 w-5" /> : isUpgrade ? <CircleChevronUp className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}
               </div>
               <div>
                 <div className="flex items-center h-7 gap-2">
@@ -333,7 +335,11 @@ export function QRModal({
               {isUpgrade && upgradeInfo && (
                 <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs space-y-1.5">
                   <div className="flex items-center justify-between font-bold text-amber-600 dark:text-amber-400">
-                    <span>Nâng cấp từ {upgradeInfo.currentTier} ➔ {pkg.name}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>Nâng cấp từ {upgradeInfo.currentTier}</span>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                      <span>{pkg.name}</span>
+                    </span>
                     <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded font-semibold">Khấu trừ Prorated</span>
                   </div>
                   <div className="flex justify-between text-muted-foreground text-[11px]">

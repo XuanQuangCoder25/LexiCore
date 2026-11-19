@@ -24,7 +24,9 @@ import {
     cancelPendingOrdersOfUser,
     cancelSinglePendingOrder,
     CreditPackage,
+    TIER_RANKS,
 } from './payment.repository';
+export { TIER_RANKS };
 import { getActiveCampaigns } from './campaign.repository';
 export { claimCampaignGift, claimRewardCampaign, getActiveRewardCampaigns } from './campaign.service';
 import { sendSubscriptionSuccessEmail } from '../email/email.service';
@@ -44,15 +46,6 @@ export function calcFinalPrice(pkg: CreditPackage): number {
     }
     return pkg.price_vnd;
 }
-
-// Bậc ưu tiên gói hội viên
-export const TIER_RANKS: Record<string, number> = {
-    FREE: 0,
-    TRIAL: 1,
-    STARTER: 1,
-    PRO: 2,
-    ELITE: 3,
-};
 
 export interface UpgradeCalculation {
     type: 'NEW' | 'EXTEND' | 'UPGRADE' | 'DOWNGRADE' | 'INVALID_CYCLE';
@@ -200,10 +193,14 @@ export const getPackages = async (userId?: string) => {
     const packages = await getAllPackages();
     let subscriptions = packages.filter(p => p.package_type === 'SUBSCRIPTION');
 
-    // Nếu user đã từng dùng trial, ẩn gói trial chào mừng mặc định đi
+    // Nếu user đã từng dùng trial HOẶC đang có gói trả phí hoạt động, ẩn gói trial chào mừng mặc định đi
     if (userId) {
-        const usedTrial = await hasUsedTrial(userId);
-        if (usedTrial) {
+        const [usedTrial, currentSub] = await Promise.all([
+            hasUsedTrial(userId),
+            getUserSubscription(userId),
+        ]);
+        const isPaidActive = Boolean(currentSub && currentSub.tier !== 'FREE' && currentSub.expires_at && new Date(currentSub.expires_at).getTime() > Date.now());
+        if (usedTrial || isPaidActive) {
             subscriptions = subscriptions.filter(p => !p.is_trial);
         }
     }
@@ -404,6 +401,11 @@ export const activateTrialPlan = async (userId: string, pkg: CreditPackage) => {
     const alreadyUsed = await hasUsedTrial(userId);
     if (alreadyUsed) throw new AppError('Bạn đã sử dụng gói dùng thử rồi', 400);
     if (!pkg.duration_days) throw new AppError('Gói dùng thử cấu hình chưa chính xác', 500);
+
+    const currentSub = await getUserSubscription(userId);
+    if (currentSub && currentSub.tier !== 'FREE' && currentSub.expires_at && new Date(currentSub.expires_at).getTime() > Date.now()) {
+        throw new AppError(`Bạn đang sử dụng gói hội viên ${currentSub.tier}. Gói dùng thử chỉ áp dụng cho tài khoản Miễn phí.`, 400);
+    }
 
     const conn = await (pool as any).getConnection();
     try {

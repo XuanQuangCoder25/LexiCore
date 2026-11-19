@@ -16,7 +16,7 @@ import {
     hasUserClaimedRewardCampaign,
     recordUserRewardClaim,
 } from './campaign.repository';
-import { activateSubscription } from './payment.repository';
+import { activateSubscription, getUserSubscription, TIER_RANKS } from './payment.repository';
 
 export { getActiveRewardCampaigns };
 
@@ -117,6 +117,21 @@ export async function claimCampaignGift(userId: string, campaignId: string) {
     const durationDays = campaign.duration_days;
     const targetPackageId = `campaign-${campaign.id}`;
 
+    // Kiểm tra gói hiện tại của user để tránh hạ gói (Downgrade Prevention)
+    const currentSub = await getUserSubscription(userId);
+    const hasActiveSub = Boolean(currentSub && currentSub.tier && currentSub.tier !== 'FREE' && currentSub.expires_at && new Date(currentSub.expires_at).getTime() > Date.now());
+    const currentTier = hasActiveSub ? currentSub!.tier : 'FREE';
+
+    const currentRank = TIER_RANKS[currentTier] ?? 0;
+    const targetRank = TIER_RANKS[tier] ?? 1;
+
+    // Chặn nhận nếu user đang ở hạng cao hơn gói sự kiện
+    if (currentRank > targetRank) {
+        throw new AppError(`Bạn đang sử dụng gói hội viên ${currentTier} cao cấp hơn gói sự kiện (${tier}). Đặc quyền này đã bao gồm trong tài khoản của bạn.`, 400);
+    }
+
+    const isUpgrade = targetRank > currentRank && currentTier !== 'FREE';
+
     // Thực hiện ACID transaction
     const conn = await (pool as any).getConnection();
     try {
@@ -125,8 +140,8 @@ export async function claimCampaignGift(userId: string, campaignId: string) {
         // 1. Ghi nhận lượt claim
         await recordUserClaim(conn, userId, campaignId);
 
-        // 2. Kích hoạt subscription cho user
-        await activateSubscription(conn, userId, targetPackageId, tier, durationDays);
+        // 2. Kích hoạt subscription cho user (hỗ trợ cộng dồn ngày nếu cùng tier hoặc nâng cấp bảo toàn hạn)
+        await activateSubscription(conn, userId, targetPackageId, tier, durationDays, isUpgrade);
 
         // 3. Tạo thông báo in-app chúc mừng
         const notifId = uuidv4();

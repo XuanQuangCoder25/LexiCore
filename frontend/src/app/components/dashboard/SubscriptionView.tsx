@@ -20,6 +20,7 @@ import {
   Gift,
   Loader2,
   X,
+  CircleChevronUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -56,6 +57,7 @@ import {
   TopupCard,
   getSubscriptionActionInfo,
   SubscriptionActionInfo,
+  TIER_RANKS,
 } from "../global/subscription-cards";
 import { SubscriptionModal } from "../global/SubscriptionModal";
 import { QRModal } from "../global/QRModal";
@@ -955,6 +957,12 @@ export function SubscriptionView() {
   const handleBuySub = async (pkg: CreditPackage) => {
     // 1. Gói sự kiện quà tặng từ chiến dịch của Admin
     if (pkg.campaign_id) {
+      const currentRank = TIER_RANKS[membership.tier?.toUpperCase()] ?? 0;
+      const targetRank = TIER_RANKS[pkg.tier?.toUpperCase()] ?? 1;
+      if (currentRank > targetRank) {
+        toast.error(`Bạn đang sử dụng gói ${membership.tier} cao hơn gói sự kiện (${pkg.tier}). Đặc quyền đã bao gồm trong tài khoản.`);
+        return;
+      }
       setPackLoading(pkg.id);
       try {
         await apiFetch("/campaign/claim", {
@@ -977,6 +985,10 @@ export function SubscriptionView() {
 
     // 2. Gói dùng thử Pro 3 ngày mặc định (chào mừng)
     if (pkg.is_trial) {
+      if (membership.tier !== "FREE") {
+        toast.error(`Bạn đang sử dụng gói hội viên ${membership.tier}. Gói dùng thử chỉ áp dụng cho tài khoản Miễn phí.`);
+        return;
+      }
       setPackLoading(pkg.id);
       try {
         await apiFetch("/trial/activate", {
@@ -1012,10 +1024,10 @@ export function SubscriptionView() {
     const subs = packages.subscription;
     const list: CreditPackage[] = [];
 
-    // 1. Gói Trial ở vị trí đầu tiên nếu có VÀ user chưa dùng gói dùng thử (hoặc gói campaign của admin)
+    // 1. Gói Trial ở vị trí đầu tiên nếu có VÀ user là FREE chưa dùng trial (hoặc gói campaign của admin)
     const trialPkg = subs.find((p) => p.is_trial);
     if (trialPkg) {
-      const canShowTrial = trialPkg.campaign_id ? true : !membership.hasUsedTrial;
+      const canShowTrial = trialPkg.campaign_id ? true : (!membership.hasUsedTrial && membership.tier === "FREE");
       if (canShowTrial) {
         list.push(trialPkg);
       }
@@ -1172,18 +1184,18 @@ export function SubscriptionView() {
                         action.buttonText
                       ) : action.type === "UPGRADE" ? (
                         <>
-                          <Sparkles className="h-4 w-4" />
+                          <CircleChevronUp className="h-4 w-4" />
                           {action.buttonText}
                         </>
                       ) : sub.campaign_id ? (
                         <>
                           <Sparkles className="h-4 w-4" />
-                          Nhận quà sự kiện ({sub.duration_days} ngày)
+                          {action.buttonText}
                         </>
                       ) : sub.is_trial ? (
                         <>
                           <Gift className="h-4 w-4" />
-                          Dùng thử miễn phí ({sub.duration_days ?? 3} ngày)
+                          {action.buttonText}
                         </>
                       ) : (
                         <>

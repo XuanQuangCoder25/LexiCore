@@ -45,7 +45,7 @@ export interface Subscription {
     id: string;
     user_id: string;
     package_id: string;
-    tier: 'STARTER' | 'PRO' | 'ELITE' | 'TRIAL';
+    tier: 'STARTER' | 'PRO' | 'ELITE' | 'TRIAL' | 'FREE';
     duration_days?: number | null;
     started_at: string;
     expires_at: string;
@@ -62,6 +62,15 @@ export interface UserTransaction {
     amountVnd: number;
     status: 'SUCCESS' | 'PENDING' | 'FAILED' | 'CANCELLED';
 }
+
+// Bậc ưu tiên gói hội viên
+export const TIER_RANKS: Record<string, number> = {
+    FREE: 0,
+    TRIAL: 1,
+    STARTER: 1,
+    PRO: 2,
+    ELITE: 3,
+};
 
 // ============================================================
 // Packages
@@ -358,22 +367,27 @@ export async function activateSubscription(
 ): Promise<void> {
     const subId = uuidv4();
     let baseTime = Date.now();
+    let expiresAt: Date;
 
-    // Nếu không phải nâng cấp (đang gia hạn gói cùng tier) mà gói cũ còn hạn thì cộng dồn ngày
+    const [existing] = await conn.execute(
+        `SELECT expires_at, tier FROM user_subscription WHERE user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+        [userId]
+    );
+
+    const hasActiveSub = existing && existing.length > 0 && existing[0].expires_at && new Date(existing[0].expires_at).getTime() > Date.now();
+    const curExp = hasActiveSub ? new Date(existing[0].expires_at).getTime() : 0;
+
     if (!isUpgrade) {
-        const [existing] = await conn.execute(
-            `SELECT expires_at, tier FROM user_subscription WHERE user_id = ? AND status = 'ACTIVE' LIMIT 1`,
-            [userId]
-        );
-        if (existing && existing.length > 0 && existing[0].expires_at && existing[0].tier === tier) {
-            const curExp = new Date(existing[0].expires_at).getTime();
-            if (curExp > baseTime) {
-                baseTime = curExp;
-            }
+        // Gia hạn cùng hạng (hoặc nhận quà sự kiện cùng hạng): cộng dồn từ ngày hết hạn cũ
+        if (hasActiveSub && existing[0].tier === tier) {
+            baseTime = curExp;
         }
+        expiresAt = new Date(baseTime + durationDays * 86400 * 1000);
+    } else {
+        // Nâng cấp: Chu kỳ mới bắt đầu từ NOW(), nhưng đảm bảo thời hạn không bao giờ ngắn hơn hạn cũ
+        const targetExp = Date.now() + durationDays * 86400 * 1000;
+        expiresAt = new Date(Math.max(targetExp, curExp));
     }
-
-    const expiresAt = new Date(baseTime + durationDays * 86400 * 1000);
 
     await conn.execute(
         `INSERT INTO user_subscription (id, user_id, package_id, tier, duration_days, started_at, expires_at, status)
