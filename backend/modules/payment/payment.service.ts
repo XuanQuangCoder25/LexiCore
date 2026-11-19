@@ -15,6 +15,7 @@ import {
     activateSubscription,
     updateSubscriptionSettings,
     getVndBalance,
+    getTodayTopupVnd,
     topupWalletVnd,
     deductWalletVnd,
     hasUsedTrial,
@@ -248,10 +249,11 @@ export const getPackages = async (userId?: string) => {
 // ============================================================
 
 export const getMySubscription = async (userId: string) => {
-    const [sub, vndBalance, trialUsed] = await Promise.all([
+    const [sub, vndBalance, trialUsed, todayTopup] = await Promise.all([
         getUserSubscription(userId),
         getVndBalance(userId),
         hasUsedTrial(userId),
+        getTodayTopupVnd(userId),
     ]);
 
     // Lấy coin/diamond balance từ wallets
@@ -272,6 +274,7 @@ export const getMySubscription = async (userId: string) => {
         coinBalance:       Number(wallet.coin_balance),
         diamondBalance:    Number(wallet.diamond_balance),
         walletBalanceVnd:  vndBalance,
+        todayTopupVnd:     todayTopup,
         hasUsedTrial:      trialUsed,
     };
 };

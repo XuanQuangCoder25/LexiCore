@@ -465,6 +465,21 @@ export async function getVndBalance(userId: string): Promise<number> {
     return rows.length > 0 ? Number(rows[0].vnd_balance) : 0;
 }
 
+// Lấy tổng số tiền đã nạp vào ví thành công trong ngày hôm nay (tính từ 00:00)
+export async function getTodayTopupVnd(userId: string): Promise<number> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT COALESCE(SUM(po.amount_vnd), 0) AS total
+         FROM payment_orders po
+         LEFT JOIN credit_packages cp ON po.package_id = cp.id
+         WHERE po.user_id = ?
+           AND po.status = 'SUCCESS'
+           AND (po.package_id = 'pkg_wallet_topup' OR cp.slug = 'wallet-topup')
+           AND DATE(po.created_at) = CURDATE()`,
+        [userId]
+    );
+    return rows.length > 0 ? Number(rows[0].total) : 0;
+}
+
 export async function topupWalletVnd(conn: any, userId: string, amount: number): Promise<void> {
     await conn.execute(
         `UPDATE wallets SET vnd_balance = vnd_balance + ? WHERE user_id = ?`,

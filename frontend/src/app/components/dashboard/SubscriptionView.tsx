@@ -81,6 +81,7 @@ interface UserMembership {
   coinBalance: number;
   diamondBalance: number;
   walletBalanceVnd: number;    // Số dư ví LexiCore (VNĐ thật)
+  todayTopupVnd?: number;      // Tổng số tiền đã nạp ví trong ngày hôm nay
   hasUsedTrial: boolean;
 }
 
@@ -1316,6 +1317,7 @@ export function SubscriptionView() {
         open={walletTopupOpen}
         onClose={() => setWalletTopupOpen(false)}
         walletBalance={membership.walletBalanceVnd}
+        todayTopupVnd={membership.todayTopupVnd ?? 0}
         onProceedToQR={handleProceedWalletTopup}
       />
 

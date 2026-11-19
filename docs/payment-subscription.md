@@ -141,13 +141,16 @@ Hệ thống loại bỏ hoàn toàn các cổng thanh toán doanh nghiệp ph�
    - **Giao dịch SUCCESS:** Hiển thị toàn bộ lịch sử thanh toán thành công từ trước đến nay.
    - **Giao dịch PENDING:** Chỉ hiển thị tối đa **01 giao dịch PENDING duy nhất** (nếu là giao dịch được tạo gần đây nhất mà người dùng đang chờ thanh toán).
    - **Giao dịch CANCELLED:** Ẩn hoàn toàn khỏi bảng lịch sử giao dịch để người dùng không bị phân tâm bởi các lượt mở xem thử mã QR.
-2. **Cơ chế "Đơn PENDING duy nhất" (Single Active Pending Order):**
+2. **Người dùng chủ động huỷ đơn (User-Initiated Cancellation):**
+   - Trên bảng lịch sử giao dịch, tại dòng có trạng thái `PENDING`, hiển thị nút hành động **"Huỷ"** (icon `X`).
+   - Khi học viên bấm Huỷ, hệ thống gọi API `DELETE /api/payment/order/:orderId` để chuyển trạng thái sang `CANCELLED` trong cơ sở dữ liệu, đồng thời loại bỏ ngay dòng đó khỏi bảng lịch sử trên giao diện.
+3. **Cơ chế "Đơn PENDING duy nhất" (Single Active Pending Order):**
    - Khi người dùng bấm tạo mã QR cho bất kỳ gói mới nào (hoặc nạp ví mới), backend tự động đánh dấu tất cả các đơn `PENDING` cũ trước đó của người dùng đó thành `CANCELLED`.
    - Đảm bảo mỗi tài khoản tại một thời điểm chỉ có tối đa 1 đơn chờ thanh toán có hiệu lực.
-3. **Dọn dẹp cơ sở dữ liệu định kỳ (Housekeeping Cronjob):**
-   - Tự động chạy ngầm hàng ngày lúc **00:30 (giờ Việt Nam)**:
-     - Xóa vĩnh viễn các đơn `PENDING` quá **24 giờ** (đơn nháp bỏ dở).
-     - Xóa vĩnh viễn các đơn `CANCELLED` quá **07 ngày**.
+4. **Dọn dẹp cơ sở dữ liệu định kỳ (Housekeeping Cronjob):**
+   - Tự động chạy ngầm mỗi giờ một lần (`0 * * * *`):
+     - Xóa vĩnh viễn các đơn `CANCELLED` quá **01 giờ** (tối ưu dung lượng bảng khi học viên tạo và huỷ nhiều đơn).
+     - Xóa vĩnh viễn các đơn `PENDING` quá **24 giờ** (đơn nháp bị bỏ dở quá lâu).
    - Giúp bảng `payment_orders` luôn tinh gọn và duy trì hiệu năng truy vấn cao.
 
 ---
@@ -160,6 +163,7 @@ Hệ thống loại bỏ hoàn toàn các cổng thanh toán doanh nghiệp ph�
 | **GET** | `/api/payment/my-subscription` | User | Lấy trạng thái gói hội viên hiện tại, số dư ví VNĐ, coin và diamond |
 | **PATCH** | `/api/payment/my-subscription` | User | Cập nhật cài đặt tự động gia hạn (`auto_renew`) và nhắc nhở email (`email_reminder`) |
 | **GET** | `/api/payment/my-transactions` | User | Lấy lịch sử giao dịch (định dạng hiển thị cho bảng lịch sử) |
+| **DELETE** | `/api/payment/order/:orderId` | User | Huỷ đơn hàng đang chờ thanh toán (`PENDING`) của chính người dùng |
 | **POST** | `/api/payment/sepay/init` | User | Khởi tạo đơn thanh toán gói qua VietQR SePay (`{ packageId }`) |
 | **POST** | `/api/payment/wallet/topup` | User | Khởi tạo đơn nạp tiền vào Ví LexiCore qua VietQR SePay (`{ amountVnd }`) |
 | **POST** | `/api/payment/wallet/pay` | User | Thanh toán gói cước bằng số dư Ví LexiCore (`{ packageId }`) |
