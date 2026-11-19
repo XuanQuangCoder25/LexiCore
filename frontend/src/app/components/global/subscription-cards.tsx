@@ -689,6 +689,9 @@ export function TopupCard({
   unit,
   onBuy,
   loading,
+  selected = false,
+  onSelect,
+  onMouseEnter,
 }: {
   pkg: CreditPackage;
   icon: typeof CircleDollarSign;
@@ -696,6 +699,9 @@ export function TopupCard({
   unit: string;
   onBuy: (pkg: CreditPackage) => void;
   loading: string | null;
+  selected?: boolean;
+  onSelect?: () => void;
+  onMouseEnter?: () => void;
 }) {
   const hasSale = useSaleActive(pkg.sale_percent, pkg.sale_ends_at);
   const finalPrice = hasSale ? Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100)) : pkg.price_vnd;
@@ -706,9 +712,13 @@ export function TopupCard({
     ? "hover:border-emerald-600 hover:shadow-[0_0_20px_rgba(5,150,105,0.35)] hover:bg-emerald-500/[0.04]"
     : "hover:border-fuchsia-500 hover:shadow-[0_0_20px_rgba(217,70,239,0.35)] hover:bg-fuchsia-500/[0.04]";
 
+  const activeCardStyles = isCoin
+    ? "border-emerald-600 shadow-[0_0_20px_rgba(5,150,105,0.35)] bg-emerald-500/[0.04] -translate-y-0.5"
+    : "border-fuchsia-500 shadow-[0_0_20px_rgba(217,70,239,0.35)] bg-fuchsia-500/[0.04] -translate-y-0.5";
+
   const iconBg = isCoin
-    ? "bg-emerald-500/10 group-hover:bg-emerald-500/20"
-    : "bg-fuchsia-500/10 group-hover:bg-fuchsia-500/20";
+    ? (selected ? "bg-emerald-500/20" : "bg-emerald-500/10 group-hover:bg-emerald-500/20")
+    : (selected ? "bg-fuchsia-500/20" : "bg-fuchsia-500/10 group-hover:bg-fuchsia-500/20");
 
   const buttonStyle = isCoin
     ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/25"
@@ -716,8 +726,11 @@ export function TopupCard({
 
   return (
     <div
-      onClick={() => onBuy(pkg)}
-      className={`group relative flex-shrink-0 w-[150px] min-w-[150px] rounded-2xl border-2 border-border bg-card p-3.5 flex flex-col items-center justify-between transition-all duration-300 hover:-translate-y-0.5 cursor-pointer select-none ${hoverCardStyles}`}
+      onClick={onSelect}
+      onMouseEnter={onMouseEnter}
+      className={`group relative flex-shrink-0 w-[150px] min-w-[150px] rounded-2xl border-2 bg-card p-3.5 flex flex-col items-center justify-between transition-all duration-300 hover:-translate-y-0.5 cursor-pointer select-none ${
+        selected ? activeCardStyles : `border-border ${hoverCardStyles}`
+      }`}
       style={{ scrollSnapAlign: "start" }}
     >
       {/* Badge thời gian */}

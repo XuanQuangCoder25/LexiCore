@@ -22,6 +22,7 @@ import {
     getOrderByReference,
     getInvoiceByOrderId,
     cancelPendingOrdersOfUser,
+    cancelSinglePendingOrder,
     CreditPackage,
 } from './payment.repository';
 import { getActiveCampaigns } from './campaign.repository';
@@ -198,16 +199,14 @@ export const payWithWallet = async (userId: string, packageId: string) => {
         if (!ok) throw new AppError('Số dư Ví LexiCore không đủ để thanh toán', 400);
 
         // Tạo đơn thanh toán
+        // Lưu ý: PK là UUID nên insertId = 0, phải dùng generateUniqueOrderCode() thay vì insertId
         const orderId = uuidv4();
-        const [orderResult] = await conn.execute(
-            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
-             VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?)`,
-            [orderId, userId, packageId, finalPrice, `WALLET_${orderId.slice(0, 8).toUpperCase()}`]
-        ) as any;
-        const orderCode = `LC${orderResult.insertId}`;
+        const orderCode = await generateUniqueOrderCode();
+        const walletTxnId = `WALLET_${orderId.slice(0, 8).toUpperCase()}`;
         await conn.execute(
-            `UPDATE payment_orders SET payment_reference = ? WHERE id = ?`,
-            [orderCode, orderId]
+            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id, payment_reference)
+             VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?, ?)`,
+            [orderId, userId, packageId, finalPrice, walletTxnId, orderCode]
         );
 
         // Cộng coin/diamond (nếu là topup pack)
@@ -251,16 +250,13 @@ export const activateTrialPlan = async (userId: string, pkg: CreditPackage) => {
         await conn.beginTransaction();
 
         // Tạo đơn với amount = 0
+        // Lưu ý: PK là UUID nên insertId = 0, dùng generateUniqueOrderCode()
         const orderId = uuidv4();
-        const [trialOrderResult] = await conn.execute(
-            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
-             VALUES (?, ?, ?, 0, 'MOCK', 'SUCCESS', ?)`,
-            [orderId, userId, pkg.id, `TRIAL_${orderId.slice(0, 8).toUpperCase()}`]
-        ) as any;
-        const trialOrderCode = `LC${trialOrderResult.insertId}`;
+        const trialOrderCode = await generateUniqueOrderCode();
         await conn.execute(
-            `UPDATE payment_orders SET payment_reference = ? WHERE id = ?`,
-            [trialOrderCode, orderId]
+            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id, payment_reference)
+             VALUES (?, ?, ?, 0, 'MOCK', 'SUCCESS', ?, ?)`,
+            [orderId, userId, pkg.id, `TRIAL_${orderId.slice(0, 8).toUpperCase()}`, trialOrderCode]
         );
 
         await activateSubscription(conn, userId, pkg.id, pkg.tier as any ?? 'PRO', pkg.duration_days);
@@ -634,6 +630,18 @@ export const handleSepayWebhook = async (
     } finally {
         conn.release();
     }
+};
+
+// ============================================================
+// Huỷ đơn PENDING do user chủ động yêu cầu
+// ============================================================
+
+export const cancelMyPendingOrder = async (userId: string, orderId: string) => {
+    const cancelled = await cancelSinglePendingOrder(orderId, userId);
+    if (!cancelled) {
+        throw new AppError('Không tìm thấy đơn hàng hoặc đơn không ở trạng thái chờ thanh toán', 404);
+    }
+    return { success: true, message: 'Đã huỷ đơn hàng thành công' };
 };
 
 // ============================================================

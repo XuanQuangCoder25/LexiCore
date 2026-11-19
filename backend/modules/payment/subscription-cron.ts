@@ -202,16 +202,16 @@ async function cleanupExpiredSales(): Promise<void> {
 }
 
 // ============================================================
-// Dọn dẹp đơn hàng PENDING > 24h và CANCELLED > 7 ngày
+// Dọn dẹp đơn hàng PENDING > 24h và CANCELLED > 1 giờ
 // ============================================================
 
 async function cleanupHousekeepingOrders(): Promise<void> {
     try {
-        console.log('[Subscription Cron] Bắt đầu dọn dẹp đơn hàng PENDING và CANCELLED cũ...');
+        console.log('[Subscription Cron] Bắt đầu dọn dẹp đơn hàng PENDING (>24h) và CANCELLED (>1h)...');
         const result = await cleanupOldOrders();
         if (result.deletedPending > 0 || result.deletedCancelled > 0) {
             console.log(
-                `[Subscription Cron] Đã dọn dẹp ${result.deletedPending} đơn PENDING quá 24h và ${result.deletedCancelled} đơn CANCELLED quá 7 ngày.`
+                `[Subscription Cron] Đã dọn dẹp ${result.deletedPending} đơn PENDING quá 24h và ${result.deletedCancelled} đơn CANCELLED quá 1 giờ.`
             );
         }
     } catch (err) {
@@ -234,8 +234,8 @@ export const initSubscriptionCron = () => {
         await processAutoRenew();
     }, { timezone: 'Asia/Ho_Chi_Minh' });
 
-    // Dọn dẹp đơn hàng rác PENDING (>24h) và CANCELLED (>7d): 00:30 mỗi ngày
-    cron.schedule('30 0 * * *', async () => {
+    // Dọn dẹp đơn hàng rác PENDING (>24h) và CANCELLED (>1h): quét mỗi giờ vào phút thứ 0
+    cron.schedule('0 * * * *', async () => {
         await cleanupHousekeepingOrders();
     }, { timezone: 'Asia/Ho_Chi_Minh' });
 
@@ -247,6 +247,6 @@ export const initSubscriptionCron = () => {
     // Chạy dọn dẹp 1 lần khi server vừa khởi động
     cleanupHousekeepingOrders().catch(() => { });
 
-    console.log('Subscription Cron đã khởi động (dọn dẹp 00:00, auto-renew 00:05, housekeeping 00:30, nhắn hạn 09:00 ICT).');
+    console.log('Subscription Cron đã khởi động (dọn dẹp khuyến mãi 00:00, auto-renew 00:05, dọn đơn rác mỗi giờ, nhắc hạn 09:00 ICT).');
 };
 

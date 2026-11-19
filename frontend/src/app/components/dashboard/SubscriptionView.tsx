@@ -19,6 +19,7 @@ import {
   Sparkles,
   Gift,
   Loader2,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -80,11 +81,12 @@ interface UserMembership {
 }
 
 interface Transaction {
-  id: string;
+  id: string;        // payment_reference (mã đơn hiển thị, ví dụ: LC583421)
+  orderId: string;   // UUID thực của đơn (dùng để gọi API huỷ)
   date: string;
   description: string;
   amountVnd: number;
-  status: "SUCCESS" | "PENDING" | "FAILED";
+  status: "SUCCESS" | "PENDING" | "FAILED" | "CANCELLED";
 }
 
 // ============================================================
@@ -239,6 +241,11 @@ function StatusBadge({ status }: { status: Transaction["status"] }) {
   if (status === "PENDING") return (
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">
       <RefreshCw className="w-3 h-3 animate-spin" />Đang xử lý
+    </span>
+  );
+  if (status === "CANCELLED") return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+      <X className="w-3 h-3" />Đã huỷ
     </span>
   );
   return (
@@ -578,11 +585,14 @@ function MembershipDetails({
 function TransactionTable({
   transactions,
   customerInfo,
+  onCancel,
 }: {
   transactions: Transaction[];
   customerInfo?: { name?: string; email?: string };
+  onCancel: (orderId: string) => Promise<void>;
 }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const handleDownload = async (txn: Transaction) => {
     setDownloadingId(txn.id);
@@ -602,6 +612,16 @@ function TransactionTable({
     }
   };
 
+  const handleCancel = async (txn: Transaction) => {
+    if (cancellingId) return;
+    setCancellingId(txn.orderId);
+    try {
+      await onCancel(txn.orderId);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -610,7 +630,7 @@ function TransactionTable({
             <div className="p-2 rounded-lg bg-primary/10 text-primary"><CreditCard className="h-4 w-4" /></div>
             <div>
               <CardTitle className="text-base">Lịch sử giao dịch</CardTitle>
-              <CardDescription className="text-xs mt-0.5">Toàn bộ lịch sử thanh toán & nạp tiền tệ</CardDescription>
+              <CardDescription className="text-xs mt-0.5">Toàn bộ lịch sử thanh toán & nạp tiền</CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
@@ -628,37 +648,47 @@ function TransactionTable({
                 <TableHead className="font-semibold text-xs">Nội dung</TableHead>
                 <TableHead className="font-semibold text-xs text-right">Số tiền</TableHead>
                 <TableHead className="font-semibold text-xs text-center">Trạng thái</TableHead>
-                <TableHead className="font-semibold text-xs text-right">Hoá đơn</TableHead>
+                <TableHead className="font-semibold text-xs text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {transactions.map((txn) => (
-                <TableRow key={txn.id} className="hover:bg-muted/40">
+                <TableRow key={txn.orderId} className="hover:bg-muted/40">
                   <TableCell className="font-mono text-xs font-semibold text-muted-foreground">#{txn.id}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{txn.date}</TableCell>
                   <TableCell className="text-xs font-medium">{txn.description}</TableCell>
                   <TableCell className="text-xs font-bold text-right whitespace-nowrap">{formatVND(txn.amountVnd)}</TableCell>
                   <TableCell className="text-center"><StatusBadge status={txn.status} /></TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDownload(txn)}
-                      disabled={txn.status !== "SUCCESS" || downloadingId === txn.id}
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      {downloadingId === txn.id ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-primary" />
-                          Đang xuất...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-3.5 w-3.5 mr-1" />
-                          Tải
-                        </>
-                      )}
-                    </Button>
+                    {txn.status === "PENDING" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCancel(txn)}
+                        disabled={cancellingId === txn.orderId}
+                        className="h-7 px-2 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                      >
+                        {cancellingId === txn.orderId ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <><X className="h-3.5 w-3.5 mr-1" />Huỷ</>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownload(txn)}
+                        disabled={txn.status !== "SUCCESS" || downloadingId === txn.id}
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {downloadingId === txn.id ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-primary" />Đang xuất...</>
+                        ) : (
+                          <><Download className="h-3.5 w-3.5 mr-1" />Tải</>
+                        )}
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -667,7 +697,7 @@ function TransactionTable({
         </div>
         <p className="text-[11px] text-muted-foreground mt-3 flex items-start gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-          Hóa đơn điện tử chính thức định dạng <code className="font-mono bg-muted px-1 rounded font-semibold text-foreground">.pdf</code> (có hỗ trợ tự động sao lưu <code className="font-mono bg-muted px-1 rounded">.txt</code> khi thiết bị không hỗ trợ).
+          Hoá đơn điện tử chính thức định dạng <code className="font-mono bg-muted px-1 rounded font-semibold text-foreground">.pdf</code> (có hỗ trợ tự động sao lưu <code className="font-mono bg-muted px-1 rounded">.txt</code> khi thiết bị không hỗ trợ).
         </p>
       </CardContent>
     </Card>
@@ -695,6 +725,7 @@ export function SubscriptionView() {
   });
   const [packages, setPackages] = useState<GroupedPackages>(MOCK_DATA);
   const [selectedSubId, setSelectedSubId] = useState<string>("");
+  const [activeTopupId, setActiveTopupId] = useState<string | null>(null);
   const [packLoading, setPackLoading] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [customerInfo, setCustomerInfo] = useState<{ name?: string; email?: string }>({});
@@ -804,7 +835,11 @@ export function SubscriptionView() {
       );
 
       setPackages(pkgData);
-      setTransactions(txData);
+      // Backend trả về mảng transactions có thể thiếu orderId riêng, đảm bảo luôn có
+      setTransactions((txData as any[]).map((t) => ({
+        ...t,
+        orderId: t.orderId ?? t.id,
+      })));
 
       // Chọn mặc định card subscription đầu tiên nếu chưa chọn
       if (pkgData.subscription.length > 0 && !selectedSubId) {
@@ -821,6 +856,18 @@ export function SubscriptionView() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // Huỷ đơn PENDING do user chủ động yêu cầu
+  const handleCancelOrder = useCallback(async (orderId: string) => {
+    try {
+      await apiFetch(`/order/${orderId}`, { method: "DELETE" });
+      toast.success("Đã huỷ đơn hàng thành công.");
+      // Xoá hẳn dòng đó khỏi bảng lịch sử giao dịch để giao diện gọn gàng
+      setTransactions((prev) => prev.filter((t) => t.orderId !== orderId));
+    } catch (err: any) {
+      toast.error(err?.message ?? "Không thể huỷ đơn, vui lòng thử lại.");
+    }
+  }, []);
 
   const isFree = membership.tier === "FREE";
   const cfg = TIER_CFG[membership.tier];
@@ -1147,6 +1194,13 @@ export function SubscriptionView() {
                     unit="Coin"
                     onBuy={handleBuyPack}
                     loading={packLoading}
+                    selected={activeTopupId === pkg.id}
+                    onSelect={() => setActiveTopupId(pkg.id)}
+                    onMouseEnter={() => {
+                      if (activeTopupId && activeTopupId !== pkg.id) {
+                        setActiveTopupId(null);
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -1170,6 +1224,13 @@ export function SubscriptionView() {
                     unit="Diamond"
                     onBuy={handleBuyPack}
                     loading={packLoading}
+                    selected={activeTopupId === pkg.id}
+                    onSelect={() => setActiveTopupId(pkg.id)}
+                    onMouseEnter={() => {
+                      if (activeTopupId && activeTopupId !== pkg.id) {
+                        setActiveTopupId(null);
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -1180,7 +1241,7 @@ export function SubscriptionView() {
           )}
 
           {/* ===== SECTION 5: Lịch sử giao dịch ===== */}
-          <TransactionTable transactions={transactions} customerInfo={customerInfo} />
+          <TransactionTable transactions={transactions} customerInfo={customerInfo} onCancel={handleCancelOrder} />
 
         </>)}
       </div>

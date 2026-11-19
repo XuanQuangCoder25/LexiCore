@@ -14,6 +14,7 @@ import {
     sepayWebhook,
     myOrders,
     orderStatus,
+    cancelOrder,
     claimCampaign,
     getInvoice,
     listActiveRewardCampaigns,
@@ -64,6 +65,9 @@ router.get('/orders', myOrders);
 
 // Trạng thái đơn hàng (frontend polling sau khi hiển thị QR)
 router.get('/order-status/:orderId', orderStatus);
+
+// Huỷ đơn PENDING do user chủ động yêu cầu
+router.delete('/order/:orderId', cancelOrder);
 
 // Nhận quà gói sự kiện từ chiến dịch của Admin
 router.post('/campaign/claim', claimCampaign);

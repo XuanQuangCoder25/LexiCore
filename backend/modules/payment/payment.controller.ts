@@ -13,6 +13,7 @@ import {
     handleSepayWebhook,
     getMyOrders,
     checkOrderStatus,
+    cancelMyPendingOrder,
     claimCampaignGift,
     claimRewardCampaign,
     getActiveRewardCampaigns,
@@ -231,8 +232,23 @@ export const getInvoice = async (req: Request, res: Response, next: NextFunction
     } catch (err) { next(err); }
 };
 
-// --- Reward Campaigns (Coin / Diamond / Item) ---------------------------------
+// --- Cancel Pending Order (do user chủ động huỷ) ------------------------------
 
+// DELETE /api/payment/order/:orderId
+export const cancelOrder = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId  = (req as any).user.id as string;
+        const orderId = Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId;
+        if (!orderId) {
+            res.status(400).json({ success: false, message: 'orderId là bắt buộc' });
+            return;
+        }
+        const result = await cancelMyPendingOrder(userId, orderId);
+        res.json(result);
+    } catch (err) { next(err); }
+};
+
+// --- Reward Campaigns (Coin / Diamond / Item) ---------------------------------
 // GET /api/payment/reward-campaigns/active
 export const listActiveRewardCampaigns = async (_req: Request, res: Response, next: NextFunction) => {
     try {

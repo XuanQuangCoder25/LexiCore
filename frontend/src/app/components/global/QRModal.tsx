@@ -57,9 +57,11 @@ export function QRModal({
   const [walletLoading, setWalletLoading] = useState(false);
   const [initResult, setInitResult] = useState<SepayInitResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [countdown, setCountdown] = useState(10);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Dùng ref để polling callback luôn truy cập được giá trị mới nhất mà không làm useEffect chạy lại
   const onSuccessRef = useRef(onSuccess);
   const onCloseRef = useRef(onClose);
@@ -78,6 +80,10 @@ export function QRModal({
       clearTimeout(autoCloseTimeoutRef.current);
       autoCloseTimeoutRef.current = null;
     }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
   }, []);
 
   const handleCloseModal = useCallback(() => {
@@ -85,6 +91,24 @@ export function QRModal({
     clearAutoCloseTimeout();
     onCloseRef.current?.();
   }, [stopPolling, clearAutoCloseTimeout]);
+
+  // Bắt đầu đếm ngược 10 giây rồi tự đóng modal
+  const startCountdown = useCallback((onDone: () => void) => {
+    setCountdown(10);
+    countdownIntervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownIntervalRef.current!);
+          countdownIntervalRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    autoCloseTimeoutRef.current = setTimeout(() => {
+      onDone();
+    }, 10000);
+  }, []);
 
   // Khởi tạo thanh toán SePay khi mở modal — chỉ chạy lại khi open/pkg thực sự thay đổi
   useEffect(() => {
@@ -157,10 +181,10 @@ export function QRModal({
 
                 onSuccessRef.current?.();
 
-                // Tự động đóng sau 3 giây nếu người dùng không bấm nút đóng
-                autoCloseTimeoutRef.current = setTimeout(() => {
+                // Tự động đóng sau 10 giây với đếm ngược hiển thị
+                startCountdown(() => {
                   onCloseRef.current?.();
-                }, 3000);
+                });
               }
             } catch {
               // Bỏ qua lỗi mạng tạm thời trong quá trình polling
@@ -214,9 +238,9 @@ export function QRModal({
       setView("SUCCESS");
       toast.success(`Đăng ký ${pkg.name} thành công qua Ví LexiCore!`);
       onSuccess?.();
-      autoCloseTimeoutRef.current = setTimeout(() => {
+      startCountdown(() => {
         handleCloseModal();
-      }, 3000);
+      });
     } catch (err: any) {
       toast.error("Thanh toán ví thất bại", { description: err.message });
     } finally {
@@ -242,35 +266,39 @@ export function QRModal({
         aria-describedby={undefined}
       >
         {/* ===== HEADER ===== */}
-        <div className="shrink-0 px-6 py-4 border-b bg-muted/20 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className={`p-2 rounded-xl ${isWalletTopup ? "bg-emerald-500/10 text-emerald-600" : "bg-primary/10 text-primary"}`}>
-              {isWalletTopup ? <Wallet className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}
+        <div className="shrink-0 px-6 py-4 border-b bg-muted/20">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-2.5">
+              <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${isWalletTopup ? "bg-emerald-500/10 text-emerald-600" : "bg-primary/10 text-primary"}`}>
+                {isWalletTopup ? <Wallet className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}
+              </div>
+              <div>
+                <div className="flex items-center h-7">
+                  <DialogTitle className="text-base sm:text-lg font-bold leading-none">
+                    {isWalletTopup ? "Nạp tiền Ví LexiCore" : "Thanh toán đơn hàng"}
+                  </DialogTitle>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {isWalletTopup
+                    ? `Số tiền nạp: ${formatVND(initResult?.amountVnd || pkg.price_vnd)}`
+                    : `Gói ${pkg.name} ${pkg.duration_days ? getDurationLabel(pkg.duration_days) : ""}`}
+                </p>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-base sm:text-lg font-bold">
-                {isWalletTopup ? "Nạp tiền Ví LexiCore" : "Thanh toán đơn hàng"}
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {isWalletTopup
-                  ? `Số tiền nạp: ${formatVND(initResult?.amountVnd || pkg.price_vnd)}`
-                  : `Gói ${pkg.name} ${pkg.duration_days ? getDurationLabel(pkg.duration_days) : ""}`}
-              </p>
-            </div>
-          </div>
 
-          {onBack && view === "QR" && (
-            <button
-              onClick={() => {
-                handleCloseModal();
-                onBack();
-              }}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Chọn gói khác
-            </button>
-          )}
+            {onBack && view === "QR" && (
+              <button
+                onClick={() => {
+                  handleCloseModal();
+                  onBack();
+                }}
+                className="mr-7 h-7 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors px-2.5 rounded-lg border border-border hover:bg-muted"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Chọn gói khác
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ===== BODY ===== */}
@@ -484,7 +512,7 @@ export function QRModal({
                   Hoàn tất
                 </Button>
                 <span className="text-[11px] text-muted-foreground">
-                  (Tự động đóng sau 3 giây)
+                  (Tự động đóng sau {countdown} giây)
                 </span>
               </div>
             </div>

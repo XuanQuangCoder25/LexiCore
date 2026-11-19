@@ -54,11 +54,12 @@ export interface Subscription {
 }
 
 export interface UserTransaction {
-    id: string;
-    date: string;        // định dạng "DD/MM/YYYY HH:mm"
+    id: string;        // payment_reference (mã đơn hiển thị, ví dụ: LC583421)
+    orderId: string;   // UUID thực của đơn (dùng để gọi API huỷ)
+    date: string;      // định dạng "DD/MM/YYYY HH:mm"
     description: string; // tên gói hoặc nội dung
     amountVnd: number;
-    status: 'SUCCESS' | 'PENDING' | 'FAILED';
+    status: 'SUCCESS' | 'PENDING' | 'FAILED' | 'CANCELLED';
 }
 
 // ============================================================
@@ -233,6 +234,18 @@ export async function cancelPendingOrdersOfUser(userId: string): Promise<number>
     return result?.affectedRows ?? 0;
 }
 
+// Huỷ 1 đơn PENDING cụ thể do user chủ động yêu cầu
+// Chỉ cho phép xoá nếu đơn thuộc về đúng user và đang ở trạng thái PENDING
+export async function cancelSinglePendingOrder(orderId: string, userId: string): Promise<boolean> {
+    const [result] = await pool.execute(
+        `UPDATE payment_orders
+         SET status = 'CANCELLED', updated_at = NOW()
+         WHERE id = ? AND user_id = ? AND status = 'PENDING'`,
+        [orderId, userId]
+    ) as any;
+    return (result?.affectedRows ?? 0) > 0;
+}
+
 export async function cleanupOldOrders(): Promise<{ deletedPending: number; deletedCancelled: number }> {
     // 1. Xóa đơn PENDING quá 24 giờ (đơn nháp bỏ dở sinh ra do lựa gói)
     const [resPending] = await pool.execute(
@@ -240,10 +253,10 @@ export async function cleanupOldOrders(): Promise<{ deletedPending: number; dele
          WHERE status = 'PENDING' AND created_at < NOW() - INTERVAL 24 HOUR`
     ) as any;
 
-    // 2. Xóa đơn CANCELLED quá 7 ngày
+    // 2. Xóa đơn CANCELLED quá 1 giờ (đơn bị huỷ do user bấm Huỷ hoặc hệ thống tự huỷ khi tạo đơn mới)
     const [resCancelled] = await pool.execute(
         `DELETE FROM payment_orders 
-         WHERE status = 'CANCELLED' AND created_at < NOW() - INTERVAL 7 DAY`
+         WHERE status = 'CANCELLED' AND created_at < NOW() - INTERVAL 1 HOUR`
     ) as any;
 
     return {
@@ -299,10 +312,13 @@ export async function getUserTransactions(userId: string, limit = 30): Promise<U
 
         formatted.push({
             id: displayId,
+            orderId: r.id as string,   // UUID thực để gọi API huỷ
             date: dateStr,
             description,
             amountVnd: Number(r.amount_vnd),
-            status: (status === 'SUCCESS' ? 'SUCCESS' : 'PENDING') as UserTransaction['status'],
+            status: (['SUCCESS', 'PENDING', 'CANCELLED'].includes(status)
+                ? status
+                : 'FAILED') as UserTransaction['status'],
         });
 
         if (formatted.length >= limit) break;
