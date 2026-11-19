@@ -211,7 +211,7 @@ async function cleanupHousekeepingOrders(): Promise<void> {
         const result = await cleanupOldOrders();
         if (result.deletedPending > 0 || result.deletedCancelled > 0) {
             console.log(
-                `[Subscription Cron] 🧹 Đã dọn dẹp ${result.deletedPending} đơn PENDING quá 24h và ${result.deletedCancelled} đơn CANCELLED quá 7 ngày.`
+                `[Subscription Cron] Đã dọn dẹp ${result.deletedPending} đơn PENDING quá 24h và ${result.deletedCancelled} đơn CANCELLED quá 7 ngày.`
             );
         }
     } catch (err) {
@@ -245,7 +245,7 @@ export const initSubscriptionCron = () => {
     }, { timezone: 'Asia/Ho_Chi_Minh' });
 
     // Chạy dọn dẹp 1 lần khi server vừa khởi động
-    cleanupHousekeepingOrders().catch(() => {});
+    cleanupHousekeepingOrders().catch(() => { });
 
     console.log('Subscription Cron đã khởi động (dọn dẹp 00:00, auto-renew 00:05, housekeeping 00:30, nhắn hạn 09:00 ICT).');
 };

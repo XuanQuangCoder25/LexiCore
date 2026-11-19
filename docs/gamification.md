@@ -94,7 +94,7 @@
 - **Cặp 3 (Tier 3 - Hiếm):** Gấu Trúc Khổng Lồ (Giant Panda) — Rừng trúc xanh ngút ngàn đung đưa trong sương sớm (Endless Emerald Bamboo Sea).
 - **Cặp 4 (Tier 4 - Siêu hiếm):** Hổ Trắng Amur (White Siberian Tiger) — Thác nước đóng băng giữa rừng tuyết phủ trắng xóa (Frozen Waterfall in Winter Bamboo Forest).
 
-## 🏡 Collection 11: Bạn Đồng Hành Ấm Áp (Cozy Companions)4
+## 🏡 Collection 11: Bạn Đồng Hành Ấm Áp (Cozy Companions)
 *Chủ đề chữa lành (healing), ấm cúng, đem lại cảm giác bình yên như ở nhà.
 - **Cặp 1 (Tier 1 - Cơ bản):** Mèo Mướp Vàng (Golden Tabby Cat) — Bậu cửa sổ gỗ ngập tràn ánh nắng sớm với vài chậu sen đá (Sunlit Window Sill).
 - **Cặp 2 (Tier 2 - Khá):** Chó Shiba Inu (Shiba Cười) — Con đường công viên mùa thu ngập tràn lá phong vàng rơi (Autumn Park with Golden Leaves).

@@ -54,10 +54,18 @@ export const checkMaintenance = async (req: Request, res: Response, next: NextFu
             return next();
         }
 
-        // Cho phép qua các route đặc biệt: health check, system status, đăng nhập, route quản trị
+        // Cho phép qua các route đặc biệt: health check, system status, đăng nhập, route quản trị, webhook SePay
+        // Lưu ý: middleware đăng ký tại /api nên req.path KHÔNG có prefix /api
+        // Ví dụ: /api/payment/sepay/webhook -> req.path = /payment/sepay/webhook
         const path = req.path;
-        const allowedPaths = ['/health', '/api/health', '/api/system/status', '/api/auth/login', '/api/auth/logout'];
-        if (allowedPaths.some((p) => path.startsWith(p)) || path.startsWith('/api/admin')) {
+        const allowedPaths = [
+            '/health',
+            '/system/status',
+            '/auth/login',
+            '/auth/logout',
+            '/payment/sepay/webhook',
+        ];
+        if (allowedPaths.some((p) => path.startsWith(p)) || path.startsWith('/admin')) {
             return next();
         }
 

@@ -460,13 +460,24 @@ export const handleSepayWebhook = async (
     payload: SepayWebhookPayload,
     authorizationHeader?: string
 ) => {
+    // Log toàn bộ payload để debug (sẽ xoá sau khi xác nhận hoạt động đúng)
+    console.log('[SePay Webhook] Nhận webhook. Header Authorization:', authorizationHeader || '(không có)');
+    console.log('[SePay Webhook] Payload:', JSON.stringify(payload));
+
     // 1. Kiểm tra API Key nếu cấu hình trong .env
     const configuredApiKey = process.env.SEPAY_API_KEY;
     if (configuredApiKey) {
-        const token = authorizationHeader?.replace(/^Apikey\s+/i, '').trim();
+        const rawToken = authorizationHeader || '';
+        const token = rawToken.replace(/^Apikey\s+/i, '').replace(/^Bearer\s+/i, '').trim();
+        console.log('[SePay Webhook] API Key nhận được:', token ? token.slice(0, 8) + '...' : '(trống)');
+        console.log('[SePay Webhook] API Key cấu hình:', configuredApiKey ? configuredApiKey.slice(0, 8) + '...' : '(chưa cấu hình)');
         if (token !== configuredApiKey) {
+            console.error('[SePay Webhook] Xác thực thất bại! Key không khớp.');
             throw new AppError('Xác thực SePay webhook thất bại: API Key không hợp lệ', 401);
         }
+        console.log('[SePay Webhook] Xác thực API Key thành công.');
+    } else {
+        console.warn('[SePay Webhook] CANH BAO: SEPAY_API_KEY chua duoc cau hinh, bo qua kiem tra xac thuc!');
     }
 
     // Chỉ xử lý giao dịch tiền vào (transferType = 'in')
