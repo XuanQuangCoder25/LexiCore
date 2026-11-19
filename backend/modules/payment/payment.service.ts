@@ -376,9 +376,11 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
     const bankCode    = process.env.SEPAY_BANK_CODE   || 'BIDV';
     const accNumber   = process.env.SEPAY_ACC_NUMBER  || '0000000000';
     const accName     = process.env.SEPAY_ACC_NAME    || 'LEXICORE';
+    // BIDV yêu cầu dùng số tài khoản ảo (VA) thay vì số TK thật
+    const qrAcc       = process.env.SEPAY_VA_NUMBER   || accNumber;
 
-    // Cú pháp QR URL chính xác theo SePay
-    const qrUrl = `https://qr.sepay.vn/img?acc=${accNumber}&bank=${bankCode}&amount=${finalPrice}&des=${orderCode}`;
+    // Dùng vietqr.app (cùng chuẩn mà SePay dashboard dùng), VA cho BIDV
+    const qrUrl = `https://vietqr.app/img?bank=${bankCode}&acc=${qrAcc}&amount=${finalPrice}&des=${orderCode}&template=compact`;
 
     return {
         orderId,
@@ -425,8 +427,11 @@ export const initWalletTopup = async (userId: string, amountVnd: number) => {
     const bankCode    = process.env.SEPAY_BANK_CODE   || 'BIDV';
     const accNumber   = process.env.SEPAY_ACC_NUMBER  || '0000000000';
     const accName     = process.env.SEPAY_ACC_NAME    || 'LEXICORE';
+    // BIDV yêu cầu dùng số tài khoản ảo (VA) thay vì số TK thật
+    const qrAcc       = process.env.SEPAY_VA_NUMBER   || accNumber;
 
-    const qrUrl = `https://qr.sepay.vn/img?acc=${accNumber}&bank=${bankCode}&amount=${amountVnd}&des=${orderCode}`;
+    // Dùng vietqr.app — cùng chuẩn mà SePay dashboard dùng, hỗ trợ VA cho BIDV
+    const qrUrl = `https://vietqr.app/img?bank=${bankCode}&acc=${qrAcc}&amount=${amountVnd}&des=${orderCode}&template=compact`;
 
     return {
         orderId,
