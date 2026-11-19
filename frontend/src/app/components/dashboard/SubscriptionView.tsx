@@ -54,6 +54,8 @@ import {
   getDurationLabel,
   SubscriptionFlipCard,
   TopupCard,
+  getSubscriptionActionInfo,
+  SubscriptionActionInfo,
 } from "../global/subscription-cards";
 import { SubscriptionModal } from "../global/SubscriptionModal";
 import { QRModal } from "../global/QRModal";
@@ -240,7 +242,7 @@ function StatusBadge({ status }: { status: Transaction["status"] }) {
   );
   if (status === "PENDING") return (
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">
-      <RefreshCw className="w-3 h-3 animate-spin" />Đang xử lý
+      <RefreshCw className="w-3 h-3 animate-spin" />Chờ thanh toán
     </span>
   );
   if (status === "CANCELLED") return (
@@ -754,12 +756,15 @@ export function SubscriptionView() {
   // State cho QRModal (Thanh toán đơn hàng SePay VietQR / Ví LexiCore)
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrModalPkg, setQrModalPkg] = useState<CreditPackage | null>(null);
+  const [qrUpgradeInfo, setQrUpgradeInfo] = useState<SubscriptionActionInfo | null>(null);
   const [qrFromSubModal, setQrFromSubModal] = useState(false);
 
   // State cho WalletTopupModal (Nạp tiền Ví LexiCore)
   const [walletTopupOpen, setWalletTopupOpen] = useState(false);
 
   const handleOpenQRModal = (pkg: CreditPackage, fromSubModal = false) => {
+    const actionInfo = getSubscriptionActionInfo(membership, pkg, packages.subscription);
+    setQrUpgradeInfo(actionInfo);
     setQrModalPkg(pkg);
     setQrFromSubModal(fromSubModal);
     if (fromSubModal) {
@@ -1128,30 +1133,48 @@ export function SubscriptionView() {
                 {(() => {
                   const sub = packages.subscription.find((p) => p.id === selectedSubId);
                   const isSubLoading = packLoading === sub?.id;
+                  if (!sub) {
+                    return (
+                      <Button size="sm" className="h-9 px-5 text-xs font-bold rounded-xl" disabled>
+                        Chọn gói
+                      </Button>
+                    );
+                  }
+
+                  const action = getSubscriptionActionInfo(membership, sub, packages.subscription);
+
+                  const btnColor = action.disabled
+                    ? "bg-muted text-muted-foreground border border-border cursor-not-allowed hover:bg-muted"
+                    : action.type === "UPGRADE"
+                      ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                      : sub.campaign_id
+                        ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                        : sub.is_trial
+                          ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
+                          : sub.tier === "ELITE"
+                            ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
+                            : sub.tier === "PRO"
+                              ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
+                              : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25";
+
                   return (
                     <Button
                       size="sm"
-                      className={`h-9 px-5 text-xs font-bold transition-all shadow-md rounded-xl border-none gap-1.5 ${!sub
-                        ? "bg-primary text-white"
-                        : sub.campaign_id
-                          ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
-                          : sub.is_trial
-                            ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
-                            : sub.tier === "ELITE"
-                              ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
-                              : sub.tier === "PRO"
-                                ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
-                                : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
-                        }`}
-                      disabled={!sub || isSubLoading}
+                      className={`h-9 px-5 text-xs font-bold transition-all shadow-md rounded-xl border-none gap-1.5 ${btnColor}`}
+                      disabled={action.disabled || isSubLoading}
                       onClick={() => {
-                        if (sub) handleBuySub(sub);
+                        if (sub && !action.disabled) handleBuySub(sub);
                       }}
                     >
                       {isSubLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : !sub ? (
-                        "Chọn gói"
+                      ) : action.disabled ? (
+                        action.buttonText
+                      ) : action.type === "UPGRADE" ? (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          {action.buttonText}
+                        </>
                       ) : sub.campaign_id ? (
                         <>
                           <Sparkles className="h-4 w-4" />
@@ -1167,7 +1190,7 @@ export function SubscriptionView() {
                           {sub.tier === "ELITE" && <Crown className="h-4 w-4" />}
                           {sub.tier === "PRO" && <Zap className="h-4 w-4" />}
                           {sub.tier === "STARTER" && <Star className="h-4 w-4" />}
-                          Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))}{getDurationLabel(sub.duration_days)})
+                          {action.buttonText}
                         </>
                       )}
                     </Button>
@@ -1253,6 +1276,7 @@ export function SubscriptionView() {
         initialPackageId={modalPackageId}
         initialTab={modalTab}
         hasUsedTrial={membership.hasUsedTrial}
+        membership={membership}
         onBuyPackage={(pkg) => handleOpenQRModal(pkg, true)}
         onSuccess={fetchAll}
       />
@@ -1262,6 +1286,7 @@ export function SubscriptionView() {
         open={qrModalOpen}
         onClose={() => setQrModalOpen(false)}
         pkg={qrModalPkg}
+        upgradeInfo={qrUpgradeInfo}
         walletBalance={membership.walletBalanceVnd}
         onSuccess={fetchAll}
         onBack={

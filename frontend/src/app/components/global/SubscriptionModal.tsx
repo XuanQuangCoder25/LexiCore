@@ -24,6 +24,7 @@ import {
   getFinalPrice,
   getDurationLabel,
   SubscriptionFlipCard,
+  getSubscriptionActionInfo,
 } from "./subscription-cards";
 
 // ============================================================
@@ -37,6 +38,12 @@ export interface SubscriptionModalProps {
   hasUsedTrial?: boolean;
   onBuyPackage?: (pkg: CreditPackage) => void;
   onSuccess?: () => void;
+  membership?: {
+    tier: string;
+    packageId?: string | null;
+    durationDays?: number | null;
+    expiresAt?: string | null;
+  };
 }
 export type PremiumModalProps = SubscriptionModalProps;
 
@@ -195,6 +202,7 @@ export function SubscriptionModal({
   hasUsedTrial = false,
   onBuyPackage,
   onSuccess,
+  membership,
 }: SubscriptionModalProps) {
   const [activeTab, setActiveTab] = useState<"subscription" | "info">(initialTab);
   const [packages, setPackages] = useState<GroupedPackages>(MOCK_DATA);
@@ -373,10 +381,18 @@ export function SubscriptionModal({
                   Thanh toán qua chuyển khoản VietQR (SePay) hoặc Ví LexiCore
                 </p>
 
-                {selectedSub && (
-                  <Button
-                    className={`h-10 px-6 text-xs font-bold transition-all shadow-md rounded-xl
-                      ${selectedSub.campaign_id
+                {selectedSub && (() => {
+                  const subAction = membership
+                    ? getSubscriptionActionInfo(membership, selectedSub, packages.subscription)
+                    : null;
+
+                  const isDisabled = (subAction?.disabled || subLoadingId === selectedSub.id);
+
+                  const btnStyle = subAction?.disabled
+                    ? "bg-muted text-muted-foreground border border-border cursor-not-allowed hover:bg-muted"
+                    : subAction?.type === "UPGRADE"
+                      ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                      : selectedSub.campaign_id
                         ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
                         : selectedSub.is_trial
                           ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
@@ -384,35 +400,50 @@ export function SubscriptionModal({
                             ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
                             : selectedSub.tier === "PRO"
                               ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
-                              : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
-                      }`}
-                    disabled={subLoadingId === selectedSub.id}
-                    onClick={() => handleBuyClick(selectedSub)}
-                  >
-                    {subLoadingId === selectedSub.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        {selectedSub.campaign_id && <Sparkles className="h-4 w-4 mr-1.5" />}
-                        {!selectedSub.campaign_id && selectedSub.is_trial && <Gift className="h-4 w-4 mr-1.5" />}
-                        {!selectedSub.is_trial && selectedSub.tier === "ELITE" && (
-                          <Crown className="h-4 w-4 mr-1.5" />
-                        )}
-                        {!selectedSub.is_trial && selectedSub.tier === "PRO" && (
-                          <Zap className="h-4 w-4 mr-1.5" />
-                        )}
-                        {!selectedSub.is_trial && selectedSub.tier === "STARTER" && (
-                          <Star className="h-4 w-4 mr-1.5" />
-                        )}
-                        {selectedSub.campaign_id
-                          ? `Nhận quà sự kiện miễn phí (${selectedSub.duration_days} ngày)`
-                          : selectedSub.is_trial
-                            ? `Dùng thử miễn phí ${selectedSub.duration_days ?? 3} ngày`
-                            : `Mua gói ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))} ${getDurationLabel(selectedSub.duration_days)}`}
-                      </>
-                    )}
-                  </Button>
-                )}
+                              : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25";
+
+                  return (
+                    <Button
+                      className={`h-10 px-6 text-xs font-bold transition-all shadow-md rounded-xl ${btnStyle}`}
+                      disabled={isDisabled}
+                      onClick={() => {
+                        if (!subAction?.disabled) handleBuyClick(selectedSub);
+                      }}
+                    >
+                      {subLoadingId === selectedSub.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : subAction?.disabled ? (
+                        subAction.buttonText
+                      ) : subAction?.type === "UPGRADE" ? (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-1.5" />
+                          {subAction.buttonText}
+                        </>
+                      ) : (
+                        <>
+                          {selectedSub.campaign_id && <Sparkles className="h-4 w-4 mr-1.5" />}
+                          {!selectedSub.campaign_id && selectedSub.is_trial && <Gift className="h-4 w-4 mr-1.5" />}
+                          {!selectedSub.is_trial && selectedSub.tier === "ELITE" && (
+                            <Crown className="h-4 w-4 mr-1.5" />
+                          )}
+                          {!selectedSub.is_trial && selectedSub.tier === "PRO" && (
+                            <Zap className="h-4 w-4 mr-1.5" />
+                          )}
+                          {!selectedSub.is_trial && selectedSub.tier === "STARTER" && (
+                            <Star className="h-4 w-4 mr-1.5" />
+                          )}
+                          {subAction?.buttonText || (
+                            selectedSub.campaign_id
+                              ? `Nhận quà sự kiện miễn phí (${selectedSub.duration_days} ngày)`
+                              : selectedSub.is_trial
+                                ? `Dùng thử miễn phí ${selectedSub.duration_days ?? 3} ngày`
+                                : `Mua gói ${selectedSub.name}: ${formatVND(getFinalPrice(selectedSub))} ${getDurationLabel(selectedSub.duration_days)}`
+                          )}
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
               </div>
             </div>
           )}

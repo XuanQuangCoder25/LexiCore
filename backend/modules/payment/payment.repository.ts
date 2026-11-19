@@ -46,6 +46,7 @@ export interface Subscription {
     user_id: string;
     package_id: string;
     tier: 'STARTER' | 'PRO' | 'ELITE' | 'TRIAL';
+    duration_days?: number | null;
     started_at: string;
     expires_at: string;
     auto_renew: boolean;
@@ -112,12 +113,13 @@ export async function createPaymentOrder(
     packageId: string,
     amountVnd: number,
     gateway: PaymentOrder['gateway'],
+    metadata: object | null = null
 ): Promise<string> {
     const orderId = uuidv4();
     await pool.execute(
-        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status)
-         VALUES (?, ?, ?, ?, ?, 'PENDING')`,
-        [orderId, userId, packageId, amountVnd, gateway]
+        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, metadata)
+         VALUES (?, ?, ?, ?, ?, 'PENDING', ?)`,
+        [orderId, userId, packageId, amountVnd, gateway, metadata ? JSON.stringify(metadata) : null]
     );
     return orderId;
 }
@@ -345,16 +347,33 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
     } as Subscription;
 }
 
-// Upsert subscription (tạo mới hoặc cập nhật nếu đã có)
+// Upsert subscription (tạo mới, gia hạn hoặc nâng cấp)
 export async function activateSubscription(
     conn: any,
     userId: string,
     packageId: string,
     tier: Subscription['tier'],
-    durationDays: number
+    durationDays: number,
+    isUpgrade: boolean = false
 ): Promise<void> {
     const subId = uuidv4();
-    const expiresAt = new Date(Date.now() + durationDays * 86400 * 1000);
+    let baseTime = Date.now();
+
+    // Nếu không phải nâng cấp (đang gia hạn gói cùng tier) mà gói cũ còn hạn thì cộng dồn ngày
+    if (!isUpgrade) {
+        const [existing] = await conn.execute(
+            `SELECT expires_at, tier FROM user_subscription WHERE user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+            [userId]
+        );
+        if (existing && existing.length > 0 && existing[0].expires_at && existing[0].tier === tier) {
+            const curExp = new Date(existing[0].expires_at).getTime();
+            if (curExp > baseTime) {
+                baseTime = curExp;
+            }
+        }
+    }
+
+    const expiresAt = new Date(baseTime + durationDays * 86400 * 1000);
 
     await conn.execute(
         `INSERT INTO user_subscription (id, user_id, package_id, tier, duration_days, started_at, expires_at, status)
@@ -363,11 +382,11 @@ export async function activateSubscription(
              package_id    = VALUES(package_id),
              tier          = VALUES(tier),
              duration_days = VALUES(duration_days),
-             started_at    = NOW(),
+             started_at    = IF(?, NOW(), started_at),
              expires_at    = VALUES(expires_at),
              status        = 'ACTIVE',
              updated_at    = NOW()`,
-        [subId, userId, packageId, tier, durationDays, expiresAt]
+        [subId, userId, packageId, tier, durationDays, expiresAt, isUpgrade]
     );
 }
 

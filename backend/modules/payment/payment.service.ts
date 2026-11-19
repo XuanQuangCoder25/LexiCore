@@ -45,6 +45,147 @@ export function calcFinalPrice(pkg: CreditPackage): number {
     return pkg.price_vnd;
 }
 
+// Bậc ưu tiên gói hội viên
+export const TIER_RANKS: Record<string, number> = {
+    FREE: 0,
+    TRIAL: 1,
+    STARTER: 1,
+    PRO: 2,
+    ELITE: 3,
+};
+
+export interface UpgradeCalculation {
+    type: 'NEW' | 'EXTEND' | 'UPGRADE' | 'DOWNGRADE' | 'INVALID_CYCLE';
+    isUpgrade: boolean;
+    finalPrice: number;
+    originalPrice: number;
+    unusedOldValue: number;
+    remainingDays: number;
+    currentTier: string | null;
+    targetTier: string | null;
+    currentPackageName?: string;
+    message?: string;
+}
+
+// Tính toán giá cước khi mua gói hội viên (hỗ trợ Nâng cấp bù trừ Prorated / Chặn hạ cấp)
+export async function calculateSubscriptionPricing(
+    userId: string,
+    targetPkg: CreditPackage
+): Promise<UpgradeCalculation> {
+    const finalPrice = calcFinalPrice(targetPkg);
+
+    if (targetPkg.package_type !== 'SUBSCRIPTION') {
+        return {
+            type: 'NEW',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: null,
+            targetTier: targetPkg.tier,
+        };
+    }
+
+    const currentSub = await getUserSubscription(userId);
+
+    // Trường hợp 1: Chưa có subscription hoặc gói cũ đã hết hạn
+    if (!currentSub || !currentSub.expires_at || new Date(currentSub.expires_at).getTime() <= Date.now()) {
+        return {
+            type: 'NEW',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: 'FREE',
+            targetTier: targetPkg.tier,
+        };
+    }
+
+    const curRank = TIER_RANKS[currentSub.tier] ?? 0;
+    const targetRank = TIER_RANKS[targetPkg.tier ?? ''] ?? 0;
+
+    // Trường hợp 2: Hạ cấp (targetRank < curRank) -> Không cho phép khi gói cũ còn hạn
+    if (targetRank < curRank) {
+        return {
+            type: 'DOWNGRADE',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: currentSub.tier,
+            targetTier: targetPkg.tier,
+            message: 'Đã bao gồm trong gói của bạn (không thể xuống gói thấp hơn)',
+        };
+    }
+
+    // Trường hợp 3: Cùng hạng gói -> Gia hạn
+    if (targetRank === curRank) {
+        return {
+            type: 'EXTEND',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: currentSub.tier,
+            targetTier: targetPkg.tier,
+        };
+    }
+
+    // Trường hợp 4: Nâng cấp gói cao hơn (targetRank > curRank)
+    const curDuration = Number(currentSub.duration_days) || 30;
+    const targetDuration = Number(targetPkg.duration_days) || 30;
+
+    // Ràng buộc chu kỳ: Phải chọn gói có chu kỳ >= chu kỳ đang sử dụng
+    if (targetDuration < curDuration) {
+        return {
+            type: 'INVALID_CYCLE',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: currentSub.tier,
+            targetTier: targetPkg.tier,
+            message: `Chỉ được nâng cấp lên gói có chu kỳ từ ${curDuration} ngày trở lên`,
+        };
+    }
+
+    // Tính toán số tiền bù trừ (Prorated Formula theo chuẩn docs/payment-subscription.md)
+    let oldPrice = 0;
+    let oldPkgName: string = currentSub.tier;
+    if (currentSub.package_id) {
+        const oldPkg = await getPackageById(currentSub.package_id);
+        if (oldPkg && !oldPkg.is_trial) {
+            oldPrice = calcFinalPrice(oldPkg);
+            oldPkgName = oldPkg.name;
+        }
+    }
+
+    const remainingMs = Math.max(0, new Date(currentSub.expires_at).getTime() - Date.now());
+    const remainingDays = Math.max(0, remainingMs / (24 * 60 * 60 * 1000));
+    const unusedOldValue = Math.round((oldPrice / curDuration) * remainingDays);
+
+    const diffPrice = finalPrice - unusedOldValue;
+    // Số tiền chênh lệch thanh toán tối thiểu 10.000 VNĐ theo chuẩn VietQR
+    const upgradePrice = Math.max(10000, Math.round(diffPrice));
+
+    return {
+        type: 'UPGRADE',
+        isUpgrade: true,
+        finalPrice: upgradePrice,
+        originalPrice: finalPrice,
+        unusedOldValue,
+        remainingDays: Math.ceil(remainingDays),
+        currentTier: currentSub.tier,
+        targetTier: targetPkg.tier,
+        currentPackageName: oldPkgName,
+    };
+}
+
 // ============================================================
 // Packages (Tự động tích hợp Campaign Free Trial và lọc Trial đã dùng)
 // ============================================================
@@ -187,7 +328,15 @@ export const payWithWallet = async (userId: string, packageId: string) => {
         return activateTrialPlan(userId, pkg);
     }
 
-    const finalPrice = calcFinalPrice(pkg);
+    const pricing = await calculateSubscriptionPricing(userId, pkg);
+    if (pricing.type === 'DOWNGRADE') {
+        throw new AppError(pricing.message || 'Không thể hạ xuống gói thấp hơn gói hiện tại', 400);
+    }
+    if (pricing.type === 'INVALID_CYCLE') {
+        throw new AppError(pricing.message || 'Chỉ có thể nâng cấp chu kỳ bằng hoặc dài hơn', 400);
+    }
+
+    const finalPrice = pricing.finalPrice;
     if (finalPrice === 0) throw new AppError('Giá trị gói thanh toán không hợp lệ', 400);
 
     const conn = await (pool as any).getConnection();
@@ -199,14 +348,22 @@ export const payWithWallet = async (userId: string, packageId: string) => {
         if (!ok) throw new AppError('Số dư Ví LexiCore không đủ để thanh toán', 400);
 
         // Tạo đơn thanh toán
-        // Lưu ý: PK là UUID nên insertId = 0, phải dùng generateUniqueOrderCode() thay vì insertId
         const orderId = uuidv4();
         const orderCode = await generateUniqueOrderCode();
         const walletTxnId = `WALLET_${orderId.slice(0, 8).toUpperCase()}`;
+        const metadata = pricing.isUpgrade ? {
+            isUpgrade: true,
+            fromTier: pricing.currentTier,
+            toTier: pricing.targetTier,
+            unusedOldValue: pricing.unusedOldValue,
+            remainingDays: pricing.remainingDays,
+            originalPrice: pricing.originalPrice,
+        } : null;
+
         await conn.execute(
-            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id, payment_reference)
-             VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?, ?)`,
-            [orderId, userId, packageId, finalPrice, walletTxnId, orderCode]
+            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id, payment_reference, metadata)
+             VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?, ?, ?)`,
+            [orderId, userId, packageId, finalPrice, walletTxnId, orderCode, metadata ? JSON.stringify(metadata) : null]
         );
 
         // Cộng coin/diamond (nếu là topup pack)
@@ -216,17 +373,20 @@ export const payWithWallet = async (userId: string, packageId: string) => {
 
         // Kích hoạt subscription (nếu là gói hội viên)
         if (pkg.package_type === 'SUBSCRIPTION' && pkg.tier && pkg.duration_days) {
-            await activateSubscription(conn, userId, packageId, pkg.tier as any, pkg.duration_days);
+            await activateSubscription(conn, userId, packageId, pkg.tier as any, pkg.duration_days, pricing.isUpgrade);
         }
 
         await conn.commit();
         return {
             success: true,
             orderId,
-            message: 'Thanh toán thành công qua Ví LexiCore!',
+            message: pricing.isUpgrade
+                ? `Nâng cấp lên gói ${pkg.name} thành công qua Ví LexiCore!`
+                : 'Thanh toán thành công qua Ví LexiCore!',
             coinEarned:    pkg.coin_amount,
             diamondEarned: pkg.diamond_amount,
             amountVnd:     finalPrice,
+            isUpgrade:     pricing.isUpgrade,
         };
     } catch (err) {
         await conn.rollback();
@@ -354,7 +514,15 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
     const pkg = await getPackageById(packageId);
     if (!pkg) throw new AppError('Gói không tồn tại', 404);
 
-    const finalPrice = calcFinalPrice(pkg);
+    const pricing = await calculateSubscriptionPricing(userId, pkg);
+    if (pricing.type === 'DOWNGRADE') {
+        throw new AppError(pricing.message || 'Không thể hạ xuống gói thấp hơn gói hiện tại', 400);
+    }
+    if (pricing.type === 'INVALID_CYCLE') {
+        throw new AppError(pricing.message || 'Chỉ có thể nâng cấp chu kỳ bằng hoặc dài hơn', 400);
+    }
+
+    const finalPrice = pricing.finalPrice;
     if (finalPrice <= 0) {
         throw new AppError('Gói miễn phí không cần thanh toán qua ngân hàng', 400);
     }
@@ -362,8 +530,17 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
     // Tự động hủy các đơn PENDING cũ của user trước khi tạo đơn mới
     await cancelPendingOrdersOfUser(userId);
 
-    // Tạo đơn trước, sau đó sinh order code duy nhất
-    const orderId = await createPaymentOrder(userId, packageId, finalPrice, 'SEPAY');
+    // Tạo đơn với metadata ghi nhận nếu là đơn nâng cấp
+    const metadata = pricing.isUpgrade ? {
+        isUpgrade: true,
+        fromTier: pricing.currentTier,
+        toTier: pricing.targetTier,
+        unusedOldValue: pricing.unusedOldValue,
+        remainingDays: pricing.remainingDays,
+        originalPrice: pricing.originalPrice,
+    } : null;
+
+    const orderId = await createPaymentOrder(userId, packageId, finalPrice, 'SEPAY', metadata);
 
     // Sinh order_code ngẫu nhiên, đảm bảo không trùng (ví dụ: LC583421)
     const orderCode = await generateUniqueOrderCode();
@@ -386,6 +563,8 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
         accountNumber: accNumber,
         accountName:   accName,
         qrUrl,
+        isUpgrade: pricing.isUpgrade,
+        pricingDetails: pricing,
     };
 };
 
@@ -564,12 +743,21 @@ export const handleSepayWebhook = async (
         } else {
             // Kích hoạt subscription nếu là gói SUBSCRIPTION
             if (order.package_type === 'SUBSCRIPTION' && order.tier && order.duration_days) {
+                let isUpgrade = false;
+                try {
+                    if (order.metadata) {
+                        const meta = typeof order.metadata === 'string' ? JSON.parse(order.metadata) : order.metadata;
+                        if (meta?.isUpgrade) isUpgrade = true;
+                    }
+                } catch { }
+
                 await activateSubscription(
                     conn,
                     order.user_id,
                     order.package_id,
                     order.tier,
-                    order.duration_days
+                    order.duration_days,
+                    isUpgrade
                 );
             }
 
