@@ -27,6 +27,7 @@ import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
 import { FriendsButton } from "./components/global/FriendsButton";
 import { FriendlyInviteToast } from "./components/dashboard/arena/FriendlyInviteToast";
+import { MatchedPayload } from "./services/arena-socket.service";
 import { ChatButton } from "./components/global/ChatButton";
 import { ChatDialog } from "./components/global/ChatDialog";
 import { SocialProvider, useSocial } from "./features/social/SocialContext";
@@ -76,6 +77,7 @@ function AppContent() {
   const [userTier, setUserTier] = useState<"STARTER" | "PRO" | "ELITE" | null>(() => {
     return (localStorage.getItem("lexicore_user_tier") as any) || null;
   });
+  const [pendingArenaMatch, setPendingArenaMatch] = useState<MatchedPayload | null>(null);
   const [maintenance, setMaintenance] = useState<{
     active: boolean;
     title?: string;
@@ -197,7 +199,12 @@ function AppContent() {
       case "shadowing": return <ShadowingView />;
       case "practice": return <PracticeView />;
       case "exam": return <ExamView />;
-      case "arena": return <ArenaView />;
+      case "arena": return (
+        <ArenaView
+          initialPendingMatch={pendingArenaMatch}
+          onClearPendingMatch={() => setPendingArenaMatch(null)}
+        />
+      );
       case "community": return <CommunityView />;
       case "private-space": return <PrivateSpaceView onNavigateTab={setActiveTab} userRole={userRole || "user"} creatorStatus={creatorStatus} />;
       case "creator": return <CreatorStudioView onNavigateTab={setActiveTab} userRole={userRole || "user"} creatorStatus={creatorStatus} />;
@@ -289,7 +296,13 @@ function AppContent() {
       />
 
       {/* Thông báo thách đấu giao hữu trượt từ mép phải dưới header */}
-      <FriendlyInviteToast onNavigateArena={() => setActiveTab("arena")} />
+      <FriendlyInviteToast
+        onNavigateArena={() => setActiveTab("arena")}
+        onAcceptMatched={(matchData) => {
+          setPendingArenaMatch(matchData);
+          setActiveTab("arena");
+        }}
+      />
     </SidebarProvider>
   );
 }

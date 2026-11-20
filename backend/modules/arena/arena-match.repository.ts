@@ -2,6 +2,7 @@ import { pool } from '../../config/mysql';
 import { v4 as uuidv4 } from 'uuid';
 import { ArenaRank, MatchResult, RankProgressionResult, getRankOrder } from './arena-rank.utils';
 import { calculateNewLevel } from '../../utils/level';
+import { pruneOldMatchesForUser } from './arena.repository';
 
 // ─── Phần thưởng Coin & EXP khi hoàn thành ván đấu PvP ────────────────────────
 export const ARENA_MATCH_REWARDS = {
@@ -497,6 +498,16 @@ export async function saveMatchTransaction(params: SaveMatchTransactionParams): 
         // Commit transaction thành công
         await connection.commit();
         console.log(`[Arena Transaction] Đã lưu thành công ván đấu ${matchId} vào MySQL!`);
+
+        // Tối ưu hóa Database: chỉ lưu 16 trận gần nhất cho mỗi người chơi (xóa các trận thứ 17 trở đi)
+        pruneOldMatchesForUser(player1Id).catch((err) =>
+            console.error('[Arena Retention] Lỗi khi dọn dẹp ván cũ player1:', err)
+        );
+        if (player2Id && !player2Id.startsWith('bot-')) {
+            pruneOldMatchesForUser(player2Id).catch((err) =>
+                console.error('[Arena Retention] Lỗi khi dọn dẹp ván cũ player2:', err)
+            );
+        }
     } catch (error) {
         await connection.rollback();
         console.error(`[Arena Transaction] Lỗi khi lưu ván đấu ${matchId}, đã rollback:`, error);

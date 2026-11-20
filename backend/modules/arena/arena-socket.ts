@@ -1251,27 +1251,25 @@ export function initArenaSocket(io: SocketIOServer): void {
 
         // ─── ĐẤU GIAO HỮU (FRIENDLY MATCH) ─────────────────────────
         // A. Gửi lời mời đấu giao hữu
-        socket.on('arena:friendly_invite', async ({ targetUserId, targetUsername }: { targetUserId?: string; targetUsername?: string }) => {
+        socket.on('arena:friendly_invite', async ({ targetUserId }: { targetUserId?: string }) => {
             try {
                 const fromUserId = user.id;
+                const trimmedTargetId = (targetUserId || '').trim();
 
-                let targetUserRow: any = null;
-                if (targetUserId) {
-                    const [rows] = await pool.execute(
-                        `SELECT id, full_name, avatar_url, username FROM users WHERE id = ? LIMIT 1`,
-                        [targetUserId]
-                    );
-                    targetUserRow = (rows as any[])[0];
-                } else if (targetUsername) {
-                    const [rows] = await pool.execute(
-                        `SELECT id, full_name, avatar_url, username FROM users WHERE username = ? OR email = ? OR id = ? LIMIT 1`,
-                        [targetUsername.trim(), targetUsername.trim(), targetUsername.trim()]
-                    );
-                    targetUserRow = (rows as any[])[0];
+                if (!trimmedTargetId) {
+                    socket.emit('arena:friendly_error', { message: 'Vui lòng nhập mã User ID người chơi.' });
+                    return;
                 }
 
+                // Truy vấn thông tin người nhận theo ID (Lưu ý: Bảng users không có cột username)
+                const [rows] = await pool.execute(
+                    `SELECT id, full_name, avatar_url FROM users WHERE id = ? LIMIT 1`,
+                    [trimmedTargetId]
+                );
+                const targetUserRow = (rows as any[])[0];
+
                 if (!targetUserRow) {
-                    socket.emit('arena:friendly_error', { message: 'Không tìm thấy người chơi này.' });
+                    socket.emit('arena:friendly_error', { message: 'Không tìm thấy người chơi có mã User ID này.' });
                     return;
                 }
 
@@ -1316,14 +1314,16 @@ export function initArenaSocket(io: SocketIOServer): void {
                     expireInSec: 60,
                 });
 
-                // Báo về P1 đã gửi lời mời thành công
+                // Báo về P1 đã gửi lời mời thành công (cung cấp cả targetUser và toUser)
+                const targetUserInfo = {
+                    id: toUserId,
+                    fullName: targetUserRow.full_name,
+                    avatarUrl: targetUserRow.avatar_url,
+                };
                 socket.emit('arena:friendly_sent', {
                     inviteId,
-                    toUser: {
-                        id: toUserId,
-                        fullName: targetUserRow.full_name,
-                        avatarUrl: targetUserRow.avatar_url,
-                    },
+                    targetUser: targetUserInfo,
+                    toUser: targetUserInfo,
                     expireInSec: 60,
                 });
 

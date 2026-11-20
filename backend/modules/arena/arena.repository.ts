@@ -309,7 +309,45 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
     };
 }
 
-// ─── 2. Lấy danh sách lịch sử trận đấu (Phân trang + Bộ lọc) ──────────────────
+// ─── 2. Dọn dẹp & Lấy danh sách lịch sử trận đấu (Phân trang + Bộ lọc) ──────────
+
+/**
+ * Tối ưu hóa Database: Chỉ lưu tối đa 16 trận đấu gần nhất cho mỗi người chơi (vừa đủ 2 trang lịch sử).
+ * Khi người chơi vượt quá 16 trận, hệ thống sẽ tự động xóa các trận đấu cũ hơn cùng với chi tiết 25 câu hỏi (ON DELETE CASCADE).
+ */
+export async function pruneOldMatchesForUser(userId: string): Promise<number> {
+    if (!userId || userId.startsWith('bot-')) return 0;
+
+    try {
+        // Lấy danh sách ID các ván đấu vượt quá 16 ván gần nhất của người chơi này
+        const [rows] = await pool.execute(
+            `SELECT id FROM arena_matches
+             WHERE player1_id = ? OR player2_id = ?
+             ORDER BY started_at DESC, id DESC
+             LIMIT 500 OFFSET 16`,
+            [userId, userId]
+        );
+
+        const oldMatches = rows as { id: string }[];
+        if (!oldMatches || oldMatches.length === 0) {
+            return 0;
+        }
+
+        const idsToDelete = oldMatches.map((m) => m.id);
+        const placeholders = idsToDelete.map(() => '?').join(', ');
+
+        await pool.execute(
+            `DELETE FROM arena_matches WHERE id IN (${placeholders})`,
+            idsToDelete
+        );
+
+        console.log(`[Arena Retention] Đã xóa ${idsToDelete.length} trận đấu cũ vượt quá 16 trận của user ${userId}`);
+        return idsToDelete.length;
+    } catch (error) {
+        console.error(`[Arena Retention] Lỗi khi dọn dẹp trận đấu cũ của user ${userId}:`, error);
+        return 0;
+    }
+}
 
 export async function getUserMatches(
     userId: string,
@@ -323,8 +361,11 @@ export async function getUserMatches(
         totalPages: number;
     };
 }> {
+    // Tự động dọn dẹp nếu người chơi có nhiều hơn 16 trận đấu trong DB
+    await pruneOldMatchesForUser(userId);
+
     const page = Math.max(1, Number(options.page) || 1);
-    const limit = Math.min(50, Math.max(1, Number(options.limit) || 10));
+    const limit = Math.min(50, Math.max(1, Number(options.limit) || 8));
     const offset = (page - 1) * limit;
     const filter = (options.filter || 'all').toLowerCase();
     const mode = (options.mode || 'all').toUpperCase();
@@ -340,20 +381,23 @@ export async function getUserMatches(
         whereClause = '((m.player1_id = ? OR m.player2_id = ?) AND m.result = "DRAW")';
     }
 
-    if (mode && mode !== 'ALL' && ['RANK', 'NORMAL', 'FRIENDLY'].includes(mode)) {
+    const upperMode = mode ? String(mode).toUpperCase().trim() : 'ALL';
+    if (upperMode !== 'ALL' && ['RANK', 'NORMAL', 'FRIENDLY'].includes(upperMode)) {
         whereClause += ' AND m.match_type = ?';
-        queryParams.push(mode);
+        queryParams.push(upperMode);
     }
 
-    // Đếm tổng số ván đấu phù hợp
+    // Đếm tổng số ván đấu phù hợp (giới hạn tối đa 16 trận = 2 trang)
     const [countRows] = await pool.execute(
         `SELECT COUNT(*) as total FROM arena_matches m WHERE ${whereClause}`,
         queryParams
     );
-    const totalItems = Number((countRows as any[])[0]?.total) || 0;
-    const totalPages = Math.ceil(totalItems / limit) || 1;
+    const rawTotal = Number((countRows as any[])[0]?.total) || 0;
+    const totalItems = Math.min(rawTotal, 16);
+    const totalPages = Math.min(2, Math.ceil(totalItems / limit) || 1);
 
-    // Lấy dữ liệu phân trang
+    // Lấy dữ liệu phân trang (đảm bảo không vượt quá 16 trận)
+    const safeOffset = Math.min(offset, 16);
     const [rows] = await pool.execute(
         `SELECT m.id, m.player1_id, m.player2_id, m.topic, m.rank_snapshot, m.match_type,
                 m.total_questions, m.time_limit_sec,
@@ -373,7 +417,7 @@ export async function getUserMatches(
          WHERE ${whereClause}
          ORDER BY m.started_at DESC
          LIMIT ? OFFSET ?`,
-        [...queryParams, String(limit), String(offset)]
+        [...queryParams, String(limit), String(safeOffset)]
     );
 
     const matches: MatchHistoryItem[] = (rows as any[]).map((m) => {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Swords, History, Trophy } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ArenaHub } from './arena/ArenaHub';
@@ -38,7 +38,12 @@ const getRankOrderVal = (rank?: string | null): number => {
   return RANK_ORDER_MAP[rank.toUpperCase().trim()] ?? 0;
 };
 
-export function ArenaView() {
+export interface ArenaViewProps {
+  initialPendingMatch?: MatchedPayload | null;
+  onClearPendingMatch?: () => void;
+}
+
+export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaViewProps = {}) {
   const [activeTab, setActiveTab] = useState<ArenaTab>('hub');
   const [activeScreen, setActiveScreen] = useState<'lobby' | 'gameplay' | 'result'>('lobby');
   const [isRankModalOpen, setIsRankModalOpen] = useState<boolean>(false);
@@ -46,7 +51,7 @@ export function ArenaView() {
   const [matchType, setMatchType] = useState<'RANK' | 'NORMAL' | 'FRIENDLY'>('RANK');
   const [isFriendlyModalOpen, setIsFriendlyModalOpen] = useState<boolean>(false);
   const [targetFriendForInvite, setTargetFriendForInvite] = useState<{ id: string; fullName: string; avatarUrl?: string | null } | null>(null);
-  const [friendlyMatchedData, setFriendlyMatchedData] = useState<MatchedPayload | null>(null);
+  const [friendlyMatchedData, setFriendlyMatchedData] = useState<MatchedPayload | null>(initialPendingMatch || null);
   const [profile, setProfile] = useState<UserArenaProfile | null>(null);
   const [activeMatchData, setActiveMatchData] = useState<MatchedPayload | null>(null);
   const [gameOverData, setGameOverData] = useState<GameOverPayload | null>(null);
@@ -55,8 +60,57 @@ export function ArenaView() {
   // Ref điều khiển hoạt cảnh Cánh Cửa Đấu Trường (2 cánh đá gate-left & gate-right)
   const gateRef = useRef<ArenaGateHandle>(null);
 
+  // Xử lý khi có trận đấu chờ (ví dụ P2 vừa chấp nhận lời mời đấu giao hữu từ bất kỳ trang nào)
+  useEffect(() => {
+    if (initialPendingMatch) {
+      setFriendlyMatchedData((prev) => {
+        if (prev?.roomId === initialPendingMatch.roomId) {
+          onClearPendingMatch?.();
+          return prev;
+        }
+        setMatchType('FRIENDLY');
+        setIsFriendlyModalOpen(false);
+        onClearPendingMatch?.();
+        gateRef.current?.triggerGateTransition({
+          onMiddle: () => {
+            setIsMatchmakingOpen(true);
+          },
+        });
+        return initialPendingMatch;
+      });
+    }
+  }, [initialPendingMatch, onClearPendingMatch]);
+
+  // Lắng nghe socket event 'arena:matched' trực tiếp nếu người chơi đang ở ngay trong ArenaView
+  useEffect(() => {
+    const socket = arenaSocketService.connect();
+    const handleDirectMatched = (matchedData: MatchedPayload) => {
+      if (matchedData.matchType === 'FRIENDLY') {
+        console.log('[ArenaView] Nhận sự kiện matched giao hữu trực tiếp:', matchedData);
+        setFriendlyMatchedData((prev) => {
+          if (prev?.roomId === matchedData.roomId) {
+            return prev;
+          }
+          setMatchType('FRIENDLY');
+          setIsFriendlyModalOpen(false);
+          gateRef.current?.triggerGateTransition({
+            onMiddle: () => {
+              setIsMatchmakingOpen(true);
+            },
+          });
+          return matchedData;
+        });
+      }
+    };
+
+    socket.on('arena:matched', handleDirectMatched);
+    return () => {
+      socket.off('arena:matched', handleDirectMatched);
+    };
+  }, []);
+
   // Lắng nghe sự kiện thách đấu trực tiếp từ FriendsPanel hoặc Chat
-  React.useEffect(() => {
+  useEffect(() => {
     const handleChallengeUser = (e: any) => {
       const friend = e.detail;
       if (friend) {
@@ -273,7 +327,7 @@ export function ArenaView() {
 
             {/* Tab 2: Lịch sử đấu */}
             <TabsContent value="history" className="mt-6">
-              <ArenaHistory onFindMatch={() => handleStartFindMatch('RANK')} />
+              <ArenaHistory onNavigateToHub={() => setActiveTab('hub')} />
             </TabsContent>
 
             {/* Tab 3: Bảng xếp hạng (Top 50) */}
@@ -297,6 +351,7 @@ export function ArenaView() {
               setIsFriendlyModalOpen(false);
               setTargetFriendForInvite(null);
             }}
+            currentUserId={profile?.user?.id}
             initialTargetFriend={targetFriendForInvite}
             onFriendlyMatched={handleFriendlyMatched}
           />

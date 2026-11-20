@@ -21,7 +21,9 @@ import {
   Award,
   Bot,
   BookOpen,
-  Users
+  Users,
+  Gamepad2,
+  Layers,
 } from 'lucide-react';
 import {
   arenaService,
@@ -36,6 +38,7 @@ export interface MatchHistoryItem {
   endedAt: string | null;
   topic: string;
   rankSnapshot: string;
+  matchType?: 'RANK' | 'NORMAL' | 'FRIENDLY';
   totalQuestions: number;
   timeLimitSec: number;
   myResult: 'WIN' | 'LOSS' | 'DRAW';
@@ -54,7 +57,7 @@ export interface MatchHistoryItem {
 }
 
 interface ArenaHistoryProps {
-  onFindMatch?: () => void;
+  onNavigateToHub?: () => void;
   currentUserProfile?: UserArenaProfile | null;
 }
 
@@ -102,7 +105,7 @@ const formatDate = (dateString?: string): string => {
 };
 
 export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
-  onFindMatch,
+  onNavigateToHub,
   currentUserProfile,
 }) => {
   const [profile, setProfile] = useState<UserArenaProfile | null>(currentUserProfile || null);
@@ -135,8 +138,8 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
         });
         if (isMounted && res) {
           setMatches(res.matches || []);
-          setTotalPages(res.pagination?.totalPages || 1);
-          setTotalItems(res.pagination?.totalItems || 0);
+          setTotalPages(Math.min(res.pagination?.totalPages || 1, 2));
+          setTotalItems(Math.min(res.pagination?.totalItems || 0, 16));
         }
       } catch (err) {
         console.error('Lỗi khi tải lịch sử đấu:', err);
@@ -157,28 +160,39 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
         {/* Dropdown chọn chế độ (All mode, PvP, Bot) */}
         <div className="rounded-xl px-4 py-3 bg-card/40 flex items-cente w-full sm:w-auto">
-          <Select value={modeFilter} onValueChange={setModeFilter}>
+          <Select
+            value={modeFilter}
+            onValueChange={(val) => {
+              setModeFilter(val);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-52 bg-background border-border">
               <SelectValue placeholder="Chọn chế độ" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả chế độ</SelectItem>
+              <SelectItem value="all">
+                <span className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-muted-foreground" />
+                  <span>Tất cả chế độ</span>
+                </span>
+              </SelectItem>
               <SelectItem value="rank">
                 <span className="flex items-center gap-2">
-                  <Swords className="h-4 w-4 text-amber-500" />
-                  <span>Đấu Xếp Hạng</span>
+                  <Swords className="h-4 w-4 text-purple-500" />
+                  <span className="font-semibold text-purple-600 dark:text-purple-400">Đấu Xếp Hạng</span>
                 </span>
               </SelectItem>
               <SelectItem value="normal">
                 <span className="flex items-center gap-2">
-                  <BadgeCheck className="h-4 w-4 text-sky-500" />
-                  <span>Đấu Thường</span>
+                  <Gamepad2 className="h-4 w-4 text-sky-500" />
+                  <span className="font-semibold text-sky-600 dark:text-sky-400">Đấu Thường</span>
                 </span>
               </SelectItem>
               <SelectItem value="friendly">
                 <span className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-purple-500" />
-                  <span>Đấu Giao Hữu</span>
+                  <Users className="h-4 w-4 text-emerald-500" />
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">Đấu Giao Hữu</span>
                 </span>
               </SelectItem>
             </SelectContent>
@@ -200,14 +214,14 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
           <div className="space-y-1">
             <h3 className="text-lg font-bold">Chưa có trận đấu nào</h3>
             <p className="text-sm text-muted-foreground">
-              {resultFilter !== 'all'
+              {resultFilter !== 'all' || modeFilter !== 'all'
                 ? 'Không tìm thấy ván đấu nào phù hợp với bộ lọc.'
                 : 'Bạn chưa tham gia trận đấu nào. Hãy bước vào Đấu trường ngay!'}
             </p>
           </div>
-          {onFindMatch && (
-            <Button onClick={onFindMatch} className="mt-2 font-semibold">
-              <Zap className="h-4 w-4 mr-2" /> Tìm trận ngay
+          {onNavigateToHub && (
+            <Button onClick={onNavigateToHub} className="mt-2 font-semibold bg-purple-600 hover:bg-purple-700 text-white">
+              <Swords className="h-4 w-4 mr-2" /> Bước vào Đấu trường ngay
             </Button>
           )}
         </Card>
@@ -254,11 +268,31 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                     )}
                   </div>
 
-                  {/* Tên người chơi & Thời gian thi đấu */}
-                  <div className="space-y-1 min-w-0 max-w-[110px] sm:max-w-[140px]">
+                  {/* Tên người chơi & Chế độ thi đấu & Thời gian thi đấu */}
+                  <div className="space-y-0.5 min-w-0 max-w-[110px] sm:max-w-[140px]">
                     <p className="font-bold text-sm sm:text-base truncate" title={profile?.user?.fullName || 'Bạn'}>
                       {profile?.user?.fullName || 'Bạn'}
                     </p>
+                    {/* Dòng 2: Chế độ thi đấu kèm icon tương ứng */}
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      {m.matchType === 'RANK' ? (
+                        <>
+                          <Swords className="h-3 w-3 shrink-0 text-purple-500" />
+                          <span className="truncate">Đấu hạng</span>
+                        </>
+                      ) : m.matchType === 'NORMAL' ? (
+                        <>
+                          <Gamepad2 className="h-3 w-3 shrink-0 text-sky-500" />
+                          <span className="truncate">Đấu thường</span>
+                        </>
+                      ) : (
+                        <>
+                          <Users className="h-3 w-3 shrink-0 text-emerald-500" />
+                          <span className="truncate">Giao hữu</span>
+                        </>
+                      )}
+                    </div>
+                    {/* Dòng 3: Thời gian thi đấu kèm icon lịch */}
                     <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                       <Calendar className="h-3 w-3 shrink-0" />
                       <span className="truncate">{formatDate(m.startedAt)}</span>
@@ -281,13 +315,9 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                       <span className={`text-xs font-bold mt-0.5 ${rpColorClass}`}>
                         {m.myPointsChange > 0 ? `+${m.myPointsChange}` : m.myPointsChange} RP
                       </span>
-                    ) : m.matchType === 'NORMAL' ? (
-                      <span className="text-[11px] font-semibold mt-0.5 text-sky-500">
-                        Đấu Thường
-                      </span>
                     ) : (
-                      <span className="text-[11px] font-semibold mt-0.5 text-purple-500">
-                        Giao Hữu
+                      <span className="text-xs font-bold mt-0.5 text-muted-foreground">
+                        --
                       </span>
                     )}
                   </div>
@@ -310,24 +340,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                 </div>
 
                 {/* ── 2. TRUNG TÂM: BANNER KẾT QUẢ VICTORY / DEFEAT / DRAW ── */}
-                <div className="shrink-0 px-1 sm:px-3 flex flex-col items-center justify-center z-10 space-y-1">
-                  {/* Badge Chế độ đấu (Đặt trên đỉnh Banner, màu lavender cho Giao Hữu không trùng vàng/đỏ) */}
-                  <span
-                    className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${
-                      m.matchType === 'FRIENDLY'
-                        ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800'
-                        : m.matchType === 'NORMAL'
-                        ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-800'
-                        : 'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700'
-                    }`}
-                  >
-                    {m.matchType === 'FRIENDLY'
-                      ? 'Giao Hữu'
-                      : m.matchType === 'NORMAL'
-                      ? 'Đấu Thường'
-                      : 'Xếp Hạng'}
-                  </span>
-
+                <div className="shrink-0 px-1 sm:px-3 flex items-center justify-center z-10">
                   <div className="h-14 sm:h-16 md:h-18 flex items-center justify-center">
                     <img
                       src={`/assets/banners/banner-${isWin ? 'victory' : isLoss ? 'defeat' : 'draw'}.png`}
@@ -384,13 +397,9 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                       <span className="text-xs font-bold mt-0.5 text-muted-foreground">
                         {m.opponent.pointsChange > 0 ? `+${m.opponent.pointsChange}` : m.opponent.pointsChange} RP
                       </span>
-                    ) : m.matchType === 'NORMAL' ? (
-                      <span className="text-[11px] font-semibold mt-0.5 text-sky-500">
-                        Đấu Thường
-                      </span>
                     ) : (
-                      <span className="text-[11px] font-semibold mt-0.5 text-purple-500">
-                        Giao Hữu
+                      <span className="text-xs font-bold mt-0.5 text-muted-foreground">
+                        --
                       </span>
                     )}
                   </div>
@@ -430,7 +439,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-4 border-t">
           <p className="text-xs text-muted-foreground">
-            Tổng cộng <span className="font-semibold text-foreground">{totalItems}</span> ván đấu
+            Tổng cộng <span className="font-semibold text-foreground">{totalItems}</span> ván đấu gần nhất
           </p>
           <div className="flex items-center gap-2">
             <Button

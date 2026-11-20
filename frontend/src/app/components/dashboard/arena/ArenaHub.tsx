@@ -11,7 +11,6 @@ import {
     Zap,
     Loader2,
     TrendingUp,
-    CircleDollarSign,
     Gamepad2,
     Users,
     Sparkles,
@@ -93,6 +92,7 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
     onNavigateToLeaderboard,
     onOpenRankModal,
     onFindMatch,
+    onOpenFriendlyInvite,
     onProfileLoaded,
     rankChangeData,
     onRankChangeAnimationComplete,
@@ -306,9 +306,6 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                         <Badge variant="secondary" className="text-xs">
                                             Level {user.level}
                                         </Badge>
-                                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                            <CircleDollarSign className="w-4 h-4 text-emerald-600" />{user.coinBalance.toLocaleString()}
-                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -369,22 +366,22 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                     Đấu Thường
                                 </Button>
 
-                                {/* 2. Đấu Xếp Hạng (Leo rank, tính RP/LP) */}
+                                {/* 2. Đấu Xếp Hạng (Màu tím Lavender quý phái, leo rank tính RP/LP) */}
                                 <Button
-                                    className="h-11 justify-center font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-sm transition-all hover:scale-[1.01]"
+                                    className="h-11 justify-center font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:to-violet-700 text-white shadow-sm transition-all hover:scale-[1.01]"
                                     onClick={() => onFindMatch?.('RANK')}
                                 >
-                                    <Zap className="h-4 w-4 mr-2" />
+                                    <Swords className="h-4 w-4 mr-2" />
                                     Đấu Xếp Hạng
                                 </Button>
 
-                                {/* 3. Đấu Giao Hữu (Thách đấu bạn bè 1v1, 0 Coin/EXP, không đổi RP) */}
+                                {/* 3. Đấu Giao Hữu (Màu xanh lá hòa bình, 0 Coin/EXP, không đổi RP) */}
                                 <Button
                                     variant="outline"
-                                    className="h-11 justify-center font-semibold border-purple-300/80 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-700 dark:text-purple-300 transition-all hover:scale-[1.01]"
+                                    className="h-11 justify-center font-semibold border-emerald-400/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 transition-all hover:scale-[1.01]"
                                     onClick={onOpenFriendlyInvite}
                                 >
-                                    <Users className="h-4 w-4 mr-2 text-purple-500" />
+                                    <Users className="h-4 w-4 mr-2 text-emerald-500" />
                                     Đấu Giao Hữu
                                 </Button>
 
