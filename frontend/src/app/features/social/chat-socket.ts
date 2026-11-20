@@ -1,11 +1,15 @@
 import { io, Socket } from 'socket.io-client';
+import { getSocketServerUrl } from '../../services/socket-config';
+import { tokenStore } from '../../services/tokenStore';
 
 let socketInstance: Socket | null = null;
 let boundUserId: string | null = null;
+let unsubscribeTokenChange: (() => void) | null = null;
 
 /**
  * Lấy hoặc khởi tạo instance Socket.io kết nối đến namespace /chat.
- * Sử dụng withCredentials để tự động đính kèm cookie httpOnly (accessToken/token).
+ * Sử dụng withCredentials để tự động đính kèm cookie httpOnly (accessToken/token),
+ * đồng thời truyền accessToken qua auth payload để hỗ trợ môi trường production cross-domain.
  * Tự động ngắt và tái tạo kết nối nếu userId thay đổi (chuyển đổi tài khoản).
  */
 export function getChatSocket(userId?: string): Socket {
@@ -16,8 +20,8 @@ export function getChatSocket(userId?: string): Socket {
 
   if (!socketInstance) {
     if (userId) boundUserId = userId;
-    const apiUrl = import.meta.env.VITE_API_URL;
-    const socketUrl = apiUrl ? `${apiUrl.replace(/\/+$/, '')}/chat` : '/chat';
+    const socketBase = getSocketServerUrl();
+    const socketUrl = socketBase ? `${socketBase}/chat` : '/chat';
 
     socketInstance = io(socketUrl, {
       path: '/socket.io',
@@ -28,6 +32,16 @@ export function getChatSocket(userId?: string): Socket {
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+      auth: { token: tokenStore.getToken() ?? '' },
+    });
+
+    if (unsubscribeTokenChange) {
+      unsubscribeTokenChange();
+    }
+    unsubscribeTokenChange = tokenStore.onTokenChange((newToken) => {
+      if (socketInstance && newToken) {
+        (socketInstance.auth as Record<string, string>).token = newToken;
+      }
     });
 
     socketInstance.on('connect_error', (err) => {
@@ -45,6 +59,10 @@ export function getChatSocket(userId?: string): Socket {
  * Ngắt kết nối socket (dùng khi đăng xuất hoặc đổi tài khoản).
  */
 export function disconnectChatSocket(): void {
+  if (unsubscribeTokenChange) {
+    unsubscribeTokenChange();
+    unsubscribeTokenChange = null;
+  }
   if (socketInstance) {
     socketInstance.disconnect();
     socketInstance = null;

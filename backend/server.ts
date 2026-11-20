@@ -74,7 +74,14 @@ const corsOptions: cors.CorsOptions = {
 
 const io = new SocketIO(httpServer, {
     cors: {
-        origin: allowedOrigins,
+        origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+            if (!origin || isOriginAllowed(origin)) {
+                callback(null, true);
+            } else {
+                console.warn(`[Socket CORS Warning] Origin không được phép: ${origin}`);
+                callback(new Error(`[Socket CORS] Origin không được phép: ${origin}`));
+            }
+        },
         credentials: true
     }
 });

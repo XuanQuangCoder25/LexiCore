@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import axios from 'axios';
 import { tokenStore } from './tokenStore';
+import { getSocketServerUrl } from './socket-config';
 
 export interface ArenaPlayerInfo {
   id: string;
@@ -111,7 +112,10 @@ class ArenaSocketService {
     }
 
     if (!this.socket) {
-      this.socket = io({
+      const socketBase = getSocketServerUrl();
+      console.log(`[Arena Socket Client] Connecting to: ${socketBase || 'same-origin (proxy)'}`);
+
+      this.socket = io(socketBase || undefined, {
         path: '/socket.io',
         withCredentials: true,
         transports: ['websocket', 'polling'],
