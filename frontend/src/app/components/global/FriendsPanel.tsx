@@ -50,7 +50,7 @@ import {
 interface FriendsPanelProps {
   open: boolean;
   onClose: () => void;
-  onChallenge: () => void;
+  onChallenge: (friend?: FriendItem) => void;
   /** Mở khung chat với một người bạn (được nối ở Phase 5). Nếu không truyền thì ẩn nút nhắn tin. */
   onMessage?: (friend: { id: string; full_name: string; avatar_url: string | null }) => void;
 }
@@ -229,7 +229,7 @@ export function FriendsPanel({ open, onClose, onChallenge, onMessage }: FriendsP
             <MessageCircle className="h-4 w-4" />
           </Button>
         )}
-        <Button size="sm" variant="outline" className="h-7 px-2" title="Thách đấu" onClick={onChallenge}>
+        <Button size="sm" variant="outline" className="h-7 px-2" title="Thách đấu" onClick={() => onChallenge(friend)}>
           <Swords className="h-3.5 w-3.5" />
         </Button>
         <DropdownMenu>

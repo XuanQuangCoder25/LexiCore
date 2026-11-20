@@ -14,11 +14,42 @@ export interface ArenaPlayerInfo {
 
 export interface MatchedPayload {
   roomId: string;
+  matchType?: 'RANK' | 'NORMAL' | 'FRIENDLY';
   me: ArenaPlayerInfo;
   opponent: ArenaPlayerInfo;
   questions: any[];
   totalQuestions: number;
   timeLimitSec: number;
+}
+
+export interface FriendlyInviteReceivedPayload {
+  inviteId: string;
+  fromUser: {
+    id: string;
+    fullName: string;
+    avatarUrl: string | null;
+    rank: string;
+  };
+  expireInSec: number;
+}
+
+export interface FriendlyInviteSentPayload {
+  inviteId: string;
+  targetUser: {
+    id: string;
+    fullName: string;
+    avatarUrl: string | null;
+  };
+  expireInSec: number;
+}
+
+export interface FriendlyInviteDeclinedPayload {
+  inviteId: string;
+  message: string;
+}
+
+export interface FriendlyInviteCancelledPayload {
+  inviteId: string;
 }
 
 export interface GameOverPlayerStats {
@@ -155,9 +186,87 @@ class ArenaSocketService {
     return !!this.socket?.connected;
   }
 
-  public findMatch(): void {
+  public findMatch(matchType: 'RANK' | 'NORMAL' = 'RANK'): void {
     const s = this.connect();
-    s.emit('arena:find_match');
+    s.emit('arena:find_match', { matchType });
+  }
+
+  public friendlyInvite(data: { targetUserId?: string; targetUsername?: string }): void {
+    const s = this.connect();
+    s.emit('arena:friendly_invite', data);
+  }
+
+  public friendlyCancel(inviteId: string): void {
+    if (this.socket) {
+      this.socket.emit('arena:friendly_cancel', { inviteId });
+    }
+  }
+
+  public friendlyDecline(inviteId: string): void {
+    if (this.socket) {
+      this.socket.emit('arena:friendly_decline', { inviteId });
+    }
+  }
+
+  public friendlyAccept(inviteId: string): void {
+    if (this.socket) {
+      this.socket.emit('arena:friendly_accept', { inviteId });
+    }
+  }
+
+  public onFriendlyReceived(cb: (payload: FriendlyInviteReceivedPayload) => void): void {
+    const s = this.connect();
+    s.on('arena:friendly_received', cb);
+  }
+
+  public offFriendlyReceived(cb: (payload: FriendlyInviteReceivedPayload) => void): void {
+    if (this.socket) {
+      this.socket.off('arena:friendly_received', cb);
+    }
+  }
+
+  public onFriendlySent(cb: (payload: FriendlyInviteSentPayload) => void): void {
+    const s = this.connect();
+    s.on('arena:friendly_sent', cb);
+  }
+
+  public offFriendlySent(cb: (payload: FriendlyInviteSentPayload) => void): void {
+    if (this.socket) {
+      this.socket.off('arena:friendly_sent', cb);
+    }
+  }
+
+  public onFriendlyDeclined(cb: (payload: FriendlyInviteDeclinedPayload) => void): void {
+    const s = this.connect();
+    s.on('arena:friendly_declined', cb);
+  }
+
+  public offFriendlyDeclined(cb: (payload: FriendlyInviteDeclinedPayload) => void): void {
+    if (this.socket) {
+      this.socket.off('arena:friendly_declined', cb);
+    }
+  }
+
+  public onFriendlyCancelled(cb: (payload: FriendlyInviteCancelledPayload) => void): void {
+    const s = this.connect();
+    s.on('arena:friendly_cancelled', cb);
+  }
+
+  public offFriendlyCancelled(cb: (payload: FriendlyInviteCancelledPayload) => void): void {
+    if (this.socket) {
+      this.socket.off('arena:friendly_cancelled', cb);
+    }
+  }
+
+  public onFriendlyError(cb: (payload: { message: string }) => void): void {
+    const s = this.connect();
+    s.on('arena:friendly_error', cb);
+  }
+
+  public offFriendlyError(cb: (payload: { message: string }) => void): void {
+    if (this.socket) {
+      this.socket.off('arena:friendly_error', cb);
+    }
   }
 
   public cancelMatch(): void {

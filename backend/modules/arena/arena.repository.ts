@@ -61,6 +61,7 @@ export interface MatchHistoryItem {
     endedAt: string | null;
     topic: string;
     rankSnapshot: ArenaRank;
+    matchType: 'RANK' | 'NORMAL' | 'FRIENDLY';
     totalQuestions: number;
     timeLimitSec: number;
     myResult: 'WIN' | 'LOSS' | 'DRAW';
@@ -312,7 +313,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
 
 export async function getUserMatches(
     userId: string,
-    options: { page?: number; limit?: number; filter?: string }
+    options: { page?: number; limit?: number; filter?: string; mode?: string }
 ): Promise<{
     matches: MatchHistoryItem[];
     pagination: {
@@ -326,6 +327,7 @@ export async function getUserMatches(
     const limit = Math.min(50, Math.max(1, Number(options.limit) || 10));
     const offset = (page - 1) * limit;
     const filter = (options.filter || 'all').toLowerCase();
+    const mode = (options.mode || 'all').toUpperCase();
 
     let whereClause = '(m.player1_id = ? OR m.player2_id = ?)';
     const queryParams: any[] = [userId, userId];
@@ -338,6 +340,11 @@ export async function getUserMatches(
         whereClause = '((m.player1_id = ? OR m.player2_id = ?) AND m.result = "DRAW")';
     }
 
+    if (mode && mode !== 'ALL' && ['RANK', 'NORMAL', 'FRIENDLY'].includes(mode)) {
+        whereClause += ' AND m.match_type = ?';
+        queryParams.push(mode);
+    }
+
     // Đếm tổng số ván đấu phù hợp
     const [countRows] = await pool.execute(
         `SELECT COUNT(*) as total FROM arena_matches m WHERE ${whereClause}`,
@@ -348,7 +355,7 @@ export async function getUserMatches(
 
     // Lấy dữ liệu phân trang
     const [rows] = await pool.execute(
-        `SELECT m.id, m.player1_id, m.player2_id, m.topic, m.rank_snapshot,
+        `SELECT m.id, m.player1_id, m.player2_id, m.topic, m.rank_snapshot, m.match_type,
                 m.total_questions, m.time_limit_sec,
                 m.p1_correct, m.p1_time_used_ms,
                 m.p2_correct, m.p2_time_used_ms,
@@ -381,6 +388,7 @@ export async function getUserMatches(
             endedAt: m.ended_at,
             topic: m.topic,
             rankSnapshot: m.rank_snapshot,
+            matchType: (m.match_type as 'RANK' | 'NORMAL' | 'FRIENDLY') || 'RANK',
             totalQuestions: Number(m.total_questions) || 25,
             timeLimitSec: Number(m.time_limit_sec) || 360,
             myResult,

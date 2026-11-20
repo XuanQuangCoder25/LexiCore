@@ -20,7 +20,8 @@ import {
   Zap,
   Award,
   Bot,
-  BookOpen
+  BookOpen,
+  Users
 } from 'lucide-react';
 import {
   arenaService,
@@ -130,6 +131,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
           page,
           limit: 8,
           filter: resultFilter,
+          mode: modeFilter,
         });
         if (isMounted && res) {
           setMatches(res.matches || []);
@@ -147,7 +149,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [page, resultFilter]);
+  }, [page, resultFilter, modeFilter]);
 
   return (
     <div className="space-y-6">
@@ -161,16 +163,22 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả chế độ</SelectItem>
-              <SelectItem value="pvp">
+              <SelectItem value="rank">
                 <span className="flex items-center gap-2">
-                  <Swords className="h-4 w-4 text-primary" />
-                  <span>Đấu trường PvP 1v1</span>
+                  <Swords className="h-4 w-4 text-amber-500" />
+                  <span>Đấu Xếp Hạng</span>
                 </span>
               </SelectItem>
-              <SelectItem value="bot" disabled>
+              <SelectItem value="normal">
                 <span className="flex items-center gap-2">
-                  <Bot className="h-4 w-4 text-primary" />
-                  <span>Đấu với AI Bot (Sắp ra mắt)</span>
+                  <BadgeCheck className="h-4 w-4 text-sky-500" />
+                  <span>Đấu Thường</span>
+                </span>
+              </SelectItem>
+              <SelectItem value="friendly">
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-purple-500" />
+                  <span>Đấu Giao Hữu</span>
                 </span>
               </SelectItem>
             </SelectContent>
@@ -269,9 +277,19 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                         }}
                       />
                     </div>
-                    <span className={`text-xs font-bold mt-0.5 ${rpColorClass}`}>
-                      {m.myPointsChange > 0 ? `+${m.myPointsChange}` : m.myPointsChange} RP
-                    </span>
+                    {m.matchType === 'RANK' ? (
+                      <span className={`text-xs font-bold mt-0.5 ${rpColorClass}`}>
+                        {m.myPointsChange > 0 ? `+${m.myPointsChange}` : m.myPointsChange} RP
+                      </span>
+                    ) : m.matchType === 'NORMAL' ? (
+                      <span className="text-[11px] font-semibold mt-0.5 text-sky-500">
+                        Đấu Thường
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold mt-0.5 text-purple-500">
+                        Giao Hữu
+                      </span>
+                    )}
                   </div>
 
                   {/* Điểm số (câu đúng/tổng) & Thời gian trả lời */}
@@ -292,7 +310,24 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                 </div>
 
                 {/* ── 2. TRUNG TÂM: BANNER KẾT QUẢ VICTORY / DEFEAT / DRAW ── */}
-                <div className="shrink-0 px-1 sm:px-3 flex flex-col items-center justify-center z-10">
+                <div className="shrink-0 px-1 sm:px-3 flex flex-col items-center justify-center z-10 space-y-1">
+                  {/* Badge Chế độ đấu (Đặt trên đỉnh Banner, màu lavender cho Giao Hữu không trùng vàng/đỏ) */}
+                  <span
+                    className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${
+                      m.matchType === 'FRIENDLY'
+                        ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800'
+                        : m.matchType === 'NORMAL'
+                        ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-800'
+                        : 'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                    }`}
+                  >
+                    {m.matchType === 'FRIENDLY'
+                      ? 'Giao Hữu'
+                      : m.matchType === 'NORMAL'
+                      ? 'Đấu Thường'
+                      : 'Xếp Hạng'}
+                  </span>
+
                   <div className="h-14 sm:h-16 md:h-18 flex items-center justify-center">
                     <img
                       src={`/assets/banners/banner-${isWin ? 'victory' : isLoss ? 'defeat' : 'draw'}.png`}
@@ -345,9 +380,19 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                         }}
                       />
                     </div>
-                    <span className="text-xs font-bold mt-0.5 text-muted-foreground">
-                      {m.opponent.pointsChange > 0 ? `+${m.opponent.pointsChange}` : m.opponent.pointsChange} RP
-                    </span>
+                    {m.matchType === 'RANK' ? (
+                      <span className="text-xs font-bold mt-0.5 text-muted-foreground">
+                        {m.opponent.pointsChange > 0 ? `+${m.opponent.pointsChange}` : m.opponent.pointsChange} RP
+                      </span>
+                    ) : m.matchType === 'NORMAL' ? (
+                      <span className="text-[11px] font-semibold mt-0.5 text-sky-500">
+                        Đấu Thường
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold mt-0.5 text-purple-500">
+                        Giao Hữu
+                      </span>
+                    )}
                   </div>
 
                   {/* Tên đối thủ */}

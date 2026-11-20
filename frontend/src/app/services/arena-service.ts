@@ -49,7 +49,7 @@ export const arenaService = {
     const res = await api.get('/api/arena/profile/me');
     return res.data.data;
   },
-  getMyMatches: async (params?: { page?: number; limit?: number; filter?: string }) => {
+  getMyMatches: async (params?: { page?: number; limit?: number; filter?: string; mode?: string }) => {
     const res = await api.get('/api/arena/matches', { params });
     return res.data.data;
   },

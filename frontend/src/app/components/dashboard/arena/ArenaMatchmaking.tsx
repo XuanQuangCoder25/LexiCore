@@ -17,6 +17,8 @@ export interface ArenaMatchmakingModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserProfile: UserArenaProfile | null;
+  matchType?: 'RANK' | 'NORMAL' | 'FRIENDLY';
+  initialMatchedData?: MatchedPayload | null;
   onMatchReady?: (matchData: MatchedPayload) => void;
 }
 
@@ -26,11 +28,13 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
   isOpen,
   onClose,
   currentUserProfile,
+  matchType = 'RANK',
+  initialMatchedData = null,
   onMatchReady,
 }) => {
-  const [stage, setStage] = useState<MatchmakingStage>('SEARCHING');
+  const [stage, setStage] = useState<MatchmakingStage>(initialMatchedData ? 'MATCHED' : 'SEARCHING');
   const [searchSeconds, setSearchSeconds] = useState<number>(0);
-  const [matchedData, setMatchedData] = useState<MatchedPayload | null>(null);
+  const [matchedData, setMatchedData] = useState<MatchedPayload | null>(initialMatchedData || null);
   const [p1Ready, setP1Ready] = useState<boolean>(false);
   const [p2Ready, setP2Ready] = useState<boolean>(false);
   const [readyCountdown, setReadyCountdown] = useState<number>(15);
@@ -210,8 +214,25 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     socket.on('arena:match_error', handleMatchError);
     socket.on('arena:queue_rejected', handleMatchError);
 
-    // Bắn event tìm trận thật lên server MỘT LẦN DUY NHẤT
-    arenaSocketService.findMatch();
+    // Nếu đã có sẵn dữ liệu trận đấu (ví dụ: vừa chấp nhận đấu giao hữu), không cần emit findMatch
+    if (initialMatchedData) {
+      setMatchedData(initialMatchedData);
+      setStage('MATCHED');
+      setReadyCountdown(15);
+      if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+      readyTimerRef.current = setInterval(() => {
+        setReadyCountdown((prev) => {
+          if (prev <= 1) {
+            if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (matchType !== 'FRIENDLY') {
+      // Bắn event tìm trận thật lên server MỘT LẦN DUY NHẤT theo matchType đã chọn
+      arenaSocketService.findMatch(matchType);
+    }
 
     return () => {
       socket.off('arena:searching', handleSearching);

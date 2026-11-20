@@ -12,6 +12,9 @@ import {
     Loader2,
     TrendingUp,
     CircleDollarSign,
+    Gamepad2,
+    Users,
+    Sparkles,
 } from 'lucide-react';
 import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
 import { ArenaRankChangeEffect, RankChangeData } from './ArenaRankChangeEffect';
@@ -19,7 +22,8 @@ import { ArenaRankChangeEffect, RankChangeData } from './ArenaRankChangeEffect';
 interface ArenaHubProps {
     onNavigateToLeaderboard?: (rankFilter?: string) => void;
     onOpenRankModal?: () => void;
-    onFindMatch?: () => void;
+    onFindMatch?: (matchType?: 'RANK' | 'NORMAL') => void;
+    onOpenFriendlyInvite?: () => void;
     onProfileLoaded?: (profile: UserArenaProfile) => void;
     rankChangeData?: RankChangeData | null;
     onRankChangeAnimationComplete?: () => void;
@@ -353,23 +357,45 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                 </div>
                             </div>
 
-                            {/* 2 Buttons: Chọn chế độ & Tìm trận */}
-                            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                            {/* 4 Buttons chế độ đấu (2 hàng x 2 cột) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                {/* 1. Đấu Thường (Không trừ điểm rank, nhận Coin & EXP) */}
                                 <Button
                                     variant="outline"
-                                    className="w-full sm:flex-1 cursor-default justify-center font-medium"
+                                    className="h-11 justify-center font-semibold border-sky-300/80 hover:bg-sky-50 dark:hover:bg-sky-950/30 text-sky-700 dark:text-sky-300 transition-all hover:scale-[1.01]"
+                                    onClick={() => onFindMatch?.('NORMAL')}
                                 >
-                                    <Swords className="h-4 w-4 mr-2 text-primary" />
-                                    Chế độ: 1v1 PvP
+                                    <Gamepad2 className="h-4 w-4 mr-2 text-sky-500" />
+                                    Đấu Thường
                                 </Button>
 
+                                {/* 2. Đấu Xếp Hạng (Leo rank, tính RP/LP) */}
                                 <Button
-                                    className="w-full sm:flex-1 justify-center font-semibold"
-                                    size="default"
-                                    onClick={onFindMatch}
+                                    className="h-11 justify-center font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-sm transition-all hover:scale-[1.01]"
+                                    onClick={() => onFindMatch?.('RANK')}
                                 >
                                     <Zap className="h-4 w-4 mr-2" />
-                                    Tìm trận đấu
+                                    Đấu Xếp Hạng
+                                </Button>
+
+                                {/* 3. Đấu Giao Hữu (Thách đấu bạn bè 1v1, 0 Coin/EXP, không đổi RP) */}
+                                <Button
+                                    variant="outline"
+                                    className="h-11 justify-center font-semibold border-purple-300/80 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-700 dark:text-purple-300 transition-all hover:scale-[1.01]"
+                                    onClick={onOpenFriendlyInvite}
+                                >
+                                    <Users className="h-4 w-4 mr-2 text-purple-500" />
+                                    Đấu Giao Hữu
+                                </Button>
+
+                                {/* 4. Sắp Ra Mắt (Chế độ thứ 4) */}
+                                <Button
+                                    variant="outline"
+                                    disabled
+                                    className="h-11 justify-center font-medium opacity-60 border-dashed border-muted-foreground/40 cursor-not-allowed"
+                                >
+                                    <Sparkles className="h-4 w-4 mr-2 text-muted-foreground" />
+                                    Sắp Ra Mắt
                                 </Button>
                             </div>
                         </CardContent>

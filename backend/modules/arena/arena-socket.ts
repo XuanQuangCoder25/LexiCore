@@ -146,7 +146,12 @@ async function getPlayerProfiles(userIds: string[]): Promise<Map<string, PlayerP
 }
 
 // Tạo phòng đấu trong Redis và gửi event arena:matched cho cả 2 người chơi
-async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): Promise<void> {
+async function createArenaRoom(
+    io: SocketIOServer,
+    p1Id: string,
+    p2Id: string,
+    matchType: 'RANK' | 'NORMAL' | 'FRIENDLY' = 'RANK'
+): Promise<void> {
     const roomId = uuidv4();
     const profiles = await getPlayerProfiles([p1Id, p2Id]);
 
@@ -184,6 +189,7 @@ async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): 
         player1Id: p1Id,
         player2Id: p2Id,
         rankSnapshot,
+        matchType,
         status: 'MATCHED',
         createdAt: Date.now().toString(),
         totalQuestions: matchQuestions.length.toString(),
@@ -215,6 +221,7 @@ async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): 
     // Gửi thông báo tìm thấy trận đấu kèm thông tin đối thủ và bộ câu hỏi
     io.to(`user:${p1Id}`).emit('arena:matched', {
         roomId,
+        matchType,
         me: p1,
         opponent: p2,
         questions: matchQuestions,
@@ -224,6 +231,7 @@ async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): 
 
     io.to(`user:${p2Id}`).emit('arena:matched', {
         roomId,
+        matchType,
         me: p2,
         opponent: p1,
         questions: matchQuestions,
@@ -231,7 +239,7 @@ async function createArenaRoom(io: SocketIOServer, p1Id: string, p2Id: string): 
         timeLimitSec: MATCH_TIME_LIMIT_SEC,
     });
 
-    console.log(`[Arena Matchmaking] Ghép trận thành công: ${p1.full_name} vs ${p2.full_name} (Phòng: ${roomId})`);
+    console.log(`[Arena Matchmaking] Ghép trận thành công (${matchType}): ${p1.full_name} vs ${p2.full_name} (Phòng: ${roomId})`);
 
     // Thiết lập hẹn giờ 15 giây: Nếu sau 15s cả hai chưa sẵn sàng thì tự động hủy phòng
     const rTimer = setTimeout(async () => {
@@ -801,11 +809,13 @@ export async function finishMatch(
     const p1BaseRewards = ARENA_MATCH_REWARDS[p1MatchResult];
     const p2BaseRewards = ARENA_MATCH_REWARDS[p2MatchResult];
 
-    const p1Coins = p1WasDouble ? p1BaseRewards.coins * 2 : p1BaseRewards.coins;
-    const p1Exp = p1WasDouble ? p1BaseRewards.exp * 2 : p1BaseRewards.exp;
+    // Trận Giao Hữu: Tuyệt đối 0 Coin, 0 EXP, không áp dụng nhân đôi
+    const isFriendly = matchType === 'FRIENDLY';
+    const p1Coins = isFriendly ? 0 : (p1WasDouble ? p1BaseRewards.coins * 2 : p1BaseRewards.coins);
+    const p1Exp = isFriendly ? 0 : (p1WasDouble ? p1BaseRewards.exp * 2 : p1BaseRewards.exp);
 
-    const p2Coins = p2WasDouble ? p2BaseRewards.coins * 2 : p2BaseRewards.coins;
-    const p2Exp = p2WasDouble ? p2BaseRewards.exp * 2 : p2BaseRewards.exp;
+    const p2Coins = isFriendly ? 0 : (p2WasDouble ? p2BaseRewards.coins * 2 : p2BaseRewards.coins);
+    const p2Exp = isFriendly ? 0 : (p2WasDouble ? p2BaseRewards.exp * 2 : p2BaseRewards.exp);
 
     // 6. Lưu vào MySQL qua DB Transaction
     try {
@@ -815,6 +825,7 @@ export async function finishMatch(
             player2Id,
             topic: room['topic'] || 'general',
             rankSnapshot,
+            matchType: matchType as any,
             totalQuestions,
             timeLimitSec,
             startedAt,
@@ -1029,51 +1040,54 @@ export async function finishMatch(
 }
 
 // Xử lý hàng đợi ghép trận từ Redis list
-async function tryMatchmaking(io: SocketIOServer): Promise<void> {
+async function tryMatchmaking(io: SocketIOServer, queueType: 'RANK' | 'NORMAL' = 'RANK'): Promise<void> {
+    const queueKey = queueType === 'NORMAL' ? 'arena:queue:normal' : 'arena:queue';
+    const getInQueueKey = (id: string) => queueType === 'NORMAL' ? `arena:in_queue_normal:${id}` : `arena:in_queue:${id}`;
+
     try {
         while (true) {
-            const queueLen = await redis.llen('arena:queue');
+            const queueLen = await redis.llen(queueKey);
             if (queueLen < 2) break;
 
-            const p1Id = await redis.lpop('arena:queue');
+            const p1Id = await redis.lpop(queueKey);
             if (!p1Id) break;
 
-            const p2Id = await redis.lpop('arena:queue');
+            const p2Id = await redis.lpop(queueKey);
             if (!p2Id) {
                 // Không đủ 2 người, đưa p1 trở lại đầu hàng đợi
-                await redis.lpush('arena:queue', p1Id);
+                await redis.lpush(queueKey, p1Id);
                 break;
             }
 
             // Phòng ngừa trường hợp cùng 1 user lọt vào 2 lần
             if (p1Id === p2Id) {
-                await redis.del(`arena:in_queue:${p1Id}`);
+                await redis.del(getInQueueKey(p1Id));
                 continue;
             }
 
             // Kiểm tra trạng thái hàng đợi (loại bỏ trường hợp đã huỷ hoặc ngắt kết nối)
-            const p1InQueue = await redis.get(`arena:in_queue:${p1Id}`);
-            const p2InQueue = await redis.get(`arena:in_queue:${p2Id}`);
+            const p1InQueue = await redis.get(getInQueueKey(p1Id));
+            const p2InQueue = await redis.get(getInQueueKey(p2Id));
 
             if (!p1InQueue) {
-                if (p2InQueue) await redis.lpush('arena:queue', p2Id);
+                if (p2InQueue) await redis.lpush(queueKey, p2Id);
                 continue;
             }
 
             if (!p2InQueue) {
-                await redis.lpush('arena:queue', p1Id);
+                await redis.lpush(queueKey, p1Id);
                 continue;
             }
 
             // Cả 2 người chơi hợp lệ -> Xoá trạng thái đang đợi
-            await redis.del(`arena:in_queue:${p1Id}`);
-            await redis.del(`arena:in_queue:${p2Id}`);
+            await redis.del(getInQueueKey(p1Id));
+            await redis.del(getInQueueKey(p2Id));
 
-            // Khởi tạo phòng đấu
-            await createArenaRoom(io, p1Id, p2Id);
+            // Khởi tạo phòng đấu với đúng loại trận (RANK hoặc NORMAL)
+            await createArenaRoom(io, p1Id, p2Id, queueType);
         }
     } catch (error) {
-        console.error('[Arena Matchmaking] Lỗi khi xử lý hàng đợi tìm trận:', error);
+        console.error(`[Arena Matchmaking] Lỗi khi xử lý hàng đợi tìm trận (${queueType}):`, error);
     }
 }
 
@@ -1114,23 +1128,28 @@ export function initArenaSocket(io: SocketIOServer): void {
         // Tham gia room cá nhân để dễ dàng gửi tin nhắn định danh theo userId
         socket.join(`user:${user.id}`);
 
-        // 1. Event: Tìm trận đấu
-        const handleFindMatch = async () => {
+        // 1. Event: Tìm trận đấu (hỗ trợ chế độ RANK và NORMAL)
+        const handleFindMatch = async (payload?: { matchType?: 'RANK' | 'NORMAL' }) => {
             try {
                 const userId = user.id;
+                const matchType = payload?.matchType === 'NORMAL' ? 'NORMAL' : 'RANK';
+                const queueKey = matchType === 'NORMAL' ? 'arena:queue:normal' : 'arena:queue';
+                const inQueueKey = matchType === 'NORMAL' ? `arena:in_queue_normal:${userId}` : `arena:in_queue:${userId}`;
 
-                // Kiểm tra giới hạn số trận Rank mỗi ngày theo hạng gói hội viên
-                const userTier = await getUserTier(userId);
-                const maxRankMatches = getTierLimit('arenaDailyRankMatches', userTier);
-                if (maxRankMatches !== -1) {
-                    const todayKey = getVNDateKey();
-                    const playedMatches = Number(await redis.get(`arena:daily_rank:${userId}:${todayKey}`) || 0);
-                    if (playedMatches >= maxRankMatches) {
-                        const rejectMsg = 'Bạn đã dùng hết 10 lượt đấu Rank hôm nay. Nâng cấp lên Starter để leo Rank không giới hạn!';
-                        socket.emit('arena:queue_rejected', { message: rejectMsg });
-                        socket.emit('arena:match_error', { message: rejectMsg });
-                        console.log(`[Arena Matchmaking] Chặn user ${userId} do đã đạt giới hạn Rank (${playedMatches}/${maxRankMatches})`);
-                        return;
+                // Chỉ kiểm tra giới hạn số trận Rank mỗi ngày khi tìm trận RANK
+                if (matchType === 'RANK') {
+                    const userTier = await getUserTier(userId);
+                    const maxRankMatches = getTierLimit('arenaDailyRankMatches', userTier);
+                    if (maxRankMatches !== -1) {
+                        const todayKey = getVNDateKey();
+                        const playedMatches = Number(await redis.get(`arena:daily_rank:${userId}:${todayKey}`) || 0);
+                        if (playedMatches >= maxRankMatches) {
+                            const rejectMsg = 'Bạn đã dùng hết 10 lượt đấu Rank hôm nay. Nâng cấp lên Starter để leo Rank không giới hạn!';
+                            socket.emit('arena:queue_rejected', { message: rejectMsg });
+                            socket.emit('arena:match_error', { message: rejectMsg });
+                            console.log(`[Arena Matchmaking] Chặn user ${userId} do đã đạt giới hạn Rank (${playedMatches}/${maxRankMatches})`);
+                            return;
+                        }
                     }
                 }
 
@@ -1171,27 +1190,29 @@ export function initArenaSocket(io: SocketIOServer): void {
                 }
 
                 // Kiểm tra xem đã trong hàng đợi chưa (cập nhật socket id nếu cần)
-                const alreadyInQueue = await redis.get(`arena:in_queue:${userId}`);
+                const alreadyInQueue = await redis.get(inQueueKey);
                 if (alreadyInQueue) {
-                    await redis.set(`arena:in_queue:${userId}`, socket.id, 'EX', 300);
+                    await redis.set(inQueueKey, socket.id, 'EX', 300);
                     socket.emit('arena:searching', {
-                        message: 'Đang tìm kiếm đối thủ...',
+                        message: matchType === 'NORMAL' ? 'Đang tìm kiếm trận đấu thường...' : 'Đang tìm kiếm đối thủ xếp hạng...',
+                        matchType,
                     });
-                    await tryMatchmaking(io);
+                    await tryMatchmaking(io, matchType);
                     return;
                 }
 
                 // Đánh dấu người chơi đang tìm trận (TTL 5 phút)
-                await redis.set(`arena:in_queue:${userId}`, socket.id, 'EX', 300);
-                await redis.rpush('arena:queue', userId);
+                await redis.set(inQueueKey, socket.id, 'EX', 300);
+                await redis.rpush(queueKey, userId);
 
                 socket.emit('arena:searching', {
-                    message: 'Đang tìm kiếm đối thủ...',
+                    message: matchType === 'NORMAL' ? 'Đang tìm kiếm trận đấu thường...' : 'Đang tìm kiếm đối thủ xếp hạng...',
+                    matchType,
                 });
-                console.log(`[Arena Matchmaking] Người chơi vào hàng đợi: ${userId}`);
+                console.log(`[Arena Matchmaking] Người chơi vào hàng đợi (${matchType}): ${userId}`);
 
                 // Kích hoạt ghép trận
-                await tryMatchmaking(io);
+                await tryMatchmaking(io, matchType);
             } catch (error) {
                 console.error('[Arena Matchmaking] Lỗi khi nhận yêu cầu tìm trận:', error);
                 socket.emit('arena:match_error', { message: 'Có lỗi xảy ra khi tìm trận đấu.' });
@@ -1201,12 +1222,14 @@ export function initArenaSocket(io: SocketIOServer): void {
         socket.on('arena:find_match', handleFindMatch);
         socket.on('arena:join_queue', handleFindMatch);
 
-        // 2. Event: Huỷ tìm trận đấu
+        // 2. Event: Huỷ tìm trận đấu (hủy cả hàng đợi Rank và Thường)
         socket.on('arena:cancel_match', async () => {
             try {
                 const userId = user.id;
                 await redis.lrem('arena:queue', 0, userId);
+                await redis.lrem('arena:queue:normal', 0, userId);
                 await redis.del(`arena:in_queue:${userId}`);
+                await redis.del(`arena:in_queue_normal:${userId}`);
 
                 // Nếu đang có phòng đấu chưa vào trận (MATCHED / WAITING_READY) -> Hủy phòng giải phóng cả 2 người
                 const activeRoomId = await redis.get(`arena:player:${userId}`);
@@ -1223,6 +1246,156 @@ export function initArenaSocket(io: SocketIOServer): void {
                 console.log(`[Arena Matchmaking] Người chơi huỷ tìm trận: ${userId}`);
             } catch (error) {
                 console.error('[Arena Matchmaking] Lỗi khi huỷ tìm trận:', error);
+            }
+        });
+
+        // ─── ĐẤU GIAO HỮU (FRIENDLY MATCH) ─────────────────────────
+        // A. Gửi lời mời đấu giao hữu
+        socket.on('arena:friendly_invite', async ({ targetUserId, targetUsername }: { targetUserId?: string; targetUsername?: string }) => {
+            try {
+                const fromUserId = user.id;
+
+                let targetUserRow: any = null;
+                if (targetUserId) {
+                    const [rows] = await pool.execute(
+                        `SELECT id, full_name, avatar_url, username FROM users WHERE id = ? LIMIT 1`,
+                        [targetUserId]
+                    );
+                    targetUserRow = (rows as any[])[0];
+                } else if (targetUsername) {
+                    const [rows] = await pool.execute(
+                        `SELECT id, full_name, avatar_url, username FROM users WHERE username = ? OR email = ? OR id = ? LIMIT 1`,
+                        [targetUsername.trim(), targetUsername.trim(), targetUsername.trim()]
+                    );
+                    targetUserRow = (rows as any[])[0];
+                }
+
+                if (!targetUserRow) {
+                    socket.emit('arena:friendly_error', { message: 'Không tìm thấy người chơi này.' });
+                    return;
+                }
+
+                const toUserId = targetUserRow.id;
+                if (toUserId === fromUserId) {
+                    socket.emit('arena:friendly_error', { message: 'Bạn không thể tự thách đấu chính mình.' });
+                    return;
+                }
+
+                // Kiểm tra target user có đang kết nối Socket hay không
+                const targetSockets = await io.in(`user:${toUserId}`).fetchSockets();
+                if (targetSockets.length === 0) {
+                    socket.emit('arena:friendly_error', { message: `${targetUserRow.full_name} hiện không trực tuyến.` });
+                    return;
+                }
+
+                // Lấy profile người mời
+                const profiles = await getPlayerProfiles([fromUserId]);
+                const p1Data = profiles.get(fromUserId);
+
+                const inviteId = uuidv4();
+                const inviteKey = `arena:friendly_invite:${inviteId}`;
+                await redis.hset(inviteKey, {
+                    inviteId,
+                    fromUserId,
+                    toUserId,
+                    fromName: p1Data?.full_name || 'Người chơi',
+                    toName: targetUserRow.full_name || 'Bạn bè',
+                    createdAt: Date.now().toString(),
+                });
+                await redis.expire(inviteKey, 65); // TTL 65 giây
+
+                // Bắn event lời mời tới P2 (kèm đếm ngược 60s)
+                io.to(`user:${toUserId}`).emit('arena:friendly_received', {
+                    inviteId,
+                    fromUser: {
+                        id: fromUserId,
+                        fullName: p1Data?.full_name || 'Người chơi',
+                        avatarUrl: p1Data?.avatar_url || null,
+                        rank: p1Data?.arena_rank || 'BRONZE',
+                    },
+                    expireInSec: 60,
+                });
+
+                // Báo về P1 đã gửi lời mời thành công
+                socket.emit('arena:friendly_sent', {
+                    inviteId,
+                    toUser: {
+                        id: toUserId,
+                        fullName: targetUserRow.full_name,
+                        avatarUrl: targetUserRow.avatar_url,
+                    },
+                    expireInSec: 60,
+                });
+
+                console.log(`[Arena Friendly] Lời mời thách đấu từ ${p1Data?.full_name} đến ${targetUserRow.full_name} (${inviteId})`);
+            } catch (err) {
+                console.error('[Arena Friendly] Lỗi khi gửi lời mời:', err);
+                socket.emit('arena:friendly_error', { message: 'Có lỗi xảy ra khi gửi lời mời.' });
+            }
+        });
+
+        // B. Người mời hủy lời mời (khi đang chờ)
+        socket.on('arena:friendly_cancel', async ({ inviteId }: { inviteId: string }) => {
+            try {
+                if (!inviteId) return;
+                const inviteKey = `arena:friendly_invite:${inviteId}`;
+                const invite = await redis.hgetall(inviteKey);
+                if (invite && invite['fromUserId'] === user.id) {
+                    await redis.del(inviteKey);
+                    // Thông báo cho P2 lời mời đã bị hủy
+                    io.to(`user:${invite['toUserId']}`).emit('arena:friendly_cancelled', {
+                        inviteId,
+                        message: `${invite['fromName'] || 'Đối thủ'} đã hủy lời mời thách đấu.`,
+                    });
+                    // Báo về cho P1
+                    socket.emit('arena:friendly_cancelled', { inviteId });
+                    console.log(`[Arena Friendly] P1 hủy lời mời: ${inviteId}`);
+                }
+            } catch (err) {
+                console.error('[Arena Friendly] Lỗi khi hủy lời mời:', err);
+            }
+        });
+
+        // C. Người nhận từ chối lời mời
+        socket.on('arena:friendly_decline', async ({ inviteId }: { inviteId: string }) => {
+            try {
+                if (!inviteId) return;
+                const inviteKey = `arena:friendly_invite:${inviteId}`;
+                const invite = await redis.hgetall(inviteKey);
+                if (invite && invite['toUserId'] === user.id) {
+                    await redis.del(inviteKey);
+                    // Báo về cho P1 biết là đối thủ đã từ chối
+                    io.to(`user:${invite['fromUserId']}`).emit('arena:friendly_declined', {
+                        inviteId,
+                        message: `${invite['toName'] || 'Đối thủ'} đã từ chối lời mời thách đấu.`,
+                    });
+                    console.log(`[Arena Friendly] P2 từ chối lời mời: ${inviteId}`);
+                }
+            } catch (err) {
+                console.error('[Arena Friendly] Lỗi khi từ chối lời mời:', err);
+            }
+        });
+
+        // D. Người nhận chấp nhận lời mời -> Vào trận Giao Hữu ngay
+        socket.on('arena:friendly_accept', async ({ inviteId }: { inviteId: string }) => {
+            try {
+                if (!inviteId) return;
+                const inviteKey = `arena:friendly_invite:${inviteId}`;
+                const invite = await redis.hgetall(inviteKey);
+                if (!invite || !invite['fromUserId'] || !invite['toUserId']) {
+                    socket.emit('arena:friendly_error', { message: 'Lời mời thách đấu đã hết hạn hoặc không còn hiệu lực.' });
+                    return;
+                }
+
+                const fromUserId = invite['fromUserId'];
+                const toUserId = invite['toUserId'];
+                await redis.del(inviteKey);
+
+                console.log(`[Arena Friendly] Chấp nhận lời mời (${inviteId}), bắt đầu trận Giao Hữu giữa ${fromUserId} và ${toUserId}`);
+                await createArenaRoom(io, fromUserId, toUserId, 'FRIENDLY');
+            } catch (err) {
+                console.error('[Arena Friendly] Lỗi khi chấp nhận lời mời:', err);
+                socket.emit('arena:friendly_error', { message: 'Có lỗi xảy ra khi chấp nhận lời mời.' });
             }
         });
 

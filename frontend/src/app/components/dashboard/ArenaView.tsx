@@ -6,6 +6,7 @@ import { ArenaHistory } from './arena/ArenaHistory';
 import { ArenaLeaderboard } from './arena/ArenaLeaderboard';
 import { ArenaRankModal } from './arena/ArenaRankModal';
 import { ArenaMatchmakingModal } from './arena/ArenaMatchmaking';
+import { FriendlyInviteModal } from './arena/FriendlyInviteModal';
 import { ArenaGateTransition, ArenaGateHandle } from './arena/ArenaGateTransition';
 import { ArenaGameplay } from './arena/ArenaGameplay';
 import { ArenaMatchResult } from './arena/ArenaMatchResult';
@@ -42,6 +43,10 @@ export function ArenaView() {
   const [activeScreen, setActiveScreen] = useState<'lobby' | 'gameplay' | 'result'>('lobby');
   const [isRankModalOpen, setIsRankModalOpen] = useState<boolean>(false);
   const [isMatchmakingOpen, setIsMatchmakingOpen] = useState<boolean>(false);
+  const [matchType, setMatchType] = useState<'RANK' | 'NORMAL' | 'FRIENDLY'>('RANK');
+  const [isFriendlyModalOpen, setIsFriendlyModalOpen] = useState<boolean>(false);
+  const [targetFriendForInvite, setTargetFriendForInvite] = useState<{ id: string; fullName: string; avatarUrl?: string | null } | null>(null);
+  const [friendlyMatchedData, setFriendlyMatchedData] = useState<MatchedPayload | null>(null);
   const [profile, setProfile] = useState<UserArenaProfile | null>(null);
   const [activeMatchData, setActiveMatchData] = useState<MatchedPayload | null>(null);
   const [gameOverData, setGameOverData] = useState<GameOverPayload | null>(null);
@@ -50,11 +55,46 @@ export function ArenaView() {
   // Ref điều khiển hoạt cảnh Cánh Cửa Đấu Trường (2 cánh đá gate-left & gate-right)
   const gateRef = useRef<ArenaGateHandle>(null);
 
+  // Lắng nghe sự kiện thách đấu trực tiếp từ FriendsPanel hoặc Chat
+  React.useEffect(() => {
+    const handleChallengeUser = (e: any) => {
+      const friend = e.detail;
+      if (friend) {
+        setTargetFriendForInvite({
+          id: friend.id,
+          fullName: friend.full_name || friend.fullName,
+          avatarUrl: friend.avatar_url || friend.avatarUrl,
+        });
+        setIsFriendlyModalOpen(true);
+      }
+    };
+    window.addEventListener('arena:challenge_user', handleChallengeUser);
+    return () => {
+      window.removeEventListener('arena:challenge_user', handleChallengeUser);
+    };
+  }, []);
+
   /**
-   * KÍCH HOẠT LẦN 1: Bấm "TÌM TRẬN ĐẤU"
+   * KÍCH HOẠT LẦN 1: Bấm "TÌM TRẬN ĐẤU" (Đấu Xếp Hạng hoặc Đấu Thường)
    * Cửa đóng sầm lại -> Chuyển sang màn hình Searching ngầm bên dưới -> Cửa mở toang ra
    */
-  const handleStartFindMatch = () => {
+  const handleStartFindMatch = (mode: 'RANK' | 'NORMAL' = 'RANK') => {
+    setMatchType(mode);
+    setFriendlyMatchedData(null);
+    gateRef.current?.triggerGateTransition({
+      onMiddle: () => {
+        setIsMatchmakingOpen(true);
+      },
+    });
+  };
+
+  /**
+   * KHI ĐẤU GIAO HỮU KHỚP TRẬN THÀNH CÔNG
+   */
+  const handleFriendlyMatched = (matchedData: MatchedPayload) => {
+    setIsFriendlyModalOpen(false);
+    setMatchType('FRIENDLY');
+    setFriendlyMatchedData(matchedData);
     gateRef.current?.triggerGateTransition({
       onMiddle: () => {
         setIsMatchmakingOpen(true);
@@ -222,6 +262,10 @@ export function ArenaView() {
                 onOpenRankModal={() => setIsRankModalOpen(true)}
                 onProfileLoaded={(p) => setProfile(p)}
                 onFindMatch={handleStartFindMatch}
+                onOpenFriendlyInvite={() => {
+                  setTargetFriendForInvite(null);
+                  setIsFriendlyModalOpen(true);
+                }}
                 rankChangeData={pendingRankChange}
                 onRankChangeAnimationComplete={() => setPendingRankChange(null)}
               />
@@ -229,7 +273,7 @@ export function ArenaView() {
 
             {/* Tab 2: Lịch sử đấu */}
             <TabsContent value="history" className="mt-6">
-              <ArenaHistory onFindMatch={handleStartFindMatch} />
+              <ArenaHistory onFindMatch={() => handleStartFindMatch('RANK')} />
             </TabsContent>
 
             {/* Tab 3: Bảng xếp hạng (Top 50) */}
@@ -246,11 +290,24 @@ export function ArenaView() {
             highestRank={profile?.arena?.highestRank}
           />
 
+          {/* Modal Mời Đấu Giao Hữu */}
+          <FriendlyInviteModal
+            isOpen={isFriendlyModalOpen}
+            onClose={() => {
+              setIsFriendlyModalOpen(false);
+              setTargetFriendForInvite(null);
+            }}
+            initialTargetFriend={targetFriendForInvite}
+            onFriendlyMatched={handleFriendlyMatched}
+          />
+
           {/* Màn hình Ghép trận Matchmaking */}
           <ArenaMatchmakingModal
             isOpen={isMatchmakingOpen}
             onClose={() => setIsMatchmakingOpen(false)}
             currentUserProfile={profile}
+            matchType={matchType}
+            initialMatchedData={friendlyMatchedData}
             onMatchReady={handleMatchReady}
           />
         </>

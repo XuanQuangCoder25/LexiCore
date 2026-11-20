@@ -26,6 +26,7 @@ import { SubscriptionView } from "./components/dashboard/SubscriptionView";
 import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
 import { FriendsButton } from "./components/global/FriendsButton";
+import { FriendlyInviteToast } from "./components/dashboard/arena/FriendlyInviteToast";
 import { ChatButton } from "./components/global/ChatButton";
 import { ChatDialog } from "./components/global/ChatDialog";
 import { SocialProvider, useSocial } from "./features/social/SocialContext";
@@ -172,10 +173,15 @@ function AppContent() {
     };
   }, []);
 
-  const handleChallenge = () => {
+  const handleChallenge = (friend?: any) => {
     setFriendsOpen(false);
     setIsChatOpen(false);
     setActiveTab("arena");
+    if (friend) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('arena:challenge_user', { detail: friend }));
+      }, 150);
+    }
   };
 
   const handleOpenChatWithFriend = (friend: { id: string; full_name: string; avatar_url: string | null }) => {
@@ -281,6 +287,9 @@ function AppContent() {
         onClose={() => setIsChatOpen(false)}
         onChallenge={handleChallenge}
       />
+
+      {/* Thông báo thách đấu giao hữu trượt từ mép phải dưới header */}
+      <FriendlyInviteToast onNavigateArena={() => setActiveTab("arena")} />
     </SidebarProvider>
   );
 }

@@ -54,8 +54,9 @@ export const getMyArenaMatches = async (
         const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
         const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
         const filter = (req.query.filter as string) || 'all';
+        const mode = (req.query.mode as string) || 'all';
 
-        const result = await getUserMatches(userId, { page, limit, filter });
+        const result = await getUserMatches(userId, { page, limit, filter, mode });
 
         res.status(200).json({
             status: 'success',

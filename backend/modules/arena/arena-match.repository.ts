@@ -32,12 +32,15 @@ export interface PlayerFinalStats {
     rewards?: { coins: number; exp: number; wasDoubleReward?: boolean };
 }
 
+export type ArenaMatchType = 'RANK' | 'NORMAL' | 'FRIENDLY';
+
 export interface SaveMatchTransactionParams {
     matchId: string;
     player1Id: string;
     player2Id: string;
     topic: string;
     rankSnapshot: ArenaRank;
+    matchType?: ArenaMatchType;
     totalQuestions: number;
     timeLimitSec: number;
     startedAt: string; // ISO hoặc SQL timestamp string
@@ -189,197 +192,263 @@ export async function saveMatchTransaction(params: SaveMatchTransactionParams): 
 
         const hasHighest = await checkHighestRankCol(connection);
 
-        // 1. Cập nhật Wallets cho Player 1
-        const p1IsWin = result === 'P1_WIN' ? 1 : 0;
-        const p1IsLoss = result === 'P2_WIN' ? 1 : 0;
-        const p1IsDraw = result === 'DRAW' ? 1 : 0;
+        const matchType = params.matchType || 'RANK';
 
-        if (hasHighest) {
+        if (matchType === 'RANK') {
+            // 1. Cập nhật Wallets cho Player 1 (chế độ Rank)
+            const p1IsWin = result === 'P1_WIN' ? 1 : 0;
+            const p1IsLoss = result === 'P2_WIN' ? 1 : 0;
+            const p1IsDraw = result === 'DRAW' ? 1 : 0;
+
+            if (hasHighest) {
+                await connection.execute(
+                    `UPDATE wallets SET
+                        arena_rank = ?,
+                        arena_highest_rank = ?,
+                        rank_point = ?,
+                        leaderboard_point = ?,
+                        coin_balance = coin_balance + ?,
+                        exp = ?,
+                        level = ?,
+                        arena_current_win_streak = ?,
+                        arena_longest_win_streak = GREATEST(COALESCE(arena_longest_win_streak, 0), ?),
+                        arena_total_wins = arena_total_wins + ?,
+                        arena_total_losses = arena_total_losses + ?,
+                        arena_total_draws = arena_total_draws + ?,
+                        arena_total_matches = arena_total_matches + 1
+                     WHERE user_id = ?`,
+                    [
+                        p1.progression.newRank,
+                        p1HighestRank,
+                        p1.progression.newRankPoint,
+                        p1.progression.newLeaderboardPoint,
+                        p1Rewards.coins,
+                        p1LevelCalc.newExp,
+                        p1LevelCalc.newLevel,
+                        p1.winStreak,
+                        p1.winStreak,
+                        p1IsWin,
+                        p1IsLoss,
+                        p1IsDraw,
+                        player1Id,
+                    ]
+                );
+            } else {
+                await connection.execute(
+                    `UPDATE wallets SET
+                        arena_rank = ?,
+                        rank_point = ?,
+                        leaderboard_point = ?,
+                        coin_balance = coin_balance + ?,
+                        exp = ?,
+                        level = ?,
+                        arena_current_win_streak = ?,
+                        arena_longest_win_streak = GREATEST(COALESCE(arena_longest_win_streak, 0), ?),
+                        arena_total_wins = arena_total_wins + ?,
+                        arena_total_losses = arena_total_losses + ?,
+                        arena_total_draws = arena_total_draws + ?,
+                        arena_total_matches = arena_total_matches + 1
+                     WHERE user_id = ?`,
+                    [
+                        p1.progression.newRank,
+                        p1.progression.newRankPoint,
+                        p1.progression.newLeaderboardPoint,
+                        p1Rewards.coins,
+                        p1LevelCalc.newExp,
+                        p1LevelCalc.newLevel,
+                        p1.winStreak,
+                        p1.winStreak,
+                        p1IsWin,
+                        p1IsLoss,
+                        p1IsDraw,
+                        player1Id,
+                    ]
+                );
+            }
+
+            // 2. Cập nhật Wallets cho Player 2 (chế độ Rank)
+            const p2IsWin = result === 'P2_WIN' ? 1 : 0;
+            const p2IsLoss = result === 'P1_WIN' ? 1 : 0;
+            const p2IsDraw = result === 'DRAW' ? 1 : 0;
+
+            if (hasHighest) {
+                await connection.execute(
+                    `UPDATE wallets SET
+                        arena_rank = ?,
+                        arena_highest_rank = ?,
+                        rank_point = ?,
+                        leaderboard_point = ?,
+                        coin_balance = coin_balance + ?,
+                        exp = ?,
+                        level = ?,
+                        arena_current_win_streak = ?,
+                        arena_longest_win_streak = GREATEST(COALESCE(arena_longest_win_streak, 0), ?),
+                        arena_total_wins = arena_total_wins + ?,
+                        arena_total_losses = arena_total_losses + ?,
+                        arena_total_draws = arena_total_draws + ?,
+                        arena_total_matches = arena_total_matches + 1
+                     WHERE user_id = ?`,
+                    [
+                        p2.progression.newRank,
+                        p2HighestRank,
+                        p2.progression.newRankPoint,
+                        p2.progression.newLeaderboardPoint,
+                        p2Rewards.coins,
+                        p2LevelCalc.newExp,
+                        p2LevelCalc.newLevel,
+                        p2.winStreak,
+                        p2.winStreak,
+                        p2IsWin,
+                        p2IsLoss,
+                        p2IsDraw,
+                        player2Id,
+                    ]
+                );
+            } else {
+                await connection.execute(
+                    `UPDATE wallets SET
+                        arena_rank = ?,
+                        rank_point = ?,
+                        leaderboard_point = ?,
+                        coin_balance = coin_balance + ?,
+                        exp = ?,
+                        level = ?,
+                        arena_current_win_streak = ?,
+                        arena_longest_win_streak = GREATEST(COALESCE(arena_longest_win_streak, 0), ?),
+                        arena_total_wins = arena_total_wins + ?,
+                        arena_total_losses = arena_total_losses + ?,
+                        arena_total_draws = arena_total_draws + ?,
+                        arena_total_matches = arena_total_matches + 1
+                     WHERE user_id = ?`,
+                    [
+                        p2.progression.newRank,
+                        p2.progression.newRankPoint,
+                        p2.progression.newLeaderboardPoint,
+                        p2Rewards.coins,
+                        p2LevelCalc.newExp,
+                        p2LevelCalc.newLevel,
+                        p2.winStreak,
+                        p2.winStreak,
+                        p2IsWin,
+                        p2IsLoss,
+                        p2IsDraw,
+                        player2Id,
+                    ]
+                );
+            }
+
+            // Ghi lịch sử giao dịch thưởng Coin (chỉ Rank)
             await connection.execute(
-                `UPDATE wallets SET
-                    arena_rank = ?,
-                    arena_highest_rank = ?,
-                    rank_point = ?,
-                    leaderboard_point = ?,
-                    coin_balance = coin_balance + ?,
-                    exp = ?,
-                    level = ?,
-                    arena_current_win_streak = ?,
-                    arena_longest_win_streak = GREATEST(COALESCE(arena_longest_win_streak, 0), ?),
-                    arena_total_wins = arena_total_wins + ?,
-                    arena_total_losses = arena_total_losses + ?,
-                    arena_total_draws = arena_total_draws + ?,
-                    arena_total_matches = arena_total_matches + 1
-                 WHERE user_id = ?`,
+                `INSERT INTO billing_transactions (id, user_id, amount, transaction_type, metadata)
+                 VALUES (?, ?, ?, 'PVP_REWARD', ?), (?, ?, ?, 'PVP_REWARD', ?)`,
                 [
-                    p1.progression.newRank,
-                    p1HighestRank,
-                    p1.progression.newRankPoint,
-                    p1.progression.newLeaderboardPoint,
-                    p1Rewards.coins,
-                    p1LevelCalc.newExp,
-                    p1LevelCalc.newLevel,
-                    p1.winStreak,
-                    p1.winStreak,
-                    p1IsWin,
-                    p1IsLoss,
-                    p1IsDraw,
+                    uuidv4(),
                     player1Id,
+                    p1Rewards.coins,
+                    JSON.stringify({
+                        match_id: matchId,
+                        match_type: 'RANK',
+                        result: p1ResultType,
+                        coins: p1Rewards.coins,
+                        exp: p1Rewards.exp,
+                        rank_delta: p1.progression.rankPointDelta,
+                        leveled_up: p1LevelCalc.leveledUp,
+                        new_level: p1LevelCalc.newLevel,
+                    }),
+                    uuidv4(),
+                    player2Id,
+                    p2Rewards.coins,
+                    JSON.stringify({
+                        match_id: matchId,
+                        match_type: 'RANK',
+                        result: p2ResultType,
+                        coins: p2Rewards.coins,
+                        exp: p2Rewards.exp,
+                        rank_delta: p2.progression.rankPointDelta,
+                        leveled_up: p2LevelCalc.leveledUp,
+                        new_level: p2LevelCalc.newLevel,
+                    }),
                 ]
             );
-        } else {
+        } else if (matchType === 'NORMAL') {
+            // Chế độ Đấu Thường: Cộng Coin & EXP, cập nhật Level nhưng KHÔNG đổi Rank và RP/LP
             await connection.execute(
                 `UPDATE wallets SET
-                    arena_rank = ?,
-                    rank_point = ?,
-                    leaderboard_point = ?,
                     coin_balance = coin_balance + ?,
                     exp = ?,
                     level = ?,
-                    arena_current_win_streak = ?,
-                    arena_longest_win_streak = GREATEST(COALESCE(arena_longest_win_streak, 0), ?),
-                    arena_total_wins = arena_total_wins + ?,
-                    arena_total_losses = arena_total_losses + ?,
-                    arena_total_draws = arena_total_draws + ?,
                     arena_total_matches = arena_total_matches + 1
                  WHERE user_id = ?`,
+                [p1Rewards.coins, p1LevelCalc.newExp, p1LevelCalc.newLevel, player1Id]
+            );
+
+            await connection.execute(
+                `UPDATE wallets SET
+                    coin_balance = coin_balance + ?,
+                    exp = ?,
+                    level = ?,
+                    arena_total_matches = arena_total_matches + 1
+                 WHERE user_id = ?`,
+                [p2Rewards.coins, p2LevelCalc.newExp, p2LevelCalc.newLevel, player2Id]
+            );
+
+            // Ghi lịch sử giao dịch thưởng Coin (Đấu Thường)
+            await connection.execute(
+                `INSERT INTO billing_transactions (id, user_id, amount, transaction_type, metadata)
+                 VALUES (?, ?, ?, 'PVP_REWARD', ?), (?, ?, ?, 'PVP_REWARD', ?)`,
                 [
-                    p1.progression.newRank,
-                    p1.progression.newRankPoint,
-                    p1.progression.newLeaderboardPoint,
-                    p1Rewards.coins,
-                    p1LevelCalc.newExp,
-                    p1LevelCalc.newLevel,
-                    p1.winStreak,
-                    p1.winStreak,
-                    p1IsWin,
-                    p1IsLoss,
-                    p1IsDraw,
+                    uuidv4(),
                     player1Id,
+                    p1Rewards.coins,
+                    JSON.stringify({
+                        match_id: matchId,
+                        match_type: 'NORMAL',
+                        result: p1ResultType,
+                        coins: p1Rewards.coins,
+                        exp: p1Rewards.exp,
+                        rank_delta: 0,
+                        leveled_up: p1LevelCalc.leveledUp,
+                        new_level: p1LevelCalc.newLevel,
+                    }),
+                    uuidv4(),
+                    player2Id,
+                    p2Rewards.coins,
+                    JSON.stringify({
+                        match_id: matchId,
+                        match_type: 'NORMAL',
+                        result: p2ResultType,
+                        coins: p2Rewards.coins,
+                        exp: p2Rewards.exp,
+                        rank_delta: 0,
+                        leveled_up: p2LevelCalc.leveledUp,
+                        new_level: p2LevelCalc.newLevel,
+                    }),
                 ]
             );
         }
+        // Nếu là FRIENDLY: 0 Coin, 0 EXP, 0 RP -> hoàn toàn không cập nhật ví hay giao dịch!
 
-        // 2. Cập nhật Wallets cho Player 2
-        const p2IsWin = result === 'P2_WIN' ? 1 : 0;
-        const p2IsLoss = result === 'P1_WIN' ? 1 : 0;
-        const p2IsDraw = result === 'DRAW' ? 1 : 0;
+        // Ghi record vào arena_matches
+        const p1PointsDelta = matchType === 'RANK' ? p1.progression.rankPointDelta : 0;
+        const p2PointsDelta = matchType === 'RANK' ? p2.progression.rankPointDelta : 0;
 
-        if (hasHighest) {
-            await connection.execute(
-                `UPDATE wallets SET
-                    arena_rank = ?,
-                    arena_highest_rank = ?,
-                    rank_point = ?,
-                    leaderboard_point = ?,
-                    coin_balance = coin_balance + ?,
-                    exp = ?,
-                    level = ?,
-                    arena_current_win_streak = ?,
-                    arena_longest_win_streak = GREATEST(COALESCE(arena_longest_win_streak, 0), ?),
-                    arena_total_wins = arena_total_wins + ?,
-                    arena_total_losses = arena_total_losses + ?,
-                    arena_total_draws = arena_total_draws + ?,
-                    arena_total_matches = arena_total_matches + 1
-                 WHERE user_id = ?`,
-                [
-                    p2.progression.newRank,
-                    p2HighestRank,
-                    p2.progression.newRankPoint,
-                    p2.progression.newLeaderboardPoint,
-                    p2Rewards.coins,
-                    p2LevelCalc.newExp,
-                    p2LevelCalc.newLevel,
-                    p2.winStreak,
-                    p2.winStreak,
-                    p2IsWin,
-                    p2IsLoss,
-                    p2IsDraw,
-                    player2Id,
-                ]
-            );
-        } else {
-            await connection.execute(
-                `UPDATE wallets SET
-                    arena_rank = ?,
-                    rank_point = ?,
-                    leaderboard_point = ?,
-                    coin_balance = coin_balance + ?,
-                    exp = ?,
-                    level = ?,
-                    arena_current_win_streak = ?,
-                    arena_longest_win_streak = GREATEST(COALESCE(arena_longest_win_streak, 0), ?),
-                    arena_total_wins = arena_total_wins + ?,
-                    arena_total_losses = arena_total_losses + ?,
-                    arena_total_draws = arena_total_draws + ?,
-                    arena_total_matches = arena_total_matches + 1
-                 WHERE user_id = ?`,
-                [
-                    p2.progression.newRank,
-                    p2.progression.newRankPoint,
-                    p2.progression.newLeaderboardPoint,
-                    p2Rewards.coins,
-                    p2LevelCalc.newExp,
-                    p2LevelCalc.newLevel,
-                    p2.winStreak,
-                    p2.winStreak,
-                    p2IsWin,
-                    p2IsLoss,
-                    p2IsDraw,
-                    player2Id,
-                ]
-            );
-        }
-
-        // 3. Ghi lịch sử giao dịch thưởng Coin (billing_transactions)
-        await connection.execute(
-            `INSERT INTO billing_transactions (id, user_id, amount, transaction_type, metadata)
-             VALUES (?, ?, ?, 'PVP_REWARD', ?), (?, ?, ?, 'PVP_REWARD', ?)`,
-            [
-                uuidv4(),
-                player1Id,
-                p1Rewards.coins,
-                JSON.stringify({
-                    match_id: matchId,
-                    result: p1ResultType,
-                    coins: p1Rewards.coins,
-                    exp: p1Rewards.exp,
-                    rank_delta: p1.progression.rankPointDelta,
-                    leveled_up: p1LevelCalc.leveledUp,
-                    new_level: p1LevelCalc.newLevel,
-                }),
-                uuidv4(),
-                player2Id,
-                p2Rewards.coins,
-                JSON.stringify({
-                    match_id: matchId,
-                    result: p2ResultType,
-                    coins: p2Rewards.coins,
-                    exp: p2Rewards.exp,
-                    rank_delta: p2.progression.rankPointDelta,
-                    leveled_up: p2LevelCalc.leveledUp,
-                    new_level: p2LevelCalc.newLevel,
-                }),
-            ]
-        );
-
-        // 3. Ghi record vào arena_matches
         await connection.execute(
             `INSERT INTO arena_matches (
-                id, player1_id, player2_id, topic, rank_snapshot,
+                id, player1_id, player2_id, topic, rank_snapshot, match_type,
                 total_questions, time_limit_sec,
                 p1_correct, p1_time_used_ms,
                 p2_correct, p2_time_used_ms,
                 winner_id, result,
                 p1_points_change, p2_points_change,
                 started_at, ended_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 matchId,
                 player1Id,
                 player2Id,
                 topic || 'general',
                 rankSnapshot,
+                matchType,
                 totalQuestions,
                 timeLimitSec,
                 p1.correct,
@@ -388,8 +457,8 @@ export async function saveMatchTransaction(params: SaveMatchTransactionParams): 
                 p2.timeMs,
                 winnerId,
                 result,
-                p1.progression.rankPointDelta,
-                p2.progression.rankPointDelta,
+                p1PointsDelta,
+                p2PointsDelta,
                 startedAt,
                 endedAt,
             ]
