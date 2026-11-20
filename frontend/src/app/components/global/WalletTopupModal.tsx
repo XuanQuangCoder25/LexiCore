@@ -69,8 +69,8 @@ export function WalletTopupModal({
 
     const projectedTotal = todayTopupVnd + amount;
 
-    // Nếu tổng tiền nạp hôm nay + số tiền sắp nạp vượt hạn mức khuyến nghị trong ngày
-    if (projectedTotal >= DAILY_TOPUP_LIMIT_THRESHOLD && step === "SELECT") {
+    // Nếu tổng tiền nạp hôm nay + số tiền sắp nạp vượt quá 1.000.000 VNĐ (từ 1.000.001 VNĐ trở lên)
+    if (projectedTotal > DAILY_TOPUP_LIMIT_THRESHOLD && step === "SELECT") {
       setStep("WARNING");
       return;
     }

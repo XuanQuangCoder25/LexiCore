@@ -125,11 +125,28 @@ Hệ thống loại bỏ hoàn toàn các cổng thanh toán doanh nghiệp ph�
 - **Quy trình hoạt động:**
   1. Người dùng bấm nút "Nạp tiền" tại thẻ Ví LexiCore trên trang `SubscriptionView` -> Mở `WalletTopupModal`.
   2. Người dùng nhập số tiền hoặc chọn mức nạp nhanh (`50.000đ`, `100.000đ`, `200.000đ`, `500.000đ`).
-  3. Bấm "Tạo mã QR nạp tiền" -> Frontend gọi `POST /api/payment/wallet/topup`.
+  3. Bấm "Tạo mã QR nạp tiền" -> Frontend kiểm tra hạn mức chi tiêu trong ngày trước khi gọi `POST /api/payment/wallet/topup`.
   4. Backend tạo đơn hàng `payment_orders` gắn với gói `pkg_wallet_topup`, tự tăng mã `LC{order_number}` và sinh URL VietQR SePay với đúng số tiền yêu cầu.
   5. Mở `QRModal` hiển thị mã QR và bảng thông tin chuyển khoản.
   6. Người dùng chuyển khoản ngân hàng -> SePay gửi Webhook IPN -> Backend cộng tiền vào `wallets.vnd_balance` của người dùng.
   7. `QRModal` tự động bắt trạng thái thành công qua Polling và hiển thị thông báo: *"Đã nạp thành công {xxx} VNĐ vào Ví LexiCore!"*.
+
+### 5. Cơ chế Cảnh báo chi tiêu có trách nhiệm (Responsible Spending Warning)
+- **Mục đích:** Bảo vệ người học (học sinh, sinh viên) tránh việc nạp tiền bốc đồng, chi tiêu quá mức hoặc thao tác nhầm lẫn số tiền lớn trong cùng một ngày.
+- **Hằng số cấu hình:** Hạn mức cảnh báo nạp trong ngày `DAILY_TOPUP_LIMIT_THRESHOLD = 1.000.000 VNĐ`.
+- **Logic kiểm tra:**
+  - Backend cung cấp trường `todayTopupVnd` trong API `GET /api/payment/my-subscription`, tính tổng số tiền từ các đơn nạp ví thành công (`gateway = 'SEPAY'`, `package_id = 'pkg_wallet_topup'`, `status = 'SUCCESS'`) kể từ mốc 00:00:00 của ngày hiện tại.
+  - Khi người dùng chọn hoặc nhập số tiền nạp mới (`amount`), hệ thống tính tổng dự kiến:
+    $$\text{projectedTotal} = \text{todayTopupVnd} + \text{amount}$$
+  - **Quy tắc kích hoạt cảnh báo:**
+    - Nếu $\text{projectedTotal} \le 1.000.000 \text{ VNĐ}$: Hệ thống chuyển thẳng sang bước tạo mã VietQR SePay bình thường.
+    - Nếu $\text{projectedTotal} > 1.000.000 \text{ VNĐ}$ (từ 1.000.001 VNĐ trở lên): Modal `WalletTopupModal` lập tức chuyển sang trạng thái cảnh báo (`step = 'WARNING'`) ngay trong cùng một modal để người dùng cân nhắc.
+- **Trải nghiệm người dùng tại màn hình cảnh báo:**
+  - Hiển thị hộp cảnh báo tông màu hổ phách (Amber) với tiêu đề "Nhắc nhở chi tiêu có trách nhiệm".
+  - Nội dung giải thích chi tiết: Số tiền đã nạp hôm nay, số tiền chuẩn bị nạp, tổng dự kiến vượt ngưỡng hạn mức khuyến nghị 1.000.000 VNĐ/ngày.
+  - Hai lựa chọn quyết định:
+    1. **"Cân nhắc lại"**: Đóng cảnh báo và quay về màn hình nhập tiền để người dùng điều chỉnh mức nạp hợp lý hơn.
+    2. **"Tôi hiểu, tiếp tục nạp"**: Người dùng chủ động xác nhận mong muốn nạp tiếp, hệ thống tiến hành tạo đơn hàng và mở mã VietQR SePay.
 
 ---
 
@@ -160,7 +177,7 @@ Hệ thống loại bỏ hoàn toàn các cổng thanh toán doanh nghiệp ph�
 | Phương thức | Endpoint | Quyền hạn | Mô tả |
 | :--- | :--- | :--- | :--- |
 | **GET** | `/api/payment/packages` | Công khai | Lấy toàn bộ danh mục gói hội viên, coin pack, diamond pack |
-| **GET** | `/api/payment/my-subscription` | User | Lấy trạng thái gói hội viên hiện tại, số dư ví VNĐ, coin và diamond |
+| **GET** | `/api/payment/my-subscription` | User | Lấy trạng thái gói hội viên hiện tại, số dư ví VNĐ, coin, diamond và tổng tiền nạp trong ngày (`todayTopupVnd`) |
 | **PATCH** | `/api/payment/my-subscription` | User | Cập nhật cài đặt tự động gia hạn (`auto_renew`) và nhắc nhở email (`email_reminder`) |
 | **GET** | `/api/payment/my-transactions` | User | Lấy lịch sử giao dịch (định dạng hiển thị cho bảng lịch sử) |
 | **DELETE** | `/api/payment/order/:orderId` | User | Huỷ đơn hàng đang chờ thanh toán (`PENDING`) của chính người dùng |
@@ -187,7 +204,79 @@ Module thanh toán được cấu thành từ 4 bảng MySQL chính trong `schem
 
 ---
 
-## 8. LƯU Ý PHÁT TRIỂN & TEST SANDBOX
+---
+
+## 9. CHIẾN DỊCH MARKETING & QUẢN LÝ KHUYẾN MÃI
+
+### 9.1 Quản lý Sale % theo thời gian thực (Runtime Sale)
+
+Admin có thể áp dụng mức giảm giá % cho bất kỳ gói nào trong số 21 gói (9 gói hội viên + 6 gói coin + 6 gói diamond) qua endpoint `PATCH /api/admin/packages/:id/sale`. Mỗi đợt sale lưu 3 trường:
+- `sale_percent` — mức giảm giá (0-100)
+- `sale_starts_at` — thời điểm bắt đầu
+- `sale_ends_at` — thời điểm kết thúc
+
+**Không dùng cron để xóa sale hết hạn.** Hàm `calcFinalPrice()` trong `payment.service.ts` tính runtime: nếu `NOW()` nằm trong khoảng `[sale_starts_at, sale_ends_at]` thì áp dụng giảm giá, ngược lại trả về giá gốc. Điều này tránh race condition giữa cron và webhook.
+
+Khi admin set sale thành công, hệ thống tự động đẩy thông báo in-app (loại `sale`) đến toàn bộ user đang hoạt động trong 7 ngày gần nhất. Thông báo có nút "Xem ưu đãi" dẫn thẳng đến trang Subscription.
+
+### 9.2 Chiến dịch Quà tặng sự kiện (Reward Campaign)
+
+Khác với `subscription_campaigns` (tặng gói hội viên), `reward_campaigns` cho phép Admin tặng Coin, Diamond hoặc vật phẩm (item) đặc biệt:
+
+| Loại quà | Hành vi khi nhận |
+| :--- | :--- |
+| `coin` | Cộng thẳng vào `wallets.coin_balance`, ghi log `billing_transactions` |
+| `diamond` | Cộng thẳng vào `wallets.diamond_balance`, ghi log `billing_transactions` |
+| `item` | Thêm vào `user_items` với số lượng 1 (hoặc tăng thêm nếu là STREAK_FREEZE/RESTORE) |
+| `item` (đã có) | Cộng thay thế bằng `fallback_coin` vào `coin_balance` |
+
+Luồng nhận quà: Người dùng mở Bell thông báo -> thấy thông báo loại `reward` -> nhấn "Nhận quà ngay" -> `RewardClaimModal` hiện ra -> gọi `POST /api/payment/reward-campaign/claim`. Backend kiểm tra `UNIQUE KEY (user_id, reward_campaign_id)` để đảm bảo idempotent, toàn bộ xử lý chạy trong MySQL Transaction ACID.
+
+### 9.3 Chế độ Bảo trì hệ thống (Maintenance Mode)
+
+Admin quản lý bảo trì qua 2 endpoints:
+- `POST /api/admin/maintenance/start` — bật bảo trì (thêm bản ghi vào `system_announcements`)
+- `PATCH /api/admin/maintenance/:id/end` — kết thúc bảo trì sớm
+
+Khi bật bảo trì, middleware `checkMaintenance` (đăng ký trước `requireAuth` trên toàn bộ `/api/*`) chặn tất cả request và trả về HTTP 503 kèm payload:
+```json
+{
+  "maintenance": true,
+  "title": "...",
+  "message": "...",
+  "expected_end": "2026-12-01T10:00:00Z"
+}
+```
+Frontend (`App.tsx`) poll `GET /api/system/status` mỗi 45 giây, khi nhận `maintenance: true` thì render toàn màn hình `MaintenancePage.tsx` thay thế ứng dụng. Admin bypass hoàn toàn bằng JWT cookie hợp lệ (middleware giải mã token trước khi kiểm tra bảo trì).
+
+### 9.4 Email Blast diện rộng
+
+Admin gửi email đến toàn bộ người dùng đang hoạt động qua `POST /api/admin/email-blast`. Backend phản hồi ngay **HTTP 202 Accepted** (fire-and-forget), sau đó gửi theo batch 10 email/giây với delay 1 giây giữa các batch để tránh vượt giới hạn Resend API. Mỗi lần gửi được ghi vào `email_blast_logs`. Admin xem nhật ký qua `GET /api/admin/email-blast/logs`.
+
+---
+
+## 10. DANH SÁCH API ADMIN MARKETING
+
+| Phương thức | Endpoint | Mô tả |
+| :--- | :--- | :--- |
+| **GET** | `/api/admin/packages/with-sale` | 21 gói kèm trạng thái sale runtime (NONE/INCOMING/ACTIVE/EXPIRED) |
+| **PATCH** | `/api/admin/packages/:id/sale` | Set hoặc xóa đợt sale% cho gói |
+| **GET** | `/api/admin/campaigns/reward` | Danh sách chiến dịch quà tặng |
+| **POST** | `/api/admin/campaigns/reward` | Tạo chiến dịch quà tặng mới |
+| **PATCH** | `/api/admin/campaigns/reward/:id/toggle` | Bật/tắt chiến dịch |
+| **DELETE** | `/api/admin/campaigns/reward/:id` | Xóa chiến dịch |
+| **GET** | `/api/admin/system-announcements` | Lịch sử thông báo bảo trì |
+| **POST** | `/api/admin/maintenance/start` | Bật bảo trì |
+| **PATCH** | `/api/admin/maintenance/:id/end` | Kết thúc bảo trì |
+| **GET** | `/api/admin/email-blast/logs` | Nhật ký gửi email diện rộng |
+| **POST** | `/api/admin/email-blast` | Gửi email diện rộng (202 Accepted) |
+| **GET** | `/api/system/status` | Trạng thái bảo trì (public, 30s cache) |
+| **GET** | `/api/payment/reward-campaigns/active` | Chiến dịch quà đang hoạt động (public) |
+| **POST** | `/api/payment/reward-campaign/claim` | Nhận quà sự kiện |
+
+---
+
+*Kết thúc tài liệu payment-subscription.md*
 
 - **Môi trường Dev:** Cổng thanh toán giả lập `MOCK` được lưu trữ ở backend cho lập trình viên test nghiệp vụ nội bộ, tuyệt đối không hiển thị tùy chọn Mock trên giao diện người dùng production.
 - **Quy chuẩn văn bản giao diện:** Tuyệt đối không dùng các ký tự Unicode lạ (`·`, `—`, `–`) trong JSX hiển thị mà dùng các ký tự chuẩn (`-`, `|`, `:`, `(`, `)`).

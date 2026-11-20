@@ -86,6 +86,27 @@ schema.sql
 
 ---
 
+### PHÂN VÙNG F: MARKETING & CAMPAIGNS (Chiến dịch & Vận hành)
+
+| Tên bảng | Khóa chính | Mục đích sử dụng | Ràng buộc quan trọng |
+| :--- | :--- | :--- | :--- |
+| **`reward_campaigns`** | `id` (INT AUTO_INCREMENT) | Lưu trữ các chiến dịch tặng quà sự kiện do Admin tạo. Mỗi chiến dịch có loại phần thưởng (`coin`, `diamond`, `item`), số lượng, thời gian hiệu lực (`starts_at`, `ends_at`), cờ hoạt động (`is_active`) và `fallback_coin` (số coin thay thế khi người dùng đã có vật phẩm). | `created_by` FK tới `users.id` |
+| **`system_announcements`** | `id` (INT AUTO_INCREMENT) | Quản lý thông báo bảo trì hệ thống. Lưu trạng thái (`is_maintenance`), tiêu đề, thông điệp, thời gian bắt đầu/kết thúc dự kiến và admin tạo. Chỉ một bản ghi `is_maintenance = TRUE` được phép tồn tại tại một thời điểm. | `is_maintenance` tự quản lý |
+| **`email_blast_logs`** | `id` (INT AUTO_INCREMENT) | Ghi lại nhật ký các đợt gửi email diện rộng: tiêu đề, nội dung, số email đã gửi, trạng thái (`sent`, `failed`), admin gửi và thời gian. | `sent_by` FK tới `users.id` |
+
+**Các cột được bổ sung vào bảng hiện có (migration_campaigns.sql):**
+
+| Bảng | Cột mới | Mô tả |
+| :--- | :--- | :--- |
+| `credit_packages` | `sale_starts_at DATETIME NULL` | Thời điểm bắt đầu đợt sale % (kết hợp với `sale_ends_at` đã có). Hệ thống tính runtime tại thời điểm request, không dùng cron. |
+| `subscription_campaigns` | `description TEXT NULL` | Mô tả chi tiết chiến dịch gói trial sự kiện. |
+| `subscription_campaigns` | `banner_color VARCHAR(20) NULL` | Mã màu Tailwind hiển thị thẻ campaign trên trang Subscription. |
+| `subscription_campaigns` | `created_by VARCHAR(36) NULL` | Admin tạo chiến dịch (FK tới `users.id`). |
+| `user_campaign_claims` | `campaign_type ENUM('subscription','reward')` | Phân loại lượt nhận: gói hội viên sự kiện hay quà tặng Coin/Diamond/Item. |
+| `user_campaign_claims` | `reward_campaign_id INT NULL` | FK tới `reward_campaigns.id` (NULL nếu là subscription campaign). |
+
+---
+
 ### PHÂN VÙNG E: PAYMENT & CREDIT PACKAGES (Thanh toán & Gói Hội viên)
 
 | Tên bảng | Khóa chính | Mục đích sử dụng | Ràng buộc quan trọng |
@@ -140,7 +161,17 @@ schema.sql
 
 ---
 
-## 4. VỀ FILE MIGRATION VÀ BẢN QUYỀN MÃ NGUỒN
+## 4. DANH SÁCH FILE MIGRATION
+
+| File | Mô tả | Trạng thái |
+| :--- | :--- | :--- |
+| `migration_subscription.sql` | Tạo bảng `subscription_campaigns`, `user_campaign_claims` | Đã chạy |
+| `migration_add_order_number.sql` | Thêm cột `order_number` vào `payment_orders` | Cần chạy |
+| `migration_campaigns.sql` | Thêm bảng `reward_campaigns`, `system_announcements`, `email_blast_logs`; bổ sung cột vào `credit_packages`, `subscription_campaigns`, `user_campaign_claims` | Cần chạy |
+
+---
+
+## 5. VỀ FILE MIGRATION VÀ BẢN QUYỀN MÃ NGUỒN
 
 - **Về file `migration_subscription.sql`:** File này đã được thực thi thành công trên DataGrip để cập nhật trực tiếp cơ sở dữ liệu trên đám mây Aiven MySQL. Các bảng mới và cột mới đã được hợp nhất hoàn toàn vào [schema.sql](file:///e:/Downloads/LexiCore/backend/database/schema.sql). Do đó, bạn có thể lưu trữ file này trong thư mục migration để làm nhật ký đối chiếu, hoặc xóa đi mà hoàn toàn không ảnh hưởng đến hoạt động của hệ thống.
 - **Tập trung nguồn chân lý (Single Source of Truth):** Từ thời điểm này, file `backend/database/schema.sql` là bản thiết kế chuẩn xác nhất phản ánh đầy đủ 100% cấu trúc cơ sở dữ liệu đang vận hành trên môi trường thực tế của LexiCore.

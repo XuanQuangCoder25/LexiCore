@@ -5,7 +5,7 @@
 
 **Tài liệu chuyên biệt liên quan:**
 - [database-architecture.md](./database-architecture.md) — Schema MySQL, MongoDB, Redis chi tiết
-- [payment-subscription.md](./payment-subscription.md) — Nghiệp vụ thanh toán, bảng giá, Prorated Upgrade
+- [payment-subscription.md](./payment-subscription.md) — Nghiệp vụ thanh toán, bảng giá, Prorated Upgrade, Sale %, Reward Campaign, Maintenance, Email Blast
 - [gamification.md](./gamification.md) — Huy hiệu Rank, danh mục Bộ Sưu Tập
 - [design-system.md](./design-system.md) — Màu sắc, Dark/Light mode
 - [deployment.md](./deployment.md) — Hướng dẫn triển khai Vercel + Render + Hostinger
@@ -46,6 +46,14 @@
 /api/admin                   -> Admin HR (Users, Creator Applications)
 /api/admin/gamification      -> Admin Economy (Items, Collections, Goals, Achievements)
 /api/admin/arena             -> Admin Arena (Từ vựng, Cấu hình rank)
+/api/admin/packages          -> Admin Sale % (xem 21 gói kèm trạng thái sale, set/xóa sale%)
+/api/admin/campaigns/reward  -> Admin Reward Campaign (tạo/bật-tắt/xóa chiến dịch quà tặng)
+/api/admin/system-announcements -> Admin xem lịch sử thông báo bảo trì
+/api/admin/maintenance       -> Admin bật/tắt chế độ bảo trì hệ thống
+/api/admin/email-blast       -> Admin gửi email diện rộng và xem nhật ký gửi
+/api/system                  -> Trạng thái bảo trì hệ thống (public, 30s cache)
+/api/payment/reward-campaigns/active -> Danh sách chiến dịch quà đang hoạt động (public)
+/api/payment/reward-campaign/claim   -> Nhận quà sự kiện (Coin/Diamond/Item, idempotent)
 /api/upload                  -> Upload ảnh lên Cloudinary
 /api/notifications           -> Thông báo in-app
 /api/social                  -> Kết bạn, nhắn tin trực tiếp (DM)
@@ -67,6 +75,7 @@
 - `requireAuth` — Xác thực JWT cookie, gán `req.user`. Áp dụng cho hầu hết routes.
 - `requireRole(['ADMIN'])` — Chặn nếu không phải Admin. Áp dụng cho `/api/admin/*`.
 - `optionalAuth` — Gán user nếu có token, không bắt buộc (dùng cho Leaderboard, public pages).
+- `checkMaintenance` — Middleware bảo trì toàn hệ thống (`backend/middlewares/checkMaintenance.ts`). Áp dụng cho toàn bộ `/api/*`. Khi hệ thống đang bảo trì (`is_maintenance = TRUE`), trả về HTTP 503 kèm thông tin thời gian kết thúc dự kiến cho tất cả client không phải Admin. Admin có thể bypass bằng JWT cookie hợp lệ. Trạng thái bảo trì được cache 30 giây trong bộ nhớ để tránh truy vấn DB ở mỗi request.
 
 **Cơ chế Shadow Ban Creator:** Creator bị đình chỉ mất quyền tạo nội dung mới, nhưng nội dung cũ vẫn giữ nguyên để học viên đang học không bị gián đoạn.
 
