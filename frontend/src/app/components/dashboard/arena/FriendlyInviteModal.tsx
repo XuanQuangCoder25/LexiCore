@@ -34,6 +34,7 @@ import {
 
 interface FriendlyInviteModalProps {
   isOpen: boolean;
+  onOpen?: () => void;
   onClose: () => void;
   currentUserId?: string;
   initialTargetFriend?: { id: string; fullName: string; avatarUrl?: string | null } | null;
@@ -42,6 +43,7 @@ interface FriendlyInviteModalProps {
 
 export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
   isOpen,
+  onOpen,
   onClose,
   currentUserId,
   initialTargetFriend,
@@ -56,32 +58,53 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
+  const isMinimizedRef = useRef<boolean>(false);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const onFriendlyMatchedRef = useRef(onFriendlyMatched);
   onFriendlyMatchedRef.current = onFriendlyMatched;
 
+  // Xử lý thu nhỏ và mở lại modal
+  const handleMinimize = () => {
+    isMinimizedRef.current = true;
+    setIsMinimized(true);
+    onClose();
+  };
+
+  const handleReopen = () => {
+    isMinimizedRef.current = false;
+    setIsMinimized(false);
+    onOpen?.();
+  };
+
   // Reset state khi mở/đóng modal
   useEffect(() => {
     if (!isOpen) {
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-      setActiveInvite(null);
-      setErrorMessage(null);
-      setIsSending(false);
-      setWaitingCountdown(60);
-      setTargetInput('');
-      setCopied(false);
+      // Chỉ reset hoàn toàn nếu KHÔNG ở trạng thái thu nhỏ (minimized)
+      if (!isMinimizedRef.current) {
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        setActiveInvite(null);
+        setErrorMessage(null);
+        setIsSending(false);
+        setWaitingCountdown(60);
+        setTargetInput('');
+        setCopied(false);
+      }
+    } else {
+      // Khi modal được mở ra (isOpen = true)
+      isMinimizedRef.current = false;
       setIsMinimized(false);
-    } else if (initialTargetFriend) {
-      // Nếu có sẵn thông tin friend được truyền vào từ FriendsPanel
-      setTargetInput(initialTargetFriend.id);
+      if (initialTargetFriend) {
+        setTargetInput(initialTargetFriend.id);
+      }
     }
   }, [isOpen, initialTargetFriend]);
 
   // ─── 1. EFFECT SOCKET: Lắng nghe trạng thái lời mời ───
   useEffect(() => {
-    if (!isOpen) return;
+    // Duy trì socket listener khi modal mở HOẶC khi đang có lời mời chờ (kể cả khi minimized)
+    if (!isOpen && !isMinimized && !activeInvite) return;
 
     // Lời mời đã được gửi đi thành công -> Chuyển sang màn hình chờ
     const handleSent = (payload: FriendlyInviteSentPayload) => {
@@ -95,6 +118,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
     // Đối thủ từ chối lời mời
     const handleDeclined = (payload: FriendlyInviteDeclinedPayload) => {
       setActiveInvite(null);
+      isMinimizedRef.current = false;
       setIsMinimized(false);
       setErrorMessage(payload.message || 'Đối thủ đã từ chối lời mời thách đấu.');
     };
@@ -102,6 +126,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
     // Người gửi hoặc server hủy lời mời
     const handleCancelled = () => {
       setActiveInvite(null);
+      isMinimizedRef.current = false;
       setIsMinimized(false);
     };
 
@@ -115,6 +140,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
     const handleMatched = (matchedData: MatchedPayload) => {
       if (matchedData.matchType === 'FRIENDLY') {
         setActiveInvite(null);
+        isMinimizedRef.current = false;
         setIsMinimized(false);
         onCloseRef.current();
         onFriendlyMatchedRef.current?.(matchedData);
@@ -136,7 +162,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
       arenaSocketService.offFriendlyError(handleError);
       socket.off('arena:matched', handleMatched);
     };
-  }, [isOpen]);
+  }, [isOpen, isMinimized, activeInvite]);
 
   // ─── 2. EFFECT TIMER: Đếm ngược thời gian chờ đối thủ chấp nhận ───
   useEffect(() => {
@@ -147,6 +173,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
         if (prev <= 1) {
           clearInterval(interval);
           setActiveInvite(null);
+          isMinimizedRef.current = false;
           setIsMinimized(false);
           setErrorMessage('Lời mời đã hết thời gian chờ (60s).');
           return 0;
@@ -178,13 +205,11 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
       arenaSocketService.friendlyCancel(activeInvite.inviteId);
     }
     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-    const wasMinimized = isMinimized;
     setActiveInvite(null);
+    isMinimizedRef.current = false;
     setIsMinimized(false);
     setErrorMessage(null);
-    if (wasMinimized) {
-      onCloseRef.current();
-    }
+    onCloseRef.current();
   };
 
   // Sao chép User ID của bản thân
@@ -199,42 +224,32 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
     ? activeInvite.targetUser || (activeInvite as any).toUser
     : null;
 
+  // Chỉ thực sự thu nhỏ khi đang có activeInvite
+  const isActuallyMinimized = isMinimized && Boolean(activeInvite);
+
   return (
     <>
       <Dialog
-        open={isOpen && !isMinimized}
+        open={isOpen && !isActuallyMinimized}
         onOpenChange={(open) => {
           if (!open) {
             if (activeInvite) {
               // Click ra ngoài hoặc bấm ESC khi đang chờ -> Thu nhỏ lên góc trên bên phải
-              setIsMinimized(true);
+              handleMinimize();
             } else {
               onClose();
             }
           }
         }}
       >
-        <DialogContent className="sm:max-w-md p-6 overflow-hidden max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-md p-6 overflow-hidden max-h-[90vh] flex flex-col relative">
           <DialogHeader className="space-y-1 shrink-0">
-            <div className="flex items-center justify-between pr-6">
-              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-                <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                  <Swords className="h-5 w-5" />
-                </div>
-                Đấu Giao Hữu 1v1
-              </DialogTitle>
-              {activeInvite && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => setIsMinimized(true)}
-                  title="Thu nhỏ cửa sổ chờ"
-                >
-                  <Minimize2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <Swords className="h-5 w-5" />
+              </div>
+              Đấu Giao Hữu 1v1
+            </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Thi đấu từ vựng vui vẻ cùng bạn bè: không tính điểm xếp hạng (RP) và không đổi thưởng.
             </DialogDescription>
@@ -290,7 +305,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
                 <Button
                   variant="outline"
                   className="flex-1 text-xs h-9 font-semibold text-muted-foreground hover:text-foreground border-border hover:bg-muted"
-                  onClick={() => setIsMinimized(true)}
+                  onClick={handleMinimize}
                 >
                   <Minimize2 className="h-4 w-4 mr-1.5" />
                   Thu nhỏ
@@ -306,9 +321,9 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
               </div>
 
               {/* Dòng ghi chú thân thiện */}
-              <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5 pt-1">
-                <Info className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <span>Mẹo: Bạn có thể thu nhỏ hoặc click ra ngoài để xem Lịch sử đấu/BXH trong lúc chờ.</span>
+              <p className="text-[11px] text-muted-foreground text-center pt-1 leading-relaxed">
+                <Info className="inline-block h-3.5 w-3.5 mr-1 text-emerald-600 dark:text-emerald-400 align-text-bottom" />
+                Mẹo: Bạn có thể thu nhỏ hoặc click ra ngoài để xem Lịch sử đấu/BXH trong lúc chờ.
               </p>
             </div>
           ) : (
@@ -457,10 +472,10 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
     </Dialog>
 
     {/* ── CARD THU NHỎ Ở GÓC TRÊN BÊN PHẢI (KHI MINIMIZED) ── */}
-    {isMinimized && activeInvite && opponentInfo && typeof document !== 'undefined' &&
+    {isActuallyMinimized && opponentInfo && typeof document !== 'undefined' &&
       createPortal(
         <aside
-          onClick={() => setIsMinimized(false)}
+          onClick={handleReopen}
           className="fixed top-20 right-6 z-[70] w-80 sm:w-88 rounded-2xl border-2 border-emerald-500/40 bg-card/95 backdrop-blur-md shadow-2xl overflow-hidden cursor-pointer animate-in slide-in-from-right-8 fade-in duration-300 hover:border-emerald-500 transition-all group select-none"
           role="button"
           tabIndex={0}
@@ -481,7 +496,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsMinimized(false);
+                    handleReopen();
                   }}
                   className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   title="Phóng to cửa sổ"
