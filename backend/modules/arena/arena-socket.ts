@@ -19,7 +19,13 @@ import {
     getPlayersWallets,
     saveMatchTransaction,
     MatchWordRecord,
+    ARENA_MATCH_REWARDS,
 } from './arena-match.repository';
+import {
+    getUserTier,
+    getTierLimit,
+    getVNDateKey,
+} from '../../utils/tierLimits';
 
 export interface SubmitAnswerPayload {
     roomId: string;
@@ -743,7 +749,65 @@ export async function finishMatch(
         });
     });
 
-    // 5. Lưu vào MySQL qua DB Transaction
+    // 5. Tính toán phần thưởng và số trận trong ngày theo hạng gói (Tier)
+    const matchType = room['matchType'] || 'RANK';
+    const todayKey = getVNDateKey();
+
+    // Tăng biến đếm số trận Rank trong ngày cho cả 2 người chơi (nếu là trận Rank)
+    if (matchType === 'RANK') {
+        const p1RankPlayed = await redis.incr(`arena:daily_rank:${player1Id}:${todayKey}`);
+        if (p1RankPlayed === 1) {
+            await redis.expire(`arena:daily_rank:${player1Id}:${todayKey}`, 90000);
+        }
+        const p2RankPlayed = await redis.incr(`arena:daily_rank:${player2Id}:${todayKey}`);
+        if (p2RankPlayed === 1) {
+            await redis.expire(`arena:daily_rank:${player2Id}:${todayKey}`, 90000);
+        }
+    }
+
+    // Cơ chế x2 Coin và EXP cho các trận nhân thưởng hàng ngày
+    const [p1Tier, p2Tier] = await Promise.all([
+        getUserTier(player1Id),
+        getUserTier(player2Id),
+    ]);
+
+    const p1DoubleLimit = getTierLimit('arenaDailyDoubleRewardMatches', p1Tier);
+    const p2DoubleLimit = getTierLimit('arenaDailyDoubleRewardMatches', p2Tier);
+
+    let p1WasDouble = false;
+    if (p1DoubleLimit > 0) {
+        const p1Used = Number(await redis.get(`arena:daily_x2:${player1Id}:${todayKey}`) || 0);
+        if (p1Used < p1DoubleLimit) {
+            p1WasDouble = true;
+            const p1NewUsed = await redis.incr(`arena:daily_x2:${player1Id}:${todayKey}`);
+            if (p1NewUsed === 1) {
+                await redis.expire(`arena:daily_x2:${player1Id}:${todayKey}`, 90000);
+            }
+        }
+    }
+
+    let p2WasDouble = false;
+    if (p2DoubleLimit > 0) {
+        const p2Used = Number(await redis.get(`arena:daily_x2:${player2Id}:${todayKey}`) || 0);
+        if (p2Used < p2DoubleLimit) {
+            p2WasDouble = true;
+            const p2NewUsed = await redis.incr(`arena:daily_x2:${player2Id}:${todayKey}`);
+            if (p2NewUsed === 1) {
+                await redis.expire(`arena:daily_x2:${player2Id}:${todayKey}`, 90000);
+            }
+        }
+    }
+
+    const p1BaseRewards = ARENA_MATCH_REWARDS[p1MatchResult];
+    const p2BaseRewards = ARENA_MATCH_REWARDS[p2MatchResult];
+
+    const p1Coins = p1WasDouble ? p1BaseRewards.coins * 2 : p1BaseRewards.coins;
+    const p1Exp = p1WasDouble ? p1BaseRewards.exp * 2 : p1BaseRewards.exp;
+
+    const p2Coins = p2WasDouble ? p2BaseRewards.coins * 2 : p2BaseRewards.coins;
+    const p2Exp = p2WasDouble ? p2BaseRewards.exp * 2 : p2BaseRewards.exp;
+
+    // 6. Lưu vào MySQL qua DB Transaction
     try {
         await saveMatchTransaction({
             matchId: roomId,
@@ -763,6 +827,7 @@ export async function finishMatch(
                 timeMs: p1TimeMs,
                 progression: p1Progression,
                 winStreak: p1WinStreak,
+                rewards: { coins: p1Coins, exp: p1Exp, wasDoubleReward: p1WasDouble },
             },
             p2: {
                 userId: player2Id,
@@ -770,6 +835,7 @@ export async function finishMatch(
                 timeMs: p2TimeMs,
                 progression: p2Progression,
                 winStreak: p2WinStreak,
+                rewards: { coins: p2Coins, exp: p2Exp, wasDoubleReward: p2WasDouble },
             },
             words: matchWordRecords,
         });
@@ -777,12 +843,12 @@ export async function finishMatch(
         console.error('[Arena Gameplay] Lỗi khi lưu MySQL match transaction:', dbErr);
     }
 
-    // 6. Dọn dẹp Redis
+    // 7. Dọn dẹp Redis
     await redis.del(`arena:player:${player1Id}`);
     await redis.del(`arena:player:${player2Id}`);
     await redis.expire(roomKey, 300); // Giữ room 5 phút phục vụ tra cứu sau trận nếu cần
 
-    // 7. Emit kết quả tổng kết (arena:game_over)
+    // 8. Emit kết quả tổng kết (arena:game_over)
     // Emit cho Player 1
     io.to(`user:${player1Id}`).emit('arena:game_over', {
         roomId,
@@ -790,6 +856,7 @@ export async function finishMatch(
         winnerId,
         reason,
         myResult: p1MatchResult,
+        wasDoubleReward: p1WasDouble,
         myStats: {
             id: player1Id,
             correct: p1Correct,
@@ -804,6 +871,9 @@ export async function finishMatch(
             isDemoted: p1Progression.isDemoted,
             promotionDetails: p1Progression.promotionDetails,
             demotionDetails: p1Progression.demotionDetails,
+            wasDoubleReward: p1WasDouble,
+            earnedCoins: p1Coins,
+            earnedExp: p1Exp,
         },
         opponentStats: {
             id: player2Id,
@@ -815,6 +885,67 @@ export async function finishMatch(
             newRankPoint: p2Progression.newRankPoint,
             newLeaderboardPoint: p2Progression.newLeaderboardPoint,
             winStreak: p2WinStreak,
+            wasDoubleReward: p2WasDouble,
+            earnedCoins: p2Coins,
+            earnedExp: p2Exp,
+        },
+        words: clientWords.map((w) => ({
+            orderIndex: w.orderIndex,
+            wordId: w.wordId,
+            word: w.word,
+            meaning: w.meaning,
+            topic: w.topic,
+            level: w.level,
+            wordType: w.wordType,
+            example: w.example,
+            myAnswer: w.p1Answer,
+            myCorrect: w.p1Correct,
+            myTimeMs: w.p1TimeMs,
+            opponentAnswer: w.p2Answer,
+            opponentCorrect: w.p2Correct,
+            opponentTimeMs: w.p2TimeMs,
+        })),
+    });
+
+    // Emit cho Player 2
+    io.to(`user:${player2Id}`).emit('arena:game_over', {
+        roomId,
+        result,
+        winnerId,
+        reason,
+        myResult: p2MatchResult,
+        wasDoubleReward: p2WasDouble,
+        myStats: {
+            id: player2Id,
+            correct: p2Correct,
+            timeMs: p2TimeMs,
+            rankPointDelta: p2Progression.rankPointDelta,
+            leaderboardPointDelta: p2Progression.leaderboardPointDelta,
+            newRank: p2Progression.newRank,
+            newRankPoint: p2Progression.newRankPoint,
+            newLeaderboardPoint: p2Progression.newLeaderboardPoint,
+            winStreak: p2WinStreak,
+            isPromoted: p2Progression.isPromoted,
+            isDemoted: p2Progression.isDemoted,
+            promotionDetails: p2Progression.promotionDetails,
+            demotionDetails: p2Progression.demotionDetails,
+            wasDoubleReward: p2WasDouble,
+            earnedCoins: p2Coins,
+            earnedExp: p2Exp,
+        },
+        opponentStats: {
+            id: player1Id,
+            correct: p1Correct,
+            timeMs: p1TimeMs,
+            rankPointDelta: p1Progression.rankPointDelta,
+            leaderboardPointDelta: p1Progression.leaderboardPointDelta,
+            newRank: p1Progression.newRank,
+            newRankPoint: p1Progression.newRankPoint,
+            newLeaderboardPoint: p1Progression.newLeaderboardPoint,
+            winStreak: p1WinStreak,
+            wasDoubleReward: p1WasDouble,
+            earnedCoins: p1Coins,
+            earnedExp: p1Exp,
         },
         words: clientWords.map((w) => ({
             orderIndex: w.orderIndex,
@@ -984,9 +1115,24 @@ export function initArenaSocket(io: SocketIOServer): void {
         socket.join(`user:${user.id}`);
 
         // 1. Event: Tìm trận đấu
-        socket.on('arena:find_match', async () => {
+        const handleFindMatch = async () => {
             try {
                 const userId = user.id;
+
+                // Kiểm tra giới hạn số trận Rank mỗi ngày theo hạng gói hội viên
+                const userTier = await getUserTier(userId);
+                const maxRankMatches = getTierLimit('arenaDailyRankMatches', userTier);
+                if (maxRankMatches !== -1) {
+                    const todayKey = getVNDateKey();
+                    const playedMatches = Number(await redis.get(`arena:daily_rank:${userId}:${todayKey}`) || 0);
+                    if (playedMatches >= maxRankMatches) {
+                        const rejectMsg = 'Bạn đã dùng hết 10 lượt đấu Rank hôm nay. Nâng cấp lên Starter để leo Rank không giới hạn!';
+                        socket.emit('arena:queue_rejected', { message: rejectMsg });
+                        socket.emit('arena:match_error', { message: rejectMsg });
+                        console.log(`[Arena Matchmaking] Chặn user ${userId} do đã đạt giới hạn Rank (${playedMatches}/${maxRankMatches})`);
+                        return;
+                    }
+                }
 
                 // Tự động kiểm tra và giải phóng phòng cũ nếu có
                 const existingRoomId = await redis.get(`arena:player:${userId}`);
@@ -1050,7 +1196,10 @@ export function initArenaSocket(io: SocketIOServer): void {
                 console.error('[Arena Matchmaking] Lỗi khi nhận yêu cầu tìm trận:', error);
                 socket.emit('arena:match_error', { message: 'Có lỗi xảy ra khi tìm trận đấu.' });
             }
-        });
+        };
+
+        socket.on('arena:find_match', handleFindMatch);
+        socket.on('arena:join_queue', handleFindMatch);
 
         // 2. Event: Huỷ tìm trận đấu
         socket.on('arena:cancel_match', async () => {

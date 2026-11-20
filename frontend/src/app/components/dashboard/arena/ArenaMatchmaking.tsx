@@ -208,6 +208,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     socket.on('arena:countdown', handleCountdown);
     socket.on('arena:match_cancelled', handleMatchCancelled);
     socket.on('arena:match_error', handleMatchError);
+    socket.on('arena:queue_rejected', handleMatchError);
 
     // Bắn event tìm trận thật lên server MỘT LẦN DUY NHẤT
     arenaSocketService.findMatch();
@@ -219,6 +220,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       socket.off('arena:countdown', handleCountdown);
       socket.off('arena:match_cancelled', handleMatchCancelled);
       socket.off('arena:match_error', handleMatchError);
+      socket.off('arena:queue_rejected', handleMatchError);
       if (timerRef.current) clearInterval(timerRef.current);
       if (readyTimerRef.current) clearInterval(readyTimerRef.current);
       if (mockTimeoutRef.current) clearTimeout(mockTimeoutRef.current);

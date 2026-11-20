@@ -29,6 +29,7 @@ export interface PlayerFinalStats {
     timeMs: number;
     progression: RankProgressionResult;
     winStreak: number;
+    rewards?: { coins: number; exp: number; wasDoubleReward?: boolean };
 }
 
 export interface SaveMatchTransactionParams {
@@ -165,11 +166,11 @@ export async function saveMatchTransaction(params: SaveMatchTransactionParams): 
         const p1Wallet = walletsMap.get(player1Id);
         const p2Wallet = walletsMap.get(player2Id);
 
-        // Xác định kết quả và phần thưởng Coin / EXP cho từng người
+        // Xác định kết quả và phần thưởng Coin / EXP cho từng người (áp dụng reward nhân đôi nếu có)
         const p1ResultType = result === 'P1_WIN' ? 'WIN' : (result === 'P2_WIN' ? 'LOSS' : 'DRAW');
         const p2ResultType = result === 'P2_WIN' ? 'WIN' : (result === 'P1_WIN' ? 'LOSS' : 'DRAW');
-        const p1Rewards = ARENA_MATCH_REWARDS[p1ResultType];
-        const p2Rewards = ARENA_MATCH_REWARDS[p2ResultType];
+        const p1Rewards = p1.rewards || ARENA_MATCH_REWARDS[p1ResultType];
+        const p2Rewards = p2.rewards || ARENA_MATCH_REWARDS[p2ResultType];
 
         // Tính toán Level & EXP mới
         const p1LevelCalc = calculateNewLevel(p1Wallet?.level ?? 1, p1Wallet?.exp ?? 0, p1Rewards.exp);

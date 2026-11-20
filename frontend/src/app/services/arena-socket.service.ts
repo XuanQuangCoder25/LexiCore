@@ -35,6 +35,9 @@ export interface GameOverPlayerStats {
   isDemoted?: boolean;
   promotionDetails?: any;
   demotionDetails?: any;
+  wasDoubleReward?: boolean;
+  earnedCoins?: number;
+  earnedExp?: number;
 }
 
 export interface MatchReviewWord {
@@ -63,6 +66,7 @@ export interface GameOverPayload {
   myStats: GameOverPlayerStats;
   opponentStats: GameOverPlayerStats;
   words: MatchReviewWord[];
+  wasDoubleReward?: boolean;
 }
 
 class ArenaSocketService {

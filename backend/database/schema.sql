@@ -334,7 +334,6 @@ CREATE TABLE arena_words (
         'verb',
         'adjective',
         'adverb',
-        'phrase',
         'noun_phrase',
         'verb_phrase',
         'idiom',

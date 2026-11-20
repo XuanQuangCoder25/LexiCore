@@ -23,7 +23,7 @@ const API_BASE = "";
 type WordLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 type WordType =
   | "noun" | "verb" | "adjective" | "adverb"
-  | "phrase" | "noun_phrase" | "verb_phrase"
+  | "noun_phrase" | "verb_phrase"
   | "idiom" | "collocation";
 
 interface ArenaWord {
@@ -47,7 +47,7 @@ interface UploadedFileItem {
 const LEVELS: WordLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
 const WORD_TYPES: WordType[] = [
   "noun", "verb", "adjective", "adverb",
-  "phrase", "noun_phrase", "verb_phrase",
+  "noun_phrase", "verb_phrase",
   "idiom", "collocation",
 ];
 
@@ -56,7 +56,6 @@ const TYPE_LABEL: Record<WordType, string> = {
   verb: "Động từ",
   adjective: "Tính từ",
   adverb: "Trạng từ",
-  phrase: "Cụm từ",
   noun_phrase: "Cụm danh từ",
   verb_phrase: "Cụm động từ",
   idiom: "Thành ngữ",

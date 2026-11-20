@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 export type WordLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type WordType =
     | 'noun' | 'verb' | 'adjective' | 'adverb'
-    | 'phrase' | 'noun_phrase' | 'verb_phrase'
+    | 'noun_phrase' | 'verb_phrase'
     | 'idiom' | 'collocation';
 
 export interface ArenaWordInput {
@@ -29,7 +29,7 @@ export interface ArenaWordRow extends ArenaWordInput {
 export const VALID_LEVELS: WordLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 export const VALID_TYPES: WordType[] = [
     'noun', 'verb', 'adjective', 'adverb',
-    'phrase', 'noun_phrase', 'verb_phrase',
+    'noun_phrase', 'verb_phrase',
     'idiom', 'collocation',
 ];
 
@@ -207,8 +207,12 @@ export const getRandomWordsForMatch = async (
 
         let typeClause = '';
         if (cond.types && cond.types.length > 0) {
+            // Bốc đúng loại từ được chỉ định (ví dụ: chỉ idiom và collocation)
             typeClause = `AND word_type IN (${cond.types.map(() => '?').join(', ')})`;
             levelParams.push(...cond.types);
+        } else {
+            // Bốc từ thường: luôn loại trừ idiom và collocation để đảm bảo đúng logic rank
+            typeClause = `AND word_type NOT IN ('idiom', 'collocation')`;
         }
 
         const limitCount = cond.count ?? totalCount;
