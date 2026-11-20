@@ -347,7 +347,6 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
           {/* Modal Mời Đấu Giao Hữu */}
           <FriendlyInviteModal
             isOpen={isFriendlyModalOpen}
-            onOpen={() => setIsFriendlyModalOpen(true)}
             onClose={() => {
               setIsFriendlyModalOpen(false);
               setTargetFriendForInvite(null);

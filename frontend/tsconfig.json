@@ -14,9 +14,8 @@
     "strict": false,
     "noImplicitAny": false,
     "strictNullChecks": false,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/app/*"]
+      "@/*": ["./src/app/*"]
     }
   },
   "include": ["src"],
