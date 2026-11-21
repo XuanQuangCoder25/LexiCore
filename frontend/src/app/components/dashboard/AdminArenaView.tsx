@@ -75,7 +75,7 @@ const TYPE_LABEL: Record<WordType, string> = {
   adverb: "Trạng từ",
   noun_phrase: "Cụm danh từ",
   verb_phrase: "Cụm động từ",
-  idiom: "Thành ngữ",
+  idiom: "Idiom",
   collocation: "Collocation",
 };
 
@@ -108,6 +108,8 @@ export function AdminArenaView() {
   const [search, setSearch] = useState("");
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
+  const [filterTopic, setFilterTopic] = useState<string>("all");
+  const [topicsList, setTopicsList] = useState<string[]>([]);
 
   // Modals
   const [addOpen, setAddOpen] = useState(false);
@@ -129,6 +131,22 @@ export function AdminArenaView() {
 
   const LIMIT = 20;
 
+  const fetchTopics = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/arena/topics`, { credentials: "include" });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setTopicsList(data.data);
+      }
+    } catch (e) {
+      console.error("fetchTopics error:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTopics();
+  }, [fetchTopics]);
+
   const fetchWords = useCallback(async (p = page) => {
     setLoading(true);
     try {
@@ -136,6 +154,7 @@ export function AdminArenaView() {
       if (search) params.set("q", search);
       if (filterLevel !== "all") params.set("level", filterLevel);
       if (filterType !== "all") params.set("word_type", filterType);
+      if (filterTopic !== "all") params.set("topic", filterTopic);
 
       const res = await fetch(`${API_BASE}/api/admin/arena/words?${params}`, { credentials: "include" });
       const data = await res.json();
@@ -148,11 +167,11 @@ export function AdminArenaView() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterLevel, filterType]);
+  }, [page, search, filterLevel, filterType, filterTopic]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterLevel, filterType]);
+  }, [search, filterLevel, filterType, filterTopic]);
 
   useEffect(() => {
     fetchWords(page);
@@ -201,6 +220,7 @@ export function AdminArenaView() {
         setEditWord(null);
         setForm({ ...EMPTY_FORM });
         fetchWords(page);
+        fetchTopics();
       } else {
         setFormError(data.message || "Lỗi không xác định");
       }
@@ -224,6 +244,7 @@ export function AdminArenaView() {
       if (data.success) {
         setDeleteWord(null);
         fetchWords(page);
+        fetchTopics();
       }
     } catch {
       /* silent */
@@ -387,6 +408,7 @@ export function AdminArenaView() {
       const data = await res.json();
       if (data.success) {
         fetchWords(1);
+        fetchTopics();
         if (data.data) {
           setImportSummary(data.data);
           setUploadedFiles([]);
@@ -478,8 +500,21 @@ export function AdminArenaView() {
             {WORD_TYPES.map((t) => <SelectItem key={t} value={t}>{TYPE_LABEL[t]}</SelectItem>)}
           </SelectContent>
         </Select>
-        {(search || filterLevel !== "all" || filterType !== "all") && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setFilterLevel("all"); setFilterType("all"); }}>
+        <Select value={filterTopic} onValueChange={setFilterTopic}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Chủ đề" />
+          </SelectTrigger>
+          <SelectContent className="max-h-60 overflow-y-auto [scrollbar-width:thin]">
+            <SelectItem value="all">Tất cả chủ đề</SelectItem>
+            {topicsList.map((top) => (
+              <SelectItem key={top} value={top} className="capitalize">
+                {top}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(search || filterLevel !== "all" || filterType !== "all" || filterTopic !== "all") && (
+          <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setFilterLevel("all"); setFilterType("all"); setFilterTopic("all"); }}>
             <X className="w-4 h-4 mr-1" /> Xoá bộ lọc
           </Button>
         )}
@@ -713,9 +748,8 @@ export function AdminArenaView() {
                             <td className="py-2 px-3 text-center">
                               {sw.existingLevel ? (
                                 <span
-                                  className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                                    LEVEL_COLOR[sw.existingLevel as WordLevel] || "bg-muted text-muted-foreground"
-                                  }`}
+                                  className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${LEVEL_COLOR[sw.existingLevel as WordLevel] || "bg-muted text-muted-foreground"
+                                    }`}
                                 >
                                   {sw.existingLevel}
                                 </span>
@@ -762,11 +796,10 @@ export function AdminArenaView() {
               {/* Vùng Dropzone lớn: chỉ hiển thị khi CHƯA có file nào */}
               {uploadedFiles.length === 0 && (
                 <div
-                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                    isDragging
-                      ? "border-primary bg-primary/10"
-                      : "hover:border-primary/50 hover:bg-muted/30 border-border"
-                  }`}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${isDragging
+                    ? "border-primary bg-primary/10"
+                    : "hover:border-primary/50 hover:bg-muted/30 border-border"
+                    }`}
                   onClick={() => fileRef.current?.click()}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -807,11 +840,10 @@ export function AdminArenaView() {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    className={`flex flex-wrap gap-3 max-h-56 overflow-y-auto p-2.5 border-2 rounded-xl transition-colors [scrollbar-width:thin] ${
-                      isDragging
-                        ? "border-primary bg-primary/5"
-                        : "border-border bg-muted/20"
-                    }`}
+                    className={`flex flex-wrap gap-3 max-h-56 overflow-y-auto p-2.5 border-2 rounded-xl transition-colors [scrollbar-width:thin] ${isDragging
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-muted/20"
+                      }`}
                   >
                     {uploadedFiles.map((file) => (
                       <div
