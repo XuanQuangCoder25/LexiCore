@@ -198,6 +198,7 @@ export const getRandomWordsForMatch = async (
 ): Promise<ArenaWordRow[]> => {
     const allWords: ArenaWordRow[] = [];
     const selectedIds = new Set<string>();
+    const selectedWordTexts = new Set<string>(); // Đảm bảo trong 1 ván đấu không bao giờ có 2 từ tiếng Anh trùng nhau
 
     for (const cond of levelConditions) {
         if (cond.levels.length === 0) continue;
@@ -223,20 +224,23 @@ export const getRandomWordsForMatch = async (
              WHERE level IN (${levelPlaceholders}) ${typeClause}
              ORDER BY RAND()
              LIMIT ?`,
-            [...levelParams, limitCount]
+            [...levelParams, limitCount * 2] // Lấy dư gấp đôi để lọc bỏ các từ trùng lặp text
         );
 
         for (const row of rows as ArenaWordRow[]) {
-            if (!selectedIds.has(row.id)) {
+            const cleanWord = row.word.toLowerCase().trim();
+            if (!selectedIds.has(row.id) && !selectedWordTexts.has(cleanWord)) {
                 selectedIds.add(row.id);
+                selectedWordTexts.add(cleanWord);
                 allWords.push(row);
+                if (allWords.length >= totalCount) break;
             }
         }
     }
 
     // Fallback: nếu DB chưa đủ từ theo đúng điều kiện phân bổ, lấy thêm từ bất kỳ để đủ số lượng
     if (allWords.length < totalCount) {
-        const needed = totalCount - allWords.length;
+        const needed = (totalCount - allWords.length) * 2;
         let notInClause = '';
         const params: any[] = [];
 
@@ -258,9 +262,12 @@ export const getRandomWordsForMatch = async (
         );
 
         for (const row of fallbackRows as ArenaWordRow[]) {
-            if (!selectedIds.has(row.id)) {
+            const cleanWord = row.word.toLowerCase().trim();
+            if (!selectedIds.has(row.id) && !selectedWordTexts.has(cleanWord)) {
                 selectedIds.add(row.id);
+                selectedWordTexts.add(cleanWord);
                 allWords.push(row);
+                if (allWords.length >= totalCount) break;
             }
         }
     }
