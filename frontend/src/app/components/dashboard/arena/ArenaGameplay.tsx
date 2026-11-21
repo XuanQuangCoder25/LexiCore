@@ -24,130 +24,6 @@ interface QuestionItem {
   example?: string; // Câu ví dụ gợi ý
 }
 
-// 25 Câu hỏi phong phú cho chế độ đấu trường Wordle (Việt -> Anh)
-const DEFAULT_MATCH_QUESTIONS: QuestionItem[] = [
-  {
-    id: 'w-1',
-    meaning: 'Có khả năng phục hồi nhanh chóng sau khó khăn hoặc nghịch cảnh',
-    word: 'RESILIENT',
-    wordType: 'Tính từ (Adj)',
-    topic: 'Tâm lý & Tính cách',
-    example: 'Children are often remarkably ______ to shocks and trauma.',
-  },
-  {
-    id: 'w-2',
-    meaning: 'Chỉ tồn tại trong một khoảng thời gian rất ngắn, phù du, chóng tàn',
-    word: 'EPHEMERAL',
-    wordType: 'Tính từ (Adj)',
-    topic: 'Triết học & Cuộc sống',
-    example: 'Fame in the internet age is often exceedingly ______.',
-  },
-  {
-    id: 'w-3',
-    meaning: 'Sự bảo tồn môi trường sinh thái tự nhiên',
-    word: 'ENVIRONMENT CONSERVATION',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Môi trường & Sinh thái',
-    example: 'The government pledged more funds for ______.',
-  },
-  {
-    id: 'w-4',
-    meaning: 'Hiện tượng ấm lên toàn cầu do hiệu ứng nhà kính',
-    word: 'GLOBAL WARMING',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Môi trường & Khoa học',
-    example: '______ has become the most urgent ecological crisis of our era.',
-  },
-  {
-    id: 'w-5',
-    meaning: 'Sự đổi mới, sáng tạo mang tính đột phá',
-    word: 'INNOVATION',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Công nghệ & Phát triển',
-    example: 'Technological ______ is transforming traditional finance.',
-  },
-  {
-    id: 'w-6',
-    meaning: 'Có mặt ở khắp mọi nơi cùng một lúc, phổ biến ở mọi chốn',
-    word: 'UBIQUITOUS',
-    wordType: 'Tính từ (Adj)',
-    topic: 'Xã hội hiện đại',
-    example: 'Smartphones have become ______ in modern daily life.',
-  },
-  {
-    id: 'w-7',
-    meaning: 'Sự phát triển bền vững đáp ứng nhu cầu hiện tại và tương lai',
-    word: 'SUSTAINABLE DEVELOPMENT',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Kinh tế & Xã hội',
-    example: 'Green energy is the cornerstone of ______.',
-  },
-  {
-    id: 'w-8',
-    meaning: 'Bảo vệ, gìn giữ, ngăn ngừa khỏi sự tổn hại hoặc biến mất',
-    word: 'PRESERVE',
-    wordType: 'Động từ (Verb)',
-    topic: 'Văn hóa & Di sản',
-    example: 'We must do everything possible to ______ historic monuments.',
-  },
-  {
-    id: 'w-9',
-    meaning: 'Khả năng thích ứng linh hoạt trước sự thay đổi',
-    word: 'ADAPTABILITY',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Kỹ năng sinh tồn',
-    example: '______ is essential for thriving in a volatile job market.',
-  },
-  {
-    id: 'w-10',
-    meaning: 'Sự biến đổi khí hậu trên phạm vi toàn cầu',
-    word: 'CLIMATE CHANGE',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Môi trường',
-    example: 'The conference focused on solutions to mitigate ______.',
-  },
-  {
-    id: 'w-11',
-    meaning: 'Sự đa dạng sinh học của các loài động thực vật',
-    word: 'BIODIVERSITY',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Tự nhiên',
-    example: 'Rainforests harbor an immense wealth of ______.',
-  },
-  {
-    id: 'w-12',
-    meaning: 'Lòng nhân từ, hành động bác ái vì lợi ích cộng đồng',
-    word: 'PHILANTHROPY',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Xã hội & Đạo đức',
-    example: 'His generous ______ funded schools in impoverished areas.',
-  },
-  {
-    id: 'w-13',
-    meaning: 'Hợp tác, làm việc cùng nhau để đạt mục tiêu chung',
-    word: 'COLLABORATION',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Làm việc nhóm',
-    example: 'Effective ______ between teams led to the project success.',
-  },
-  {
-    id: 'w-14',
-    meaning: 'Trí tuệ nhân tạo có khả năng tự học hỏi',
-    word: 'ARTIFICIAL INTELLIGENCE',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Công nghệ',
-    example: '______ is rapidly advancing across various industries.',
-  },
-  {
-    id: 'w-15',
-    meaning: 'Hăng hái, nhiệt tình và kiên trì theo đuổi mục tiêu',
-    word: 'ENTHUSIASM',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Cảm xúc & Thái độ',
-    example: 'She greeted the new project with immense ______.',
-  },
-];
-
 export interface ArenaGameplayProps {
   matchData: MatchedPayload | null;
   onExitMatch: () => void;
@@ -191,20 +67,27 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
   >('idle');
   const [streakNotice, setStreakNotice] = useState<string | null>(null);
 
-  // Danh sách câu hỏi (từ server nếu có, hoặc mock)
+  // Danh sách câu hỏi (nhận trực tiếp từ máy chủ thi đấu)
   const questions: QuestionItem[] =
     matchData?.questions && matchData.questions.length > 0
       ? matchData.questions.map((q: any, idx: number) => ({
         id: q.id || `q-${idx}`,
         meaning: q.meaning || 'Nghĩa tiếng Việt',
-        word: (q.word || q.mask?.replace(/\s+/g, '') || 'WORD').toUpperCase(),
+        word: (q.word || q.mask?.replace(/\s+/g, '') || '').toUpperCase(),
         wordType: q.word_type || 'Từ vựng',
         topic: q.topic || 'Đấu trường',
         example: q.example,
       }))
-      : DEFAULT_MATCH_QUESTIONS;
+      : [];
 
-  const currentQ = questions[currentQuestionIndex % questions.length];
+  const currentQ = questions[currentQuestionIndex % (questions.length || 1)] || {
+    id: 'loading',
+    meaning: 'Đang chuẩn bị câu hỏi...',
+    word: '',
+    wordType: '',
+    topic: '',
+    example: '',
+  };
 
   // ─── STATE CÁC Ô CHỮ WORDLE (HỖ TRỢ NHIỀU TỪ / PHRASE) ───
   // wordsArray: Tách cụm từ thành danh sách các từ: ví dụ ['ENVIRONMENT', 'CONSERVATION']

@@ -325,7 +325,21 @@ export function AdminArenaView() {
     }[] = [];
 
     try {
-      parsed = allRows.map((item) => {
+      // Tự động phát hiện và bỏ qua dòng tiêu đề (header: word, meaning, topic, level...)
+      const dataRows = allRows.filter((item) => {
+        const cols = parseCsvRow(item.line);
+        const isHeader =
+          cols[0]?.toLowerCase() === "word" &&
+          (cols[1]?.toLowerCase() === "meaning" || cols[3]?.toLowerCase() === "level");
+        return !isHeader;
+      });
+
+      if (dataRows.length === 0) {
+        setImportError("File CSV không có dữ liệu từ vựng nào (chỉ có dòng tiêu đề hoặc rỗng).");
+        return;
+      }
+
+      parsed = dataRows.map((item) => {
         const cols = parseCsvRow(item.line);
         if (cols.length < 5) {
           throw new Error(`[${item.fileName}] Dòng ${item.lineIndex}: Thiếu cột (cần ít nhất 5 cột: word, meaning, topic, level, word_type)`);

@@ -1,4 +1,12 @@
 import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Đảm bảo nạp đúng biến môi trường từ backend/.env kể cả khi chạy script từ root
+if (!process.env.MYSQL_URI) {
+    dotenv.config({ path: path.resolve(__dirname, '../.env') });
+    dotenv.config();
+}
 
 // Cấu hình timezone='Z' để đảm bảo mysql2 parse đúng chuẩn UTC từ MySQL server (tránh lệch 7 tiếng múi giờ)
 const baseUri = (process.env.MYSQL_URI as string) || '';
