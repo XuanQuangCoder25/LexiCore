@@ -41,6 +41,8 @@ export interface SaveMatchTransactionParams {
     player2Id: string;
     topic: string;
     rankSnapshot: ArenaRank;
+    p1Rank?: ArenaRank;
+    p2Rank?: ArenaRank;
     matchType?: ArenaMatchType;
     totalQuestions: number;
     timeLimitSec: number;
@@ -80,6 +82,60 @@ async function checkHighestRankCol(conn: any): Promise<boolean> {
         hasHighestRankColCache = false;
     }
     return hasHighestRankColCache;
+}
+
+// ─── Helper: Đảm bảo bảng arena_matches có cột p1_rank và p2_rank ─────────────
+let hasMatchRankColsCache: boolean | null = null;
+export async function ensureMatchRankColumns(conn: any): Promise<boolean> {
+    if (hasMatchRankColsCache !== null) return hasMatchRankColsCache;
+    try {
+        const [cols] = await conn.execute(
+            `SHOW COLUMNS FROM arena_matches LIKE 'p1_rank'`
+        );
+        const exists = Array.isArray(cols) && cols.length > 0;
+        if (!exists) {
+            await conn.execute(
+                `ALTER TABLE arena_matches 
+                 ADD COLUMN p1_rank VARCHAR(30) NULL AFTER match_type,
+                 ADD COLUMN p2_rank VARCHAR(30) NULL AFTER p1_rank`
+            );
+            console.log('✅ Đã thêm cột p1_rank và p2_rank vào bảng arena_matches');
+        }
+
+        // Backfill dữ liệu cho các ván đấu cũ nếu còn null
+        try {
+            await conn.execute(
+                `UPDATE arena_matches m
+                 JOIN wallets w1 ON m.player1_id = w1.user_id
+                 JOIN wallets w2 ON m.player2_id = w2.user_id
+                 SET m.p1_rank = w1.arena_rank,
+                     m.p2_rank = w2.arena_rank
+                 WHERE m.p1_rank IS NULL OR m.p2_rank IS NULL`
+            );
+            // Sửa các ván đấu lịch sử trước 22/11 20:00 của Thomas Muller (lúc chưa lên Bạch Kim)
+            await conn.execute(
+                `UPDATE arena_matches m
+                 JOIN users u ON m.player1_id = u.id
+                 SET m.p1_rank = 'GOLD'
+                 WHERE u.full_name = 'Thomas Muller' AND m.started_at < '2026-11-22 20:00:00'`
+            );
+            await conn.execute(
+                `UPDATE arena_matches m
+                 JOIN users u ON m.player2_id = u.id
+                 SET m.p2_rank = 'GOLD'
+                 WHERE u.full_name = 'Thomas Muller' AND m.started_at < '2026-11-22 20:00:00'`
+            );
+        } catch (backfillErr) {
+            console.warn('[Arena] Lỗi backfill rank lịch sử:', backfillErr);
+        }
+
+        hasMatchRankColsCache = true;
+        return true;
+    } catch (err) {
+        console.warn('[Arena] Lỗi kiểm tra/thêm cột p1_rank trong arena_matches:', err);
+        hasMatchRankColsCache = false;
+        return false;
+    }
 }
 
 // ─── Lấy thông tin Wallets của 2 người chơi ──────────────────────────────────
@@ -430,19 +486,24 @@ export async function saveMatchTransaction(params: SaveMatchTransactionParams): 
         // Nếu là FRIENDLY: 0 Coin, 0 EXP, 0 RP -> hoàn toàn không cập nhật ví hay giao dịch!
 
         // Ghi record vào arena_matches
+        await ensureMatchRankColumns(connection);
+
         const p1PointsDelta = matchType === 'RANK' ? p1.progression.rankPointDelta : 0;
         const p2PointsDelta = matchType === 'RANK' ? p2.progression.rankPointDelta : 0;
+        const p1RankToSave = params.p1Rank || (matchType === 'RANK' ? p1.progression.newRank : 'BRONZE');
+        const p2RankToSave = params.p2Rank || (matchType === 'RANK' ? p2.progression.newRank : 'BRONZE');
 
         await connection.execute(
             `INSERT INTO arena_matches (
                 id, player1_id, player2_id, topic, rank_snapshot, match_type,
+                p1_rank, p2_rank,
                 total_questions, time_limit_sec,
                 p1_correct, p1_time_used_ms,
                 p2_correct, p2_time_used_ms,
                 winner_id, result,
                 p1_points_change, p2_points_change,
                 started_at, ended_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 matchId,
                 player1Id,
@@ -450,6 +511,8 @@ export async function saveMatchTransaction(params: SaveMatchTransactionParams): 
                 topic || 'general',
                 rankSnapshot,
                 matchType,
+                p1RankToSave,
+                p2RankToSave,
                 totalQuestions,
                 timeLimitSec,
                 p1.correct,

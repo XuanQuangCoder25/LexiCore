@@ -38,6 +38,7 @@ export interface MatchHistoryItem {
   endedAt: string | null;
   topic: string;
   rankSnapshot: string;
+  myRank?: string;
   matchType?: 'RANK' | 'NORMAL' | 'FRIENDLY';
   totalQuestions: number;
   timeLimitSec: number;
@@ -303,8 +304,8 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                   <div className="hidden md:flex flex-col items-center justify-center w-12 sm:w-14 shrink-0">
                     <div className="w-10 h-10 shrink-0 flex items-center justify-center">
                       <img
-                        src={getRankBadgeUrl(m.rankSnapshot)}
-                        alt={m.rankSnapshot}
+                        src={getRankBadgeUrl(m.myRank || m.rankSnapshot)}
+                        alt={m.myRank || m.rankSnapshot}
                         className="w-full h-full object-contain drop-shadow-xs"
                         onError={(e) => {
                           (e.target as HTMLElement).style.display = 'none';

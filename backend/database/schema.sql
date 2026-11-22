@@ -371,6 +371,8 @@ CREATE TABLE arena_matches (
         'MASTER_3'
     ) NOT NULL,
     match_type ENUM('RANK', 'NORMAL', 'FRIENDLY') NOT NULL DEFAULT 'RANK',
+    p1_rank VARCHAR(30) NULL, -- Snapshot rank của player 1 tại thời điểm thi đấu
+    p2_rank VARCHAR(30) NULL, -- Snapshot rank của player 2 tại thời điểm thi đấu
     total_questions INT NOT NULL DEFAULT 25,
     time_limit_sec INT NOT NULL DEFAULT 360, -- 6 phút = 360 giây
     p1_correct INT DEFAULT 0, -- Kết quả player 1

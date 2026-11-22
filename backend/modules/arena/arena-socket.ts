@@ -828,6 +828,9 @@ export async function finishMatch(
     const p2Exp = isFriendly ? 0 : (p2WasDouble ? p2BaseRewards.exp * 2 : p2BaseRewards.exp);
 
     // 6. Lưu vào MySQL qua DB Transaction
+    const p1FinalRank = matchType === 'RANK' ? p1Progression.newRank : p1Wallet.arena_rank;
+    const p2FinalRank = matchType === 'RANK' ? p2Progression.newRank : p2Wallet.arena_rank;
+
     try {
         await saveMatchTransaction({
             matchId: roomId,
@@ -835,6 +838,8 @@ export async function finishMatch(
             player2Id,
             topic: room['topic'] || 'general',
             rankSnapshot,
+            p1Rank: p1FinalRank,
+            p2Rank: p2FinalRank,
             matchType: matchType as any,
             totalQuestions,
             timeLimitSec,
