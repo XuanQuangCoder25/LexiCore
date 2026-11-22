@@ -269,7 +269,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                   </div>
 
                   {/* Tên người chơi & Chế độ thi đấu & Thời gian thi đấu */}
-                  <div className="space-y-0.5 min-w-0 max-w-[110px] sm:max-w-[140px]">
+                  <div className="space-y-0.5 min-w-0 w-[115px] sm:w-[135px] md:w-[150px] shrink-0">
                     <p className="font-bold text-sm sm:text-base truncate" title={profile?.user?.fullName || 'Bạn'}>
                       {profile?.user?.fullName || 'Bạn'}
                     </p>
@@ -300,7 +300,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                   </div>
 
                   {/* Badge Rank + Điểm RP cộng/trừ bên dưới */}
-                  <div className="hidden md:flex flex-col items-center justify-center px-2 shrink-0">
+                  <div className="hidden md:flex flex-col items-center justify-center w-12 sm:w-14 shrink-0">
                     <div className="w-10 h-10 shrink-0 flex items-center justify-center">
                       <img
                         src={getRankBadgeUrl(m.rankSnapshot)}
@@ -323,7 +323,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                   </div>
 
                   {/* Điểm số (câu đúng/tổng) & Thời gian trả lời */}
-                  <div className="flex flex-col items-end sm:items-start pl-1 sm:pl-2 shrink-0">
+                  <div className="flex flex-col items-end sm:items-start pl-1 w-[68px] sm:w-[76px] shrink-0">
                     <div className="flex items-center gap-1">
                       <BadgeCheck className="h-3.5 w-3.5 text-primary shrink-0" />
                       <span className="text-sm sm:text-base font-bold tracking-tight">
@@ -366,7 +366,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                 {/* ── 3. BÊN PHẢI: THÔNG TIN ĐỐI THỦ (ĐỐI XỨNG) ── */}
                 <div className="flex items-center justify-end gap-3 sm:gap-4 flex-1 min-w-0 pl-2">
                   {/* Điểm số (câu đúng/tổng) & Thời gian của đối thủ */}
-                  <div className="flex flex-col items-start sm:items-end pr-1 sm:pr-2 shrink-0">
+                  <div className="flex flex-col items-start sm:items-end pr-1 w-[68px] sm:w-[76px] shrink-0">
                     <div className="flex items-center gap-1">
                       <span className="text-sm sm:text-base font-bold tracking-tight">
                         {m.opponent.correct}/{m.totalQuestions}
@@ -382,7 +382,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                   </div>
 
                   {/* Badge Rank đối thủ + Điểm RP của đối thủ */}
-                  <div className="hidden md:flex flex-col items-center justify-center px-2 shrink-0">
+                  <div className="hidden md:flex flex-col items-center justify-center w-12 sm:w-14 shrink-0">
                     <div className="w-10 h-10 shrink-0 flex items-center justify-center">
                       <img
                         src={getRankBadgeUrl(m.opponent.rank)}
@@ -405,11 +405,11 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                   </div>
 
                   {/* Tên đối thủ */}
-                  <div className="space-y-1 min-w-0 max-w-[110px] sm:max-w-[140px] text-right">
+                  <div className="space-y-1 min-w-0 w-[115px] sm:w-[135px] md:w-[150px] shrink-0 text-right">
                     <p className="font-bold text-sm sm:text-base truncate" title={m.opponent.fullName || 'Đối thủ'}>
                       {m.opponent.fullName || 'Đối thủ'}
                     </p>
-                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <div className="flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
                       <BookOpen className="h-3 w-3 shrink-0" />
                       <span className="truncate">{m.topic}</span>
                     </div>

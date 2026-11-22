@@ -23,8 +23,13 @@ export function RegisterPage() {
       setError("Vui lòng điền đầy đủ thông tin.");
       return;
     }
-    if (fullName.length < 2) {
+    const trimmedName = fullName.trim();
+    if (trimmedName.length < 2) {
       setError("Tên hiển thị phải có ít nhất 2 ký tự.");
+      return;
+    }
+    if (trimmedName.length > 25) {
+      setError("Tên hiển thị không được vượt quá 25 ký tự.");
       return;
     }
     if (password.length < 6) {
@@ -38,7 +43,7 @@ export function RegisterPage() {
 
     setIsLoading(true);
     try {
-      await authService.register({ full_name: fullName, email, password });
+      await authService.register({ full_name: trimmedName, email: email.trim(), password });
       navigate("/verify-otp", { state: { email, mode: "REGISTER" } });
     } catch (err: any) {
       setError(err.message || "Đăng ký thất bại.");
@@ -100,6 +105,7 @@ export function RegisterPage() {
               autoComplete="name"
               placeholder="Davinci Albert"
               value={fullName}
+              maxLength={25}
               onChange={(e) => setFullName(e.target.value)}
               onKeyDown={handleKeyDown}
               className={styles.inputField}
