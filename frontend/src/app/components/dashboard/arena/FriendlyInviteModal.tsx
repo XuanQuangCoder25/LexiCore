@@ -421,7 +421,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
                           <div className="min-w-0">
                             <p className="text-xs font-bold truncate">{friend.full_name}</p>
                             <span className="text-[10px] text-muted-foreground">
-                              Lv {friend.level} · {isOnline ? 'Đang online' : 'Ngoại tuyến'}
+                              Lv {friend.level} - {isOnline ? 'Đang online' : 'Ngoại tuyến'}
                             </span>
                           </div>
                         </div>

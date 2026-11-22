@@ -639,8 +639,8 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
             </div>
           </div>
 
-          {/* Lưới 2 cột hiển thị 25 từ vựng theo định dạng người dùng yêu cầu */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[340px] overflow-y-auto pr-1">
+          {/* Lưới 2 cột hiển thị 25 từ vựng kèm câu ví dụ ôn tập sau trận */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[380px] overflow-y-auto pr-1 [scrollbar-width:thin]">
             {words.map((item: MatchReviewWord) => {
               const isCorrect = item.myCorrect;
               const userAnswer = item.myAnswer?.trim();
@@ -649,42 +649,51 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
               return (
                 <div
                   key={item.orderIndex}
-                  className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-muted/30 hover:bg-muted/60 transition-colors text-xs gap-1.5 border border-border/30"
+                  className="flex flex-col px-3 py-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-xs gap-1 border border-border/40"
                   title={item.meaning ? `Nghĩa: ${item.meaning}` : undefined}
                 >
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
-                    <span className="text-[11px] font-mono text-muted-foreground shrink-0 w-5">
-                      {item.orderIndex}.
-                    </span>
+                  <div className="flex items-center justify-between gap-1.5 min-w-0 w-full">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
+                      <span className="text-[11px] font-mono text-muted-foreground shrink-0 w-5">
+                        {item.orderIndex}.
+                      </span>
 
-                    {isCorrect ? (
-                      /* Trường hợp 1: Đúng (Ví dụ: 1. resident <Check> màu xanh) */
-                      <div className="flex items-center gap-1 truncate text-emerald-500 font-bold">
-                        <span className="truncate">{correctWord}</span>
-                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      </div>
-                    ) : (
-                      /* Trường hợp 2: Sai (Ví dụ: 2. evel <X> màu đỏ (evil <Check>) màu xanh) */
-                      <div className="flex items-center gap-1 truncate">
-                        <span className="text-rose-500 font-semibold truncate">
-                          {userAnswer || '—'}
-                        </span>
-                        <X className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                        <span className="text-muted-foreground font-normal shrink-0 flex items-center gap-0.5">
-                          (
-                          <span className="text-emerald-500 font-bold">{correctWord}</span>
-                          <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                          )
-                        </span>
-                      </div>
+                      {isCorrect ? (
+                        /* Trường hợp 1: Đúng (Ví dụ: 1. resident <Check> màu xanh) */
+                        <div className="flex items-center gap-1 truncate text-emerald-500 font-bold">
+                          <span className="truncate">{correctWord}</span>
+                          <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        </div>
+                      ) : (
+                        /* Trường hợp 2: Sai (Ví dụ: 2. evel <X> màu đỏ (evil <Check>) màu xanh) */
+                        <div className="flex items-center gap-1 truncate">
+                          <span className="text-rose-500 font-semibold truncate">
+                            {userAnswer || '-'}
+                          </span>
+                          <X className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <span className="text-muted-foreground font-normal shrink-0 flex items-center gap-0.5">
+                            (
+                            <span className="text-emerald-500 font-bold">{correctWord}</span>
+                            <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                            )
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Nghĩa tiếng Việt ở cuối dòng */}
+                    {item.meaning && (
+                      <span className="text-[10px] text-muted-foreground truncate max-w-[110px] shrink-0 text-right opacity-80 font-medium">
+                        {item.meaning}
+                      </span>
                     )}
                   </div>
 
-                  {/* Nghĩa tiếng Việt gợi ý mờ ở cuối dòng */}
-                  {item.meaning && (
-                    <span className="text-[10px] text-muted-foreground truncate max-w-[85px] shrink-0 text-right opacity-70">
-                      {item.meaning}
-                    </span>
+                  {/* Câu ví dụ ngữ cảnh (ôn tập từ vựng sau trận) */}
+                  {item.example && (
+                    <p className="text-[10px] text-muted-foreground/80 italic pl-5 pr-1 line-clamp-1 border-t border-border/20 pt-1 mt-0.5">
+                      "{item.example}"
+                    </p>
                   )}
                 </div>
               );
