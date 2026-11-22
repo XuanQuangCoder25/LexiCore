@@ -8,12 +8,11 @@ import {
     Flame,
     Trophy,
     Compass,
-    Zap,
     Loader2,
     TrendingUp,
     Gamepad2,
     Users,
-    Sparkles,
+    Sword,
 } from 'lucide-react';
 import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
 import { ArenaRankChangeEffect, RankChangeData } from './ArenaRankChangeEffect';
@@ -391,7 +390,7 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                     disabled
                                     className="h-11 justify-center font-medium opacity-60 border-dashed border-muted-foreground/40 cursor-not-allowed"
                                 >
-                                    <Sparkles className="h-4 w-4 mr-2 text-muted-foreground" />
+                                    <Sword className="h-4 w-4 mr-2 text-muted-foreground" />
                                     Sắp Ra Mắt
                                 </Button>
                             </div>

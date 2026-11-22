@@ -233,6 +233,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
     // 5 ván đấu gần nhất
     const [recentRows] = await pool.execute(
         `SELECT m.id, m.player1_id, m.player2_id, m.topic, m.rank_snapshot,
+                m.p1_rank as match_p1_rank, m.p2_rank as match_p2_rank,
                 m.total_questions, m.time_limit_sec,
                 m.p1_correct, m.p1_time_used_ms,
                 m.p2_correct, m.p2_time_used_ms,
@@ -241,7 +242,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
                 m.started_at, m.ended_at,
                 u1.full_name as p1_name, u1.avatar_url as p1_avatar,
                 u2.full_name as p2_name, u2.avatar_url as p2_avatar,
-                w1.arena_rank as p1_rank, w2.arena_rank as p2_rank
+                w1.arena_rank as current_p1_rank, w2.arena_rank as current_p2_rank
          FROM arena_matches m
          JOIN users u1 ON m.player1_id = u1.id
          JOIN users u2 ON m.player2_id = u2.id
@@ -259,12 +260,21 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
             ? (m.result === 'P1_WIN' ? 'WIN' : m.result === 'DRAW' ? 'DRAW' : 'LOSS')
             : (m.result === 'P2_WIN' ? 'WIN' : m.result === 'DRAW' ? 'DRAW' : 'LOSS');
 
+        const myRank = ((isP1
+            ? (m.match_p1_rank || m.current_p1_rank || m.rank_snapshot)
+            : (m.match_p2_rank || m.current_p2_rank || m.rank_snapshot)) as ArenaRank) || 'BRONZE';
+
+        const opponentRank = ((isP1
+            ? (m.match_p2_rank || m.current_p2_rank || m.rank_snapshot)
+            : (m.match_p1_rank || m.current_p1_rank || m.rank_snapshot)) as ArenaRank) || 'BRONZE';
+
         return {
             id: m.id,
             startedAt: m.started_at,
             endedAt: m.ended_at,
             topic: m.topic,
-            rankSnapshot: m.rank_snapshot,
+            rankSnapshot: myRank,
+            myRank,
             result: myResult,
             myPointsChange: Number(isP1 ? m.p1_points_change : m.p2_points_change) || 0,
             myCorrect: Number(isP1 ? m.p1_correct : m.p2_correct) || 0,
@@ -274,7 +284,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
                 id: isP1 ? m.player2_id : m.player1_id,
                 fullName: isP1 ? m.p2_name : m.p1_name,
                 avatarUrl: isP1 ? m.p2_avatar : m.p1_avatar,
-                rank: (isP1 ? m.p2_rank : m.p1_rank) || 'BRONZE',
+                rank: opponentRank,
             },
         };
     });

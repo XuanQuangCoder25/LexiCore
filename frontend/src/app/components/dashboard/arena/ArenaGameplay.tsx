@@ -15,7 +15,7 @@ import {
   GameOverPayload,
   arenaSocketService,
 } from '../../../services/arena-socket.service';
-import { getRankBadgeUrl } from '../../../services/arena-service';
+import { getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
 
 interface QuestionItem {
   id: string;
@@ -847,8 +847,8 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
 
                       {/* Dòng 2: Badges Loại từ & Chủ đề */}
                       <div className="flex items-center gap-1.5 pl-8 text-[10px]">
-                        <span className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold uppercase">
-                          {q.topic}
+                        <span className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold">
+                          {formatTopicName(q.topic)}
                         </span>
                         <span className="px-2 py-0.5 rounded-full bg-muted border border-border/50 text-muted-foreground">
                           {q.wordType}
@@ -880,8 +880,8 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
               {/* ĐỀ BÀI: NGHĨA TIẾNG VIỆT & CHỦ ĐỀ */}
               <div className="text-center space-y-2 max-w-2xl mx-auto w-full">
                 <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold">
-                  <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-black uppercase tracking-wide">
-                    {currentQ.topic}
+                  <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold tracking-wide">
+                    {formatTopicName(currentQ.topic)}
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full bg-muted/80 border border-border/50 text-muted-foreground">
                     {currentQ.wordType}

@@ -132,5 +132,17 @@ export const optimizeAvatarUrl = (url?: string | null, size = 200): string | und
   return optimizeImageUrl(url, size);
 };
 
+/**
+ * Định dạng tên chủ đề từ snake_case sang Sentence case tự nhiên:
+ * Ví dụ: "fashion_and_shopping" -> "Fashion and shopping"
+ */
+export const formatTopicName = (topic?: string | null): string => {
+  if (!topic) return '';
+  const formatted = topic.replace(/_/g, ' ').trim();
+  if (!formatted) return '';
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+};
+
+
 
 

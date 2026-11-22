@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   CheckCircle,
 } from "lucide-react";
+import { formatTopicName } from "../../services/arena-service";
 
 const API_BASE = "";
 
@@ -507,8 +508,8 @@ export function AdminArenaView() {
           <SelectContent className="max-h-60 overflow-y-auto [scrollbar-width:thin]">
             <SelectItem value="all">Tất cả chủ đề</SelectItem>
             {topicsList.map((top) => (
-              <SelectItem key={top} value={top} className="capitalize">
-                {top}
+              <SelectItem key={top} value={top}>
+                {formatTopicName(top)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -554,7 +555,7 @@ export function AdminArenaView() {
                   <TableCell className="pl-6 py-2.5 font-semibold text-sm">{w.word}</TableCell>
                   <TableCell className="py-2.5 text-sm text-muted-foreground max-w-56 truncate">{w.meaning}</TableCell>
                   <TableCell className="py-2.5">
-                    <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground capitalize">{w.topic}</span>
+                    <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{formatTopicName(w.topic)}</span>
                   </TableCell>
                   <TableCell className="py-2.5">
                     <Badge variant="outline" className={`text-xs font-bold border ${LEVEL_COLOR[w.level]}`}>{w.level}</Badge>
@@ -740,7 +741,7 @@ export function AdminArenaView() {
                               {sw.word}
                             </td>
                             <td className="py-2 px-3 text-muted-foreground">
-                              {sw.topic}
+                              {formatTopicName(sw.topic)}
                             </td>
                             <td className="py-2 px-3 text-muted-foreground">
                               {sw.existingMeaning || <i>(Trùng trong file tải lên)</i>}

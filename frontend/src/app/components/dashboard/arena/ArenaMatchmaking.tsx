@@ -10,7 +10,7 @@ import {
   VenetianMask,
   BookOpen,
 } from 'lucide-react';
-import { UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
+import { UserArenaProfile, getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
 import { arenaSocketService, MatchedPayload, ArenaPlayerInfo } from '../../../services/arena-socket.service';
 
 export interface ArenaMatchmakingModalProps {
@@ -296,9 +296,9 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
 
           {stage === 'MATCHED' && matchedData?.topic && (
             <div className="pt-1.5 flex justify-center">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wide">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold tracking-wide">
                 <BookOpen className="w-3.5 h-3.5" />
-                Chủ đề: {matchedData.topic}
+                Chủ đề: {formatTopicName(matchedData.topic)}
               </span>
             </div>
           )}

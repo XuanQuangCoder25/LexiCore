@@ -30,6 +30,7 @@ import {
   UserArenaProfile,
   getRankBadgeUrl,
   optimizeAvatarUrl,
+  formatTopicName,
 } from '../../../services/arena-service';
 
 export interface MatchHistoryItem {
@@ -412,7 +413,7 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
                     </p>
                     <div className="flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
                       <BookOpen className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{m.topic}</span>
+                      <span className="truncate">{formatTopicName(m.topic)}</span>
                     </div>
                   </div>
 
