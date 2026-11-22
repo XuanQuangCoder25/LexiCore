@@ -620,7 +620,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
 
         {isWaitingOpponent && !matchEndingOverlay && (
           <div className="w-full py-2.5 px-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/30 text-amber-500 text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg">
-            <Hourglass className="w-4 h-4 text-amber-500" />
+            <Hourglass className="w-4 h-4 text-amber-500 animate-spin" />
             <span>Bạn đã hoàn thành 25 câu hỏi! Đang chờ đối thủ để phân định kết quả...</span>
           </div>
         )}

@@ -437,35 +437,37 @@ export const ArenaHistory: React.FC<ArenaHistoryProps> = ({
         </div>
       )}
 
-      {/* ── Phân trang (Pagination) ── */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-4 border-t">
+      {/* ── Phân trang & Ghi chú giới hạn lưu trữ ── */}
+      {matches.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t">
           <p className="text-xs text-muted-foreground">
-            Tổng cộng <span className="font-semibold text-foreground">{totalItems}</span> ván đấu gần nhất
+            Hiển thị <span className="font-semibold text-foreground">{totalItems}</span> trận gần đây (hệ thống lưu tối đa 16 trận gần nhất)
           </p>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-xs font-medium px-2">
-              Trang {page} / {totalPages}
-            </span>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs font-medium px-2">
+                Trang {page} / {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

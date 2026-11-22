@@ -13,6 +13,7 @@ import {
     Gamepad2,
     Users,
     Sword,
+    Zap,
 } from 'lucide-react';
 import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
 import { ArenaRankChangeEffect, RankChangeData } from './ArenaRankChangeEffect';
@@ -263,6 +264,14 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
     }
 
     const { user, arena } = profile;
+    const quota = profile.dailyQuota;
+    const tier = quota?.tier || 'FREE';
+    const isFree = tier === 'FREE';
+    const remainingRankMatches = quota?.rankMatches?.remaining ?? 10;
+    const limitRankMatches = quota?.rankMatches?.limit ?? 10;
+    const isFreeOutOfRank = isFree && remainingRankMatches === 0;
+    const remainingDoubleRewards = quota?.doubleRewards?.remaining ?? 0;
+    const limitDoubleRewards = quota?.doubleRewards?.limit ?? 0;
 
     return (
         <div className="space-y-6">
@@ -286,26 +295,65 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                         </div>
 
                         <CardContent className="pt-0 px-6 pb-6 space-y-5">
-                            {/* Avatar + Tên người chơi */}
-                            <div className="flex items-end gap-4 -mt-10 relative z-10">
-                                <div className="w-20 h-20 rounded-full border-4 border-background bg-muted overflow-hidden shrink-0 shadow-md flex items-center justify-center text-2xl font-bold">
-                                    {user.avatarUrl ? (
-                                        <img
-                                            src={user.avatarUrl}
-                                            alt={user.fullName}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <span>{user.fullName?.charAt(0)?.toUpperCase() || 'U'}</span>
-                                    )}
-                                </div>
-                                <div className="pb-1 min-w-0">
-                                    <h2 className="text-xl font-bold truncate">{user.fullName || 'Người chơi'}</h2>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Badge variant="secondary" className="text-xs">
-                                            Level {user.level}
-                                        </Badge>
+                            {/* Avatar + Tên người chơi & Chỉ số Quota / Đặc quyền hàng ngày */}
+                            <div className="flex items-end justify-between gap-3 -mt-10 relative z-10">
+                                {/* Bên trái: Avatar + Tên + Level */}
+                                <div className="flex items-end gap-3 sm:gap-4 min-w-0">
+                                    <div className="w-20 h-20 rounded-full border-4 border-background bg-muted overflow-hidden shrink-0 shadow-md flex items-center justify-center text-2xl font-bold">
+                                        {user.avatarUrl ? (
+                                            <img
+                                                src={user.avatarUrl}
+                                                alt={user.fullName}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <span>{user.fullName?.charAt(0)?.toUpperCase() || 'U'}</span>
+                                        )}
                                     </div>
+                                    <div className="pb-1 min-w-0">
+                                        <h2 className="text-xl font-bold truncate">{user.fullName || 'Người chơi'}</h2>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Badge variant="secondary" className="text-xs">
+                                                Level {user.level}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Bên phải: Hộp chỉ số Quota / Đặc quyền trong ngày */}
+                                <div className="pb-1 shrink-0 text-right">
+                                    {isFree ? (
+                                        <div className="flex flex-col items-end gap-0.5">
+                                            <div
+                                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors shadow-2xs ${
+                                                    isFreeOutOfRank
+                                                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-500'
+                                                        : 'bg-purple-500/10 border-purple-500/25 text-purple-600 dark:text-purple-400'
+                                                }`}
+                                                title={`Gói Miễn Phí: Tối đa ${limitRankMatches} trận đấu Rank mỗi ngày`}
+                                            >
+                                                <Swords className="w-3.5 h-3.5 shrink-0" />
+                                                <span>Rank hôm nay: {remainingRankMatches}/{limitRankMatches}</span>
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground pr-1 font-medium">
+                                                {isFreeOutOfRank ? 'Đã hết lượt đấu Rank' : `Còn ${remainingRankMatches} trận đấu Rank`}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-end gap-0.5">
+                                            <div
+                                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-2xs"
+                                                title={`Gói ${tier}: Nhân đôi Coin & EXP cho ${limitDoubleRewards} trận mỗi ngày`}
+                                            >
+                                                <Zap className="w-3.5 h-3.5 shrink-0 fill-amber-500/20" />
+                                                <span>x2 Thưởng: Còn {remainingDoubleRewards}/{limitDoubleRewards} trận</span>
+                                            </div>
+                                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pr-1 flex items-center gap-1">
+                                                <Swords className="w-2.5 h-2.5" />
+                                                Đấu Rank không giới hạn
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -367,11 +415,20 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
 
                                 {/* 2. Đấu Xếp Hạng (Màu tím Lavender quý phái, leo rank tính RP/LP) */}
                                 <Button
-                                    className="h-11 justify-center font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:to-violet-700 text-white shadow-sm transition-all hover:scale-[1.01]"
-                                    onClick={() => onFindMatch?.('RANK')}
+                                    disabled={isFreeOutOfRank}
+                                    className={`h-11 justify-center font-bold text-white shadow-sm transition-all hover:scale-[1.01] ${
+                                        isFreeOutOfRank
+                                            ? 'bg-muted text-muted-foreground opacity-60 cursor-not-allowed border'
+                                            : 'bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:to-violet-700'
+                                    }`}
+                                    onClick={() => {
+                                        if (isFreeOutOfRank) return;
+                                        onFindMatch?.('RANK');
+                                    }}
+                                    title={isFreeOutOfRank ? 'Bạn đã dùng hết 10 lượt đấu Rank hôm nay.' : undefined}
                                 >
                                     <Swords className="h-4 w-4 mr-2" />
-                                    Đấu Xếp Hạng
+                                    {isFreeOutOfRank ? 'Hết Lượt Đấu Rank' : 'Đấu Xếp Hạng'}
                                 </Button>
 
                                 {/* 3. Đấu Giao Hữu (Màu xanh lá hòa bình, 0 Coin/EXP, không đổi RP) */}

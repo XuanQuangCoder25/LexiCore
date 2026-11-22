@@ -31,6 +31,19 @@ export interface UserArenaProfile {
     rankOrder: number;
   };
   recentMatches: any[];
+  dailyQuota?: {
+    tier: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+    rankMatches: {
+      used: number;
+      limit: number;
+      remaining: number;
+    };
+    doubleRewards: {
+      used: number;
+      limit: number;
+      remaining: number;
+    };
+  };
 }
 
 export interface RankTierDetail {

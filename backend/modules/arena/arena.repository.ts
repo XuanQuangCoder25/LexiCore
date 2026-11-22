@@ -1,10 +1,12 @@
 import { pool } from '../../config/mysql';
+import redis from '../../config/redis';
 import {
     ArenaRank,
     RANK_THRESHOLDS,
     getRankOrder,
 } from './arena-rank.utils';
 import { ensureMatchRankColumns } from './arena-match.repository';
+import { getUserTier, getTierLimit, getVNDateKey } from '../../utils/tierLimits';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -35,6 +37,19 @@ export interface UserArenaProfileResult {
         totalMatches: number;
         winRate: number;
         rankOrder: number;
+    };
+    dailyQuota?: {
+        tier: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+        rankMatches: {
+            used: number;
+            limit: number;
+            remaining: number;
+        };
+        doubleRewards: {
+            used: number;
+            limit: number;
+            remaining: number;
+        };
     };
     recentMatches: Array<{
         id: string;
@@ -289,6 +304,29 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
         };
     });
 
+    // Lấy thông tin hạn ngạch đấu Rank và đặc quyền x2 hàng ngày từ Redis & tierLimits
+    const userTier = await getUserTier(userId);
+    const todayKey = getVNDateKey();
+    const maxRankMatches = getTierLimit('arenaDailyRankMatches', userTier);
+    const maxDoubleMatches = getTierLimit('arenaDailyDoubleRewardMatches', userTier);
+
+    let playedRankMatches = 0;
+    let usedDoubleMatches = 0;
+
+    try {
+        const [dailyRankCount, dailyDoubleCount] = await Promise.all([
+            redis.get(`arena:daily_rank:${userId}:${todayKey}`),
+            redis.get(`arena:daily_x2:${userId}:${todayKey}`),
+        ]);
+        playedRankMatches = Number(dailyRankCount) || 0;
+        usedDoubleMatches = Number(dailyDoubleCount) || 0;
+    } catch (redisErr) {
+        console.warn('[Arena] Không thể lấy quota hàng ngày từ Redis:', redisErr);
+    }
+
+    const remainingRankMatches = maxRankMatches === -1 ? -1 : Math.max(0, maxRankMatches - playedRankMatches);
+    const remainingDoubleMatches = Math.max(0, maxDoubleMatches - usedDoubleMatches);
+
     return {
         user: {
             id: userRow.id,
@@ -316,6 +354,19 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
             totalMatches,
             winRate,
             rankOrder: getRankOrder(rank),
+        },
+        dailyQuota: {
+            tier: userTier,
+            rankMatches: {
+                used: playedRankMatches,
+                limit: maxRankMatches,
+                remaining: remainingRankMatches,
+            },
+            doubleRewards: {
+                used: usedDoubleMatches,
+                limit: maxDoubleMatches,
+                remaining: remainingDoubleMatches,
+            },
         },
         recentMatches,
     };
