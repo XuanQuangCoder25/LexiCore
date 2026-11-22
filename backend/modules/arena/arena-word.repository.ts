@@ -191,15 +191,19 @@ export interface MatchWordCondition {
     count?: number;
 }
 
-// Lấy từ ngẫu nhiên cho 1 ván đấu theo điều kiện level + word_type.
+// Lấy từ ngẫu nhiên cho 1 ván đấu theo điều kiện level + word_type (hỗ trợ lọc theo topic cố định cho ván đấu).
 export const getRandomWordsForMatch = async (
     levelConditions: MatchWordCondition[],
-    totalCount: number
+    totalCount: number,
+    targetTopic?: string
 ): Promise<ArenaWordRow[]> => {
     const allWords: ArenaWordRow[] = [];
     const selectedIds = new Set<string>();
     const selectedWordTexts = new Set<string>(); // Đảm bảo trong 1 ván đấu không bao giờ có 2 từ tiếng Anh trùng nhau
 
+    const cleanTopic = targetTopic ? targetTopic.trim().toLowerCase() : undefined;
+
+    // Bước 1: Bốc từ theo điều kiện phân bổ cấp độ của Rank
     for (const cond of levelConditions) {
         if (cond.levels.length === 0) continue;
 
@@ -216,12 +220,18 @@ export const getRandomWordsForMatch = async (
             typeClause = `AND word_type NOT IN ('idiom', 'collocation')`;
         }
 
+        let topicClause = '';
+        if (cleanTopic) {
+            topicClause = 'AND LOWER(TRIM(topic)) = ?';
+            levelParams.push(cleanTopic);
+        }
+
         const limitCount = cond.count ?? totalCount;
 
         const [rows] = await pool.execute(
             `SELECT id, word, meaning, topic, level, word_type, example
              FROM arena_words
-             WHERE level IN (${levelPlaceholders}) ${typeClause}
+             WHERE level IN (${levelPlaceholders}) ${typeClause} ${topicClause}
              ORDER BY RAND()
              LIMIT ?`,
             [...levelParams, limitCount * 2] // Lấy dư gấp đôi để lọc bỏ các từ trùng lặp text
@@ -238,7 +248,42 @@ export const getRandomWordsForMatch = async (
         }
     }
 
-    // Fallback: nếu DB chưa đủ từ theo đúng điều kiện phân bổ, lấy thêm từ bất kỳ để đủ số lượng
+    // Bước 2 - Fallback 1: Nếu trong topic chưa đủ 25 từ theo rank, lấy thêm bất kỳ từ nào còn lại trong chính topic đó
+    if (allWords.length < totalCount && cleanTopic) {
+        const needed = (totalCount - allWords.length) * 2;
+        let notInClause = '';
+        const params: any[] = [cleanTopic];
+
+        if (selectedIds.size > 0) {
+            const idPlaceholders = Array.from(selectedIds).map(() => '?').join(', ');
+            notInClause = `AND id NOT IN (${idPlaceholders})`;
+            params.push(...Array.from(selectedIds));
+        }
+
+        params.push(needed);
+
+        const [topicFallbackRows] = await pool.execute(
+            `SELECT id, word, meaning, topic, level, word_type, example
+             FROM arena_words
+             WHERE LOWER(TRIM(topic)) = ?
+             ${notInClause}
+             ORDER BY RAND()
+             LIMIT ?`,
+            params
+        );
+
+        for (const row of topicFallbackRows as ArenaWordRow[]) {
+            const cleanWord = row.word.toLowerCase().trim();
+            if (!selectedIds.has(row.id) && !selectedWordTexts.has(cleanWord)) {
+                selectedIds.add(row.id);
+                selectedWordTexts.add(cleanWord);
+                allWords.push(row);
+                if (allWords.length >= totalCount) break;
+            }
+        }
+    }
+
+    // Bước 3 - Fallback 2: Nếu topic đó vẫn chưa đủ từ (dự phòng cho topic mới ít từ), lấy bù từ các topic khác trong toàn DB
     if (allWords.length < totalCount) {
         const needed = (totalCount - allWords.length) * 2;
         let notInClause = '';
@@ -252,7 +297,7 @@ export const getRandomWordsForMatch = async (
 
         params.push(needed);
 
-        const [fallbackRows] = await pool.execute(
+        const [globalFallbackRows] = await pool.execute(
             `SELECT id, word, meaning, topic, level, word_type, example
              FROM arena_words
              ${notInClause}
@@ -261,7 +306,7 @@ export const getRandomWordsForMatch = async (
             params
         );
 
-        for (const row of fallbackRows as ArenaWordRow[]) {
+        for (const row of globalFallbackRows as ArenaWordRow[]) {
             const cleanWord = row.word.toLowerCase().trim();
             if (!selectedIds.has(row.id) && !selectedWordTexts.has(cleanWord)) {
                 selectedIds.add(row.id);

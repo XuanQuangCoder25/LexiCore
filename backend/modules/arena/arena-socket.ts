@@ -21,6 +21,7 @@ import {
     MatchWordRecord,
     ARENA_MATCH_REWARDS,
 } from './arena-match.repository';
+import { getTopics } from './arena-word.repository';
 import {
     getUserTier,
     getTierLimit,
@@ -178,8 +179,14 @@ async function createArenaRoom(
     // Xác định rank thấp hơn giữa 2 người chơi để cân bằng tỉ lệ độ khó
     const rankSnapshot = getLowerRank(p1.arena_rank, p2.arena_rank);
 
-    // Lấy 25 câu hỏi theo tỉ lệ rank tương ứng
-    const matchQuestions = await fetchMatchQuestions(rankSnapshot, TOTAL_MATCH_QUESTIONS);
+    // Bốc ngẫu nhiên 1 chủ đề cố định cho toàn bộ ván đấu
+    const allTopics = await getTopics();
+    const matchTopic = allTopics.length > 0
+        ? allTopics[Math.floor(Math.random() * allTopics.length)]
+        : 'general';
+
+    // Lấy 25 câu hỏi theo chủ đề đã chọn và tỉ lệ rank tương ứng
+    const matchQuestions = await fetchMatchQuestions(rankSnapshot, TOTAL_MATCH_QUESTIONS, matchTopic);
     const publicQuestions = toPublicQuestions(matchQuestions);
 
     // Lưu thông tin phòng vào Redis (TTL 10 phút = 600 giây)
@@ -188,6 +195,7 @@ async function createArenaRoom(
         roomId,
         player1Id: p1Id,
         player2Id: p2Id,
+        topic: matchTopic,
         rankSnapshot,
         matchType,
         status: 'MATCHED',
@@ -222,6 +230,7 @@ async function createArenaRoom(
     io.to(`user:${p1Id}`).emit('arena:matched', {
         roomId,
         matchType,
+        topic: matchTopic,
         me: p1,
         opponent: p2,
         questions: matchQuestions,
@@ -232,6 +241,7 @@ async function createArenaRoom(
     io.to(`user:${p2Id}`).emit('arena:matched', {
         roomId,
         matchType,
+        topic: matchTopic,
         me: p2,
         opponent: p1,
         questions: matchQuestions,
@@ -239,7 +249,7 @@ async function createArenaRoom(
         timeLimitSec: MATCH_TIME_LIMIT_SEC,
     });
 
-    console.log(`[Arena Matchmaking] Ghép trận thành công (${matchType}): ${p1.full_name} vs ${p2.full_name} (Phòng: ${roomId})`);
+    console.log(`[Arena Matchmaking] Ghép trận thành công (${matchType} - Chủ đề: ${matchTopic}): ${p1.full_name} vs ${p2.full_name} (Phòng: ${roomId})`);
 
     // Thiết lập hẹn giờ 15 giây: Nếu sau 15s cả hai chưa sẵn sàng thì tự động hủy phòng
     const rTimer = setTimeout(async () => {

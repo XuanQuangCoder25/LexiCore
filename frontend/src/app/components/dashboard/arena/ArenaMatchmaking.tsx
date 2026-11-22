@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Swords,
   VenetianMask,
+  BookOpen,
 } from 'lucide-react';
 import { UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
 import { arenaSocketService, MatchedPayload, ArenaPlayerInfo } from '../../../services/arena-socket.service';
@@ -292,6 +293,15 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
             {stage === 'SEARCHING' && 'Hệ thống đang quét các chiến binh có cùng đẳng cấp Elo...'}
             {stage === 'MATCHED' && 'Cả hai người chơi cần bấm Sẵn sàng để mở cửa Đấu trường.'}
           </p>
+
+          {stage === 'MATCHED' && matchedData?.topic && (
+            <div className="pt-1.5 flex justify-center">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wide">
+                <BookOpen className="w-3.5 h-3.5" />
+                Chủ đề: {matchedData.topic}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ── KHU VỰC TRUNG TÂM: CARD P1 - VS - CARD P2 ── */}

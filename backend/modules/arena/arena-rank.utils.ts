@@ -245,15 +245,16 @@ export function toPublicQuestions(questions: ArenaMatchQuestion[]): ArenaPublicQ
     }));
 }
 
-//  Lấy danh sách 25 từ phân bổ theo rank snapshot cho ván đấu
+//  Lấy danh sách 25 từ phân bổ theo rank snapshot cho ván đấu (hỗ trợ lọc theo topic cố định)
 export async function fetchMatchQuestions(
     lowerRank: ArenaRank,
-    totalCount: number = TOTAL_MATCH_QUESTIONS
+    totalCount: number = TOTAL_MATCH_QUESTIONS,
+    targetTopic?: string
 ): Promise<ArenaMatchQuestion[]> {
     const rankKey = (lowerRank || 'BRONZE').toUpperCase();
     const distribution = RANK_WORD_DISTRIBUTION[rankKey] || RANK_WORD_DISTRIBUTION['BRONZE']!;
 
-    const words = await getRandomWordsForMatch(distribution, totalCount);
+    const words = await getRandomWordsForMatch(distribution, totalCount, targetTopic);
 
     return words.map((w) => ({
         id: w.id,

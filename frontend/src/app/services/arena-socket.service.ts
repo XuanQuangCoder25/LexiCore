@@ -16,6 +16,7 @@ export interface ArenaPlayerInfo {
 export interface MatchedPayload {
   roomId: string;
   matchType?: 'RANK' | 'NORMAL' | 'FRIENDLY';
+  topic?: string;
   me: ArenaPlayerInfo;
   opponent: ArenaPlayerInfo;
   questions: any[];
