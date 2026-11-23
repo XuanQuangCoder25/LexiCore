@@ -116,6 +116,9 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
     char: targetWords[0]?.length > 1 ? 1 : 0,
   });
 
+  // Đếm số lần gõ sai trong câu hiện tại (Tối đa 2 lần sai, lần thứ 3 tính là SAI luôn)
+  const [wrongAttemptsCount, setWrongAttemptsCount] = useState<number>(0);
+
   const questionStartTimeRef = useRef<number>(Date.now());
 
   // Khi chuyển câu hỏi mới: Reset bảng ô chữ và focus vào ô thứ 2 của từ đầu tiên
@@ -131,6 +134,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       char: newWords[0]?.length > 1 ? 1 : 0,
     });
     setFeedbackState('idle');
+    setWrongAttemptsCount(0);
     questionStartTimeRef.current = Date.now();
   }, [currentQuestionIndex, currentQ.word]);
 
@@ -149,21 +153,23 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
     return 'text-xs sm:text-sm md:text-base font-bold leading-snug max-w-lg mx-auto';
   };
 
-  // Tính kích thước ô Wordle theo độ dài từ dài nhất trong cụm
+  // Tính kích thước ô Wordle linh hoạt theo độ dài từ, số từ và tổng số ký tự
   const maxWordLength = Math.max(...targetWords.map((w) => w.length), 0);
-  const getCellSizeClass = (maxLen: number) => {
-    if (maxLen >= 11) {
-      // Cụm từ dài như ENVIRONMENT, CONSERVATION (11-12 ký tự)
-      return 'w-7 h-10 sm:w-9 sm:h-12 md:w-11 md:h-15 text-base sm:text-xl md:text-2xl rounded-lg sm:rounded-xl';
+  const totalChars = targetWords.reduce((acc, w) => acc + w.length, 0);
+
+  const getCellSizeClass = (maxLen: number, totalLen: number, wordCount: number) => {
+    // Trường hợp cụm từ dài/nhiều chữ (ví dụ cụm 4 từ như TIP OF THE ICEBERG hoặc từ đơn >= 11 ký tự)
+    if (maxLen >= 11 || totalLen >= 15 || wordCount >= 4) {
+      return 'w-7 h-9 sm:w-8 sm:h-11 md:w-9 md:h-12 text-sm sm:text-base md:text-lg rounded-lg sm:rounded-xl';
     }
-    if (maxLen >= 9) {
-      // Từ dài 9-10 ký tự như RESILIENT, EPHEMERAL
-      return 'w-8 h-11 sm:w-11 sm:h-14 md:w-13 md:h-16 text-lg sm:text-2xl md:text-3xl rounded-xl sm:rounded-2xl';
+    // Trường hợp cụm từ dài vừa hoặc từ dài 8-10 ký tự
+    if (maxLen >= 8 || totalLen >= 9 || wordCount >= 2) {
+      return 'w-8 h-10 sm:w-10 sm:h-12 md:w-11 md:h-14 text-base sm:text-xl md:text-2xl rounded-xl sm:rounded-2xl';
     }
-    // Từ ngắn dưới 9 ký tự
-    return 'w-10 h-13 sm:w-13 sm:h-16 md:w-14 md:h-18 text-xl sm:text-2xl md:text-3xl rounded-xl sm:rounded-2xl';
+    // Từ đơn ngắn dưới 8 ký tự (to rõ rực rỡ)
+    return 'w-10 h-12 sm:w-12 sm:h-15 md:w-13 md:h-16 text-lg sm:text-2xl md:text-3xl rounded-xl sm:rounded-2xl';
   };
-  const cellSizeClass = getCellSizeClass(maxWordLength);
+  const cellSizeClass = getCellSizeClass(maxWordLength, totalChars, targetWords.length);
 
   // Đếm ngược đồng hồ trận đấu
   useEffect(() => {
@@ -388,6 +394,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
 
     if (isCorrect) {
       // 1. Khi trả lời đúng: gửi lên server, tăng điểm và cộng chuỗi
+      setWrongAttemptsCount(0);
       if (matchData?.roomId) {
         arenaSocketService.submitAnswer(
           matchData.roomId,
@@ -426,13 +433,57 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
         });
       }, 800);
     } else {
-      // 2. Khi trả lời sai: rung đỏ báo sai nhưng KHÔNG mất chuỗi streak, không gửi socket để người chơi sửa lại
-      setFeedbackState('wrong');
+      // 2. Cơ chế tối đa 2 lần sai (lần thứ 3 tính là SAI luôn và chuyển câu)
+      const nextWrongCount = wrongAttemptsCount + 1;
 
-      // Rung đỏ cảnh báo rồi cho phép sửa lại
-      setTimeout(() => {
-        setFeedbackState('idle');
-      }, 700);
+      if (nextWrongCount < 3) {
+        // Lần sai 1 hoặc 2: Rung đỏ cảnh báo, báo số lượt còn lại, cho phép người chơi sửa lại
+        setWrongAttemptsCount(nextWrongCount);
+        setFeedbackState('wrong');
+        const remainingAttempts = 3 - nextWrongCount;
+        setStreakNotice(`Chưa chính xác! (Còn ${remainingAttempts} lượt thử)`);
+
+        setTimeout(() => {
+          setFeedbackState('idle');
+        }, 700);
+
+        setTimeout(() => {
+          setStreakNotice(null);
+        }, 1800);
+      } else {
+        // Lần sai thứ 3: TÍNH LÀ CÂU SAI CHÍNH THỨC! Mất streak, gửi từ sai lên server và qua câu tiếp theo
+        setWrongAttemptsCount(0);
+        setMyStreak(0);
+        setFeedbackState('wrong');
+        setStreakNotice(`Sai lần 3/3! Tính là câu sai.`);
+
+        if (matchData?.roomId) {
+          arenaSocketService.submitAnswer(
+            matchData.roomId,
+            currentQuestionIndex,
+            fullUserAnswer,
+            timeSpentMs
+          );
+        }
+
+        // Ghi nhận câu sai cùng từ người chơi đã gõ vào lịch sử
+        setMyAnswerRecords((prev) => ({
+          ...prev,
+          [currentQuestionIndex]: { isCorrect: false, userAnswer: fullUserAnswer },
+        }));
+
+        setTimeout(() => {
+          setStreakNotice(null);
+          setFeedbackState('idle');
+          setCurrentQuestionIndex((prev) => {
+            const next = prev + 1;
+            if (next >= questions.length) {
+              setIsWaitingOpponent(true);
+            }
+            return next;
+          });
+        }, 800);
+      }
     }
   }, [
     feedbackState,
@@ -441,11 +492,16 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
     myStreak,
     matchData,
     currentQuestionIndex,
+    wrongAttemptsCount,
+    questions.length,
   ]);
 
   // ─── BỎ QUA CÂU HỎI (SKIP) ───
   const handleSkipQuestion = useCallback(() => {
     if (feedbackState !== 'idle') return;
+
+    // Reset lượt sai cho câu tiếp theo
+    setWrongAttemptsCount(0);
 
     // Chỉ khi chủ động bỏ qua câu hỏi thì MỚI BỊ MẤT CHUỖI STREAK
     setMyStreak(0);
@@ -474,7 +530,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       }
       return next;
     });
-  }, [feedbackState, matchData?.roomId, currentQuestionIndex]);
+  }, [feedbackState, matchData?.roomId, currentQuestionIndex, questions.length]);
 
   // Lắng nghe bàn phím toàn cục (Keyboard Event Listener)
   useEffect(() => {
@@ -894,16 +950,16 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
                 </h2>
               </div>
 
-              {/* BÀN CỜ Ô CHỮ WORDLE (CÓ SẴN CHỮ CÁI ĐẦU, BỔ SUNG OVERWRITE VÀ CỤM TỪ NHIỀU DÒNG) */}
+              {/* BÀN CỜ Ô CHỮ WORDLE (CÁC TỪ TRONG CỤM NẰM CHUNG HÀNG TỰ NHIÊN, CÁCH NHAU KHOẢNG TRẮNG) */}
               <div
-                className={`my-3 sm:my-4 flex flex-col items-center justify-center gap-2 sm:gap-3 w-full transition-all duration-200 ${
+                className={`my-2 sm:my-3 flex flex-wrap items-center justify-center gap-y-2.5 sm:gap-y-3.5 gap-x-3.5 sm:gap-x-5 max-w-3xl mx-auto w-full transition-all duration-200 ${
                   feedbackState === 'wrong' ? 'animate-[shake_0.4s_ease-in-out]' : ''
                 }`}
               >
                 {targetWords.map((word, lineIdx) => (
                   <div
-                    key={`line-${lineIdx}`}
-                    className="flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap"
+                    key={`word-${lineIdx}`}
+                    className="flex items-center justify-center gap-1 sm:gap-1.5 shrink-0"
                   >
                     {word.split('').map((_char, charIdx) => {
                       const isFirstChar = charIdx === 0;
@@ -948,12 +1004,12 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
               </div>
 
               {/* ── 4. 2 BUTTON HÀNH ĐỘNG: BỎ QUA & XÁC NHẬN (ENTER) ── */}
-              <div className="flex items-center justify-center gap-4 sm:gap-6 w-full max-w-md mx-auto mt-1 sm:mt-2 mb-1">
+              <div className="flex items-center justify-center gap-4 sm:gap-6 w-full max-w-md mx-auto mt-2 sm:mt-3 mb-1">
                 {/* Nút Bỏ qua */}
                 <button
                   onClick={handleSkipQuestion}
                   disabled={feedbackState !== 'idle'}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 rounded-2xl border-2 border-border/80 hover:bg-muted/80 text-muted-foreground hover:text-foreground text-xs sm:text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 rounded-2xl border-2 border-border/80 hover:bg-muted/80 text-muted-foreground hover:text-foreground text-xs sm:text-sm font-bold transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <span>Bỏ qua</span>
                   <X className="w-4 h-4" />
@@ -962,11 +1018,25 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
                 <button
                   onClick={handleConfirmAnswer}
                   disabled={feedbackState !== 'idle'}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs sm:text-sm font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/35 disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs sm:text-sm font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/35 disabled:opacity-50 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>Xác nhận</span>
                 </button>
+              </div>
+
+              {/* ── 5. CHỈ BÁO LƯỢT THỬ NẰM Ở GIỮA KHOẢNG KHÔNG TỪ BUTTON ĐẾN ĐÁY CARD ── */}
+              <div className="mt-auto pt-6 sm:pt-8 pb-1 text-center select-none">
+                <span className="text-xs font-semibold text-muted-foreground/80 tracking-wide">
+                  Lượt thử:{' '}
+                  <span
+                    className={`font-mono font-bold ${
+                      wrongAttemptsCount >= 2 ? 'text-rose-500 font-extrabold' : 'text-foreground'
+                    }`}
+                  >
+                    {3 - wrongAttemptsCount}/3
+                  </span>
+                </span>
               </div>
             </>
           )}

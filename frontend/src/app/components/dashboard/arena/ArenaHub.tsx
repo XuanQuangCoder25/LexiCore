@@ -325,11 +325,10 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                     {isFree ? (
                                         <div className="flex flex-col items-end gap-0.5">
                                             <div
-                                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors shadow-2xs ${
-                                                    isFreeOutOfRank
-                                                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-500'
-                                                        : 'bg-purple-500/10 border-purple-500/25 text-purple-600 dark:text-purple-400'
-                                                }`}
+                                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors shadow-2xs ${isFreeOutOfRank
+                                                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-500'
+                                                    : 'bg-purple-500/10 border-purple-500/25 text-purple-600 dark:text-purple-400'
+                                                    }`}
                                                 title={`Gói Miễn Phí: Tối đa ${limitRankMatches} trận đấu Rank mỗi ngày`}
                                             >
                                                 <Swords className="w-3.5 h-3.5 shrink-0" />
@@ -342,14 +341,16 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                     ) : (
                                         <div className="flex flex-col items-end gap-0.5">
                                             <div
-                                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 shadow-2xs"
+                                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shadow-2xs border ${remainingDoubleRewards === 0
+                                                    ? 'bg-muted/60 border-border/60 text-muted-foreground'
+                                                    : 'border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-600 dark:text-amber-400'
+                                                    }`}
                                                 title={`Gói ${tier}: Nhân đôi Coin & EXP cho ${limitDoubleRewards} trận mỗi ngày`}
                                             >
-                                                <Zap className="w-3.5 h-3.5 shrink-0 fill-amber-500/20" />
+                                                <Zap className={`w-3.5 h-3.5 shrink-0 ${remainingDoubleRewards === 0 ? 'text-muted-foreground' : 'text-amber-500'}`} />
                                                 <span>x2 Thưởng: Còn {remainingDoubleRewards}/{limitDoubleRewards} trận</span>
                                             </div>
-                                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold pr-1 flex items-center gap-1">
-                                                <Swords className="w-2.5 h-2.5" />
+                                            <span className="text-[10px] text-muted-foreground pr-1 font-medium">
                                                 Đấu Rank không giới hạn
                                             </span>
                                         </div>
@@ -416,11 +417,10 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                                 {/* 2. Đấu Xếp Hạng (Màu tím Lavender quý phái, leo rank tính RP/LP) */}
                                 <Button
                                     disabled={isFreeOutOfRank}
-                                    className={`h-11 justify-center font-bold text-white shadow-sm transition-all hover:scale-[1.01] ${
-                                        isFreeOutOfRank
-                                            ? 'bg-muted text-muted-foreground opacity-60 cursor-not-allowed border'
-                                            : 'bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:to-violet-700'
-                                    }`}
+                                    className={`h-11 justify-center font-bold text-white shadow-sm transition-all hover:scale-[1.01] ${isFreeOutOfRank
+                                        ? 'bg-muted text-muted-foreground opacity-60 cursor-not-allowed border'
+                                        : 'bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:to-violet-700'
+                                        }`}
                                     onClick={() => {
                                         if (isFreeOutOfRank) return;
                                         onFindMatch?.('RANK');

@@ -147,6 +147,32 @@ const RankProgressBar: React.FC<{
   );
 };
 
+// So sánh từng ký tự người dùng gõ với từ đúng để gạch chân chính xác ký tự sai (ví dụ evel thì gạch chân e thứ 2)
+const renderMismatchCharacters = (userAnswer: string, correctWord: string) => {
+  const target = (correctWord || '').toLowerCase();
+  const chars = (userAnswer || '').split('');
+
+  return (
+    <span className="inline-flex items-center tracking-wide">
+      {chars.map((char, idx) => {
+        const isWrongChar = idx >= target.length || char.toLowerCase() !== target[idx];
+        return (
+          <span
+            key={idx}
+            className={
+              isWrongChar
+                ? 'underline underline-offset-4 decoration-rose-500 decoration-[2.5px] font-black text-rose-500'
+                : 'text-rose-400 font-bold'
+            }
+          >
+            {char}
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
 export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
   gameOverData,
   mePlayerInfo,
@@ -682,7 +708,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
               </div>
               {isDouble && (
                 <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-500 text-[10px] font-black uppercase tracking-wider shadow-xs animate-pulse">
-                  <Zap className="w-3 h-3 fill-amber-500" />
+                  <Zap className="w-3 h-3 text-amber-500" />
                   <span>x2 Thưởng Hội Viên</span>
                 </div>
               )}
@@ -710,7 +736,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
                 </div>
               </div>
 
-              {/* Box EXP (icon Zap thay thế icon sao) */}
+              {/* Box EXP */}
               <div className="relative rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-3.5 flex items-center gap-3 overflow-hidden shadow-xs">
                 {isDouble && (
                   <span className="absolute top-1.5 right-2 px-1.5 py-0.5 rounded-md bg-indigo-500 text-[9px] font-black text-white leading-none uppercase">
@@ -718,7 +744,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
                   </span>
                 )}
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
-                  <Zap className="w-5 h-5 fill-indigo-400/20" />
+                  <Zap className="w-5 h-5 text-indigo-400" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -734,13 +760,13 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
             {/* Chú thích trạng thái phần thưởng */}
             <div className="pt-1">
               {isDouble ? (
-                <p className="text-[11px] text-amber-500/95 font-medium flex items-center gap-1.5 bg-amber-500/5 px-2.5 py-1.5 rounded-xl border border-amber-500/20">
-                  <Zap className="w-3.5 h-3.5 shrink-0 fill-amber-500" />
+                <p className="text-[11px] text-muted-foreground/85 font-medium flex items-center justify-center gap-1.5 bg-muted/30 px-2.5 py-1.5 rounded-xl border border-border/30">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
                   <span>Đã áp dụng nhân đôi x2 Coin & EXP từ quyền lợi gói hội viên của bạn.</span>
                 </p>
               ) : earnedCoins === 0 && earnedExp === 0 ? (
-                <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5 bg-muted/40 px-2.5 py-1.5 rounded-xl border border-border/40">
-                  <Info className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                <p className="text-[11px] text-muted-foreground/85 font-medium flex items-center justify-center gap-1.5 bg-muted/30 px-2.5 py-1.5 rounded-xl border border-border/30">
+                  <Info className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
                   <span>Trận giao hữu không áp dụng cộng thưởng Coin & EXP.</span>
                 </p>
               ) : (
@@ -868,11 +894,11 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
                             </span>
                           </div>
                         ) : (
-                          /* Trường hợp Trả lời SAI: Từ sai gạch ngang màu đỏ + icon X -> Từ đúng màu xanh */
+                          /* Trường hợp Trả lời SAI: Gạch chân chính xác các ký tự gõ sai -> Từ đúng màu xanh */
                           <div className="flex items-center gap-1.5 flex-wrap text-xs sm:text-sm">
-                            <span className="text-rose-500 font-bold line-through flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md">
+                            <span className="flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md">
                               <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              {userAnswer}
+                              {renderMismatchCharacters(userAnswer, correctWord)}
                             </span>
                             <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             <span className="text-emerald-500 font-black flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-md">
