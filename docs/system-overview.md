@@ -23,7 +23,7 @@
 - **Cache & Queue:** Redis (Upstash) — hàng đợi ghép trận Arena, session cache
 - **File storage:** Cloudinary — ảnh vật phẩm, avatar, cover photo
 - **AI:** OpenAI Whisper (speech-to-text phát âm), Google Gemini (giải thích ngữ cảnh, tóm tắt video)
-- **Real-time:** Socket.IO (Arena PvP 1v1, Social/Chat namespace)
+- **Real-time:** Socket.IO (Arena PvP 1v1 Đấu Rank & Đấu Giao Hữu, Social/Chat namespace)
 - **Email:** Resend API - Hệ thống email thông báo, biên lai, xác thực và quản trị (Module Email phân tầng Master Layout, Domain Templates và Service điều phối)
 - **Payment:** SePay VietQR — cổng thanh toán cá nhân, miễn phí, webhook tự động
 - **CI/CD:** Vercel (frontend, auto-deploy từ GitHub `main`) + Render (backend, auto-deploy từ GitHub `main`)
@@ -37,7 +37,7 @@
 /api/store                   -> Cửa hàng (Store) và Kho đồ (Inventory)
 /api/gamification            -> Goals, Achievements, Collections, Leaderboard
 /api/shadowing               -> Thư viện video, phân tích giọng nói AI, AI summary
-/api/arena                   -> Từ vựng Arena (CRUD), Rank utilities
+/api/arena                   -> Từ vựng Arena (CRUD), Rank utilities, Hồ sơ Năng lực 6 chiều Radar (/radar-stats)
 /api/payment                 -> Gói hội viên, SePay VietQR, Ví LexiCore, Webhook
 /api/courses                 -> Creator/Admin quản lý khóa học
 /api/v1/student/courses      -> Student học khóa học

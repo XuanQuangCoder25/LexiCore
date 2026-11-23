@@ -122,4 +122,45 @@
 - **Cặp 3 (Tier 3 - Hiếm):** Sói Cơ Khí Quantum (Quantum Mech Wolf) với lõi hạt nhân năng lượng tím — Vành đai thiên thạch quay quanh Sao Thổ huyền ảo (Saturn Asteroid Belt Promenade).
 - **Cặp 4 (Tier 4 - Siêu hiếm):** Rồng Cơ Khí Vũ Trụ (Cosmic Mecha Leviathan) sải cánh giữa không gian — Cánh cổng không-thời gian (Wormhole Portal) rực sáng giữa dải ngân hà đa sắc (Glowing Cosmic Nebula).
 
---- 
+---
+
+# ⚔️ HỆ THỐNG ĐẤU TRƯỜNG PVP ARENA NÂNG CẤP (ARENA 2.0 & RADAR ANALYTICS)
+
+## 1. Giới hạn thi đấu Rank & Cơ chế nhân đôi phần thưởng theo Tier
+Hệ thống thiết lập cơ chế cân bằng nền kinh tế ảo và kích thích người học nâng cấp gói hội viên:
+- **Giới hạn số trận leo Rank hàng ngày:**
+  - Gói `FREE`: Tối đa 10 trận Rank/ngày (theo dõi qua Redis `arena:daily_rank:{userId}:{YYYYMMDD}`, múi giờ UTC+7). Khi hết lượt, người chơi vẫn có thể đấu Giao Hữu hoặc vào chế độ Luyện từ vựng.
+  - Gói `STARTER`, `PRO`, `ELITE`: Không giới hạn số trận leo Rank mỗi ngày.
+- **Cơ chế x2 Coin và EXP mỗi ngày:**
+  - Gói `FREE`: 0 trận x2/ngày (nhận thưởng tiêu chuẩn).
+  - Gói `STARTER`: 3 trận x2/ngày.
+  - Gói `PRO`: 5 trận x2/ngày.
+  - Gói `ELITE`: 10 trận x2/ngày.
+  - Phần thưởng x2 được tính tự động tại thời điểm kết thúc trận (`finalizeMatch`), cộng trực tiếp vào ví và hiển thị nhãn nhận diện trên màn hình kết quả ván đấu.
+
+## 2. Chế độ Đấu Giao Hữu (Friendly Match)
+- Cho phép người chơi thuộc mọi cấp gói (kể cả Free) tạo phòng riêng và mời bạn bè tranh tài trực tiếp qua Socket.IO.
+- Trận đấu Giao Hữu không tính biến động RP (Rank Point) và LP (Leaderboard Point), bảo vệ thứ hạng người chơi khi thi đấu cọ xát.
+- Vẫn tặng Coin và EXP thưởng bình thường (áp dụng x2 nếu còn lượt trong ngày) và lưu trữ dữ liệu câu hỏi vào `arena_match_words` phục vụ thống kê học thuật.
+
+## 3. Cơ chế Gameplay 3 Lượt Thử (Three-Attempt Typo Tolerance)
+- Khắc phục triệt để nhược điểm gõ lại vô hạn của hệ thống cũ để xác định chính xác câu trả lời sai:
+  - **Sai lần 1 & lần 2:** Hệ thống kích hoạt hiệu ứng rung cảnh báo, hiển thị thông báo còn lượt thử, giữ nguyên chuỗi liên tiếp (Streak) để người học sửa lỗi chính tả/typo.
+  - **Sai lần thứ 3:** Chính thức tính là câu SAI, ngắt chuỗi Streak, gửi mã lỗi lên máy chủ, ghi nhận vào lịch sử trận đấu và tự động chuyển sang câu hỏi tiếp theo.
+  - Bổ sung thanh chỉ báo 3 chấm chuyển màu xanh sang đỏ trên nút điều khiển thi đấu.
+
+## 4. Hồ Sơ Năng Lực 6 Chiều Radar (Pro Analytics)
+Dành riêng cho hội viên gói `PRO` và `ELITE` tại Tab "Năng Lực" trong sảnh Arena:
+- **Biểu đồ Radar Lục giác (6 Đỉnh Năng lực, thang điểm 0 - 100):**
+  1. *Độ chính xác (Accuracy):* Tỷ lệ trả lời đúng trên tổng số câu đã làm thực tế qua 50 trận gần nhất.
+  2. *Tốc độ phản xạ (Speed):* Đo lường thời gian trung bình hoàn thành mỗi câu hỏi (`p1_time_ms`). Ngưỡng <= 1200ms đạt 100 điểm, mỗi 100ms chậm hơn trừ 3 điểm.
+  3. *Từ vựng cốt lõi (Core Vocab):* Tỷ lệ làm đúng các câu A1, A2, B1 (loại trừ idiom/collocation).
+  4. *Từ vựng nâng cao (Advanced Vocab):* Tỷ lệ làm đúng các câu B2, C1, C2 (loại trừ idiom/collocation). Hiển thị "Chưa mở khóa" nếu người chơi chưa đạt rank có nhóm từ này.
+  5. *Thành ngữ & Cụm từ (Idioms & Collocations):* Tỷ lệ làm đúng các câu thành ngữ và cụm kết hợp từ.
+  6. *Tâm lý thi đấu (Match Composure):* Đánh giá 5 câu hỏi cuối cùng của các trận đấu căng thẳng. Chỉ tính cho các trận người chơi làm từ 20/25 câu trở lên.
+- **Thống kê Học thuật Chuyên sâu:**
+  - Bảng Top 3 chủ đề sở trường có tỷ lệ chiến thắng cao nhất và danh mục chủ đề cần cải thiện.
+  - Biểu đồ phân bổ độ thuần thục theo khung tham chiếu chuẩn Châu Âu CEFR (A1 - C2).
+  - Biểu đồ xu hướng phong độ và tỷ lệ chính xác qua 10 trận đấu gần nhất.
+- **Thẻ Khóa VIP Mạ Vàng Hoàng Gia (Royal Gold Plated Paywall):**
+  - Hiển thị trực quan cho tài khoản `FREE` và `STARTER` với khung viền mạ vàng kép, hào quang kim loại sang trọng, huy hiệu vương miện mạ vàng và nút CTA nổi khối kích thích nâng cấp.

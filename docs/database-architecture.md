@@ -80,9 +80,18 @@ schema.sql
 
 | Tên bảng | Khóa chính | Mục đích sử dụng | Ràng buộc quan trọng |
 | :--- | :--- | :--- | :--- |
-| **`arena_words`** | `id` (VARCHAR 36) | Ngân hàng từ vựng thi đấu phân loại theo cấp độ CEFR (A1-C2), chủ đề (`topic`) và loại từ (`noun`, `verb`, `idiom`...). | Admin quản trị CRUD |
-| **`arena_matches`** | `id` (VARCHAR 36) | Lưu kết quả các trận đấu 1v1: Người chơi 1, Người chơi 2, kết quả, thời gian làm bài, điểm rank thay đổi (`p1_points_change`, `p2_points_change`). | `player1_id`, `player2_id` FK |
-| **`arena_match_words`** | `id` (VARCHAR 36) | Lưu chi tiết từng câu hỏi trong trận (câu trả lời của 2 người chơi, đúng/sai, thời gian phản hồi mili-giây) phục vụ màn hình tổng kết trận. | `match_id` FK, `ON DELETE CASCADE` |
+| **`arena_words`** | `id` (VARCHAR 36) | Ngân hàng từ vựng thi đấu phân loại theo cấp độ CEFR (A1-C2), chủ đề (`topic`) và loại từ (`word_type`: `noun`, `verb`, `adjective`, `adverb`, `noun_phrase`, `verb_phrase`, `idiom`, `collocation` - đã loại bỏ giá trị thừa `phrase`). | Admin quản trị CRUD, INDEX(`level`, `word_type`) |
+| **`arena_matches`** | `id` (VARCHAR 36) | Lưu kết quả các trận đấu 1v1: Người chơi 1, Người chơi 2, chế độ đấu (`match_type`: `RANK` hoặc `FRIENDLY`), trạng thái áp dụng x2 Coin/EXP (`p1_x2_applied`, `p2_x2_applied`), kết quả, thời gian làm bài, điểm rank thay đổi (`p1_points_change`, `p2_points_change`). | `player1_id`, `player2_id` FK |
+| **`arena_match_words`** | `id` (VARCHAR 36) | Lưu chi tiết từng câu hỏi trong trận (câu trả lời của 2 người chơi, số lượt thử, đúng/sai, thời gian phản hồi mili-giây `p1_time_ms`, `p2_time_ms`) phục vụ màn hình tổng kết trận và thuật toán tính toán Hồ sơ Năng lực 6 chiều (Radar Analytics). | `match_id` FK, `ON DELETE CASCADE` |
+
+**Cơ chế lưu trữ In-Memory & Caching (Redis Upstash cho Arena):**
+
+| Redis Key Pattern | Kiểu dữ liệu | TTL | Mục đích sử dụng |
+| :--- | :--- | :--- | :--- |
+| `arena:daily_rank:{userId}:{YYYYMMDD}` | String (Counter) | 25 giờ | Đếm số trận leo Rank đã chơi trong ngày của tài khoản `FREE`. Chặn vào queue khi đạt 10 trận/ngày. Múi giờ UTC+7. |
+| `arena:daily_x2:{userId}:{YYYYMMDD}` | String (Counter) | 25 giờ | Đếm số trận đã nhận x2 Coin & EXP trong ngày (STARTER: 3, PRO: 5, ELITE: 10). Múi giờ UTC+7. |
+| `arena:queue:{rankGroup}` | List / Set | 60 giây | Hàng đợi ghép trận thời gian thực theo nhóm Rank tương đồng. |
+| `arena:room:{roomId}` | Hash / JSON | 600 giây | Lưu trạng thái ván đấu trực tiếp, danh sách 25 câu hỏi và tiến trình thi đấu. |
 
 ---
 
@@ -166,8 +175,11 @@ schema.sql
 | File | Mô tả | Trạng thái |
 | :--- | :--- | :--- |
 | `migration_subscription.sql` | Tạo bảng `subscription_campaigns`, `user_campaign_claims` | Đã chạy |
-| `migration_add_order_number.sql` | Thêm cột `order_number` vào `payment_orders` | Cần chạy |
-| `migration_campaigns.sql` | Thêm bảng `reward_campaigns`, `system_announcements`, `email_blast_logs`; bổ sung cột vào `credit_packages`, `subscription_campaigns`, `user_campaign_claims` | Cần chạy |
+| `migration_add_order_number.sql` | Thêm cột `order_number` vào `payment_orders` | Đã chạy |
+| `migration_campaigns.sql` | Thêm bảng `reward_campaigns`, `system_announcements`, `email_blast_logs`; bổ sung cột vào `credit_packages`, `subscription_campaigns`, `user_campaign_claims` | Đã chạy |
+| `migration_arena_wordtype.sql` | Chuẩn hóa enum `word_type` trong `arena_words`, cập nhật dữ liệu cũ và loại bỏ giá trị thừa `'phrase'` | Đã chạy |
+| `migration_arena_friendlymatch.sql` | Thêm cột `match_type ENUM('RANK', 'FRIENDLY')` vào bảng `arena_matches` phục vụ chế độ Đấu Giao Hữu | Đã chạy |
+| `migration_arena_match_ranks.sql` | Bổ sung snapshot bậc Rank và Rank Point đối đầu phục vụ phân tích hồ sơ trận đấu | Đã chạy |
 
 ---
 

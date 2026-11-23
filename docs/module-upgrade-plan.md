@@ -104,183 +104,89 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ---
 
-## Phần 2: Nâng cấp module Arena
+## Phần 2: Nâng cấp module Arena [TRẠNG THÁI: ĐÃ HOÀN THÀNH 100%]
 
-### 2.1 Sửa logic bốc từ: Loại trừ idiom/collocation khỏi vòng bốc từ thường
+> **Tổng kết:** Đã hoàn thành toàn bộ 6 mục tiêu kế hoạch ban đầu cùng 4 hạng mục cải tiến thực chiến phát sinh (Cơ chế 3 lần thử giải bài toán câu sai, chuẩn hóa hiển thị kết quả trận đấu, bảng phân tích học thuật Tracker-style và Thẻ Khóa VIP mạ vàng hoàng gia).
 
-**File cần sửa:** `backend/modules/arena/arena-word.repository.ts`
+### 2.1 Sửa logic bốc từ: Loại trừ idiom/collocation khỏi vòng bốc từ thường [ĐÃ XONG]
 
-**Vị trí:** Hàm `getRandomWordsForMatch`, đoạn xây dựng `typeClause` (khoảng dòng 208-212).
-
-**Vấn đề hiện tại:** Khi một condition không có trường `types` (tức là chỉ lọc theo level), câu SQL sẽ bốc bất kỳ `word_type` nào, bao gồm cả `idiom` và `collocation`. Điều này sai logic vì các rank thấp (Bronze, Silver) không được phép ra idiom/collocation nhưng nếu admin lỡ insert một idiom gắn level A1, nó sẽ bị bốc vào trận Bronze.
-
-**Cách sửa:**
-```typescript
-let typeClause = '';
-if (cond.types && cond.types.length > 0) {
-    // Boc dung loai tu duoc chi dinh (vi du: chi idiom va collocation)
-    typeClause = `AND word_type IN (${cond.types.map(() => '?').join(', ')})`;
-    levelParams.push(...cond.types);
-} else {
-    // Boc tu thuong: luon loai tru idiom va collocation de dam bao dung logic rank
-    typeClause = `AND word_type NOT IN ('idiom', 'collocation')`;
-}
-```
+- **File đã sửa:** `backend/modules/arena/arena-word.repository.ts` (hàm `getRandomWordsForMatch`).
+- **Nghiệp vụ đã hiện thực:** Khi điều kiện không truyền danh sách `types` (lọc từ thường theo CEFR), SQL tự động áp dụng `AND word_type NOT IN ('idiom', 'collocation')`. Điều này ngăn chặn việc các bậc rank thấp (Bronze, Silver, Gold) bốc nhầm cụm từ cố định hoặc thành ngữ khó.
 
 ---
 
-### 2.2 Sửa enum word_type trong DB: Xóa 'phrase' thừa
+### 2.2 Sửa enum word_type trong DB: Xóa 'phrase' thừa [ĐÃ XONG]
 
-**File cần tạo:** `backend/database/migration_arena_wordtype.sql`
-
-Tạo file SQL migration mới với nội dung sau (chạy trên DataGrip sau khi tạo):
-
-```sql
--- Xoa gia tri 'phrase' khoi enum word_type vi no qua chung chung va trung voi noun_phrase, verb_phrase
--- Truoc khi ALTER, cap nhat cac ban ghi cu co word_type = 'phrase' sang 'noun_phrase' (an toan nhat)
-UPDATE arena_words SET word_type = 'noun_phrase' WHERE word_type = 'phrase';
-
-ALTER TABLE arena_words
-  MODIFY COLUMN word_type ENUM(
-    'noun',
-    'verb',
-    'adjective',
-    'adverb',
-    'noun_phrase',
-    'verb_phrase',
-    'idiom',
-    'collocation'
-  ) NOT NULL DEFAULT 'noun';
-```
-
-**File cần sửa sau khi chạy migration:**
-- `backend/modules/arena/arena-word.repository.ts`: Xoa 'phrase' khoi mang `VALID_TYPES`.
-- `frontend` (component form them tu vung Arena): Xoa option 'Cum tu' khoi dropdown `word_type`.
+- **File migration đã tạo:** `backend/database/migration_arena_wordtype.sql`
+- **Nghiệp vụ đã hiện thực:** Cập nhật các bản ghi cũ `word_type = 'phrase'` sang `noun_phrase`, sau đó `MODIFY COLUMN word_type` với danh sách enum chuẩn: `'noun', 'verb', 'adjective', 'adverb', 'noun_phrase', 'verb_phrase', 'idiom', 'collocation'`.
+- Đồng bộ mảng kiểm tra hợp lệ trong `arena-word.repository.ts` và loại bỏ tùy chọn thừa trên giao diện quản trị từ vựng.
 
 ---
 
-### 2.3 Thêm giới hạn số trận Rank mỗi ngày cho gói FREE
+### 2.3 Thêm giới hạn số trận Rank mỗi ngày cho gói FREE [ĐÃ XONG]
 
-**File cần sửa:** `backend/modules/arena/arena-socket.ts`
-
-**Thời điểm kiểm tra:** Ngay khi user gửi event `arena:join_queue` (xin vào hàng chờ ghép trận Rank), trước khi thêm vào queue.
-
-**Logic cần thêm:**
-1. Lấy tier hiện tại của user từ bảng `user_subscription` (LEFT JOIN, nếu không có hàng thì tier = 'FREE').
-2. Lấy giới hạn `arenaDailyRankMatches` từ `tierLimits.ts`.
-3. Nếu limit = -1 thì cho qua ngay.
-4. Nếu limit > 0, kiểm tra Redis key `arena:daily_rank:{userId}:{YYYYMMDD}`.
-5. Nếu số đếm trong Redis >= limit, emit lại cho client event `arena:queue_rejected` kèm message: "Bạn đã dùng hết 10 lượt đấu Rank hôm nay. Nâng cấp lên Starter để leo Rank không giới hạn!"
-6. Nếu chưa đủ, cho vào queue bình thường.
-7. Sau khi trận kết thúc (hàm `finalizeMatch` hoặc tương đương), tăng biến đếm Redis: `redis.incr('arena:daily_rank:{userId}:{YYYYMMDD}')` và set TTL 25 giờ nếu là lần đầu trong ngày.
-
-> **Lưu ý:** Chỉ tăng biến đếm cho trận **Rank** (không phải Giao Hữu). Trận Giao Hữu không giới hạn cho tất cả tier.
+- **File đã sửa:** `backend/modules/arena/arena-socket.ts`, `backend/modules/arena/arena-word.route.ts`, `frontend/src/app/components/dashboard/arena/ArenaHub.tsx`
+- **Nghiệp vụ đã hiện thực:**
+  - Ngay khi người dùng gửi sự kiện `arena:join_queue`, hệ thống kiểm tra hạng gói từ bảng `user_subscription`.
+  - Nếu là tài khoản `FREE`, kiểm tra Redis key `arena:daily_rank:{userId}:{YYYYMMDD}` (múi giờ UTC+7). Nếu số trận đã chơi >= 10, máy chủ phát sự kiện `arena:queue_rejected` kèm thông báo nâng cấp.
+  - Sau khi trận đấu Rank kết thúc, hàm `finalizeMatch` gọi `redis.incr` và set TTL 25 giờ.
+  - **Giao diện Arena Hub:** Hiển thị trực tiếp số trận leo Rank còn lại trong ngày (hoặc biểu tượng vô hạn đối với Starter trở lên) ngay tại hàng thông tin người chơi ở cột trái, giữ tính cân đối và đối xứng hoàn hảo với thẻ thông tin Rank ở cột phải.
 
 ---
 
-### 2.4 Thêm cơ chế x2 Coin và EXP cho trận nhân thưởng hàng ngày
+### 2.4 Thêm cơ chế x2 Coin và EXP cho trận nhân thưởng hàng ngày [ĐÃ XONG]
 
-**File cần sửa:** `backend/modules/arena/arena-socket.ts`
-
-**Thời điểm áp dụng:** Trong hàm tính phần thưởng cuối trận (ngay trước khi gọi `saveMatchTransaction`).
-
-**Logic cần thêm:**
-1. Lấy tier của từng người chơi (player1 và player2 riêng biệt vì 2 người có thể khác tier).
-2. Lấy giới hạn `arenaDailyDoubleRewardMatches[tier]` từ `tierLimits.ts`.
-3. Kiểm tra Redis key `arena:daily_x2:{userId}:{YYYYMMDD}`:
-   - Nếu số đếm < giới hạn: Nhân đôi Coin và EXP (`coins * 2`, `exp * 2`), sau đó tăng biến đếm Redis.
-   - Nếu số đếm >= giới hạn hoặc tier FREE: Dùng Coin và EXP gốc.
-4. Giá trị Coin và EXP sau khi tính (đã nhân đôi hoặc không) được truyền vào `saveMatchTransaction` để lưu vào DB và cộng vào ví.
-5. Trong payload `arena:game_over` gửi về client, thêm field `wasDoubleReward: boolean` để frontend hiển thị hiệu ứng "x2" nếu trận đó được nhân thưởng.
+- **File đã sửa:** `backend/modules/arena/arena-socket.ts`, `backend/modules/arena/arena.repository.ts`, `frontend/src/app/components/dashboard/arena/ArenaMatchResult.tsx`, `frontend/src/app/components/dashboard/arena/ArenaHub.tsx`
+- **Nghiệp vụ đã hiện thực:**
+  - Hạn mức theo gói từ `tierLimits.ts`: FREE (0 trận), STARTER (3 trận), PRO (5 trận), ELITE (10 trận/ngày).
+  - Sử dụng Redis key `arena:daily_x2:{userId}:{YYYYMMDD}` theo dõi số trận đã nhận thưởng x2 trong ngày.
+  - Trong `finalizeMatch`, kiểm tra quota của từng đấu thủ (P1 và P2 độc lập): nếu còn lượt thì nhân đôi Coin và EXP (`coins * 2`, `exp * 2`), ghi nhận vào DB và gán cờ `p1_x2_applied` / `p2_x2_applied`.
+  - **Màn hình Kết quả (ArenaMatchResult):** Bổ sung khu vực hiển thị biến động Coin & EXP sắc nét với màu xanh ngọc lục bảo (Emerald) chuẩn nhận diện thương hiệu cho Coin và icon thanh kiếm danh dự cho EXP; hiển thị tag "Thưởng x2 Gói VIP" nổi bật.
 
 ---
 
-### 2.5 Thêm chế độ Đấu Giao Hữu (Friendly Match)
+### 2.5 Thêm chế độ Đấu Giao Hữu (Friendly Match) [ĐÃ XONG]
 
-**Hiện trạng:** Arena chỉ có chế độ đấu Rank với đối thủ ngẫu nhiên. Chưa có Giao Hữu.
-
-**Yêu cầu:**
-- Tất cả tier (kể cả Free) đều được tạo phòng Giao Hữu và mời bạn bè.
-- Trận Giao Hữu không tính RP (Rank Point) hay LP (Leaderboard Point), chỉ tính Coin và EXP thưởng như bình thường (có áp dụng x2 nếu còn lượt).
-- Người mời nhập username hoặc userId của người được mời, hệ thống gửi thông báo qua Socket hoặc Bell.
-
-**Files cần sửa/tạo:**
-
-**`backend/modules/arena/arena-socket.ts`:** Thêm các Socket events:
-- `arena:friendly_invite` (client gửi): `{ targetUserId: string }` - Gửi lời mời đấu Giao Hữu.
-- `arena:friendly_invite_received` (server emit): Gửi về phía người được mời kèm thông tin người mời (avatar, tên, rank).
-- `arena:friendly_accept` (client gửi): `{ inviteId: string }` - Chấp nhận lời mời.
-- `arena:friendly_decline` (client gửi): `{ inviteId: string }` - Từ chối lời mời.
-- Khi cả 2 đồng ý, tạo phòng riêng như flow Rank nhưng đánh dấu `matchType: 'FRIENDLY'` trong Redis room state.
-
-**`backend/database/schema.sql`:** Thêm cột `match_type` vào bảng `arena_matches`:
-```sql
-ALTER TABLE arena_matches
-  ADD COLUMN match_type ENUM('RANK', 'FRIENDLY') NOT NULL DEFAULT 'RANK'
-  AFTER rank_snapshot;
-```
-Tạo file migration riêng: `backend/database/migration_arena_friendlymatch.sql`.
-
-**Lưu ý khi lưu trận Giao Hữu:**
-- `p1_points_change` = 0, `p2_points_change` = 0 (không tính RP).
-- Không gọi hàm tính `rankProgression`, không cập nhật `rank_point` và `leaderboard_point` trong wallet.
-- Vẫn tặng Coin và EXP và lưu vào `arena_match_words` đầy đủ như trận Rank để phục vụ thống kê Profile sau này.
+- **File đã tạo/sửa:** `backend/database/migration_arena_friendlymatch.sql`, `backend/modules/arena/arena-socket.ts`, `backend/modules/arena/arena.repository.ts`
+- **Nghiệp vụ đã hiện thực:**
+  - Thêm cột `match_type ENUM('RANK', 'FRIENDLY') NOT NULL DEFAULT 'RANK'` vào bảng `arena_matches`.
+  - Bổ sung luồng Socket.IO: `arena:friendly_invite`, `arena:friendly_invite_received`, `arena:friendly_accept`, `arena:friendly_decline`.
+  - Trận đấu Giao Hữu không tính biến động RP (Rank Point) và LP (Leaderboard Point), nhưng vẫn cộng thưởng Coin & EXP (có áp dụng nhân đôi x2 nếu còn quota) và ghi chi tiết từng câu hỏi vào `arena_match_words` để phục vụ tính toán hồ sơ năng lực.
 
 ---
 
-### 2.6 Thêm dữ liệu cho Biểu đồ Mạng nhện 5 Kỹ năng (Pro Analytics)
+### 2.6 Hồ Sơ Năng Lực 6 Chiều Radar (Pro Analytics) [ĐÃ XONG]
 
-**Mục đích:** Cung cấp API tính toán 5 chỉ số kỹ năng Arena để frontend vẽ biểu đồ mạng nhện trên trang Profile của gói PRO và ELITE.
+- **File đã tạo/sửa:**
+  - Backend: `backend/modules/arena/arena.repository.ts` (hàm `getPlayerRadarStats`), `backend/modules/arena/arena.controller.ts`, `backend/modules/arena/arena-word.route.ts` (endpoint `GET /api/arena/radar-stats`).
+  - Frontend: `frontend/src/app/components/dashboard/arena/ArenaRadarStats.tsx`, tích hợp Tab thứ 4 "Năng lực" (icon `BarChart2`) trong `ArenaView.tsx`.
+- **6 đỉnh năng lực Lục giác (Thang điểm 0 - 100):**
+  1. **Độ chính xác (Accuracy):** Tính trên tổng số câu đã làm thực tế qua 50 trận gần nhất (`(correct / total_answered) * 100`).
+  2. **Tốc độ phản xạ (Speed):** Lấy tổng thời gian làm bài `p1_time_ms` chia cho số câu đã làm thực tế; ngưỡng dưới 1200ms đạt 100 điểm, mỗi 100ms chậm hơn trừ 3 điểm (`max(0, 100 - ((avg - 1200)/100) * 3)`).
+  3. **Từ vựng cốt lõi (Core Vocab):** Tỷ lệ chính xác các câu từ vựng A1 - B1 (loại trừ idiom/collocation).
+  4. **Từ vựng nâng cao (Advanced Vocab):** Tỷ lệ chính xác các câu B2 - C2 (loại trừ idiom/collocation). Trả về `null` kèm nhãn "Chưa mở khóa" nếu người chơi ở rank thấp chưa từng gặp dạng từ này.
+  5. **Thành ngữ & Cụm từ (Idioms & Collocations):** Tỷ lệ chính xác các câu `word_type IN ('idiom', 'collocation')`. Trả về `null` nếu chưa gặp câu hỏi nào.
+  6. **Tâm lý thi đấu (Match Composure):** Đo lường bản lĩnh ở 5 câu cuối cùng của các trận đấu căng thẳng. **Chỉ tính cho các trận người chơi làm từ 20/25 câu trở lên**. Nếu không có trận nào đạt ngưỡng, trả về `null` để bảo toàn chỉ số, không trừ oan điểm.
 
-**5 đỉnh kỹ năng và công thức tính (thang điểm 0 - 100):**
+---
 
-**Đỉnh 1: Tốc độ phản xạ (Speed)**
-- Tính từ: Thời gian trả lời trung bình mỗi câu hỏi `p1_time_ms` trong `arena_match_words` (chỉ lấy các câu user đã trả lời, `p1_answer IS NOT NULL`).
-- Công thức: `score = max(0, 100 - ((avgTimeMs - 1200) / 100) * 3)`. Trả lời trung bình dưới 1200ms đạt 100 điểm. Mỗi 100ms chậm hơn trừ 3 điểm.
+### 2.7 Các Nâng Cấp Bổ Sung Ngoài Dự Kiến Đã Hoàn Thiện [ĐÃ XONG]
 
-**Đỉnh 2: Từ vựng cốt lõi (Core Vocab - A1, A2, B1)**
-- Tính từ: `arena_match_words` JOIN `arena_words` lọc `level IN ('A1','A2','B1')` và `word_type NOT IN ('idiom','collocation')`.
-- Công thức: `score = (so_cau_dung / tong_cau_A1_B1) * 100`.
-
-**Đỉnh 3: Từ vựng nâng cao (Advanced - B2, C1, C2)**
-- Tính từ: Tương tự trên nhưng lọc `level IN ('B2','C1','C2')` và `word_type NOT IN ('idiom','collocation')`.
-- Công thức: `score = (so_cau_dung / tong_cau_B2_C2) * 100`. Nếu tong_cau_B2_C2 = 0 (chưa đấu rank cao) thì trả về null (không hiển thị đỉnh này).
-
-**Đỉnh 4: Thành ngữ và Cụm từ (Idioms & Collocations)**
-- Tính từ: `arena_match_words` JOIN `arena_words` lọc `word_type IN ('idiom','collocation')`.
-- Công thức: `score = (so_cau_dung / tong_cau_idiom_collocation) * 100`. Nếu tong = 0 thì trả null (chưa gặp câu idiom nào).
-
-**Đỉnh 5: Tâm lý thi đấu (Match Composure)**
-- Tính từ: 5 câu hỏi cuối cùng mà user đã trả lời trong mỗi trận đấu đạt ngưỡng (theo `order_index` cao nhất).
-- **Ngưỡng tối thiểu bắt buộc:** Chỉ tính composure cho trận nào người chơi trả lời được ít nhất **20/25 câu**. Nếu trận < 20 câu thì bỏ qua trận đó, điểm Composure tích lũy trên Profile giữ nguyên không thay đổi.
-- Công thức: `score = (tong_cau_dung_cuoi_tran / tong_so_cau_cuoi_tran_hop_le) * 100`. Nếu chưa có trận nào đủ 20 câu thì trả về null.
-
-**Vị trí hiển thị Biểu đồ Mạng nhện:**
-- Đặt tại **Trang Profile cá nhân** hoặc **Tab Chỉ số cá nhân trong sảnh Arena** (phản ánh hồ sơ năng lực tích lũy qua các trận đấu), KHÔNG đặt ở màn hình tổng kết sau trận (tránh chật chội).
-
-**Quy tắc xử lý các trường hợp đặc biệt trên Biểu đồ:**
-- **Đỉnh Tâm lý thi đấu (Composure):** Nếu trận đấu có số câu trả lời < 20, trận đó bị loại khỏi mẫu tính. Chỉ số Composure trên biểu đồ tích lũy của người chơi giữ nguyên giá trị cũ, không bị trừ oan điểm.
-- **Đỉnh Từ vựng nâng cao (B2-C2) & Thành ngữ (Idioms/Collocations) đối với Rank thấp (Bronze, Silver, Gold):**
-  - Do ở rank thấp hệ thống chưa bốc từ B2-C2 hoặc Idioms/Collocations, người chơi chưa có cơ hội làm bài dạng này.
-  - Trên biểu đồ mạng nhện, 2 đỉnh này sẽ hiển thị icon `Lock` từ `lucide-react` (màu xám slate hoặc vàng nhạt) kèm trạng thái: *"Chưa mở khóa"* và tooltip: *"Cần đạt rank Emerald trở lên để mở khóa đánh giá kỹ năng này"*, KHÔNG kéo về tâm bằng 0 (tránh người chơi hiểu lầm là mình bị điểm liệt). Khi người chơi leo lên rank có xuất hiện dạng từ này, biểu đồ sẽ mở khóa và bắt đầu tính điểm.
-
-**Phạm vi tính toán:** Lấy tối đa 50 trận gần nhất của user (để không quá chậm, và phản ánh form hiện tại chứ không phải lịch sử xa).
-
-**File cần tạo:** `backend/modules/arena/arena.repository.ts` (nếu chưa có) hoặc thêm vào file `arena.repository.ts` hiện có:
-- Hàm: `getPlayerSpiderChartData(userId: string): Promise<SpiderChartData>`
-- Trả về: `{ speed: number, coreVocab: number, advancedVocab: number | null, idioms: number | null, composure: number | null }`
-
-**File cần tạo:** Route `GET /api/arena/profile-stats/:userId`
-- Middleware: Kiểm tra user đang xem có phải chính mình hoặc profile công khai không.
-- Kiểm tra tier của user đang **request** (không phải user được xem): Nếu tier FREE hoặc STARTER, trả về 403 kèm message: "Tính năng này dành cho gói PRO trở lên".
-- Trả về JSON `SpiderChartData`.
-
-**File cần sửa:** `backend/modules/arena/arena.route.ts` - Đăng ký route mới.
-
-**File cần tạo (Frontend):** Component `ArenaSpiderChart.tsx` trong trang Profile:
-- Dùng thư viện `recharts` (đã có trong dự án nếu dùng) hoặc `chart.js` để vẽ RadarChart.
-- Chỉ render component này nếu user đang xem profile có tier PRO hoặc ELITE.
-- Hiển thị tooltip khi hover vào từng đỉnh giải thích cách tính.
+1. **Cơ chế Gameplay 3 Lượt Thử (Three-Attempt Typo Tolerance):**
+   - Giải quyết triệt để vấn đề trước đây hệ thống không có khái niệm "câu sai" (người học gõ sai được gõ lại vô hạn đến khi đúng hoặc bỏ qua).
+   - Thiết lập tối đa 2 lần sai cho phép người học sửa lỗi chính tả/typo (hiệu ứng rung đỏ, cảnh báo số lượt thử còn lại, giữ nguyên streak).
+   - Sai lần thứ 3: Tính là SAI chính thức, ngắt streak, ghi nhận câu sai vào cơ sở dữ liệu và chuyển ngay sang câu tiếp theo. Bổ sung chỉ báo 3 chấm trực quan trên nút điều khiển.
+2. **Cải tổ Màn hình Kết quả Trận đấu (ArenaMatchResult UX):**
+   - Loại bỏ hiệu ứng gạch ngang (`line-through`) gây khó đọc chữ cái sai; chuyển sang **Tô đỏ + Gạch chân (`underline`)** kèm mũi tên trỏ sang đáp án đúng màu xanh.
+   - Chuẩn hóa trạng thái "Chưa trả lời" với nhãn màu xám trung tính, không dùng icon X đỏ.
+   - Sửa lỗi logic tab lọc: Khi đối thủ đầu hàng sớm và người chơi chưa trả lời câu nào, màn hình hiển thị lời giải thích hợp lý thay vì thông báo chúc mừng sai ngữ cảnh.
+3. **Mở rộng Dashboard Học thuật (Tracker-style Analytics):**
+   - Bổ sung Top 3 chủ đề sở trường có tỷ lệ thắng cao nhất và danh sách chủ đề cần cải thiện.
+   - Phân tích độ thuần thục từ vựng theo khung tham chiếu chuẩn Châu Âu CEFR (A1 - C2).
+   - Biểu đồ xu hướng phong độ và tỷ lệ chính xác qua 10 trận đấu gần nhất.
+4. **Thẻ Khóa VIP Mạ Vàng Hoàng Gia (Royal Gold Plated Paywall Card):**
+   - Thiết kế dành riêng cho tài khoản `FREE` và `STARTER` khi xem tab Năng lực: Khung viền đôi mạ vàng `border-amber-400/80`, ánh sáng hào quang hoàng gia, dải sáng kim loại trên đỉnh card, huy hiệu vương miện mạ vàng kèm ổ khóa tinh xảo.
+   - Nút nâng cấp đa tầng hoàng kim nổi khối, tuyệt đối không dùng icon AI/spark, đem lại cảm giác sang trọng và kích thích người dùng nâng cấp gói PRO/ELITE.
 
 ---
 
