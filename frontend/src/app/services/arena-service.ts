@@ -57,9 +57,54 @@ export interface RankTierDetail {
   color: string;
 }
 
+export interface ArenaRadarStatsData {
+  isLocked: boolean;
+  tier: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+  radar: {
+    accuracy: number;
+    speed: number;
+    coreVocab: number;
+    advancedVocab: number | null;
+    idioms: number | null;
+    composure: number | null;
+  };
+  overview: {
+    totalMatches: number;
+    totalWins: number;
+    totalLosses: number;
+    winRate: number;
+    avgTimeMs: number;
+    bestStreak: number;
+    currentStreak: number;
+    totalWordsAnswered: number;
+    totalWordsCorrect: number;
+    overallAccuracy: number;
+  };
+  topicPerformance: {
+    bestTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+    weakTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+    allTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+  };
+  cefrBreakdown: {
+    a1_a2: { total: number; correct: number; rate: number };
+    b1_b2: { total: number; correct: number; rate: number };
+    c1_c2: { total: number; correct: number; rate: number };
+  };
+  recentForm: Array<{
+    matchId: string;
+    topic: string;
+    result: 'WIN' | 'LOSS' | 'DRAW';
+    startedAt: string;
+  }>;
+}
+
 export const arenaService = {
   getMyProfile: async (): Promise<UserArenaProfile> => {
     const res = await api.get('/api/arena/profile/me');
+    return res.data.data;
+  },
+  getRadarStats: async (): Promise<ArenaRadarStatsData> => {
+    const res = await api.get('/api/arena/radar-stats');
     return res.data.data;
   },
   getMyMatches: async (params?: { page?: number; limit?: number; filter?: string; mode?: string }) => {

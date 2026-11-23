@@ -799,3 +799,308 @@ export async function getLeaderboard(options: {
         myRank,
     };
 }
+
+// ─── 4. Lấy dữ liệu Biểu đồ Radar 6 Kỹ năng & Thống kê Chuyên sâu (Pro Analytics) ───
+export interface PlayerRadarStatsResult {
+    isLocked: boolean;
+    tier: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+    radar: {
+        accuracy: number;
+        speed: number;
+        coreVocab: number;
+        advancedVocab: number | null;
+        idioms: number | null;
+        composure: number | null;
+    };
+    overview: {
+        totalMatches: number;
+        totalWins: number;
+        totalLosses: number;
+        winRate: number;
+        avgTimeMs: number;
+        bestStreak: number;
+        currentStreak: number;
+        totalWordsAnswered: number;
+        totalWordsCorrect: number;
+        overallAccuracy: number;
+    };
+    topicPerformance: {
+        bestTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+        weakTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+        allTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+    };
+    cefrBreakdown: {
+        a1_a2: { total: number; correct: number; rate: number };
+        b1_b2: { total: number; correct: number; rate: number };
+        c1_c2: { total: number; correct: number; rate: number };
+    };
+    recentForm: Array<{
+        matchId: string;
+        topic: string;
+        result: 'WIN' | 'LOSS' | 'DRAW';
+        startedAt: string;
+    }>;
+}
+
+export async function getPlayerRadarStats(userId: string): Promise<PlayerRadarStatsResult> {
+    const tier = await getUserTier(userId);
+    const isLocked = tier === 'FREE' || tier === 'STARTER';
+
+    // 1. Lấy thông tin ví và tổng số trận từ wallets
+    const [walletRows] = await pool.execute(
+        `SELECT arena_total_matches, arena_total_wins, arena_total_losses, arena_total_draws,
+                arena_current_win_streak, arena_longest_win_streak
+         FROM wallets
+         WHERE user_id = ?
+         LIMIT 1`,
+        [userId]
+    );
+    const wallet = (walletRows as any[])[0] || {};
+    const totalMatches = Number(wallet.arena_total_matches) || 0;
+    const totalWins = Number(wallet.arena_total_wins) || 0;
+    const totalLosses = Number(wallet.arena_total_losses) || 0;
+    const winRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
+    const bestStreak = Number(wallet.arena_longest_win_streak) || 0;
+    const currentStreak = Number(wallet.arena_current_win_streak) || 0;
+
+    // 2. Lấy tối đa 50 trận đấu gần nhất của người dùng
+    const [matchRows] = await pool.execute(
+        `SELECT id, player1_id, player2_id, topic, match_type, result, winner_id,
+                started_at, ended_at
+         FROM arena_matches
+         WHERE (player1_id = ? OR player2_id = ?)
+           AND result IN ('P1_WIN', 'P2_WIN', 'DRAW')
+         ORDER BY started_at DESC
+         LIMIT 50`,
+        [userId, userId]
+    );
+    const matches = matchRows as any[];
+
+    // Chuỗi phong độ 10 trận gần nhất
+    const recentForm = matches.slice(0, 10).map((m) => {
+        let res: 'WIN' | 'LOSS' | 'DRAW' = 'DRAW';
+        if (m.result === 'DRAW') {
+            res = 'DRAW';
+        } else if (m.winner_id === userId) {
+            res = 'WIN';
+        } else {
+            res = 'LOSS';
+        }
+        return {
+            matchId: m.id,
+            topic: m.topic || 'general',
+            result: res,
+            startedAt: m.started_at ? new Date(m.started_at).toISOString() : '',
+        };
+    });
+
+    // Thống kê theo chủ đề (Topic Performance)
+    const topicMap: Record<string, { total: number; wins: number }> = {};
+    for (const m of matches) {
+        const top = m.topic || 'general';
+        if (!topicMap[top]) topicMap[top] = { total: 0, wins: 0 };
+        topicMap[top].total += 1;
+        if (m.winner_id === userId) {
+            topicMap[top].wins += 1;
+        }
+    }
+
+    const allTopics = Object.entries(topicMap).map(([topic, data]) => ({
+        topic,
+        totalMatches: data.total,
+        wins: data.wins,
+        winRate: data.total > 0 ? Math.round((data.wins / data.total) * 100) : 0,
+    })).sort((a, b) => b.winRate - a.winRate);
+
+    const bestTopics = allTopics.filter((t) => t.totalMatches >= 2 && t.winRate >= 60).slice(0, 3);
+    const weakTopics = allTopics.filter((t) => t.totalMatches >= 2 && t.winRate < 50).slice(-3);
+
+    // Nếu chưa có trận nào hoặc user bị khóa tính năng:
+    if (matches.length === 0) {
+        return {
+            isLocked,
+            tier,
+            radar: {
+                accuracy: 0,
+                speed: 0,
+                coreVocab: 0,
+                advancedVocab: null,
+                idioms: null,
+                composure: null,
+            },
+            overview: {
+                totalMatches,
+                totalWins,
+                totalLosses,
+                winRate,
+                avgTimeMs: 0,
+                bestStreak,
+                currentStreak,
+                totalWordsAnswered: 0,
+                totalWordsCorrect: 0,
+                overallAccuracy: 0,
+            },
+            topicPerformance: {
+                bestTopics: [],
+                weakTopics: [],
+                allTopics: [],
+            },
+            cefrBreakdown: {
+                a1_a2: { total: 0, correct: 0, rate: 0 },
+                b1_b2: { total: 0, correct: 0, rate: 0 },
+                c1_c2: { total: 0, correct: 0, rate: 0 },
+            },
+            recentForm: [],
+        };
+    }
+
+    const matchIds = matches.map((m) => m.id);
+    const placeholders = matchIds.map(() => '?').join(', ');
+
+    // 3. Truy vấn toàn bộ câu hỏi và từ vựng trong 50 trận này
+    const [wordRows] = await pool.execute(
+        `SELECT amw.match_id, amw.order_index, amw.word_id,
+                CASE WHEN am.player1_id = ? THEN amw.p1_answer ELSE amw.p2_answer END as my_answer,
+                CASE WHEN am.player1_id = ? THEN amw.p1_correct ELSE amw.p2_correct END as my_correct,
+                CASE WHEN am.player1_id = ? THEN amw.p1_time_ms ELSE amw.p2_time_ms END as my_time_ms,
+                aw.word, aw.level, aw.word_type
+         FROM arena_match_words amw
+         JOIN arena_matches am ON amw.match_id = am.id
+         JOIN arena_words aw ON amw.word_id = aw.id
+         WHERE am.id IN (${placeholders})`,
+        [userId, userId, userId, ...matchIds]
+    );
+    const words = wordRows as any[];
+
+    // ─── TÍNH TOÁN CÁC ĐỈNH KỸ NĂNG THEO QUY CHUẨN KHOA HỌC ───
+
+    // Lọc các câu mà user THỰC SỰ đã trả lời (không tính câu rỗng/đầu hàng trước đó)
+    const answeredWords = words.filter((w) => w.my_answer !== null && w.my_answer !== '');
+    const totalWordsAnswered = answeredWords.length;
+    const totalWordsCorrect = answeredWords.filter((w) => Boolean(w.my_correct)).length;
+
+    // Đỉnh 1: Độ chính xác (Accuracy - Thang 0 - 100)
+    const accuracyScore = totalWordsAnswered > 0
+        ? Math.round((totalWordsCorrect / totalWordsAnswered) * 100)
+        : 0;
+
+    // Đỉnh 2: Tốc độ phản xạ (Speed / Reflex - Thang 0 - 100)
+    // Chỉ tính các câu user đã trả lời và có thời gian > 0
+    const wordsWithTime = answeredWords.filter((w) => Number(w.my_time_ms) > 0);
+    let avgTimeMs = 0;
+    let speedScore = 0;
+    if (wordsWithTime.length > 0) {
+        const totalTime = wordsWithTime.reduce((sum, w) => sum + Number(w.my_time_ms), 0);
+        avgTimeMs = Math.round(totalTime / wordsWithTime.length);
+        // Dưới 1200ms đạt 100 điểm, mỗi 100ms chậm hơn trừ 3 điểm
+        speedScore = Math.max(0, Math.min(100, Math.round(100 - ((avgTimeMs - 1200) / 100) * 3)));
+    }
+
+    // Đỉnh 3: Từ vựng cốt lõi (Core Vocab - A1, A2, B1, loại trừ idiom/collocation)
+    const coreWords = answeredWords.filter(
+        (w) => ['A1', 'A2', 'B1'].includes(w.level) && !['idiom', 'collocation'].includes(w.word_type)
+    );
+    let coreVocabScore = 0;
+    if (coreWords.length > 0) {
+        const coreCorrect = coreWords.filter((w) => Boolean(w.my_correct)).length;
+        coreVocabScore = Math.round((coreCorrect / coreWords.length) * 100);
+    }
+
+    // Đỉnh 4: Từ vựng nâng cao (Advanced Vocab - B2, C1, C2, loại trừ idiom/collocation)
+    const advWords = answeredWords.filter(
+        (w) => ['B2', 'C1', 'C2'].includes(w.level) && !['idiom', 'collocation'].includes(w.word_type)
+    );
+    let advancedVocabScore: number | null = null;
+    if (advWords.length > 0) {
+        const advCorrect = advWords.filter((w) => Boolean(w.my_correct)).length;
+        advancedVocabScore = Math.round((advCorrect / advWords.length) * 100);
+    } // Nếu advWords.length === 0, trả về null (Chưa mở khóa ở rank thấp)
+
+    // Đỉnh 5: Thành ngữ và Cụm từ (Idioms & Collocations)
+    const idiomWords = answeredWords.filter(
+        (w) => ['idiom', 'collocation'].includes(w.word_type)
+    );
+    let idiomsScore: number | null = null;
+    if (idiomWords.length > 0) {
+        const idiomCorrect = idiomWords.filter((w) => Boolean(w.my_correct)).length;
+        idiomsScore = Math.round((idiomCorrect / idiomWords.length) * 100);
+    } // Nếu idiomWords.length === 0, trả về null (Chưa mở khóa)
+
+    // Đỉnh 6: Tâm lý thi đấu (Match Composure - 5 câu cuối cùng của các trận đủ điều kiện)
+    // Điều kiện chặt chẽ: Chỉ xét các trận đấu mà user đã trả lời ít nhất 20/25 câu!
+    const matchAnsweredCounts: Record<string, number> = {};
+    for (const w of answeredWords) {
+        matchAnsweredCounts[w.match_id] = (matchAnsweredCounts[w.match_id] || 0) + 1;
+    }
+
+    const eligibleMatchIds = Object.keys(matchAnsweredCounts).filter(
+        (mId) => matchAnsweredCounts[mId] >= 20
+    );
+
+    let composureScore: number | null = null;
+    if (eligibleMatchIds.length > 0) {
+        // Lấy 5 câu hỏi cuối (order_index >= 21) của các trận hợp lệ
+        const last5Words = answeredWords.filter(
+            (w) => eligibleMatchIds.includes(w.match_id) && w.order_index >= 21
+        );
+        if (last5Words.length > 0) {
+            const last5Correct = last5Words.filter((w) => Boolean(w.my_correct)).length;
+            composureScore = Math.round((last5Correct / last5Words.length) * 100);
+        }
+    }
+
+    // ─── PHÂN LOẠI CEFR BREAKDOWN ───
+    const cefrA = answeredWords.filter((w) => ['A1', 'A2'].includes(w.level));
+    const cefrB = answeredWords.filter((w) => ['B1', 'B2'].includes(w.level));
+    const cefrC = answeredWords.filter((w) => ['C1', 'C2'].includes(w.level));
+
+    const cefrBreakdown = {
+        a1_a2: {
+            total: cefrA.length,
+            correct: cefrA.filter((w) => Boolean(w.my_correct)).length,
+            rate: cefrA.length > 0 ? Math.round((cefrA.filter((w) => Boolean(w.my_correct)).length / cefrA.length) * 100) : 0,
+        },
+        b1_b2: {
+            total: cefrB.length,
+            correct: cefrB.filter((w) => Boolean(w.my_correct)).length,
+            rate: cefrB.length > 0 ? Math.round((cefrB.filter((w) => Boolean(w.my_correct)).length / cefrB.length) * 100) : 0,
+        },
+        c1_c2: {
+            total: cefrC.length,
+            correct: cefrC.filter((w) => Boolean(w.my_correct)).length,
+            rate: cefrC.length > 0 ? Math.round((cefrC.filter((w) => Boolean(w.my_correct)).length / cefrC.length) * 100) : 0,
+        },
+    };
+
+    return {
+        isLocked,
+        tier,
+        radar: {
+            accuracy: accuracyScore,
+            speed: speedScore,
+            coreVocab: coreVocabScore,
+            advancedVocab: advancedVocabScore,
+            idioms: idiomsScore,
+            composure: composureScore,
+        },
+        overview: {
+            totalMatches,
+            totalWins,
+            totalLosses,
+            winRate,
+            avgTimeMs,
+            bestStreak,
+            currentStreak,
+            totalWordsAnswered,
+            totalWordsCorrect,
+            overallAccuracy: accuracyScore,
+        },
+        topicPerformance: {
+            bestTopics,
+            weakTopics,
+            allTopics,
+        },
+        cefrBreakdown,
+        recentForm,
+    };
+}

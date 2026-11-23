@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Swords, History, Trophy } from 'lucide-react';
+import { Swords, History, Trophy, BarChart2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ArenaHub } from './arena/ArenaHub';
 import { ArenaHistory } from './arena/ArenaHistory';
 import { ArenaLeaderboard } from './arena/ArenaLeaderboard';
+import { ArenaRadarStats } from './arena/ArenaRadarStats';
 import { ArenaRankModal } from './arena/ArenaRankModal';
 import { ArenaMatchmakingModal } from './arena/ArenaMatchmaking';
 import { FriendlyInviteModal } from './arena/FriendlyInviteModal';
@@ -14,7 +15,7 @@ import { UserArenaProfile } from '../../services/arena-service';
 import { MatchedPayload, GameOverPayload, arenaSocketService } from '../../services/arena-socket.service';
 import { RankChangeData } from './arena/ArenaRankChangeEffect';
 
-export type ArenaTab = 'hub' | 'history' | 'leaderboard';
+export type ArenaTab = 'hub' | 'history' | 'leaderboard' | 'analytics';
 
 const RANK_ORDER_MAP: Record<string, number> = {
   BRONZE: 0,
@@ -294,7 +295,7 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
             onValueChange={(val) => setActiveTab(val as ArenaTab)}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-3 w-full max-w-md bg-muted/70 p-1">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full max-w-xl bg-muted/70 p-1">
               <TabsTrigger value="hub" className="flex items-center gap-2 text-xs md:text-sm">
                 <Swords className="h-4 w-4" />
                 <span>Đấu Trường</span>
@@ -306,6 +307,10 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
               <TabsTrigger value="leaderboard" className="flex items-center gap-2 text-xs md:text-sm">
                 <Trophy className="h-4 w-4" />
                 <span>Bảng xếp hạng</span>
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-2 text-xs md:text-sm">
+                <BarChart2 className="h-4 w-4" />
+                <span>Năng lực</span>
               </TabsTrigger>
             </TabsList>
 
@@ -333,6 +338,11 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
             {/* Tab 3: Bảng xếp hạng (Top 50) */}
             <TabsContent value="leaderboard" className="mt-6">
               <ArenaLeaderboard />
+            </TabsContent>
+
+            {/* Tab 4: Phân Tích Năng Lực (Pro Analytics Tracker) */}
+            <TabsContent value="analytics" className="mt-6">
+              <ArenaRadarStats />
             </TabsContent>
           </Tabs>
 
