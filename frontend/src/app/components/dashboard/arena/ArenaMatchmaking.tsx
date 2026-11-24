@@ -9,6 +9,8 @@ import {
   Swords,
   VenetianMask,
   BookOpen,
+  Gamepad2,
+  Users,
 } from 'lucide-react';
 import { UserArenaProfile, getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
 import { arenaSocketService, MatchedPayload, ArenaPlayerInfo } from '../../../services/arena-socket.service';
@@ -261,12 +263,13 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
 
   if (!isOpen) return null;
 
-  const myName = currentUserProfile?.user?.fullName || 'Bạn';
-  const myRank = currentUserProfile?.arena?.rank || 'BRONZE';
-  const myAvatar = currentUserProfile?.user?.avatarUrl;
-  const myLP = currentUserProfile?.arena?.leaderboardPoint || 0;
+  const myName = currentUserProfile?.user?.fullName || matchedData?.me?.full_name || 'Bạn';
+  const myRank = currentUserProfile?.arena?.rank || matchedData?.me?.arena_rank || 'BRONZE';
+  const myAvatar = currentUserProfile?.user?.avatarUrl || matchedData?.me?.avatar_url;
+  const myLP = currentUserProfile?.arena?.leaderboardPoint ?? matchedData?.me?.leaderboard_point ?? 0;
 
   const opponent = matchedData?.opponent;
+  const resolvedMode = matchedData?.matchType || matchType;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-background/90 backdrop-blur-xl animate-in fade-in duration-300 select-none">
@@ -279,9 +282,31 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       <div className="relative w-full max-w-4xl flex flex-col items-center justify-between min-h-[580px] py-6 z-10">
         {/* ── HEADER ── */}
         <div className="text-center space-y-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-black tracking-widest uppercase">
-            <Swords className="w-3.5 h-3.5" />
-            <span>Đấu Trường PvP 1v1</span>
+          <div
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-black tracking-widest uppercase ${
+              resolvedMode === 'FRIENDLY'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : resolvedMode === 'NORMAL'
+                  ? 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                  : 'border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+            }`}
+          >
+            {resolvedMode === 'FRIENDLY' ? (
+              <>
+                <Users className="w-3.5 h-3.5" />
+                <span>Đấu Giao Hữu 1v1</span>
+              </>
+            ) : resolvedMode === 'NORMAL' ? (
+              <>
+                <Gamepad2 className="w-3.5 h-3.5" />
+                <span>Đấu Thường 1v1</span>
+              </>
+            ) : (
+              <>
+                <Swords className="w-3.5 h-3.5" />
+                <span>Đấu Xếp Hạng 1v1</span>
+              </>
+            )}
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black tracking-wider uppercase text-foreground drop-shadow-sm">
@@ -290,9 +315,25 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
           </h2>
 
           <p className="text-xs text-muted-foreground font-medium">
-            {stage === 'SEARCHING' && 'Hệ thống đang quét các chiến binh có cùng đẳng cấp Elo...'}
+            {stage === 'SEARCHING' &&
+              (resolvedMode === 'NORMAL'
+                ? 'Hệ thống đang ghép ngẫu nhiên đối thủ ở chế độ Đấu Thường...'
+                : 'Hệ thống đang quét các chiến binh có cùng đẳng cấp Elo...')}
             {stage === 'MATCHED' && 'Cả hai người chơi cần bấm Sẵn sàng để mở cửa Đấu trường.'}
           </p>
+
+          {errorMessage && (
+            <div className="mt-2 mx-auto max-w-md px-3.5 py-2 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive text-xs font-semibold flex items-center justify-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {noticeMessage && !errorMessage && (
+            <div className="mt-2 mx-auto max-w-md px-3.5 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-500 text-xs font-semibold">
+              {noticeMessage}
+            </div>
+          )}
 
           {stage === 'MATCHED' && matchedData?.topic && (
             <div className="pt-1.5 flex justify-center">
@@ -538,7 +579,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
               className="w-full sm:w-auto px-8 border-rose-500/40 text-rose-500 hover:bg-rose-500/10 hover:border-rose-500 font-bold rounded-xl transition-all"
             >
               <X className="w-4 h-4 mr-1.5" />
-              HỦY TÌM TRẬN
+              {errorMessage ? 'ĐÓNG' : 'HỦY TÌM TRẬN'}
             </Button>
           )}
         </div>

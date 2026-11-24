@@ -117,7 +117,7 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ### 2.2 Sửa enum word_type trong DB: Xóa 'phrase' thừa [ĐÃ XONG]
 
-- **File migration đã tạo:** `backend/database/migration_arena_wordtype.sql`
+- **Cấu trúc dữ liệu:** Cập nhật bảng `arena_words` trong `backend/database/schema.sql`.
 - **Nghiệp vụ đã hiện thực:** Cập nhật các bản ghi cũ `word_type = 'phrase'` sang `noun_phrase`, sau đó `MODIFY COLUMN word_type` với danh sách enum chuẩn: `'noun', 'verb', 'adjective', 'adverb', 'noun_phrase', 'verb_phrase', 'idiom', 'collocation'`.
 - Đồng bộ mảng kiểm tra hợp lệ trong `arena-word.repository.ts` và loại bỏ tùy chọn thừa trên giao diện quản trị từ vựng.
 
@@ -147,7 +147,7 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ### 2.5 Thêm chế độ Đấu Giao Hữu (Friendly Match) [ĐÃ XONG]
 
-- **File đã tạo/sửa:** `backend/database/migration_arena_friendlymatch.sql`, `backend/modules/arena/arena-socket.ts`, `backend/modules/arena/arena.repository.ts`
+- **File đã tạo/sửa:** `backend/database/schema.sql`, `backend/modules/arena/arena-socket.ts`, `backend/modules/arena/arena.repository.ts`
 - **Nghiệp vụ đã hiện thực:**
   - Thêm cột `match_type ENUM('RANK', 'FRIENDLY') NOT NULL DEFAULT 'RANK'` vào bảng `arena_matches`.
   - Bổ sung luồng Socket.IO: `arena:friendly_invite`, `arena:friendly_invite_received`, `arena:friendly_accept`, `arena:friendly_decline`.

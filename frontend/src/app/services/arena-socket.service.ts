@@ -26,6 +26,7 @@ export interface MatchedPayload {
 
 export interface FriendlyInviteReceivedPayload {
   inviteId: string;
+  isRematch?: boolean;
   fromUser: {
     id: string;
     fullName: string;
@@ -37,7 +38,13 @@ export interface FriendlyInviteReceivedPayload {
 
 export interface FriendlyInviteSentPayload {
   inviteId: string;
+  isRematch?: boolean;
   targetUser: {
+    id: string;
+    fullName: string;
+    avatarUrl: string | null;
+  };
+  toUser?: {
     id: string;
     fullName: string;
     avatarUrl: string | null;
@@ -47,11 +54,13 @@ export interface FriendlyInviteSentPayload {
 
 export interface FriendlyInviteDeclinedPayload {
   inviteId: string;
+  declinedByUserId?: string;
   message: string;
 }
 
 export interface FriendlyInviteCancelledPayload {
   inviteId: string;
+  message?: string;
 }
 
 export interface GameOverPlayerStats {
@@ -92,6 +101,7 @@ export interface MatchReviewWord {
 
 export interface GameOverPayload {
   roomId: string;
+  matchType?: 'RANK' | 'NORMAL' | 'FRIENDLY';
   result: 'P1_WIN' | 'P2_WIN' | 'DRAW';
   winnerId: string | null;
   reason: 'ALL_COMPLETED' | 'TIMEOUT' | 'SURRENDER';
@@ -196,7 +206,7 @@ class ArenaSocketService {
     s.emit('arena:find_match', { matchType });
   }
 
-  public friendlyInvite(data: { targetUserId?: string; targetUsername?: string }): void {
+  public friendlyInvite(data: { targetUserId?: string; targetUsername?: string; isRematch?: boolean }): void {
     const s = this.connect();
     s.emit('arena:friendly_invite', data);
   }

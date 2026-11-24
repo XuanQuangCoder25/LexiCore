@@ -5,6 +5,7 @@ import { Swords, Check, X } from 'lucide-react';
 import {
   arenaSocketService,
   FriendlyInviteReceivedPayload,
+  FriendlyInviteDeclinedPayload,
   MatchedPayload,
 } from '../../../services/arena-socket.service';
 
@@ -28,6 +29,8 @@ export const FriendlyInviteToast: React.FC<FriendlyInviteToastProps> = ({
   onNavigateArenaRef.current = onNavigateArena;
   const activeInviteRef = useRef(activeInvite);
   activeInviteRef.current = activeInvite;
+  const isAcceptingRef = useRef(isAccepting);
+  isAcceptingRef.current = isAccepting;
 
   // ─── 1. EFFECT SOCKET: Lắng nghe lời mời thách đấu (Chỉ gắn listener 1 lần) ───
   useEffect(() => {
@@ -46,6 +49,13 @@ export const FriendlyInviteToast: React.FC<FriendlyInviteToastProps> = ({
       }
     };
 
+    const handleDeclined = (payload: FriendlyInviteDeclinedPayload) => {
+      if (activeInviteRef.current && activeInviteRef.current.inviteId === payload.inviteId) {
+        setActiveInvite(null);
+        setIsAccepting(false);
+      }
+    };
+
     const handleMatched = (matchData: MatchedPayload) => {
       if (matchData.matchType === 'FRIENDLY') {
         console.log('[FriendlyInviteToast] Đấu giao hữu đã ghép trận:', matchData);
@@ -57,12 +67,15 @@ export const FriendlyInviteToast: React.FC<FriendlyInviteToastProps> = ({
     };
 
     const handleError = () => {
-      setIsAccepting(false);
-      setActiveInvite(null);
+      if (isAcceptingRef.current) {
+        setIsAccepting(false);
+        setActiveInvite(null);
+      }
     };
 
     arenaSocketService.onFriendlyReceived(handleReceived);
     arenaSocketService.onFriendlyCancelled(handleCancelled);
+    arenaSocketService.onFriendlyDeclined(handleDeclined);
     arenaSocketService.onFriendlyError(handleError);
 
     const socket = arenaSocketService.connect();
@@ -71,6 +84,7 @@ export const FriendlyInviteToast: React.FC<FriendlyInviteToastProps> = ({
     return () => {
       arenaSocketService.offFriendlyReceived(handleReceived);
       arenaSocketService.offFriendlyCancelled(handleCancelled);
+      arenaSocketService.offFriendlyDeclined(handleDeclined);
       arenaSocketService.offFriendlyError(handleError);
       socket.off('arena:matched', handleMatched);
     };
@@ -126,7 +140,7 @@ export const FriendlyInviteToast: React.FC<FriendlyInviteToastProps> = ({
               <Swords className="h-4 w-4" />
             </div>
             <span className="font-bold text-sm tracking-tight text-emerald-700 dark:text-emerald-300">
-              Thách Đấu Giao Hữu
+              {activeInvite.isRematch ? 'Thách Đấu Lại (Giao Hữu)' : 'Thách Đấu Giao Hữu'}
             </span>
           </div>
           <span className="text-xs font-semibold tabular-nums text-muted-foreground">
@@ -147,7 +161,9 @@ export const FriendlyInviteToast: React.FC<FriendlyInviteToastProps> = ({
               {activeInvite.fromUser.fullName}
             </p>
             <p className="text-xs text-muted-foreground">
-              Mời bạn thi đấu giao hữu từ vựng 1v1
+              {activeInvite.isRematch
+                ? 'Mời bạn đấu lại trận giao hữu từ vựng 1v1'
+                : 'Mời bạn thi đấu giao hữu từ vựng 1v1'}
             </p>
           </div>
         </div>

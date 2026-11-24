@@ -103,7 +103,7 @@ schema.sql
 | **`system_announcements`** | `id` (INT AUTO_INCREMENT) | Quản lý thông báo bảo trì hệ thống. Lưu trạng thái (`is_maintenance`), tiêu đề, thông điệp, thời gian bắt đầu/kết thúc dự kiến và admin tạo. Chỉ một bản ghi `is_maintenance = TRUE` được phép tồn tại tại một thời điểm. | `is_maintenance` tự quản lý |
 | **`email_blast_logs`** | `id` (INT AUTO_INCREMENT) | Ghi lại nhật ký các đợt gửi email diện rộng: tiêu đề, nội dung, số email đã gửi, trạng thái (`sent`, `failed`), admin gửi và thời gian. | `sent_by` FK tới `users.id` |
 
-**Các cột được bổ sung vào bảng hiện có (migration_campaigns.sql):**
+**Các cột mở rộng cấu hình chiến dịch:**
 
 | Bảng | Cột mới | Mô tả |
 | :--- | :--- | :--- |
@@ -170,21 +170,8 @@ schema.sql
 
 ---
 
-## 4. DANH SÁCH FILE MIGRATION
+## 4. QUẢN TRỊ LƯỢC ĐỒ DỮ LIỆU & NGUỒN CHÂN LÝ DUY NHẤT (SINGLE SOURCE OF TRUTH)
 
-| File | Mô tả | Trạng thái |
-| :--- | :--- | :--- |
-| `migration_subscription.sql` | Tạo bảng `subscription_campaigns`, `user_campaign_claims` | Đã chạy |
-| `migration_add_order_number.sql` | Thêm cột `order_number` vào `payment_orders` | Đã chạy |
-| `migration_campaigns.sql` | Thêm bảng `reward_campaigns`, `system_announcements`, `email_blast_logs`; bổ sung cột vào `credit_packages`, `subscription_campaigns`, `user_campaign_claims` | Đã chạy |
-| `migration_arena_wordtype.sql` | Chuẩn hóa enum `word_type` trong `arena_words`, cập nhật dữ liệu cũ và loại bỏ giá trị thừa `'phrase'` | Đã chạy |
-| `migration_arena_friendlymatch.sql` | Thêm cột `match_type ENUM('RANK', 'FRIENDLY')` vào bảng `arena_matches` phục vụ chế độ Đấu Giao Hữu | Đã chạy |
-| `migration_arena_match_ranks.sql` | Bổ sung snapshot bậc Rank và Rank Point đối đầu phục vụ phân tích hồ sơ trận đấu | Đã chạy |
-
----
-
-## 5. VỀ FILE MIGRATION VÀ BẢN QUYỀN MÃ NGUỒN
-
-- **Về file `migration_subscription.sql`:** File này đã được thực thi thành công trên DataGrip để cập nhật trực tiếp cơ sở dữ liệu trên đám mây Aiven MySQL. Các bảng mới và cột mới đã được hợp nhất hoàn toàn vào [schema.sql](file:///e:/Downloads/LexiCore/backend/database/schema.sql). Do đó, bạn có thể lưu trữ file này trong thư mục migration để làm nhật ký đối chiếu, hoặc xóa đi mà hoàn toàn không ảnh hưởng đến hoạt động của hệ thống.
-- **Tập trung nguồn chân lý (Single Source of Truth):** Từ thời điểm này, file `backend/database/schema.sql` là bản thiết kế chuẩn xác nhất phản ánh đầy đủ 100% cấu trúc cơ sở dữ liệu đang vận hành trên môi trường thực tế của LexiCore.
+- **Tập trung nguồn chân lý (Single Source of Truth):** Toàn bộ cấu trúc cơ sở dữ liệu của hệ thống LexiCore được quản lý tập trung và chuẩn hóa 100% tại tệp [backend/database/schema.sql](file:///e:/Downloads/LexiCore/backend/database/schema.sql). Đây là bản thiết kế chuẩn xác nhất phản ánh đầy đủ cấu trúc dữ liệu đang vận hành trên môi trường thực tế (Aiven MySQL). Mọi định nghĩa bảng, kiểu dữ liệu ENUM, chỉ mục Index và ràng buộc khóa ngoại ACID đều được đồng bộ tại đây.
+- Các script SQL cập nhật bổ sung (migration) chỉ là công cụ hỗ trợ thao tác nhanh qua DataGrip trong quá trình phát triển tính năng mới và không được lưu giữ như tài liệu kiến trúc lâu dài.
 

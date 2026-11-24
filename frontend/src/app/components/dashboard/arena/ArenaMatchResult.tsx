@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../../ui/button';
 import {
   Swords,
@@ -18,12 +18,27 @@ import {
   Gift,
   ArrowRight,
   Info,
+  Gamepad2,
+  Users,
+  Hourglass,
+  AlertCircle,
 } from 'lucide-react';
 import { getRankBadgeUrl } from '../../../services/arena-service';
-import { GameOverPayload, MatchReviewWord, ArenaPlayerInfo } from '../../../services/arena-socket.service';
+import {
+  GameOverPayload,
+  MatchReviewWord,
+  ArenaPlayerInfo,
+  arenaSocketService,
+  FriendlyInviteReceivedPayload,
+  FriendlyInviteSentPayload,
+  FriendlyInviteDeclinedPayload,
+  FriendlyInviteCancelledPayload,
+  MatchedPayload,
+} from '../../../services/arena-socket.service';
 
 export interface ArenaMatchResultProps {
   gameOverData: GameOverPayload;
+  matchType?: 'RANK' | 'NORMAL' | 'FRIENDLY';
   mePlayerInfo?: ArenaPlayerInfo;
   opponentPlayerInfo?: ArenaPlayerInfo;
   onPlayAgain: () => void;
@@ -175,14 +190,39 @@ const renderMismatchCharacters = (userAnswer: string, correctWord: string) => {
 
 export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
   gameOverData,
+  matchType,
   mePlayerInfo,
   opponentPlayerInfo,
   onPlayAgain,
   onBackToHub,
 }) => {
   const { myResult, myStats, opponentStats, words, reason } = gameOverData;
+  const resolvedMatchType = gameOverData.matchType || matchType || 'RANK';
+  const isRankMatch = resolvedMatchType === 'RANK';
+  const isNormalMatch = resolvedMatchType === 'NORMAL';
+  const isFriendlyMatch = resolvedMatchType === 'FRIENDLY';
+  const opponentId = opponentPlayerInfo?.id || opponentStats?.id;
 
   const [wordFilter, setWordFilter] = useState<'ALL' | 'INCORRECT' | 'CORRECT'>('ALL');
+
+  // State phục vụ Đấu lại trong chế độ Đấu Giao Hữu
+  const [outgoingInvite, setOutgoingInvite] = useState<{ inviteId: string; expireInSec: number } | null>(null);
+  const [outgoingCountdown, setOutgoingCountdown] = useState<number>(60);
+  const [incomingInvite, setIncomingInvite] = useState<{ inviteId: string; expireInSec: number } | null>(null);
+  const [incomingCountdown, setIncomingCountdown] = useState<number>(60);
+  const [isSendingInvite, setIsSendingInvite] = useState<boolean>(false);
+  const [isAcceptingRematch, setIsAcceptingRematch] = useState<boolean>(false);
+  const [rematchNotice, setRematchNotice] = useState<{ type: 'error' | 'info'; message: string } | null>(null);
+
+  const outgoingInviteRef = useRef(outgoingInvite);
+  outgoingInviteRef.current = outgoingInvite;
+  const incomingInviteRef = useRef(incomingInvite);
+  incomingInviteRef.current = incomingInvite;
+  const isSendingInviteRef = useRef(isSendingInvite);
+  isSendingInviteRef.current = isSendingInvite;
+  const isAcceptingRematchRef = useRef(isAcceptingRematch);
+  isAcceptingRematchRef.current = isAcceptingRematch;
+  const hasMatchedRef = useRef<boolean>(false);
 
   // Tự động làm mới số dư ví trên Navbar toàn cục khi xem kết quả trận đấu
   useEffect(() => {
@@ -199,6 +239,197 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
       })
       .catch(() => { });
   }, []);
+
+  // Lắng nghe sự kiện Socket cho lời mời Đấu Lại (chỉ dùng ở chế độ FRIENDLY)
+  useEffect(() => {
+    if (!isFriendlyMatch || !opponentId) return;
+
+    const handleSent = (payload: FriendlyInviteSentPayload) => {
+      const targetId = payload.targetUser?.id || payload.toUser?.id;
+      if (targetId === opponentId) {
+        setOutgoingInvite({
+          inviteId: payload.inviteId,
+          expireInSec: payload.expireInSec || 60,
+        });
+        setOutgoingCountdown(payload.expireInSec || 60);
+        setIsSendingInvite(false);
+        setRematchNotice(null);
+      }
+    };
+
+    const handleReceived = (payload: FriendlyInviteReceivedPayload) => {
+      if (payload.fromUser?.id === opponentId) {
+        setIncomingInvite({
+          inviteId: payload.inviteId,
+          expireInSec: payload.expireInSec || 60,
+        });
+        setIncomingCountdown(payload.expireInSec || 60);
+        setIsAcceptingRematch(false);
+        setRematchNotice(null);
+      }
+    };
+
+    const handleDeclined = (payload: FriendlyInviteDeclinedPayload) => {
+      if (outgoingInviteRef.current && outgoingInviteRef.current.inviteId === payload.inviteId) {
+        setOutgoingInvite(null);
+        setRematchNotice({
+          type: 'info',
+          message: payload.message || 'Đối thủ đã từ chối lời mời đấu lại.',
+        });
+      }
+      if (incomingInviteRef.current && incomingInviteRef.current.inviteId === payload.inviteId) {
+        setIncomingInvite(null);
+        setIsAcceptingRematch(false);
+      }
+    };
+
+    const handleCancelled = (payload: FriendlyInviteCancelledPayload) => {
+      if (outgoingInviteRef.current && outgoingInviteRef.current.inviteId === payload.inviteId) {
+        setOutgoingInvite(null);
+      }
+      if (incomingInviteRef.current && incomingInviteRef.current.inviteId === payload.inviteId) {
+        setIncomingInvite(null);
+        setIsAcceptingRematch(false);
+        setRematchNotice({
+          type: 'info',
+          message: payload.message || 'Đối thủ đã hủy lời mời đấu lại.',
+        });
+      }
+    };
+
+    const handleError = (payload: { message: string }) => {
+      if (isSendingInviteRef.current || isAcceptingRematchRef.current) {
+        if (isAcceptingRematchRef.current && incomingInviteRef.current) {
+          setIncomingInvite(null);
+        }
+        setIsSendingInvite(false);
+        setIsAcceptingRematch(false);
+        setRematchNotice({
+          type: 'error',
+          message: payload.message || 'Không thể gửi lời mời đấu lại.',
+        });
+      }
+    };
+
+    const handleMatched = (matchData: MatchedPayload) => {
+      if (matchData.matchType === 'FRIENDLY') {
+        hasMatchedRef.current = true;
+        outgoingInviteRef.current = null;
+        incomingInviteRef.current = null;
+        setOutgoingInvite(null);
+        setIncomingInvite(null);
+        setIsSendingInvite(false);
+        setIsAcceptingRematch(false);
+        setRematchNotice(null);
+      }
+    };
+
+    arenaSocketService.onFriendlySent(handleSent);
+    arenaSocketService.onFriendlyReceived(handleReceived);
+    arenaSocketService.onFriendlyDeclined(handleDeclined);
+    arenaSocketService.onFriendlyCancelled(handleCancelled);
+    arenaSocketService.onFriendlyError(handleError);
+
+    const socket = arenaSocketService.connect();
+    socket.on('arena:matched', handleMatched);
+
+    return () => {
+      arenaSocketService.offFriendlySent(handleSent);
+      arenaSocketService.offFriendlyReceived(handleReceived);
+      arenaSocketService.offFriendlyDeclined(handleDeclined);
+      arenaSocketService.offFriendlyCancelled(handleCancelled);
+      arenaSocketService.offFriendlyError(handleError);
+      socket.off('arena:matched', handleMatched);
+    };
+  }, [isFriendlyMatch, opponentId]);
+
+  // Đếm ngược 60s khi đang chờ đối thủ phản hồi lời mời Đấu Lại
+  useEffect(() => {
+    if (!outgoingInvite) return;
+
+    const interval = setInterval(() => {
+      setOutgoingCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setOutgoingInvite(null);
+          setRematchNotice({
+            type: 'info',
+            message: 'Lời mời đấu lại đã hết thời gian chờ (60s).',
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [outgoingInvite]);
+
+  // Đếm ngược 60s cho lời mời Đấu Lại đến từ đối thủ
+  useEffect(() => {
+    if (!incomingInvite) return;
+
+    const interval = setInterval(() => {
+      setIncomingCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setIncomingInvite(null);
+          setIsAcceptingRematch(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [incomingInvite]);
+
+  // Hủy lời mời đang chờ nếu rời khỏi màn hình Kết quả (chưa ghép trận)
+  useEffect(() => {
+    return () => {
+      if (!hasMatchedRef.current && outgoingInviteRef.current) {
+        arenaSocketService.friendlyCancel(outgoingInviteRef.current.inviteId);
+      }
+    };
+  }, []);
+
+  const handleSendRematchInvite = () => {
+    if (!opponentId || isSendingInvite) return;
+    setRematchNotice(null);
+    setIsSendingInvite(true);
+    arenaSocketService.friendlyInvite({ targetUserId: opponentId, isRematch: true });
+  };
+
+  const handleCancelRematch = () => {
+    if (outgoingInvite) {
+      arenaSocketService.friendlyCancel(outgoingInvite.inviteId);
+    }
+    outgoingInviteRef.current = null;
+    setOutgoingInvite(null);
+    setRematchNotice(null);
+  };
+
+  const handleAcceptRematch = () => {
+    if (!incomingInvite || isAcceptingRematch) return;
+    setRematchNotice(null);
+    setIsAcceptingRematch(true);
+    arenaSocketService.friendlyAccept(incomingInvite.inviteId);
+  };
+
+  const handleDeclineRematch = () => {
+    if (!incomingInvite) return;
+    arenaSocketService.friendlyDecline(incomingInvite.inviteId);
+    setIncomingInvite(null);
+  };
+
+  const handleBackToHubSafe = () => {
+    if (!hasMatchedRef.current && outgoingInviteRef.current) {
+      arenaSocketService.friendlyCancel(outgoingInviteRef.current.inviteId);
+      outgoingInviteRef.current = null;
+      setOutgoingInvite(null);
+    }
+    onBackToHub();
+  };
 
   const isWin = myResult === 'WIN';
   const isLoss = myResult === 'LOSS';
@@ -303,9 +534,10 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
   const myEmblemType: 'VICTORY' | 'DEFEAT' | 'DRAW' = isWin ? 'VICTORY' : isLoss ? 'DEFEAT' : 'DRAW';
   const oppEmblemType: 'VICTORY' | 'DEFEAT' | 'DRAW' = !isWin && !isDraw ? 'VICTORY' : isWin ? 'DEFEAT' : 'DRAW';
 
-  // Tính toán delta RP an toàn (fallback -20 khi thua, +25 khi thắng)
-  const myRankPointDelta =
-    typeof myStats.rankPointDelta === 'number' && !isNaN(myStats.rankPointDelta)
+  // Tính toán delta RP (chỉ trận Rank mới biến động điểm RP)
+  const myRankPointDelta = !isRankMatch
+    ? 0
+    : typeof myStats.rankPointDelta === 'number' && !isNaN(myStats.rankPointDelta)
       ? myStats.rankPointDelta
       : isWin
         ? 25
@@ -313,8 +545,9 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
           ? -20
           : 0;
 
-  const oppRankPointDelta =
-    typeof opponentStats.rankPointDelta === 'number' && !isNaN(opponentStats.rankPointDelta)
+  const oppRankPointDelta = !isRankMatch
+    ? 0
+    : typeof opponentStats.rankPointDelta === 'number' && !isNaN(opponentStats.rankPointDelta)
       ? opponentStats.rankPointDelta
       : isWin
         ? -20
@@ -347,9 +580,31 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
 
       {/* ── TIÊU ĐỀ TRẬN ĐẤU & LÝ DO KẾT THÚC ── */}
       <div className="text-center space-y-1">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-black tracking-widest uppercase">
-          <Swords className="w-3.5 h-3.5" />
-          <span>Kết Quả Đấu Trường PvP 1v1</span>
+        <div
+          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-black tracking-widest uppercase ${
+            isFriendlyMatch
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              : isNormalMatch
+                ? 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                : 'border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+          }`}
+        >
+          {isFriendlyMatch ? (
+            <>
+              <Users className="w-3.5 h-3.5" />
+              <span>Kết Quả Đấu Giao Hữu 1v1</span>
+            </>
+          ) : isNormalMatch ? (
+            <>
+              <Gamepad2 className="w-3.5 h-3.5" />
+              <span>Kết Quả Đấu Thường 1v1</span>
+            </>
+          ) : (
+            <>
+              <Swords className="w-3.5 h-3.5" />
+              <span>Kết Quả Đấu Xếp Hạng 1v1</span>
+            </>
+          )}
         </div>
         <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-foreground">
           {isWin && <span className="text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]">CHIẾN THẮNG VANG DỘI!</span>}
@@ -400,13 +655,25 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
               <span className="text-xs font-black uppercase px-2.5 py-1 rounded-full bg-primary/15 text-primary border border-primary/30">
                 P1 (Bạn)
               </span>
-              <span
-                className={`text-xs sm:text-sm font-black font-mono px-3 py-1 rounded-xl border shadow-xs ${getRPBadgeClass(
-                  myRankPointDelta
-                )}`}
-              >
-                {formatRPDelta(myRankPointDelta)}
-              </span>
+              {isRankMatch ? (
+                <span
+                  className={`text-xs sm:text-sm font-black font-mono px-3 py-1 rounded-xl border shadow-xs ${getRPBadgeClass(
+                    myRankPointDelta
+                  )}`}
+                >
+                  {formatRPDelta(myRankPointDelta)}
+                </span>
+              ) : (
+                <span
+                  className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border shadow-xs ${
+                    isFriendlyMatch
+                      ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                      : 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/30'
+                  }`}
+                >
+                  Không tính RP
+                </span>
+              )}
             </div>
 
             {/* EMBLEM VICTORY / DEFEAT / DRAW CHIẾM TRỌN TRUNG TÂM CARD VỚI KÍCH THƯỚC LỚN */}
@@ -490,18 +757,110 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
           </div>
 
           {/* 2 Nút Hành động */}
-          <div className="flex flex-col items-center gap-2.5 w-full min-w-[210px] mt-2 sm:mt-4">
-            <Button
-              onClick={onPlayAgain}
-              size="lg"
-              className="w-full px-6 py-5 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-black tracking-wider uppercase shadow-lg shadow-primary/25 transition-all duration-200 hover:scale-105 gap-2 text-sm sm:text-base cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>TÌM TRẬN MỚI</span>
-            </Button>
+          <div className="flex flex-col items-center gap-2.5 w-full min-w-[225px] max-w-[260px] mt-2 sm:mt-4">
+            {/* Thông báo trạng thái lời mời Đấu lại (nếu có) */}
+            {isFriendlyMatch && rematchNotice && (
+              <div
+                className={`w-full px-3 py-2 rounded-xl border text-[11px] font-medium flex items-center gap-1.5 text-left ${
+                  rematchNotice.type === 'error'
+                    ? 'bg-destructive/10 border-destructive/25 text-destructive'
+                    : 'bg-muted/70 border-border text-muted-foreground'
+                }`}
+              >
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span className="leading-snug">{rematchNotice.message}</span>
+              </div>
+            )}
+
+            {isFriendlyMatch ? (
+              incomingInvite ? (
+                <>
+                  {/* Đối thủ vừa gửi lời mời đấu lại -> Nút Chấp nhận nổi bật */}
+                  <Button
+                    onClick={handleAcceptRematch}
+                    disabled={isAcceptingRematch}
+                    size="lg"
+                    className="w-full px-5 py-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-black tracking-wide uppercase shadow-lg shadow-emerald-500/30 transition-all duration-200 hover:scale-105 gap-2 text-xs sm:text-sm cursor-pointer animate-pulse"
+                  >
+                    <Check className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                    <span>
+                      {isAcceptingRematch
+                        ? 'ĐANG VÀO TRẬN...'
+                        : `CHẤP NHẬN ĐẤU LẠI (${incomingCountdown}s)`}
+                    </span>
+                  </Button>
+                  <Button
+                    onClick={handleDeclineRematch}
+                    disabled={isAcceptingRematch}
+                    variant="outline"
+                    size="sm"
+                    className="w-full rounded-xl border border-rose-300/80 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-semibold text-xs cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5 mr-1" />
+                    <span>Từ chối lời mời</span>
+                  </Button>
+                </>
+              ) : outgoingInvite ? (
+                <>
+                  {/* Người chơi vừa bấm Đấu lại -> Đang chờ đối thủ phản hồi */}
+                  <Button
+                    disabled
+                    size="lg"
+                    className="w-full px-5 py-5 rounded-2xl bg-emerald-500/15 border-2 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-bold tracking-wide uppercase gap-2 text-xs sm:text-sm opacity-100"
+                  >
+                    <Hourglass className="w-4 h-4 animate-spin shrink-0" />
+                    <span>ĐANG CHỜ ĐỐI THỦ ({outgoingCountdown}s)</span>
+                  </Button>
+                  <Button
+                    onClick={handleCancelRematch}
+                    variant="outline"
+                    size="sm"
+                    className="w-full rounded-xl border border-rose-300/80 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-semibold text-xs cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5 mr-1" />
+                    <span>Hủy lời mời</span>
+                  </Button>
+                </>
+              ) : (
+                /* Nút ĐẤU LẠI mặc định cho Đấu Giao Hữu (Màu xanh lá hòa bình giống Hub) */
+                <Button
+                  onClick={handleSendRematchInvite}
+                  disabled={isSendingInvite || !opponentId}
+                  size="lg"
+                  className="w-full px-6 py-5 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-black tracking-wider uppercase shadow-lg shadow-emerald-500/25 transition-all duration-200 hover:scale-105 gap-2 text-sm sm:text-base cursor-pointer"
+                >
+                  {isSendingInvite ? (
+                    <Hourglass className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
+                  )}
+                  <span>{isSendingInvite ? 'ĐANG GỬI...' : 'ĐẤU LẠI'}</span>
+                </Button>
+              )
+            ) : isNormalMatch ? (
+              /* Nút TÌM TRẬN MỚI cho Đấu Thường (Màu xanh da trời sky giống Hub) */
+              <Button
+                onClick={onPlayAgain}
+                size="lg"
+                className="w-full px-6 py-5 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-black tracking-wider uppercase shadow-lg shadow-sky-500/25 transition-all duration-200 hover:scale-105 gap-2 text-sm sm:text-base cursor-pointer"
+              >
+                <Gamepad2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>TÌM TRẬN MỚI</span>
+              </Button>
+            ) : (
+              /* Nút TÌM TRẬN MỚI cho Đấu Xếp Hạng (Màu tím lavender giống Hub) */
+              <Button
+                onClick={onPlayAgain}
+                size="lg"
+                className="w-full px-6 py-5 rounded-2xl bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:to-violet-700 text-white font-black tracking-wider uppercase shadow-lg shadow-purple-600/25 transition-all duration-200 hover:scale-105 gap-2 text-sm sm:text-base cursor-pointer"
+              >
+                <Swords className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>TÌM TRẬN MỚI</span>
+              </Button>
+            )}
 
             <Button
-              onClick={onBackToHub}
+              onClick={handleBackToHubSafe}
               variant="outline"
               size="lg"
               className="w-full px-6 py-5 rounded-2xl border-2 border-border/80 hover:bg-muted/80 text-foreground font-bold tracking-wide transition-all duration-200 hover:scale-105 gap-2 text-sm sm:text-base cursor-pointer"
@@ -542,13 +901,25 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
               <span className="text-xs font-black uppercase px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
                 P2 (Đối thủ)
               </span>
-              <span
-                className={`text-xs sm:text-sm font-black font-mono px-3 py-1 rounded-xl border shadow-xs ${getRPBadgeClass(
-                  oppRankPointDelta
-                )}`}
-              >
-                {formatRPDelta(oppRankPointDelta)}
-              </span>
+              {isRankMatch ? (
+                <span
+                  className={`text-xs sm:text-sm font-black font-mono px-3 py-1 rounded-xl border shadow-xs ${getRPBadgeClass(
+                    oppRankPointDelta
+                  )}`}
+                >
+                  {formatRPDelta(oppRankPointDelta)}
+                </span>
+              ) : (
+                <span
+                  className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border shadow-xs ${
+                    isFriendlyMatch
+                      ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                      : 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/30'
+                  }`}
+                >
+                  Không tính RP
+                </span>
+              )}
             </div>
 
             {/* EMBLEM VICTORY / DEFEAT / DRAW CỦA ĐỐI THỦ Ở TRUNG TÂM CARD VỚI KÍCH THƯỚC LỚN */}

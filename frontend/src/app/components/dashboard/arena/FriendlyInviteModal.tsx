@@ -99,6 +99,9 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
 
     // Đối thủ từ chối lời mời
     const handleDeclined = (payload: FriendlyInviteDeclinedPayload) => {
+      if (payload.declinedByUserId && payload.declinedByUserId === currentUserId) {
+        return;
+      }
       setActiveInvite(null);
       setIsMinimized(false);
       setErrorMessage(payload.message || 'Đối thủ đã từ chối lời mời thách đấu.');

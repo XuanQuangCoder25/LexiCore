@@ -60,25 +60,33 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
 
   // Ref điều khiển hoạt cảnh Cánh Cửa Đấu Trường (2 cánh đá gate-left & gate-right)
   const gateRef = useRef<ArenaGateHandle>(null);
+  const handledMatchRoomIdRef = useRef<string | null>(null);
+
+  const openFriendlyMatchedLobby = (matchedData: MatchedPayload) => {
+    if (!matchedData?.roomId) return;
+    if (handledMatchRoomIdRef.current === matchedData.roomId) return;
+    handledMatchRoomIdRef.current = matchedData.roomId;
+
+    setMatchType('FRIENDLY');
+    setIsFriendlyModalOpen(false);
+    setFriendlyMatchedData(matchedData);
+
+    gateRef.current?.triggerGateTransition({
+      onMiddle: () => {
+        setActiveScreen('lobby');
+        setGameOverData(null);
+        setActiveMatchData(null);
+        setPendingRankChange(null);
+        setIsMatchmakingOpen(true);
+      },
+    });
+  };
 
   // Xử lý khi có trận đấu chờ (ví dụ P2 vừa chấp nhận lời mời đấu giao hữu từ bất kỳ trang nào)
   useEffect(() => {
     if (initialPendingMatch) {
-      setFriendlyMatchedData((prev) => {
-        if (prev?.roomId === initialPendingMatch.roomId) {
-          onClearPendingMatch?.();
-          return prev;
-        }
-        setMatchType('FRIENDLY');
-        setIsFriendlyModalOpen(false);
-        onClearPendingMatch?.();
-        gateRef.current?.triggerGateTransition({
-          onMiddle: () => {
-            setIsMatchmakingOpen(true);
-          },
-        });
-        return initialPendingMatch;
-      });
+      openFriendlyMatchedLobby(initialPendingMatch);
+      onClearPendingMatch?.();
     }
   }, [initialPendingMatch, onClearPendingMatch]);
 
@@ -88,19 +96,7 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
     const handleDirectMatched = (matchedData: MatchedPayload) => {
       if (matchedData.matchType === 'FRIENDLY') {
         console.log('[ArenaView] Nhận sự kiện matched giao hữu trực tiếp:', matchedData);
-        setFriendlyMatchedData((prev) => {
-          if (prev?.roomId === matchedData.roomId) {
-            return prev;
-          }
-          setMatchType('FRIENDLY');
-          setIsFriendlyModalOpen(false);
-          gateRef.current?.triggerGateTransition({
-            onMiddle: () => {
-              setIsMatchmakingOpen(true);
-            },
-          });
-          return matchedData;
-        });
+        openFriendlyMatchedLobby(matchedData);
       }
     };
 
@@ -147,14 +143,7 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
    * KHI ĐẤU GIAO HỮU KHỚP TRẬN THÀNH CÔNG
    */
   const handleFriendlyMatched = (matchedData: MatchedPayload) => {
-    setIsFriendlyModalOpen(false);
-    setMatchType('FRIENDLY');
-    setFriendlyMatchedData(matchedData);
-    gateRef.current?.triggerGateTransition({
-      onMiddle: () => {
-        setIsMatchmakingOpen(true);
-      },
-    });
+    openFriendlyMatchedLobby(matchedData);
   };
 
   /**
@@ -166,6 +155,7 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
       onClosed: () => {
         // Cửa đã khép kín: đóng modal ghép trận và chuẩn bị giao diện Gameplay
         setIsMatchmakingOpen(false);
+        setFriendlyMatchedData(null);
         setActiveMatchData(matchData);
         setActiveScreen('gameplay');
       },
@@ -178,11 +168,18 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
   /**
    * KHI TRẬN ĐẤU KẾT THÚC (ARENA GAME OVER)
    * Hiển thị bảng tổng kết kết quả, biến động Elo RP và danh sách 25 từ
-   * Đồng thời phát hiện thăng rank hoặc hạ rank
+   * Đồng thời phát hiện thăng rank hoặc hạ rank (chỉ áp dụng ở Đấu Xếp Hạng)
    */
   const handleGameOver = (data: GameOverPayload) => {
-    setGameOverData(data);
+    const resolvedType = activeMatchData?.matchType || data.matchType || matchType;
+    setMatchType(resolvedType);
+    setGameOverData({ ...data, matchType: resolvedType });
     setActiveScreen('result');
+
+    if (resolvedType !== 'RANK') {
+      setPendingRankChange(null);
+      return;
+    }
 
     // Xác định xem trận đấu này có làm thay đổi rank (thăng rank hoặc hạ rank) của người chơi không
     const myStats = data.myStats;
@@ -215,12 +212,17 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
   };
 
   /**
-   * KÍCH HOẠT LẦN 4: BẤM "TÌM TRẬN MỚI" TỪ MÀN HÌNH KẾT QUẢ
-   * Cửa đóng sầm lại -> Thoát màn hình kết quả và mở modal tìm trận mới -> Cửa mở toang ra
+   * KÍCH HOẠT LẦN 4: BẤM "TÌM TRẬN MỚI" TỪ MÀN HÌNH KẾT QUẢ (RANK / NORMAL)
+   * Cửa đóng sầm lại -> Thoát màn hình kết quả và mở modal tìm trận đúng chế độ vừa đấu -> Cửa mở toang ra
    */
   const handlePlayAgain = () => {
+    const prevMode = activeMatchData?.matchType || gameOverData?.matchType || matchType;
+    const nextQueueMode: 'RANK' | 'NORMAL' = prevMode === 'NORMAL' ? 'NORMAL' : 'RANK';
+
     gateRef.current?.triggerGateTransition({
       onMiddle: () => {
+        setMatchType(nextQueueMode);
+        setFriendlyMatchedData(null);
         setActiveScreen('lobby');
         setGameOverData(null);
         setActiveMatchData(null);
@@ -261,6 +263,7 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
         /* ── MÀN HÌNH KẾT THÚC VÁN ĐẤU (FE-7: MATCH RESULT) ── */
         <ArenaMatchResult
           gameOverData={gameOverData}
+          matchType={activeMatchData?.matchType || gameOverData.matchType || matchType}
           mePlayerInfo={activeMatchData?.me}
           opponentPlayerInfo={activeMatchData?.opponent}
           onPlayAgain={handlePlayAgain}
@@ -295,21 +298,21 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
             onValueChange={(val) => setActiveTab(val as ArenaTab)}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full max-w-xl bg-muted/70 p-1">
-              <TabsTrigger value="hub" className="flex items-center gap-2 text-xs md:text-sm">
-                <Swords className="h-4 w-4" />
+            <TabsList className="grid grid-cols-2 h-auto sm:h-10 sm:inline-flex sm:w-fit bg-muted/70 p-1 gap-1">
+              <TabsTrigger value="hub" className="flex items-center gap-2 px-3 sm:px-4 text-xs md:text-sm">
+                <Swords className="h-4 w-4 shrink-0" />
                 <span>Đấu Trường</span>
               </TabsTrigger>
-              <TabsTrigger value="history" className="flex items-center gap-2 text-xs md:text-sm">
-                <History className="h-4 w-4" />
+              <TabsTrigger value="history" className="flex items-center gap-2 px-3 sm:px-4 text-xs md:text-sm">
+                <History className="h-4 w-4 shrink-0" />
                 <span>Lịch sử đấu</span>
               </TabsTrigger>
-              <TabsTrigger value="leaderboard" className="flex items-center gap-2 text-xs md:text-sm">
-                <Trophy className="h-4 w-4" />
+              <TabsTrigger value="leaderboard" className="flex items-center gap-2 px-3 sm:px-4 text-xs md:text-sm">
+                <Trophy className="h-4 w-4 shrink-0" />
                 <span>Bảng xếp hạng</span>
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="flex items-center gap-2 text-xs md:text-sm">
-                <BarChart2 className="h-4 w-4" />
+              <TabsTrigger value="analytics" className="flex items-center gap-2 px-3 sm:px-4 text-xs md:text-sm">
+                <BarChart2 className="h-4 w-4 shrink-0" />
                 <span>Năng lực</span>
               </TabsTrigger>
             </TabsList>
@@ -369,7 +372,10 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
           {/* Màn hình Ghép trận Matchmaking */}
           <ArenaMatchmakingModal
             isOpen={isMatchmakingOpen}
-            onClose={() => setIsMatchmakingOpen(false)}
+            onClose={() => {
+              setIsMatchmakingOpen(false);
+              setFriendlyMatchedData(null);
+            }}
             currentUserProfile={profile}
             matchType={matchType}
             initialMatchedData={friendlyMatchedData}
