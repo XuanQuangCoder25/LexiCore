@@ -18,6 +18,7 @@ export interface CreditPackage {
     diamond_amount: number;
     duration_days: number | null;
     sale_percent: number;
+    sale_starts_at?: string | null;
     sale_ends_at: string | null;
     features: string[] | null;
     display_order: number;
@@ -44,7 +45,8 @@ export interface Subscription {
     id: string;
     user_id: string;
     package_id: string;
-    tier: 'STARTER' | 'PRO' | 'ELITE' | 'TRIAL';
+    tier: 'STARTER' | 'PRO' | 'ELITE' | 'TRIAL' | 'FREE';
+    duration_days?: number | null;
     started_at: string;
     expires_at: string;
     auto_renew: boolean;
@@ -53,12 +55,22 @@ export interface Subscription {
 }
 
 export interface UserTransaction {
-    id: string;
-    date: string;        // định dạng "DD/MM/YYYY HH:mm"
+    id: string;        // payment_reference (mã đơn hiển thị, ví dụ: LC583421)
+    orderId: string;   // UUID thực của đơn (dùng để gọi API huỷ)
+    date: string;      // định dạng "DD/MM/YYYY HH:mm"
     description: string; // tên gói hoặc nội dung
     amountVnd: number;
-    status: 'SUCCESS' | 'PENDING' | 'FAILED';
+    status: 'SUCCESS' | 'PENDING' | 'FAILED' | 'CANCELLED';
 }
+
+// Bậc ưu tiên gói hội viên
+export const TIER_RANKS: Record<string, number> = {
+    FREE: 0,
+    TRIAL: 1,
+    STARTER: 1,
+    PRO: 2,
+    ELITE: 3,
+};
 
 // ============================================================
 // Packages
@@ -110,19 +122,20 @@ export async function createPaymentOrder(
     packageId: string,
     amountVnd: number,
     gateway: PaymentOrder['gateway'],
+    metadata: object | null = null
 ): Promise<string> {
     const orderId = uuidv4();
     await pool.execute(
-        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status)
-         VALUES (?, ?, ?, ?, ?, 'PENDING')`,
-        [orderId, userId, packageId, amountVnd, gateway]
+        `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, metadata)
+         VALUES (?, ?, ?, ?, ?, 'PENDING', ?)`,
+        [orderId, userId, packageId, amountVnd, gateway, metadata ? JSON.stringify(metadata) : null]
     );
     return orderId;
 }
 
 export async function generateUniqueOrderCode(): Promise<string> {
     for (let attempt = 0; attempt < 10; attempt++) {
-        // Sinh 6 chữ số ngẫu nhiên: LC100000 → LC999999
+        // Sinh 6 chữ số ngẫu nhiên: LC100000 -> LC999999
         const suffix = Math.floor(100000 + Math.random() * 900000).toString();
         const code = `LC${suffix}`;
         const [rows] = await pool.execute<RowDataPacket[]>(
@@ -232,6 +245,18 @@ export async function cancelPendingOrdersOfUser(userId: string): Promise<number>
     return result?.affectedRows ?? 0;
 }
 
+// Huỷ 1 đơn PENDING cụ thể do user chủ động yêu cầu
+// Chỉ cho phép xoá nếu đơn thuộc về đúng user và đang ở trạng thái PENDING
+export async function cancelSinglePendingOrder(orderId: string, userId: string): Promise<boolean> {
+    const [result] = await pool.execute(
+        `UPDATE payment_orders
+         SET status = 'CANCELLED', updated_at = NOW()
+         WHERE id = ? AND user_id = ? AND status = 'PENDING'`,
+        [orderId, userId]
+    ) as any;
+    return (result?.affectedRows ?? 0) > 0;
+}
+
 export async function cleanupOldOrders(): Promise<{ deletedPending: number; deletedCancelled: number }> {
     // 1. Xóa đơn PENDING quá 24 giờ (đơn nháp bỏ dở sinh ra do lựa gói)
     const [resPending] = await pool.execute(
@@ -239,10 +264,10 @@ export async function cleanupOldOrders(): Promise<{ deletedPending: number; dele
          WHERE status = 'PENDING' AND created_at < NOW() - INTERVAL 24 HOUR`
     ) as any;
 
-    // 2. Xóa đơn CANCELLED quá 7 ngày
+    // 2. Xóa đơn CANCELLED quá 1 giờ (đơn bị huỷ do user bấm Huỷ hoặc hệ thống tự huỷ khi tạo đơn mới)
     const [resCancelled] = await pool.execute(
         `DELETE FROM payment_orders 
-         WHERE status = 'CANCELLED' AND created_at < NOW() - INTERVAL 7 DAY`
+         WHERE status = 'CANCELLED' AND created_at < NOW() - INTERVAL 1 HOUR`
     ) as any;
 
     return {
@@ -298,10 +323,13 @@ export async function getUserTransactions(userId: string, limit = 30): Promise<U
 
         formatted.push({
             id: displayId,
+            orderId: r.id as string,   // UUID thực để gọi API huỷ
             date: dateStr,
             description,
             amountVnd: Number(r.amount_vnd),
-            status: (status === 'SUCCESS' ? 'SUCCESS' : 'PENDING') as UserTransaction['status'],
+            status: (['SUCCESS', 'PENDING', 'CANCELLED'].includes(status)
+                ? status
+                : 'FAILED') as UserTransaction['status'],
         });
 
         if (formatted.length >= limit) break;
@@ -328,16 +356,38 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
     } as Subscription;
 }
 
-// Upsert subscription (tạo mới hoặc cập nhật nếu đã có)
+// Upsert subscription (tạo mới, gia hạn hoặc nâng cấp)
 export async function activateSubscription(
     conn: any,
     userId: string,
     packageId: string,
     tier: Subscription['tier'],
-    durationDays: number
+    durationDays: number,
+    isUpgrade: boolean = false
 ): Promise<void> {
     const subId = uuidv4();
-    const expiresAt = new Date(Date.now() + durationDays * 86400 * 1000);
+    let baseTime = Date.now();
+    let expiresAt: Date;
+
+    const [existing] = await conn.execute(
+        `SELECT expires_at, tier FROM user_subscription WHERE user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+        [userId]
+    );
+
+    const hasActiveSub = existing && existing.length > 0 && existing[0].expires_at && new Date(existing[0].expires_at).getTime() > Date.now();
+    const curExp = hasActiveSub ? new Date(existing[0].expires_at).getTime() : 0;
+
+    if (!isUpgrade) {
+        // Gia hạn cùng hạng (hoặc nhận quà sự kiện cùng hạng): cộng dồn từ ngày hết hạn cũ
+        if (hasActiveSub && existing[0].tier === tier) {
+            baseTime = curExp;
+        }
+        expiresAt = new Date(baseTime + durationDays * 86400 * 1000);
+    } else {
+        // Nâng cấp: Chu kỳ mới bắt đầu từ NOW(), nhưng đảm bảo thời hạn không bao giờ ngắn hơn hạn cũ
+        const targetExp = Date.now() + durationDays * 86400 * 1000;
+        expiresAt = new Date(Math.max(targetExp, curExp));
+    }
 
     await conn.execute(
         `INSERT INTO user_subscription (id, user_id, package_id, tier, duration_days, started_at, expires_at, status)
@@ -346,11 +396,11 @@ export async function activateSubscription(
              package_id    = VALUES(package_id),
              tier          = VALUES(tier),
              duration_days = VALUES(duration_days),
-             started_at    = NOW(),
+             started_at    = IF(?, NOW(), started_at),
              expires_at    = VALUES(expires_at),
              status        = 'ACTIVE',
              updated_at    = NOW()`,
-        [subId, userId, packageId, tier, durationDays, expiresAt]
+        [subId, userId, packageId, tier, durationDays, expiresAt, isUpgrade]
     );
 }
 
@@ -413,6 +463,21 @@ export async function getVndBalance(userId: string): Promise<number> {
         [userId]
     );
     return rows.length > 0 ? Number(rows[0].vnd_balance) : 0;
+}
+
+// Lấy tổng số tiền đã nạp vào ví thành công trong ngày hôm nay (tính từ 00:00)
+export async function getTodayTopupVnd(userId: string): Promise<number> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT COALESCE(SUM(po.amount_vnd), 0) AS total
+         FROM payment_orders po
+         LEFT JOIN credit_packages cp ON po.package_id = cp.id
+         WHERE po.user_id = ?
+           AND po.status = 'SUCCESS'
+           AND (po.package_id = 'pkg_wallet_topup' OR cp.slug = 'wallet-topup')
+           AND DATE(po.created_at) = CURDATE()`,
+        [userId]
+    );
+    return rows.length > 0 ? Number(rows[0].total) : 0;
 }
 
 export async function topupWalletVnd(conn: any, userId: string, amount: number): Promise<void> {

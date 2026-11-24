@@ -10,6 +10,11 @@ export const registerUser = async (userData: any) => {
         throw new AppError('Vui lòng điền đầy đủ thông tin', 400);
     }
 
+    const trimmedFullName = userData.full_name.trim();
+    if (trimmedFullName.length < 2 || trimmedFullName.length > 25) {
+        throw new AppError('Tên hiển thị phải từ 2 đến 25 ký tự', 400);
+    }
+
     const existingUser = await findUserByEmail(userData.email);
 
     const salt = await bcrypt.genSalt(10);
@@ -20,7 +25,7 @@ export const registerUser = async (userData: any) => {
     }
 
     if (existingUser && existingUser.status === 'PENDING') {
-        await updatePendingUser(existingUser.id, password_hash, userData.full_name);
+        await updatePendingUser(existingUser.id, password_hash, trimmedFullName);
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await saveOtp(userData.email, otp, 'REGISTER');
@@ -33,7 +38,7 @@ export const registerUser = async (userData: any) => {
     }
 
     const id = uuidv4();
-    await createUserWithWallet({ id, email: userData.email, password_hash, full_name: userData.full_name });
+    await createUserWithWallet({ id, email: userData.email, password_hash, full_name: trimmedFullName });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await saveOtp(userData.email, otp, 'REGISTER');

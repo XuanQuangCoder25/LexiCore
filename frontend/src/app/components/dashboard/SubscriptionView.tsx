@@ -19,6 +19,8 @@ import {
   Sparkles,
   Gift,
   Loader2,
+  X,
+  CircleChevronUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -53,6 +55,9 @@ import {
   getDurationLabel,
   SubscriptionFlipCard,
   TopupCard,
+  getSubscriptionActionInfo,
+  SubscriptionActionInfo,
+  TIER_RANKS,
 } from "../global/subscription-cards";
 import { SubscriptionModal } from "../global/SubscriptionModal";
 import { QRModal } from "../global/QRModal";
@@ -76,15 +81,17 @@ interface UserMembership {
   coinBalance: number;
   diamondBalance: number;
   walletBalanceVnd: number;    // Số dư ví LexiCore (VNĐ thật)
+  todayTopupVnd?: number;      // Tổng số tiền đã nạp ví trong ngày hôm nay
   hasUsedTrial: boolean;
 }
 
 interface Transaction {
-  id: string;
+  id: string;        // payment_reference (mã đơn hiển thị, ví dụ: LC583421)
+  orderId: string;   // UUID thực của đơn (dùng để gọi API huỷ)
   date: string;
   description: string;
   amountVnd: number;
-  status: "SUCCESS" | "PENDING" | "FAILED";
+  status: "SUCCESS" | "PENDING" | "FAILED" | "CANCELLED";
 }
 
 // ============================================================
@@ -238,7 +245,12 @@ function StatusBadge({ status }: { status: Transaction["status"] }) {
   );
   if (status === "PENDING") return (
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full">
-      <RefreshCw className="w-3 h-3 animate-spin" />Đang xử lý
+      <RefreshCw className="w-3 h-3 animate-spin" />Chờ thanh toán
+    </span>
+  );
+  if (status === "CANCELLED") return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+      <X className="w-3 h-3" />Đã huỷ
     </span>
   );
   return (
@@ -578,11 +590,14 @@ function MembershipDetails({
 function TransactionTable({
   transactions,
   customerInfo,
+  onCancel,
 }: {
   transactions: Transaction[];
   customerInfo?: { name?: string; email?: string };
+  onCancel: (orderId: string) => Promise<void>;
 }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const handleDownload = async (txn: Transaction) => {
     setDownloadingId(txn.id);
@@ -602,6 +617,16 @@ function TransactionTable({
     }
   };
 
+  const handleCancel = async (txn: Transaction) => {
+    if (cancellingId) return;
+    setCancellingId(txn.orderId);
+    try {
+      await onCancel(txn.orderId);
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -610,7 +635,7 @@ function TransactionTable({
             <div className="p-2 rounded-lg bg-primary/10 text-primary"><CreditCard className="h-4 w-4" /></div>
             <div>
               <CardTitle className="text-base">Lịch sử giao dịch</CardTitle>
-              <CardDescription className="text-xs mt-0.5">Toàn bộ lịch sử thanh toán & nạp tiền tệ</CardDescription>
+              <CardDescription className="text-xs mt-0.5">Toàn bộ lịch sử thanh toán & nạp tiền</CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
@@ -628,37 +653,47 @@ function TransactionTable({
                 <TableHead className="font-semibold text-xs">Nội dung</TableHead>
                 <TableHead className="font-semibold text-xs text-right">Số tiền</TableHead>
                 <TableHead className="font-semibold text-xs text-center">Trạng thái</TableHead>
-                <TableHead className="font-semibold text-xs text-right">Hoá đơn</TableHead>
+                <TableHead className="font-semibold text-xs text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {transactions.map((txn) => (
-                <TableRow key={txn.id} className="hover:bg-muted/40">
+                <TableRow key={txn.orderId} className="hover:bg-muted/40">
                   <TableCell className="font-mono text-xs font-semibold text-muted-foreground">#{txn.id}</TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{txn.date}</TableCell>
                   <TableCell className="text-xs font-medium">{txn.description}</TableCell>
                   <TableCell className="text-xs font-bold text-right whitespace-nowrap">{formatVND(txn.amountVnd)}</TableCell>
                   <TableCell className="text-center"><StatusBadge status={txn.status} /></TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDownload(txn)}
-                      disabled={txn.status !== "SUCCESS" || downloadingId === txn.id}
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      {downloadingId === txn.id ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-primary" />
-                          Đang xuất...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-3.5 w-3.5 mr-1" />
-                          Tải
-                        </>
-                      )}
-                    </Button>
+                    {txn.status === "PENDING" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCancel(txn)}
+                        disabled={cancellingId === txn.orderId}
+                        className="h-7 px-2 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                      >
+                        {cancellingId === txn.orderId ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <><X className="h-3.5 w-3.5 mr-1" />Huỷ</>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownload(txn)}
+                        disabled={txn.status !== "SUCCESS" || downloadingId === txn.id}
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {downloadingId === txn.id ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-primary" />Đang xuất...</>
+                        ) : (
+                          <><Download className="h-3.5 w-3.5 mr-1" />Tải</>
+                        )}
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -667,7 +702,7 @@ function TransactionTable({
         </div>
         <p className="text-[11px] text-muted-foreground mt-3 flex items-start gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-          Hóa đơn điện tử chính thức định dạng <code className="font-mono bg-muted px-1 rounded font-semibold text-foreground">.pdf</code> (có hỗ trợ tự động sao lưu <code className="font-mono bg-muted px-1 rounded">.txt</code> khi thiết bị không hỗ trợ).
+          Hoá đơn điện tử chính thức định dạng <code className="font-mono bg-muted px-1 rounded font-semibold text-foreground">.pdf</code> (có hỗ trợ tự động sao lưu <code className="font-mono bg-muted px-1 rounded">.txt</code> khi thiết bị không hỗ trợ).
         </p>
       </CardContent>
     </Card>
@@ -695,6 +730,7 @@ export function SubscriptionView() {
   });
   const [packages, setPackages] = useState<GroupedPackages>(MOCK_DATA);
   const [selectedSubId, setSelectedSubId] = useState<string>("");
+  const [activeTopupId, setActiveTopupId] = useState<string | null>(null);
   const [packLoading, setPackLoading] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [customerInfo, setCustomerInfo] = useState<{ name?: string; email?: string }>({});
@@ -723,12 +759,15 @@ export function SubscriptionView() {
   // State cho QRModal (Thanh toán đơn hàng SePay VietQR / Ví LexiCore)
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrModalPkg, setQrModalPkg] = useState<CreditPackage | null>(null);
+  const [qrUpgradeInfo, setQrUpgradeInfo] = useState<SubscriptionActionInfo | null>(null);
   const [qrFromSubModal, setQrFromSubModal] = useState(false);
 
   // State cho WalletTopupModal (Nạp tiền Ví LexiCore)
   const [walletTopupOpen, setWalletTopupOpen] = useState(false);
 
   const handleOpenQRModal = (pkg: CreditPackage, fromSubModal = false) => {
+    const actionInfo = getSubscriptionActionInfo(membership, pkg, packages.subscription);
+    setQrUpgradeInfo(actionInfo);
     setQrModalPkg(pkg);
     setQrFromSubModal(fromSubModal);
     if (fromSubModal) {
@@ -804,7 +843,11 @@ export function SubscriptionView() {
       );
 
       setPackages(pkgData);
-      setTransactions(txData);
+      // Backend trả về mảng transactions có thể thiếu orderId riêng, đảm bảo luôn có
+      setTransactions((txData as any[]).map((t) => ({
+        ...t,
+        orderId: t.orderId ?? t.id,
+      })));
 
       // Chọn mặc định card subscription đầu tiên nếu chưa chọn
       if (pkgData.subscription.length > 0 && !selectedSubId) {
@@ -821,6 +864,18 @@ export function SubscriptionView() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // Huỷ đơn PENDING do user chủ động yêu cầu
+  const handleCancelOrder = useCallback(async (orderId: string) => {
+    try {
+      await apiFetch(`/order/${orderId}`, { method: "DELETE" });
+      toast.success("Đã huỷ đơn hàng thành công.");
+      // Xoá hẳn dòng đó khỏi bảng lịch sử giao dịch để giao diện gọn gàng
+      setTransactions((prev) => prev.filter((t) => t.orderId !== orderId));
+    } catch (err: any) {
+      toast.error(err?.message ?? "Không thể huỷ đơn, vui lòng thử lại.");
+    }
+  }, []);
 
   const isFree = membership.tier === "FREE";
   const cfg = TIER_CFG[membership.tier];
@@ -903,6 +958,12 @@ export function SubscriptionView() {
   const handleBuySub = async (pkg: CreditPackage) => {
     // 1. Gói sự kiện quà tặng từ chiến dịch của Admin
     if (pkg.campaign_id) {
+      const currentRank = TIER_RANKS[membership.tier?.toUpperCase()] ?? 0;
+      const targetRank = TIER_RANKS[pkg.tier?.toUpperCase()] ?? 1;
+      if (currentRank > targetRank) {
+        toast.error(`Bạn đang sử dụng gói ${membership.tier} cao hơn gói sự kiện (${pkg.tier}). Đặc quyền đã bao gồm trong tài khoản.`);
+        return;
+      }
       setPackLoading(pkg.id);
       try {
         await apiFetch("/campaign/claim", {
@@ -925,6 +986,10 @@ export function SubscriptionView() {
 
     // 2. Gói dùng thử Pro 3 ngày mặc định (chào mừng)
     if (pkg.is_trial) {
+      if (membership.tier !== "FREE") {
+        toast.error(`Bạn đang sử dụng gói hội viên ${membership.tier}. Gói dùng thử chỉ áp dụng cho tài khoản Miễn phí.`);
+        return;
+      }
       setPackLoading(pkg.id);
       try {
         await apiFetch("/trial/activate", {
@@ -960,10 +1025,10 @@ export function SubscriptionView() {
     const subs = packages.subscription;
     const list: CreditPackage[] = [];
 
-    // 1. Gói Trial ở vị trí đầu tiên nếu có VÀ user chưa dùng gói dùng thử (hoặc gói campaign của admin)
+    // 1. Gói Trial ở vị trí đầu tiên nếu có VÀ user là FREE chưa dùng trial (hoặc gói campaign của admin)
     const trialPkg = subs.find((p) => p.is_trial);
     if (trialPkg) {
-      const canShowTrial = trialPkg.campaign_id ? true : !membership.hasUsedTrial;
+      const canShowTrial = trialPkg.campaign_id ? true : (!membership.hasUsedTrial && membership.tier === "FREE");
       if (canShowTrial) {
         list.push(trialPkg);
       }
@@ -1081,46 +1146,64 @@ export function SubscriptionView() {
                 {(() => {
                   const sub = packages.subscription.find((p) => p.id === selectedSubId);
                   const isSubLoading = packLoading === sub?.id;
+                  if (!sub) {
+                    return (
+                      <Button size="sm" className="h-9 px-5 text-xs font-bold rounded-xl" disabled>
+                        Chọn gói
+                      </Button>
+                    );
+                  }
+
+                  const action = getSubscriptionActionInfo(membership, sub, packages.subscription);
+
+                  const btnColor = action.disabled
+                    ? "bg-muted text-muted-foreground border border-border cursor-not-allowed hover:bg-muted"
+                    : action.type === "UPGRADE"
+                      ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                      : sub.campaign_id
+                        ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
+                        : sub.is_trial
+                          ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
+                          : sub.tier === "ELITE"
+                            ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
+                            : sub.tier === "PRO"
+                              ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
+                              : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25";
+
                   return (
                     <Button
                       size="sm"
-                      className={`h-9 px-5 text-xs font-bold transition-all shadow-md rounded-xl border-none gap-1.5 ${!sub
-                        ? "bg-primary text-white"
-                        : sub.campaign_id
-                          ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
-                          : sub.is_trial
-                            ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
-                            : sub.tier === "ELITE"
-                              ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
-                              : sub.tier === "PRO"
-                                ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
-                                : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25"
-                        }`}
-                      disabled={!sub || isSubLoading}
+                      className={`h-9 px-5 text-xs font-bold transition-all shadow-md rounded-xl border-none gap-1.5 ${btnColor}`}
+                      disabled={action.disabled || isSubLoading}
                       onClick={() => {
-                        if (sub) handleBuySub(sub);
+                        if (sub && !action.disabled) handleBuySub(sub);
                       }}
                     >
                       {isSubLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : !sub ? (
-                        "Chọn gói"
+                      ) : action.disabled ? (
+                        action.buttonText
+                      ) : action.type === "UPGRADE" ? (
+                        <>
+                          <CircleChevronUp className="h-4 w-4" />
+                          {action.buttonText}
+                        </>
                       ) : sub.campaign_id ? (
                         <>
                           <Sparkles className="h-4 w-4" />
-                          Nhận quà sự kiện ({sub.duration_days} ngày)
+                          {action.buttonText}
                         </>
                       ) : sub.is_trial ? (
                         <>
                           <Gift className="h-4 w-4" />
-                          Dùng thử miễn phí ({sub.duration_days ?? 3} ngày)
+                          {action.buttonText}
                         </>
                       ) : (
                         <>
                           {sub.tier === "ELITE" && <Crown className="h-4 w-4" />}
                           {sub.tier === "PRO" && <Zap className="h-4 w-4" />}
                           {sub.tier === "STARTER" && <Star className="h-4 w-4" />}
-                          Đăng ký {sub.name} ({formatVND(getFinalPrice(sub))}{getDurationLabel(sub.duration_days)})
+                          {action.buttonText}
                         </>
                       )}
                     </Button>
@@ -1147,6 +1230,13 @@ export function SubscriptionView() {
                     unit="Coin"
                     onBuy={handleBuyPack}
                     loading={packLoading}
+                    selected={activeTopupId === pkg.id}
+                    onSelect={() => setActiveTopupId(pkg.id)}
+                    onMouseEnter={() => {
+                      if (activeTopupId && activeTopupId !== pkg.id) {
+                        setActiveTopupId(null);
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -1170,6 +1260,13 @@ export function SubscriptionView() {
                     unit="Diamond"
                     onBuy={handleBuyPack}
                     loading={packLoading}
+                    selected={activeTopupId === pkg.id}
+                    onSelect={() => setActiveTopupId(pkg.id)}
+                    onMouseEnter={() => {
+                      if (activeTopupId && activeTopupId !== pkg.id) {
+                        setActiveTopupId(null);
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -1180,7 +1277,7 @@ export function SubscriptionView() {
           )}
 
           {/* ===== SECTION 5: Lịch sử giao dịch ===== */}
-          <TransactionTable transactions={transactions} customerInfo={customerInfo} />
+          <TransactionTable transactions={transactions} customerInfo={customerInfo} onCancel={handleCancelOrder} />
 
         </>)}
       </div>
@@ -1192,6 +1289,7 @@ export function SubscriptionView() {
         initialPackageId={modalPackageId}
         initialTab={modalTab}
         hasUsedTrial={membership.hasUsedTrial}
+        membership={membership}
         onBuyPackage={(pkg) => handleOpenQRModal(pkg, true)}
         onSuccess={fetchAll}
       />
@@ -1201,6 +1299,7 @@ export function SubscriptionView() {
         open={qrModalOpen}
         onClose={() => setQrModalOpen(false)}
         pkg={qrModalPkg}
+        upgradeInfo={qrUpgradeInfo}
         walletBalance={membership.walletBalanceVnd}
         onSuccess={fetchAll}
         onBack={
@@ -1218,6 +1317,7 @@ export function SubscriptionView() {
         open={walletTopupOpen}
         onClose={() => setWalletTopupOpen(false)}
         walletBalance={membership.walletBalanceVnd}
+        todayTopupVnd={membership.todayTopupVnd ?? 0}
         onProceedToQR={handleProceedWalletTopup}
       />
 

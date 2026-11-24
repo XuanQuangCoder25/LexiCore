@@ -14,12 +14,14 @@ import {
     getArenaMatchById,
     getArenaLeaderboardData,
     getArenaRankTiers,
+    getMyArenaRadarStats,
 } from './arena.controller';
 
 const router = Router();
 
 // ─── User routes (Dành cho người chơi Arena) ──────────────────────────────────
 router.get('/profile/me', requireAuth, getMyArenaProfile);
+router.get('/radar-stats', requireAuth, getMyArenaRadarStats);
 router.get('/matches', requireAuth, getMyArenaMatches);
 router.get('/matches/:id', requireAuth, getArenaMatchById);
 router.get('/leaderboard', optionalAuth, getArenaLeaderboardData);

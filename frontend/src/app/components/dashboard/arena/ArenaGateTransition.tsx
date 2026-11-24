@@ -5,6 +5,7 @@ import React, {
   useRef,
   useEffect,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Swords } from 'lucide-react';
 
 export interface ArenaGateHandle {
@@ -55,6 +56,17 @@ export const ArenaGateTransition = forwardRef<ArenaGateHandle, ArenaGateProps>(
     useEffect(() => {
       return () => clearAllTimeouts();
     }, []);
+
+    // Khóa cuộn trang khi hiệu ứng cánh cửa hoặc đếm ngược đang kích hoạt
+    useEffect(() => {
+      if (gateStatus !== 'IDLE_OPEN' || Boolean(countdownStep)) {
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+          document.body.style.overflow = originalOverflow;
+        };
+      }
+    }, [gateStatus, countdownStep]);
 
     useImperativeHandle(ref, () => ({
       triggerGateTransition: ({ onMiddle, onComplete } = {}) => {
@@ -172,9 +184,9 @@ export const ArenaGateTransition = forwardRef<ArenaGateHandle, ArenaGateProps>(
       rightDoorAnim = 'animate-[gateOpenRight_0.5s_cubic-bezier(0.22,1,0.36,1)_forwards]';
     }
 
-    return (
+    const content = (
       <div
-        className={`fixed inset-0 pointer-events-auto select-none z-[80] overflow-hidden ${
+        className={`fixed inset-0 w-screen h-screen min-h-[100dvh] bg-transparent pointer-events-auto select-none z-[9999] overflow-hidden ${
           isShaking ? 'animate-[gateShake_0.25s_ease-in-out]' : ''
         }`}
       >
@@ -309,6 +321,8 @@ export const ArenaGateTransition = forwardRef<ArenaGateHandle, ArenaGateProps>(
         `}</style>
       </div>
     );
+
+    return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
   }
 );
 

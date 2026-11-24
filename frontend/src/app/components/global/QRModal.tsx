@@ -13,6 +13,8 @@ import {
   Copy,
   Wallet,
   ArrowLeft,
+  ArrowRight,
+  CircleChevronUp,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -23,6 +25,7 @@ import {
   formatVND,
   getFinalPrice,
   getDurationLabel,
+  SubscriptionActionInfo,
 } from "./subscription-cards";
 
 export interface QRModalProps {
@@ -32,6 +35,7 @@ export interface QRModalProps {
   walletBalance: number;
   onSuccess?: () => void;
   onBack?: () => void;
+  upgradeInfo?: SubscriptionActionInfo | null;
 }
 
 interface SepayInitResult {
@@ -51,15 +55,18 @@ export function QRModal({
   walletBalance,
   onSuccess,
   onBack,
+  upgradeInfo,
 }: QRModalProps) {
   const [view, setView] = useState<"QR" | "WALLET_CONFIRM" | "SUCCESS">("QR");
   const [loading, setLoading] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const [initResult, setInitResult] = useState<SepayInitResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [countdown, setCountdown] = useState(10);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Dùng ref để polling callback luôn truy cập được giá trị mới nhất mà không làm useEffect chạy lại
   const onSuccessRef = useRef(onSuccess);
   const onCloseRef = useRef(onClose);
@@ -78,6 +85,10 @@ export function QRModal({
       clearTimeout(autoCloseTimeoutRef.current);
       autoCloseTimeoutRef.current = null;
     }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
   }, []);
 
   const handleCloseModal = useCallback(() => {
@@ -85,6 +96,24 @@ export function QRModal({
     clearAutoCloseTimeout();
     onCloseRef.current?.();
   }, [stopPolling, clearAutoCloseTimeout]);
+
+  // Bắt đầu đếm ngược 10 giây rồi tự đóng modal
+  const startCountdown = useCallback((onDone: () => void) => {
+    setCountdown(10);
+    countdownIntervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownIntervalRef.current!);
+          countdownIntervalRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    autoCloseTimeoutRef.current = setTimeout(() => {
+      onDone();
+    }, 10000);
+  }, []);
 
   // Khởi tạo thanh toán SePay khi mở modal — chỉ chạy lại khi open/pkg thực sự thay đổi
   useEffect(() => {
@@ -157,10 +186,10 @@ export function QRModal({
 
                 onSuccessRef.current?.();
 
-                // Tự động đóng sau 3 giây nếu người dùng không bấm nút đóng
-                autoCloseTimeoutRef.current = setTimeout(() => {
+                // Tự động đóng sau 10 giây với đếm ngược hiển thị
+                startCountdown(() => {
                   onCloseRef.current?.();
-                }, 3000);
+                });
               }
             } catch {
               // Bỏ qua lỗi mạng tạm thời trong quá trình polling
@@ -214,9 +243,9 @@ export function QRModal({
       setView("SUCCESS");
       toast.success(`Đăng ký ${pkg.name} thành công qua Ví LexiCore!`);
       onSuccess?.();
-      autoCloseTimeoutRef.current = setTimeout(() => {
+      startCountdown(() => {
         handleCloseModal();
-      }, 3000);
+      });
     } catch (err: any) {
       toast.error("Thanh toán ví thất bại", { description: err.message });
     } finally {
@@ -231,8 +260,9 @@ export function QRModal({
     pkg.slug === "wallet-topup" ||
     pkg.name === "Nạp tiền Ví LexiCore";
 
-  const finalPrice = getFinalPrice(pkg);
-  const remainingWallet = walletBalance - finalPrice;
+  const isUpgrade = upgradeInfo?.type === "UPGRADE";
+  const displayPrice = isUpgrade && upgradeInfo?.finalPrice ? upgradeInfo.finalPrice : getFinalPrice(pkg);
+  const remainingWallet = walletBalance - displayPrice;
   const canAffordWallet = remainingWallet >= 0;
 
   return (
@@ -242,35 +272,50 @@ export function QRModal({
         aria-describedby={undefined}
       >
         {/* ===== HEADER ===== */}
-        <div className="shrink-0 px-6 py-4 border-b bg-muted/20 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className={`p-2 rounded-xl ${isWalletTopup ? "bg-emerald-500/10 text-emerald-600" : "bg-primary/10 text-primary"}`}>
-              {isWalletTopup ? <Wallet className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}
+        <div className="shrink-0 px-6 py-4 border-b bg-muted/20">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-2.5">
+              <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${isWalletTopup ? "bg-emerald-500/10 text-emerald-600" : isUpgrade ? "bg-amber-500/10 text-amber-600" : "bg-primary/10 text-primary"}`}>
+                {isWalletTopup ? <Wallet className="h-5 w-5" /> : isUpgrade ? <CircleChevronUp className="h-5 w-5" /> : <QrCode className="h-5 w-5" />}
+              </div>
+              <div>
+                <div className="flex items-center h-7 gap-2">
+                  <DialogTitle className="text-base sm:text-lg font-bold leading-none">
+                    {isWalletTopup
+                      ? "Nạp tiền Ví LexiCore"
+                      : isUpgrade
+                        ? "Nâng cấp gói hội viên"
+                        : "Thanh toán đơn hàng"}
+                  </DialogTitle>
+                  {isUpgrade && (
+                    <span className="text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold px-2 py-0.5 rounded-full">
+                      Bù trừ Prorated
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {isWalletTopup
+                    ? `Số tiền nạp: ${formatVND(initResult?.amountVnd || pkg.price_vnd)}`
+                    : isUpgrade
+                      ? `Từ ${upgradeInfo.currentTier} lên ${pkg.name} (${pkg.duration_days ?? 30} ngày mới kể từ hôm nay)`
+                      : `Gói ${pkg.name} ${pkg.duration_days ? getDurationLabel(pkg.duration_days) : ""}`}
+                </p>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-base sm:text-lg font-bold">
-                {isWalletTopup ? "Nạp tiền Ví LexiCore" : "Thanh toán đơn hàng"}
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {isWalletTopup
-                  ? `Số tiền nạp: ${formatVND(initResult?.amountVnd || pkg.price_vnd)}`
-                  : `Gói ${pkg.name} ${pkg.duration_days ? getDurationLabel(pkg.duration_days) : ""}`}
-              </p>
-            </div>
-          </div>
 
-          {onBack && view === "QR" && (
-            <button
-              onClick={() => {
-                handleCloseModal();
-                onBack();
-              }}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Chọn gói khác
-            </button>
-          )}
+            {onBack && view === "QR" && (
+              <button
+                onClick={() => {
+                  handleCloseModal();
+                  onBack();
+                }}
+                className="mr-7 h-7 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors px-2.5 rounded-lg border border-border hover:bg-muted"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Chọn gói khác
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ===== BODY ===== */}
@@ -285,100 +330,130 @@ export function QRModal({
 
           {/* VIEW 1: QUET MA QR SEPAY */}
           {!loading && view === "QR" && initResult && (
-            <div className="flex flex-col md:grid md:grid-cols-2 gap-6 items-center">
-              {/* Cot trai: Ma QR SePay */}
-              <div className="flex flex-col items-center justify-center w-full bg-muted/30 rounded-2xl p-4 border border-border/60">
-                <div className="p-2.5 bg-white rounded-xl shadow-sm border">
-                  <img
-                    src={initResult.qrUrl}
-                    alt="Mã QR Chuyển khoản"
-                    className="w-44 h-44 sm:w-48 sm:h-48 object-contain"
-                  />
-                </div>
-                <div className="text-center mt-3">
-                  <p className="text-xs font-semibold text-foreground">
-                    Quét mã bằng ứng dụng ngân hàng
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Hệ thống tự động điền số tài khoản, số tiền và nội dung
-                  </p>
-                </div>
-              </div>
-
-              {/* Cot phai: Thong tin chuyen khoan */}
-              <div className="flex flex-col justify-between w-full h-full space-y-4">
-                <div className="bg-muted/40 rounded-xl p-3.5 space-y-2 border border-border/60 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Ngân hàng:</span>
-                    <span className="font-bold text-foreground">{initResult.bankCode}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Số tài khoản:</span>
-                    <span className="font-mono font-bold text-foreground">{initResult.accountNumber}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Chủ tài khoản:</span>
-                    <span className="font-semibold text-foreground">{initResult.accountName}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-border/60">
-                    <span className="text-muted-foreground">Số tiền:</span>
-                    <span className="font-bold text-primary text-sm">
-                      {formatVND(initResult.amountVnd)}
+            <div>
+              {/* Thẻ tóm tắt khấu trừ Prorated khi nâng cấp */}
+              {isUpgrade && upgradeInfo && (
+                <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between font-bold text-amber-600 dark:text-amber-400">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>Nâng cấp từ {upgradeInfo.currentTier}</span>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                      <span>{pkg.name}</span>
                     </span>
+                    <span className="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded font-semibold">Khấu trừ Prorated</span>
                   </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-border/60">
-                    <span className="text-muted-foreground">Nội dung CK:</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono font-bold text-primary tracking-wider">
-                        {initResult.orderCode}
+                  <div className="flex justify-between text-muted-foreground text-[11px]">
+                    <span>Giá gốc gói mới:</span>
+                    <span className="font-semibold text-foreground">{formatVND(upgradeInfo.originalPrice)}</span>
+                  </div>
+                  <div className="flex justify-between text-emerald-600 dark:text-emerald-400 text-[11px]">
+                    <span>Khấu trừ gói cũ ({upgradeInfo.remainingDays} ngày còn lại):</span>
+                    <span className="font-semibold">- {formatVND(upgradeInfo.unusedOldValue)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t border-amber-500/20 pt-1 text-foreground text-xs">
+                    <span>Số tiền chênh lệch cần thanh toán:</span>
+                    <span className="text-sm font-extrabold text-primary">{formatVND(upgradeInfo.finalPrice)}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col md:grid md:grid-cols-2 gap-6 items-center">
+                {/* Cot trai: Ma QR SePay */}
+                <div className="flex flex-col items-center justify-center w-full bg-muted/30 rounded-2xl p-4 border border-border/60">
+                  <div className="p-2.5 bg-white rounded-xl shadow-sm border">
+                    <img
+                      src={initResult.qrUrl}
+                      alt="Mã QR Chuyển khoản"
+                      className="w-44 h-44 sm:w-48 sm:h-48 object-contain"
+                    />
+                  </div>
+                  <div className="text-center mt-3">
+                    <p className="text-xs font-semibold text-foreground">
+                      Quét mã bằng ứng dụng ngân hàng
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Hệ thống tự động điền số tài khoản, số tiền và nội dung
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cot phai: Thong tin chuyen khoan */}
+                <div className="flex flex-col justify-between w-full h-full space-y-4">
+                  <div className="bg-muted/40 rounded-xl p-3.5 space-y-2 border border-border/60 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Ngân hàng:</span>
+                      <span className="font-bold text-foreground">{initResult.bankCode}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Số tài khoản:</span>
+                      <span className="font-mono font-bold text-foreground">{initResult.accountNumber}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Chủ tài khoản:</span>
+                      <span className="font-semibold text-foreground">{initResult.accountName}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                      <span className="text-muted-foreground">{isUpgrade ? "Số tiền chênh lệch:" : "Số tiền:"}</span>
+                      <span className="font-bold text-primary text-sm">
+                        {formatVND(initResult.amountVnd)}
                       </span>
-                      <button
-                        onClick={() => handleCopy(initResult.orderCode)}
-                        className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        title="Sao chép nội dung"
-                      >
-                        {copied ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                      </button>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                      <span className="text-muted-foreground">Nội dung CK:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-primary tracking-wider">
+                          {initResult.orderCode}
+                        </span>
+                        <button
+                          onClick={() => handleCopy(initResult.orderCode)}
+                          className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          title="Sao chép nội dung"
+                        >
+                          {copied ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Luu y va nut vi */}
-                <div className="space-y-3">
-                  <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>
-                      {isWalletTopup
-                        ? "Hệ thống tự động cộng tiền vào Ví LexiCore ngay sau khi nhận được chuyển khoản (từ 1 đến 5 phút)."
-                        : "Hệ thống tự động kích hoạt ngay sau khi nhận được tiền (từ 1 đến 5 phút)."}
-                    </span>
+                  {/* Luu y va nut vi */}
+                  <div className="space-y-3">
+                    <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                      <span>
+                        {isWalletTopup
+                          ? "Hệ thống tự động cộng tiền vào Ví LexiCore ngay sau khi nhận được chuyển khoản (từ 1 đến 5 phút)."
+                          : isUpgrade
+                            ? `Gói ${pkg.name} sẽ được kích hoạt với thời hạn mới ${pkg.duration_days ?? 30} ngày ngay sau khi nhận được chuyển khoản.`
+                            : "Hệ thống tự động kích hoạt ngay sau khi nhận được tiền (từ 1 đến 5 phút)."}
+                      </span>
+                    </div>
+
+                    {!isWalletTopup && (
+                      <>
+                        <div className="relative flex items-center gap-2">
+                          <div className="flex-1 border-t border-border/80" />
+                          <span className="text-[11px] text-muted-foreground">hoặc</span>
+                          <div className="flex-1 border-t border-border/80" />
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          className="w-full h-9 text-xs font-semibold border-emerald-500/50 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 gap-2"
+                          onClick={() => setView("WALLET_CONFIRM")}
+                        >
+                          <Wallet className="h-4 w-4" />
+                          Thanh toán bằng Ví LexiCore
+                          <span className="ml-auto text-[11px] font-normal text-muted-foreground">
+                            Ví: {formatVND(walletBalance)}
+                          </span>
+                        </Button>
+                      </>
+                    )}
                   </div>
-
-                  {!isWalletTopup && (
-                    <>
-                      <div className="relative flex items-center gap-2">
-                        <div className="flex-1 border-t border-border/80" />
-                        <span className="text-[11px] text-muted-foreground">hoặc</span>
-                        <div className="flex-1 border-t border-border/80" />
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        className="w-full h-9 text-xs font-semibold border-emerald-500/50 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 gap-2"
-                        onClick={() => setView("WALLET_CONFIRM")}
-                      >
-                        <Wallet className="h-4 w-4" />
-                        Thanh toán bằng Ví LexiCore
-                        <span className="ml-auto text-[11px] font-normal text-muted-foreground">
-                          Ví: {formatVND(walletBalance)}
-                        </span>
-                      </Button>
-                    </>
-                  )}
                 </div>
               </div>
             </div>
@@ -393,22 +468,36 @@ export function QRModal({
                 </div>
                 <h3 className="text-base font-bold">Xác nhận thanh toán bằng Ví</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Số tiền sẽ được trừ trực tiếp từ số dư Ví LexiCore của bạn
+                  {isUpgrade
+                    ? "Số tiền chênh lệch nâng cấp sẽ được trừ trực tiếp từ số dư Ví LexiCore của bạn"
+                    : "Số tiền sẽ được trừ trực tiếp từ số dư Ví LexiCore của bạn"}
                 </p>
               </div>
 
               <div className="bg-muted/50 rounded-xl p-4 space-y-2.5 text-xs sm:text-sm border">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Gói thanh toán:</span>
-                  <span className="font-semibold">{pkg.name}</span>
+                  <span className="font-semibold">{pkg.name} {isUpgrade ? "(Nâng cấp)" : ""}</span>
                 </div>
+                {isUpgrade && upgradeInfo && (
+                  <>
+                    <div className="flex justify-between text-muted-foreground text-xs">
+                      <span>Giá gốc gói mới:</span>
+                      <span>{formatVND(upgradeInfo.originalPrice)}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400 text-xs">
+                      <span>Khấu trừ gói cũ ({upgradeInfo.remainingDays} ngày):</span>
+                      <span>- {formatVND(upgradeInfo.unusedOldValue)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Số dư ví hiện tại:</span>
                   <span className="font-semibold">{formatVND(walletBalance)}</span>
                 </div>
                 <div className="flex justify-between text-rose-500">
                   <span>Số tiền thanh toán:</span>
-                  <span className="font-bold">-{formatVND(finalPrice)}</span>
+                  <span className="font-bold">-{formatVND(displayPrice)}</span>
                 </div>
                 <div className="border-t pt-2 flex justify-between font-bold">
                   <span>Số dư còn lại:</span>
@@ -484,7 +573,7 @@ export function QRModal({
                   Hoàn tất
                 </Button>
                 <span className="text-[11px] text-muted-foreground">
-                  (Tự động đóng sau 3 giây)
+                  (Tự động đóng sau {countdown} giây)
                 </span>
               </div>
             </div>

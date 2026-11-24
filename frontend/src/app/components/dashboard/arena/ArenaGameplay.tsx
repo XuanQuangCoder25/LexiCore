@@ -6,14 +6,16 @@ import {
   Check,
   Flag,
   AlertTriangle,
-  Sparkles,
+  Hourglass,
+  BookOpen,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   MatchedPayload,
   GameOverPayload,
   arenaSocketService,
 } from '../../../services/arena-socket.service';
-import { getRankBadgeUrl } from '../../../services/arena-service';
+import { getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
 
 interface QuestionItem {
   id: string;
@@ -23,130 +25,6 @@ interface QuestionItem {
   topic: string; // Chủ đề
   example?: string; // Câu ví dụ gợi ý
 }
-
-// 25 Câu hỏi phong phú cho chế độ đấu trường Wordle (Việt -> Anh)
-const DEFAULT_MATCH_QUESTIONS: QuestionItem[] = [
-  {
-    id: 'w-1',
-    meaning: 'Có khả năng phục hồi nhanh chóng sau khó khăn hoặc nghịch cảnh',
-    word: 'RESILIENT',
-    wordType: 'Tính từ (Adj)',
-    topic: 'Tâm lý & Tính cách',
-    example: 'Children are often remarkably ______ to shocks and trauma.',
-  },
-  {
-    id: 'w-2',
-    meaning: 'Chỉ tồn tại trong một khoảng thời gian rất ngắn, phù du, chóng tàn',
-    word: 'EPHEMERAL',
-    wordType: 'Tính từ (Adj)',
-    topic: 'Triết học & Cuộc sống',
-    example: 'Fame in the internet age is often exceedingly ______.',
-  },
-  {
-    id: 'w-3',
-    meaning: 'Sự bảo tồn môi trường sinh thái tự nhiên',
-    word: 'ENVIRONMENT CONSERVATION',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Môi trường & Sinh thái',
-    example: 'The government pledged more funds for ______.',
-  },
-  {
-    id: 'w-4',
-    meaning: 'Hiện tượng ấm lên toàn cầu do hiệu ứng nhà kính',
-    word: 'GLOBAL WARMING',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Môi trường & Khoa học',
-    example: '______ has become the most urgent ecological crisis of our era.',
-  },
-  {
-    id: 'w-5',
-    meaning: 'Sự đổi mới, sáng tạo mang tính đột phá',
-    word: 'INNOVATION',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Công nghệ & Phát triển',
-    example: 'Technological ______ is transforming traditional finance.',
-  },
-  {
-    id: 'w-6',
-    meaning: 'Có mặt ở khắp mọi nơi cùng một lúc, phổ biến ở mọi chốn',
-    word: 'UBIQUITOUS',
-    wordType: 'Tính từ (Adj)',
-    topic: 'Xã hội hiện đại',
-    example: 'Smartphones have become ______ in modern daily life.',
-  },
-  {
-    id: 'w-7',
-    meaning: 'Sự phát triển bền vững đáp ứng nhu cầu hiện tại và tương lai',
-    word: 'SUSTAINABLE DEVELOPMENT',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Kinh tế & Xã hội',
-    example: 'Green energy is the cornerstone of ______.',
-  },
-  {
-    id: 'w-8',
-    meaning: 'Bảo vệ, gìn giữ, ngăn ngừa khỏi sự tổn hại hoặc biến mất',
-    word: 'PRESERVE',
-    wordType: 'Động từ (Verb)',
-    topic: 'Văn hóa & Di sản',
-    example: 'We must do everything possible to ______ historic monuments.',
-  },
-  {
-    id: 'w-9',
-    meaning: 'Khả năng thích ứng linh hoạt trước sự thay đổi',
-    word: 'ADAPTABILITY',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Kỹ năng sinh tồn',
-    example: '______ is essential for thriving in a volatile job market.',
-  },
-  {
-    id: 'w-10',
-    meaning: 'Sự biến đổi khí hậu trên phạm vi toàn cầu',
-    word: 'CLIMATE CHANGE',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Môi trường',
-    example: 'The conference focused on solutions to mitigate ______.',
-  },
-  {
-    id: 'w-11',
-    meaning: 'Sự đa dạng sinh học của các loài động thực vật',
-    word: 'BIODIVERSITY',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Tự nhiên',
-    example: 'Rainforests harbor an immense wealth of ______.',
-  },
-  {
-    id: 'w-12',
-    meaning: 'Lòng nhân từ, hành động bác ái vì lợi ích cộng đồng',
-    word: 'PHILANTHROPY',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Xã hội & Đạo đức',
-    example: 'His generous ______ funded schools in impoverished areas.',
-  },
-  {
-    id: 'w-13',
-    meaning: 'Hợp tác, làm việc cùng nhau để đạt mục tiêu chung',
-    word: 'COLLABORATION',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Làm việc nhóm',
-    example: 'Effective ______ between teams led to the project success.',
-  },
-  {
-    id: 'w-14',
-    meaning: 'Trí tuệ nhân tạo có khả năng tự học hỏi',
-    word: 'ARTIFICIAL INTELLIGENCE',
-    wordType: 'Cụm danh từ (Noun Phrase)',
-    topic: 'Công nghệ',
-    example: '______ is rapidly advancing across various industries.',
-  },
-  {
-    id: 'w-15',
-    meaning: 'Hăng hái, nhiệt tình và kiên trì theo đuổi mục tiêu',
-    word: 'ENTHUSIASM',
-    wordType: 'Danh từ (Noun)',
-    topic: 'Cảm xúc & Thái độ',
-    example: 'She greeted the new project with immense ______.',
-  },
-];
 
 export interface ArenaGameplayProps {
   matchData: MatchedPayload | null;
@@ -170,7 +48,9 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
   // Điểm số & Streak
   const [myScore, setMyScore] = useState<number>(0);
   const [opponentScore, setOpponentScore] = useState<number>(0);
+  const [opponentCurrentQuestion, setOpponentCurrentQuestion] = useState<number>(0);
   const [myStreak, setMyStreak] = useState<number>(0);
+  const [myAnswerRecords, setMyAnswerRecords] = useState<Record<number, { isCorrect: boolean; userAnswer: string }>>({});
 
   // Trạng thái thông báo đối thủ & trạng thái kết thúc trận
   const [opponentNotice, setOpponentNotice] = useState<string | null>(null);
@@ -191,20 +71,29 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
   >('idle');
   const [streakNotice, setStreakNotice] = useState<string | null>(null);
 
-  // Danh sách câu hỏi (từ server nếu có, hoặc mock)
+  // Danh sách câu hỏi (nhận trực tiếp từ máy chủ thi đấu)
   const questions: QuestionItem[] =
     matchData?.questions && matchData.questions.length > 0
       ? matchData.questions.map((q: any, idx: number) => ({
         id: q.id || `q-${idx}`,
         meaning: q.meaning || 'Nghĩa tiếng Việt',
-        word: (q.word || q.mask?.replace(/\s+/g, '') || 'WORD').toUpperCase(),
+        word: (q.word || q.mask?.replace(/\s+/g, '') || '').toUpperCase(),
         wordType: q.word_type || 'Từ vựng',
         topic: q.topic || 'Đấu trường',
         example: q.example,
       }))
-      : DEFAULT_MATCH_QUESTIONS;
+      : [];
 
-  const currentQ = questions[currentQuestionIndex % questions.length];
+  const currentQ = questions[currentQuestionIndex % (questions.length || 1)] || {
+    id: 'loading',
+    meaning: 'Đang chuẩn bị câu hỏi...',
+    word: '',
+    wordType: '',
+    topic: '',
+    example: '',
+  };
+
+  const myCorrectCount = Object.values(myAnswerRecords).filter((r) => r.isCorrect).length;
 
   // ─── STATE CÁC Ô CHỮ WORDLE (HỖ TRỢ NHIỀU TỪ / PHRASE) ───
   // wordsArray: Tách cụm từ thành danh sách các từ: ví dụ ['ENVIRONMENT', 'CONSERVATION']
@@ -227,6 +116,9 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
     char: targetWords[0]?.length > 1 ? 1 : 0,
   });
 
+  // Đếm số lần gõ sai trong câu hiện tại (Tối đa 2 lần sai, lần thứ 3 tính là SAI luôn)
+  const [wrongAttemptsCount, setWrongAttemptsCount] = useState<number>(0);
+
   const questionStartTimeRef = useRef<number>(Date.now());
 
   // Khi chuyển câu hỏi mới: Reset bảng ô chữ và focus vào ô thứ 2 của từ đầu tiên
@@ -242,6 +134,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       char: newWords[0]?.length > 1 ? 1 : 0,
     });
     setFeedbackState('idle');
+    setWrongAttemptsCount(0);
     questionStartTimeRef.current = Date.now();
   }, [currentQuestionIndex, currentQ.word]);
 
@@ -260,21 +153,23 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
     return 'text-xs sm:text-sm md:text-base font-bold leading-snug max-w-lg mx-auto';
   };
 
-  // Tính kích thước ô Wordle theo độ dài từ dài nhất trong cụm
+  // Tính kích thước ô Wordle linh hoạt theo độ dài từ, số từ và tổng số ký tự
   const maxWordLength = Math.max(...targetWords.map((w) => w.length), 0);
-  const getCellSizeClass = (maxLen: number) => {
-    if (maxLen >= 11) {
-      // Cụm từ dài như ENVIRONMENT, CONSERVATION (11-12 ký tự)
-      return 'w-7 h-10 sm:w-9 sm:h-12 md:w-11 md:h-15 text-base sm:text-xl md:text-2xl rounded-lg sm:rounded-xl';
+  const totalChars = targetWords.reduce((acc, w) => acc + w.length, 0);
+
+  const getCellSizeClass = (maxLen: number, totalLen: number, wordCount: number) => {
+    // Trường hợp cụm từ dài/nhiều chữ (ví dụ cụm 4 từ như TIP OF THE ICEBERG hoặc từ đơn >= 11 ký tự)
+    if (maxLen >= 11 || totalLen >= 15 || wordCount >= 4) {
+      return 'w-7 h-9 sm:w-8 sm:h-11 md:w-9 md:h-12 text-sm sm:text-base md:text-lg rounded-lg sm:rounded-xl';
     }
-    if (maxLen >= 9) {
-      // Từ dài 9-10 ký tự như RESILIENT, EPHEMERAL
-      return 'w-8 h-11 sm:w-11 sm:h-14 md:w-13 md:h-16 text-lg sm:text-2xl md:text-3xl rounded-xl sm:rounded-2xl';
+    // Trường hợp cụm từ dài vừa hoặc từ dài 8-10 ký tự
+    if (maxLen >= 8 || totalLen >= 9 || wordCount >= 2) {
+      return 'w-8 h-10 sm:w-10 sm:h-12 md:w-11 md:h-14 text-base sm:text-xl md:text-2xl rounded-xl sm:rounded-2xl';
     }
-    // Từ ngắn dưới 9 ký tự
-    return 'w-10 h-13 sm:w-13 sm:h-16 md:w-14 md:h-18 text-xl sm:text-2xl md:text-3xl rounded-xl sm:rounded-2xl';
+    // Từ đơn ngắn dưới 8 ký tự (to rõ rực rỡ)
+    return 'w-10 h-12 sm:w-12 sm:h-15 md:w-13 md:h-16 text-lg sm:text-2xl md:text-3xl rounded-xl sm:rounded-2xl';
   };
-  const cellSizeClass = getCellSizeClass(maxWordLength);
+  const cellSizeClass = getCellSizeClass(maxWordLength, totalChars, targetWords.length);
 
   // Đếm ngược đồng hồ trận đấu
   useEffect(() => {
@@ -313,6 +208,9 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
           ? data.opponentScore
           : count * 10;
       setOpponentScore(score);
+      if (typeof data?.questionIndex === 'number') {
+        setOpponentCurrentQuestion(data.questionIndex);
+      }
     };
 
     // 2. Đối thủ đã hoàn thành 25 câu
@@ -323,6 +221,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       } else if (typeof data?.opponentCorrect === 'number') {
         setOpponentScore(data.opponentCorrect * 10);
       }
+      setOpponentCurrentQuestion(25);
       setOpponentNotice('Đối thủ đã hoàn thành xong 25 câu!');
       setTimeout(() => setOpponentNotice(null), 4000);
     };
@@ -495,6 +394,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
 
     if (isCorrect) {
       // 1. Khi trả lời đúng: gửi lên server, tăng điểm và cộng chuỗi
+      setWrongAttemptsCount(0);
       if (matchData?.roomId) {
         arenaSocketService.submitAnswer(
           matchData.roomId,
@@ -505,6 +405,12 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       }
 
       setFeedbackState('correct');
+      // Ghi nhận câu trả lời đúng vào lịch sử ván đấu của bản thân
+      setMyAnswerRecords((prev) => ({
+        ...prev,
+        [currentQuestionIndex]: { isCorrect: true, userAnswer: fullUserAnswer },
+      }));
+
       // Mỗi câu đúng nhận đúng 10 điểm, 25 câu = 250 điểm
       const gainedScore = 10;
       setMyScore((s) => Math.min(250, s + gainedScore));
@@ -518,16 +424,66 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
 
       setTimeout(() => {
         setStreakNotice(null);
-        setCurrentQuestionIndex((prev) => prev + 1);
+        setCurrentQuestionIndex((prev) => {
+          const next = prev + 1;
+          if (next >= questions.length) {
+            setIsWaitingOpponent(true);
+          }
+          return next;
+        });
       }, 800);
     } else {
-      // 2. Khi trả lời sai: rung đỏ báo sai nhưng KHÔNG mất chuỗi streak, không gửi socket để người chơi sửa lại
-      setFeedbackState('wrong');
+      // 2. Cơ chế tối đa 2 lần sai (lần thứ 3 tính là SAI luôn và chuyển câu)
+      const nextWrongCount = wrongAttemptsCount + 1;
 
-      // Rung đỏ cảnh báo rồi cho phép sửa lại
-      setTimeout(() => {
-        setFeedbackState('idle');
-      }, 700);
+      if (nextWrongCount < 3) {
+        // Lần sai 1 hoặc 2: Rung đỏ cảnh báo, báo số lượt còn lại, cho phép người chơi sửa lại
+        setWrongAttemptsCount(nextWrongCount);
+        setFeedbackState('wrong');
+        const remainingAttempts = 3 - nextWrongCount;
+        setStreakNotice(`Chưa chính xác! (Còn ${remainingAttempts} lượt thử)`);
+
+        setTimeout(() => {
+          setFeedbackState('idle');
+        }, 700);
+
+        setTimeout(() => {
+          setStreakNotice(null);
+        }, 1800);
+      } else {
+        // Lần sai thứ 3: TÍNH LÀ CÂU SAI CHÍNH THỨC! Mất streak, gửi từ sai lên server và qua câu tiếp theo
+        setWrongAttemptsCount(0);
+        setMyStreak(0);
+        setFeedbackState('wrong');
+        setStreakNotice(`Sai lần 3/3! Tính là câu sai.`);
+
+        if (matchData?.roomId) {
+          arenaSocketService.submitAnswer(
+            matchData.roomId,
+            currentQuestionIndex,
+            fullUserAnswer,
+            timeSpentMs
+          );
+        }
+
+        // Ghi nhận câu sai cùng từ người chơi đã gõ vào lịch sử
+        setMyAnswerRecords((prev) => ({
+          ...prev,
+          [currentQuestionIndex]: { isCorrect: false, userAnswer: fullUserAnswer },
+        }));
+
+        setTimeout(() => {
+          setStreakNotice(null);
+          setFeedbackState('idle');
+          setCurrentQuestionIndex((prev) => {
+            const next = prev + 1;
+            if (next >= questions.length) {
+              setIsWaitingOpponent(true);
+            }
+            return next;
+          });
+        }, 800);
+      }
     }
   }, [
     feedbackState,
@@ -536,11 +492,16 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
     myStreak,
     matchData,
     currentQuestionIndex,
+    wrongAttemptsCount,
+    questions.length,
   ]);
 
   // ─── BỎ QUA CÂU HỎI (SKIP) ───
   const handleSkipQuestion = useCallback(() => {
     if (feedbackState !== 'idle') return;
+
+    // Reset lượt sai cho câu tiếp theo
+    setWrongAttemptsCount(0);
 
     // Chỉ khi chủ động bỏ qua câu hỏi thì MỚI BỊ MẤT CHUỖI STREAK
     setMyStreak(0);
@@ -556,8 +517,20 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       );
     }
 
-    setCurrentQuestionIndex((prev) => prev + 1);
-  }, [feedbackState, matchData?.roomId, currentQuestionIndex]);
+    // Ghi nhận câu trả lời bỏ qua (sai) vào lịch sử ván đấu của bản thân
+    setMyAnswerRecords((prev) => ({
+      ...prev,
+      [currentQuestionIndex]: { isCorrect: false, userAnswer: '' },
+    }));
+
+    setCurrentQuestionIndex((prev) => {
+      const next = prev + 1;
+      if (next >= questions.length) {
+        setIsWaitingOpponent(true);
+      }
+      return next;
+    });
+  }, [feedbackState, matchData?.roomId, currentQuestionIndex, questions.length]);
 
   // Lắng nghe bàn phím toàn cục (Keyboard Event Listener)
   useEffect(() => {
@@ -660,7 +633,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       </div>
 
       <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col justify-between min-h-full space-y-4 sm:space-y-6">
-        {/* ── 1. TOP BAR: NÚT ĐẦU HÀNG • ĐỒNG HỒ 6 PHÚT • TIẾN ĐỘ CÂU HỎI ── */}
+        {/* ── 1. TOP BAR: NÚT ĐẦU HÀNG - ĐỒNG HỒ 6 PHÚT - TIẾN ĐỘ CÂU HỎI ── */}
         <div className="flex items-center justify-between bg-card/70 backdrop-blur-md border border-border/80 rounded-2xl px-4 py-2.5 sm:px-5 sm:py-3 shadow-md">
           {/* Nút Đầu hàng */}
           <button
@@ -702,9 +675,9 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
         )}
 
         {isWaitingOpponent && !matchEndingOverlay && (
-          <div className="w-full py-2.5 px-4 rounded-2xl bg-primary/20 border-2 border-primary text-primary text-xs sm:text-sm font-black flex items-center justify-center gap-2 animate-pulse shadow-lg">
-            <Sparkles className="w-4 h-4 text-primary animate-spin" />
-            <span>Bạn đã hoàn thành 25 câu hỏi! Đang chờ đối thủ để phân định thắng thua...</span>
+          <div className="w-full py-2.5 px-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/30 text-amber-500 text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg">
+            <Hourglass className="w-4 h-4 text-amber-500 animate-spin" />
+            <span>Bạn đã hoàn thành 25 câu hỏi! Đang chờ đối thủ để phân định kết quả...</span>
           </div>
         )}
 
@@ -817,113 +790,256 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
           </div>
         </div>
 
-        {/* ── 3. KHU VỰC THI ĐẤU CHÍNH: CÂU HỎI TIẾNG VIỆT & BÀN CỜ WORDLE ── */}
-        <div className="bg-card border-2 border-border/80 rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl relative flex flex-col items-center justify-between flex-1 min-h-[360px] overflow-hidden">
-          {/* Thông báo điểm streak nổi lên khi trả lời đúng */}
-          {streakNotice && (
-            <div className="absolute top-4 right-6 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-black animate-[bounce_0.6s_ease_infinite] shadow-lg flex items-center gap-1.5 z-20">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{streakNotice}</span>
-            </div>
-          )}
+        {/* ── 3. KHU VỰC THI ĐẤU CHÍNH HOẶC KHU VỰC CHỜ & ÔN TẬP 25 TỪ VỰNG ── */}
+        <div className="bg-card border-2 border-border/80 rounded-3xl p-4 sm:p-6 md:p-7 shadow-2xl relative flex flex-col flex-1 min-h-[380px] overflow-hidden">
+          {isWaitingOpponent ? (
+            /* ── GIAO DIỆN CHỜ ĐỐI THỦ & ÔN TẬP 25 TỪ VỰNG RỘNG RÃI ── */
+            <div className="flex-1 flex flex-col space-y-4 min-h-0 w-full animate-in fade-in duration-200">
+              {/* Header trạng thái chờ và Live Opponent Tracker */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-muted/40 border border-border/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center justify-center shrink-0">
+                    <Hourglass className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm sm:text-base text-foreground tracking-tight">
+                      BẠN ĐÃ HOÀN THÀNH 25 CÂU HỎI
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Điểm của bạn: <strong className="text-primary font-bold">{myScore} điểm</strong> ({myCorrectCount}/25 đúng)
+                    </p>
+                  </div>
+                </div>
 
-          {/* ĐỀ BÀI: NGHĨA TIẾNG VIỆT & CHỦ ĐỀ */}
-          <div className="text-center space-y-1.5 sm:space-y-2 max-w-2xl mx-auto w-full">
-            <div className="inline-flex items-center gap-2 px-3 py-0.5 sm:py-1 rounded-full bg-muted/80 text-muted-foreground text-[11px] sm:text-xs font-bold border border-border/50">
-              <span className="text-primary font-black uppercase">
-                {currentQ.topic}
-              </span>
-              <span>•</span>
-              <span>{currentQ.wordType}</span>
-            </div>
+                {/* Live Opponent Tracker */}
+                <div className="flex flex-col sm:items-end space-y-1 sm:min-w-[220px]">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 text-xs">
+                    <span className="text-muted-foreground font-medium">Tiến độ đối thủ:</span>
+                    <span className="font-mono font-bold text-rose-500">
+                      Câu {Math.min(25, opponentCurrentQuestion + 1)} / 25
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-2 rounded-full bg-muted overflow-hidden border border-border/50">
+                    <div
+                      className="h-full bg-rose-500 transition-all duration-500 rounded-full"
+                      style={{ width: `${Math.min(100, Math.round(((opponentCurrentQuestion + 1) / 25) * 100))}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground italic">
+                    {opponentScore >= 250
+                      ? 'Đối thủ đã xong, hệ thống đang tổng kết kết quả...'
+                      : 'Đang theo dõi tiến trình trực tiếp của đối thủ...'}
+                  </span>
+                </div>
+              </div>
 
-            {/* Nghĩa tiếng Việt (Tự động co giãn cỡ chữ theo độ dài để nằm vừa 1 dòng hoặc 2 dòng thanh mảnh) */}
-            <h2 className={`${getMeaningTypographyClass(currentQ.meaning)} text-foreground tracking-tight`}>
-              "{currentQ.meaning}"
-            </h2>
+              {/* Danh sách 25 câu hỏi rộng rãi để ôn tập */}
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  <span>ÔN TẬP 25 TỪ VỰNG CỦA VÁN ĐẤU</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  (Cuộn để xem lại nghĩa và câu ví dụ hoàn chỉnh)
+                </span>
+              </div>
 
-            {/* Câu ví dụ gợi ý ngữ cảnh (nếu có) */}
-            {currentQ.example && (
-              <p className="text-xs sm:text-sm text-muted-foreground italic max-w-xl mx-auto line-clamp-1 sm:line-clamp-2">
-                Ví dụ: {currentQ.example}
-              </p>
-            )}
-          </div>
-
-          {/* BÀN CỜ Ô CHỮ WORDLE (CÓ SẴN CHỮ CÁI ĐẦU, BỔ SUNG OVERWRITE VÀ CỤM TỪ NHIỀU DÒNG) */}
-          <div
-            className={`my-3 sm:my-4 flex flex-col items-center justify-center gap-2 sm:gap-3 w-full transition-all duration-200 ${feedbackState === 'wrong' ? 'animate-[shake_0.4s_ease-in-out]' : ''
-              }`}
-          >
-            {targetWords.map((word, lineIdx) => (
-              <div
-                key={`line-${lineIdx}`}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 flex-wrap"
-              >
-                {word.split('').map((_char, charIdx) => {
-                  const isFirstChar = charIdx === 0;
-                  const value = userInputs[lineIdx]?.[charIdx] || '';
-                  const isFocused =
-                    focusedCell.line === lineIdx &&
-                    focusedCell.char === charIdx;
-
-                  let cellStyle =
-                    'border-border/80 bg-background/80 text-foreground hover:border-primary/50';
-
-                  if (isFirstChar) {
-                    // Ô gợi ý đầu tiên
-                    cellStyle =
-                      'bg-primary/15 border-primary/50 text-primary font-black shadow-inner';
-                  }
-
-                  if (isFocused) {
-                    cellStyle =
-                      'border-primary bg-primary/10 ring-2 ring-primary/50 shadow-[0_0_15px_rgba(var(--primary),0.35)] scale-105';
-                  }
-
-                  if (feedbackState === 'correct') {
-                    cellStyle =
-                      'border-emerald-500 bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] scale-105';
-                  } else if (feedbackState === 'wrong') {
-                    cellStyle =
-                      'border-rose-500 bg-rose-500/15 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)]';
-                  }
+              {/* Lưới từ vựng 2 cột to, thoáng, thoải mái */}
+              <div className="flex-1 overflow-y-auto max-h-[380px] sm:max-h-[440px] pr-1.5 grid grid-cols-1 md:grid-cols-2 gap-2.5 [scrollbar-width:thin]">
+                {questions.map((q, idx) => {
+                  const record = myAnswerRecords[idx];
+                  const hasAnswered = record !== undefined;
+                  const isCorrect = record?.isCorrect ?? false;
+                  const userAnswer = record?.userAnswer || '';
 
                   return (
                     <div
-                      key={`cell-${lineIdx}-${charIdx}`}
-                      onClick={() => handleCellClick(lineIdx, charIdx)}
-                      className={`${cellSizeClass} border-2 flex items-center justify-center font-mono font-black uppercase cursor-pointer transition-all duration-150 select-none ${cellStyle}`}
+                      key={q.id || idx}
+                      className="flex flex-col p-3 rounded-2xl bg-card border border-border/60 hover:border-primary/40 transition-colors shadow-xs gap-1.5"
                     >
-                      {value}
+                      {/* Dòng 1: Số thứ tự, Từ tiếng Anh, Icon đúng/sai, Nghĩa tiếng Việt */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-xs font-mono font-bold text-muted-foreground shrink-0 w-6">
+                            {(idx + 1).toString().padStart(2, '0')}.
+                          </span>
+
+                          {hasAnswered ? (
+                            isCorrect ? (
+                              <div className="flex items-center gap-1.5 truncate text-emerald-500 font-black text-sm">
+                                <span className="truncate">{q.word}</span>
+                                <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 truncate text-xs">
+                                <span className="text-rose-500 font-semibold truncate">
+                                  {userAnswer || 'Bỏ qua'}
+                                </span>
+                                <X className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                <span className="text-muted-foreground font-normal shrink-0 flex items-center gap-0.5">
+                                  (
+                                  <span className="text-emerald-500 font-bold">{q.word}</span>
+                                  <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+                                  )
+                                </span>
+                              </div>
+                            )
+                          ) : (
+                            <span className="font-bold text-sm text-foreground truncate">
+                              {q.word}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Nghĩa tiếng Việt */}
+                        <span
+                          className="text-xs font-semibold text-foreground text-right shrink-0 max-w-[130px] truncate"
+                          title={q.meaning}
+                        >
+                          {q.meaning}
+                        </span>
+                      </div>
+
+                      {/* Dòng 2: Badges Loại từ & Chủ đề */}
+                      <div className="flex items-center gap-1.5 pl-8 text-[10px]">
+                        <span className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold">
+                          {formatTopicName(q.topic)}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-muted border border-border/50 text-muted-foreground">
+                          {q.wordType}
+                        </span>
+                      </div>
+
+                      {/* Dòng 3: Câu ví dụ ngữ cảnh thực tế */}
+                      {q.example && (
+                        <p className="text-[11px] text-muted-foreground italic pl-8 pr-1 line-clamp-2 border-t border-border/30 pt-1.5 mt-0.5">
+                          "{q.example}"
+                        </p>
+                      )}
                     </div>
                   );
                 })}
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            /* ── GIAO DIỆN THI ĐẤU HIỆN TẠI (ĐỀ BÀI + BÀN CỜ + BÀN PHÍM) ── */
+            <>
+              {/* Thông báo điểm streak nổi lên khi trả lời đúng */}
+              {streakNotice && (
+                <div className="absolute top-4 right-6 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-black animate-[bounce_0.6s_ease_infinite] shadow-lg flex items-center gap-1.5 z-20">
+                  <Flame className="w-3.5 h-3.5 fill-emerald-400" />
+                  <span>{streakNotice}</span>
+                </div>
+              )}
 
-          {/* ── 4. 2 BUTTON HÀNH ĐỘNG: BỎ QUA & XÁC NHẬN (ENTER) ── */}
-          <div className="flex items-center justify-center gap-4 sm:gap-6 w-full max-w-md mx-auto mt-1 sm:mt-2 mb-1">
-            {/* Nút Bỏ qua */}
-            <button
-              onClick={handleSkipQuestion}
-              disabled={feedbackState !== 'idle'}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 rounded-2xl border-2 border-border/80 hover:bg-muted/80 text-muted-foreground hover:text-foreground text-xs sm:text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
-            >
-              <span>Bỏ qua</span>
-              <X className="w-4 h-4" />
-            </button>
-            {/* Nút Xác nhận (Enter) */}
-            <button
-              onClick={handleConfirmAnswer}
-              disabled={feedbackState !== 'idle'}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs sm:text-sm font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/35 disabled:opacity-50"
-            >
-              <Check className="w-4 h-4" />
-              <span>Xác nhận</span>
-            </button>
-          </div>
+              {/* ĐỀ BÀI: NGHĨA TIẾNG VIỆT & CHỦ ĐỀ */}
+              <div className="text-center space-y-2 max-w-2xl mx-auto w-full">
+                <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold">
+                  <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold tracking-wide">
+                    {formatTopicName(currentQ.topic)}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-muted/80 border border-border/50 text-muted-foreground">
+                    {currentQ.wordType}
+                  </span>
+                </div>
+
+                {/* Nghĩa tiếng Việt (Tự động co giãn cỡ chữ theo độ dài để nằm vừa 1 dòng hoặc 2 dòng thanh mảnh) */}
+                <h2 className={`${getMeaningTypographyClass(currentQ.meaning)} text-foreground tracking-tight`}>
+                  "{currentQ.meaning}"
+                </h2>
+              </div>
+
+              {/* BÀN CỜ Ô CHỮ WORDLE (CÁC TỪ TRONG CỤM NẰM CHUNG HÀNG TỰ NHIÊN, CÁCH NHAU KHOẢNG TRẮNG) */}
+              <div
+                className={`my-2 sm:my-3 flex flex-wrap items-center justify-center gap-y-2.5 sm:gap-y-3.5 gap-x-3.5 sm:gap-x-5 max-w-3xl mx-auto w-full transition-all duration-200 ${
+                  feedbackState === 'wrong' ? 'animate-[shake_0.4s_ease-in-out]' : ''
+                }`}
+              >
+                {targetWords.map((word, lineIdx) => (
+                  <div
+                    key={`word-${lineIdx}`}
+                    className="flex items-center justify-center gap-1 sm:gap-1.5 shrink-0"
+                  >
+                    {word.split('').map((_char, charIdx) => {
+                      const isFirstChar = charIdx === 0;
+                      const value = userInputs[lineIdx]?.[charIdx] || '';
+                      const isFocused =
+                        focusedCell.line === lineIdx &&
+                        focusedCell.char === charIdx;
+
+                      let cellStyle =
+                        'border-border/80 bg-background/80 text-foreground hover:border-primary/50';
+
+                      if (isFirstChar) {
+                        cellStyle =
+                          'bg-primary/15 border-primary/50 text-primary font-black shadow-inner';
+                      }
+
+                      if (isFocused) {
+                        cellStyle =
+                          'border-primary bg-primary/10 ring-2 ring-primary/50 shadow-[0_0_15px_rgba(var(--primary),0.35)] scale-105';
+                      }
+
+                      if (feedbackState === 'correct') {
+                        cellStyle =
+                          'border-emerald-500 bg-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] scale-105';
+                      } else if (feedbackState === 'wrong') {
+                        cellStyle =
+                          'border-rose-500 bg-rose-500/15 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.3)]';
+                      }
+
+                      return (
+                        <div
+                          key={`cell-${lineIdx}-${charIdx}`}
+                          onClick={() => handleCellClick(lineIdx, charIdx)}
+                          className={`${cellSizeClass} border-2 flex items-center justify-center font-mono font-black uppercase cursor-pointer transition-all duration-150 select-none ${cellStyle}`}
+                        >
+                          {value}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* ── 4. 2 BUTTON HÀNH ĐỘNG: BỎ QUA & XÁC NHẬN (ENTER) ── */}
+              <div className="flex items-center justify-center gap-4 sm:gap-6 w-full max-w-md mx-auto mt-2 sm:mt-3 mb-1">
+                {/* Nút Bỏ qua */}
+                <button
+                  onClick={handleSkipQuestion}
+                  disabled={feedbackState !== 'idle'}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 rounded-2xl border-2 border-border/80 hover:bg-muted/80 text-muted-foreground hover:text-foreground text-xs sm:text-sm font-bold transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  <span>Bỏ qua</span>
+                  <X className="w-4 h-4" />
+                </button>
+                {/* Nút Xác nhận (Enter) */}
+                <button
+                  onClick={handleConfirmAnswer}
+                  disabled={feedbackState !== 'idle'}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 sm:py-3 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs sm:text-sm font-black transition-all active:scale-95 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/35 disabled:opacity-50 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Xác nhận</span>
+                </button>
+              </div>
+
+              {/* ── 5. CHỈ BÁO LƯỢT THỬ NẰM Ở GIỮA KHOẢNG KHÔNG TỪ BUTTON ĐẾN ĐÁY CARD ── */}
+              <div className="mt-auto pt-6 sm:pt-8 pb-1 text-center select-none">
+                <span className="text-xs font-semibold text-muted-foreground/80 tracking-wide">
+                  Lượt thử:{' '}
+                  <span
+                    className={`font-mono font-bold ${
+                      wrongAttemptsCount >= 2 ? 'text-rose-500 font-extrabold' : 'text-foreground'
+                    }`}
+                  >
+                    {3 - wrongAttemptsCount}/3
+                  </span>
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

@@ -31,6 +31,19 @@ export interface UserArenaProfile {
     rankOrder: number;
   };
   recentMatches: any[];
+  dailyQuota?: {
+    tier: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+    rankMatches: {
+      used: number;
+      limit: number;
+      remaining: number;
+    };
+    doubleRewards: {
+      used: number;
+      limit: number;
+      remaining: number;
+    };
+  };
 }
 
 export interface RankTierDetail {
@@ -44,12 +57,57 @@ export interface RankTierDetail {
   color: string;
 }
 
+export interface ArenaRadarStatsData {
+  isLocked: boolean;
+  tier: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+  radar: {
+    accuracy: number;
+    speed: number;
+    coreVocab: number;
+    advancedVocab: number | null;
+    idioms: number | null;
+    composure: number | null;
+  };
+  overview: {
+    totalMatches: number;
+    totalWins: number;
+    totalLosses: number;
+    winRate: number;
+    avgTimeMs: number;
+    bestStreak: number;
+    currentStreak: number;
+    totalWordsAnswered: number;
+    totalWordsCorrect: number;
+    overallAccuracy: number;
+  };
+  topicPerformance: {
+    bestTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+    weakTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+    allTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+  };
+  cefrBreakdown: {
+    a1_a2: { total: number; correct: number; rate: number };
+    b1_b2: { total: number; correct: number; rate: number };
+    c1_c2: { total: number; correct: number; rate: number };
+  };
+  recentForm: Array<{
+    matchId: string;
+    topic: string;
+    result: 'WIN' | 'LOSS' | 'DRAW';
+    startedAt: string;
+  }>;
+}
+
 export const arenaService = {
   getMyProfile: async (): Promise<UserArenaProfile> => {
     const res = await api.get('/api/arena/profile/me');
     return res.data.data;
   },
-  getMyMatches: async (params?: { page?: number; limit?: number; filter?: string }) => {
+  getRadarStats: async (): Promise<ArenaRadarStatsData> => {
+    const res = await api.get('/api/arena/radar-stats');
+    return res.data.data;
+  },
+  getMyMatches: async (params?: { page?: number; limit?: number; filter?: string; mode?: string }) => {
     const res = await api.get('/api/arena/matches', { params });
     return res.data.data;
   },
@@ -131,6 +189,18 @@ export const optimizeImageUrl = (
 export const optimizeAvatarUrl = (url?: string | null, size = 200): string | undefined => {
   return optimizeImageUrl(url, size);
 };
+
+/**
+ * Định dạng tên chủ đề từ snake_case sang Sentence case tự nhiên:
+ * Ví dụ: "fashion_and_shopping" -> "Fashion and shopping"
+ */
+export const formatTopicName = (topic?: string | null): string => {
+  if (!topic) return '';
+  const formatted = topic.replace(/_/g, ' ').trim();
+  if (!formatted) return '';
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+};
+
 
 
 

@@ -16,14 +16,17 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
+import { formatTopicName } from "../../services/arena-service";
 
 const API_BASE = "";
 
 type WordLevel = "A1" | "A2" | "B1" | "B2" | "C1" | "C2";
 type WordType =
   | "noun" | "verb" | "adjective" | "adverb"
-  | "phrase" | "noun_phrase" | "verb_phrase"
+  | "noun_phrase" | "verb_phrase"
   | "idiom" | "collocation";
 
 interface ArenaWord {
@@ -44,10 +47,25 @@ interface UploadedFileItem {
   rowCount: number;
 }
 
+export interface SkippedWordItem {
+  word: string;
+  topic: string;
+  reason: string;
+  existingMeaning?: string;
+  existingLevel?: string;
+  existingType?: string;
+}
+
+export interface ImportSummary {
+  insertedCount: number;
+  skippedCount: number;
+  skippedWords: SkippedWordItem[];
+}
+
 const LEVELS: WordLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
 const WORD_TYPES: WordType[] = [
   "noun", "verb", "adjective", "adverb",
-  "phrase", "noun_phrase", "verb_phrase",
+  "noun_phrase", "verb_phrase",
   "idiom", "collocation",
 ];
 
@@ -56,10 +74,9 @@ const TYPE_LABEL: Record<WordType, string> = {
   verb: "Động từ",
   adjective: "Tính từ",
   adverb: "Trạng từ",
-  phrase: "Cụm từ",
   noun_phrase: "Cụm danh từ",
   verb_phrase: "Cụm động từ",
-  idiom: "Thành ngữ",
+  idiom: "Idiom",
   collocation: "Collocation",
 };
 
@@ -92,6 +109,8 @@ export function AdminArenaView() {
   const [search, setSearch] = useState("");
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
+  const [filterTopic, setFilterTopic] = useState<string>("all");
+  const [topicsList, setTopicsList] = useState<string[]>([]);
 
   // Modals
   const [addOpen, setAddOpen] = useState(false);
@@ -108,9 +127,26 @@ export function AdminArenaView() {
   const [isDragging, setIsDragging] = useState(false);
   const [importError, setImportError] = useState("");
   const [importLoading, setImportLoading] = useState(false);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const LIMIT = 20;
+
+  const fetchTopics = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/arena/topics`, { credentials: "include" });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setTopicsList(data.data);
+      }
+    } catch (e) {
+      console.error("fetchTopics error:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTopics();
+  }, [fetchTopics]);
 
   const fetchWords = useCallback(async (p = page) => {
     setLoading(true);
@@ -119,6 +155,7 @@ export function AdminArenaView() {
       if (search) params.set("q", search);
       if (filterLevel !== "all") params.set("level", filterLevel);
       if (filterType !== "all") params.set("word_type", filterType);
+      if (filterTopic !== "all") params.set("topic", filterTopic);
 
       const res = await fetch(`${API_BASE}/api/admin/arena/words?${params}`, { credentials: "include" });
       const data = await res.json();
@@ -131,11 +168,11 @@ export function AdminArenaView() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterLevel, filterType]);
+  }, [page, search, filterLevel, filterType, filterTopic]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, filterLevel, filterType]);
+  }, [search, filterLevel, filterType, filterTopic]);
 
   useEffect(() => {
     fetchWords(page);
@@ -184,6 +221,7 @@ export function AdminArenaView() {
         setEditWord(null);
         setForm({ ...EMPTY_FORM });
         fetchWords(page);
+        fetchTopics();
       } else {
         setFormError(data.message || "Lỗi không xác định");
       }
@@ -207,6 +245,7 @@ export function AdminArenaView() {
       if (data.success) {
         setDeleteWord(null);
         fetchWords(page);
+        fetchTopics();
       }
     } catch {
       /* silent */
@@ -326,7 +365,21 @@ export function AdminArenaView() {
     }[] = [];
 
     try {
-      parsed = allRows.map((item) => {
+      // Tự động phát hiện và bỏ qua dòng tiêu đề (header: word, meaning, topic, level...)
+      const dataRows = allRows.filter((item) => {
+        const cols = parseCsvRow(item.line);
+        const isHeader =
+          cols[0]?.toLowerCase() === "word" &&
+          (cols[1]?.toLowerCase() === "meaning" || cols[3]?.toLowerCase() === "level");
+        return !isHeader;
+      });
+
+      if (dataRows.length === 0) {
+        setImportError("File CSV không có dữ liệu từ vựng nào (chỉ có dòng tiêu đề hoặc rỗng).");
+        return;
+      }
+
+      parsed = dataRows.map((item) => {
         const cols = parseCsvRow(item.line);
         if (cols.length < 5) {
           throw new Error(`[${item.fileName}] Dòng ${item.lineIndex}: Thiếu cột (cần ít nhất 5 cột: word, meaning, topic, level, word_type)`);
@@ -355,9 +408,16 @@ export function AdminArenaView() {
       });
       const data = await res.json();
       if (data.success) {
-        setImportOpen(false);
-        setUploadedFiles([]);
         fetchWords(1);
+        fetchTopics();
+        if (data.data) {
+          setImportSummary(data.data);
+          setUploadedFiles([]);
+        } else {
+          setImportOpen(false);
+          setUploadedFiles([]);
+          setImportSummary(null);
+        }
       } else {
         setImportError(data.message || "Import thất bại");
       }
@@ -441,8 +501,21 @@ export function AdminArenaView() {
             {WORD_TYPES.map((t) => <SelectItem key={t} value={t}>{TYPE_LABEL[t]}</SelectItem>)}
           </SelectContent>
         </Select>
-        {(search || filterLevel !== "all" || filterType !== "all") && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setFilterLevel("all"); setFilterType("all"); }}>
+        <Select value={filterTopic} onValueChange={setFilterTopic}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Chủ đề" />
+          </SelectTrigger>
+          <SelectContent className="max-h-60 overflow-y-auto [scrollbar-width:thin]">
+            <SelectItem value="all">Tất cả chủ đề</SelectItem>
+            {topicsList.map((top) => (
+              <SelectItem key={top} value={top}>
+                {formatTopicName(top)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(search || filterLevel !== "all" || filterType !== "all" || filterTopic !== "all") && (
+          <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setFilterLevel("all"); setFilterType("all"); setFilterTopic("all"); }}>
             <X className="w-4 h-4 mr-1" /> Xoá bộ lọc
           </Button>
         )}
@@ -482,7 +555,7 @@ export function AdminArenaView() {
                   <TableCell className="pl-6 py-2.5 font-semibold text-sm">{w.word}</TableCell>
                   <TableCell className="py-2.5 text-sm text-muted-foreground max-w-56 truncate">{w.meaning}</TableCell>
                   <TableCell className="py-2.5">
-                    <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground capitalize">{w.topic}</span>
+                    <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{formatTopicName(w.topic)}</span>
                   </TableCell>
                   <TableCell className="py-2.5">
                     <Badge variant="outline" className={`text-xs font-bold border ${LEVEL_COLOR[w.level]}`}>{w.level}</Badge>
@@ -568,7 +641,12 @@ export function AdminArenaView() {
               <label className="text-sm font-medium">Ví dụ <span className="text-muted-foreground font-normal">(không bắt buộc)</span></label>
               <Input placeholder="e.g. She persevered through every challenge." value={form.example} onChange={e => setForm(f => ({ ...f, example: e.target.value }))} />
             </div>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
+            {formError && (
+              <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-medium flex items-start gap-2.5 shadow-xs">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-destructive" />
+                <span className="leading-relaxed">{formError}</span>
+              </div>
+            )}
             <Button className="w-full" onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               {editWord ? "Lưu thay đổi" : "Thêm từ vựng"}
@@ -597,141 +675,245 @@ export function AdminArenaView() {
       </Dialog>
 
       {/* ── Import CSV Modal ─────────────────────────────────────────────────── */}
-      <Dialog open={importOpen} onOpenChange={(open) => { if (!open) { setImportOpen(false); setUploadedFiles([]); setImportError(""); } }}>
-        <DialogContent className="max-w-xl">
+      <Dialog
+        open={importOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setImportOpen(false);
+            setUploadedFiles([]);
+            setImportError("");
+            setImportSummary(null);
+          }
+        }}
+      >
+        <DialogContent className={importSummary ? "max-w-2xl max-h-[85vh] flex flex-col" : "max-w-xl"}>
           <DialogHeader>
-            <DialogTitle>Import từ vựng qua CSV</DialogTitle>
+            <DialogTitle>
+              {importSummary ? "Báo cáo kết quả Import từ vựng" : "Import từ vựng qua CSV"}
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2 text-sm">
-            <div className="bg-muted/50 rounded-lg p-3 text-muted-foreground space-y-1 text-xs font-mono">
-              <p className="font-semibold text-foreground mb-1 font-sans text-xs">Định dạng CSV (không có header, mỗi dòng 1 từ):</p>
-              <p>word, meaning, topic, level, word_type, example (tùy chọn)</p>
-              <p className="text-muted-foreground/70 mt-1">Ví dụ:</p>
-              <p>persevere, "kiên trì, bền bỉ", business, B2, verb, She persevered.</p>
-              <p>resilient, kiên cường, psychology, C1, adjective</p>
-            </div>
 
-            {/* Vùng Dropzone lớn: chỉ hiển thị khi CHƯA có file nào */}
-            {uploadedFiles.length === 0 && (
-              <div
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                  isDragging
+          {importSummary ? (
+            <div className="space-y-4 py-2 text-sm flex-1 overflow-hidden flex flex-col">
+              {/* Thống kê nhanh */}
+              <div className="grid grid-cols-2 gap-3 shrink-0">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600">
+                  <CheckCircle className="w-5 h-5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground font-normal">Thêm mới thành công</p>
+                    <p className="text-lg font-bold">{importSummary.insertedCount} từ</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600">
+                  <AlertTriangle className="w-5 h-5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground font-normal">Bỏ qua do trùng lặp</p>
+                    <p className="text-lg font-bold">{importSummary.skippedCount} từ</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Danh sách các từ bị bỏ qua */}
+              {importSummary.skippedWords && importSummary.skippedWords.length > 0 ? (
+                <div className="flex-1 flex flex-col min-h-0 space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">
+                      Chi tiết {importSummary.skippedWords.length} từ bị bỏ qua:
+                    </span>
+                    <span>(Đã tồn tại trong cùng chủ đề hoặc trùng trong file)</span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto border rounded-xl text-xs [scrollbar-width:thin] max-h-60">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-muted/70 sticky top-0 text-[11px] font-semibold text-muted-foreground z-10">
+                        <tr>
+                          <th className="py-2 px-3 border-b">Từ vựng</th>
+                          <th className="py-2 px-3 border-b">Chủ đề</th>
+                          <th className="py-2 px-3 border-b">Nghĩa đang có trong DB</th>
+                          <th className="py-2 px-3 border-b text-center">Cấp độ</th>
+                          <th className="py-2 px-3 border-b">Lý do</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {importSummary.skippedWords.map((sw, idx) => (
+                          <tr key={idx} className="hover:bg-muted/20">
+                            <td className="py-2 px-3 font-semibold text-foreground">
+                              {sw.word}
+                            </td>
+                            <td className="py-2 px-3 text-muted-foreground">
+                              {formatTopicName(sw.topic)}
+                            </td>
+                            <td className="py-2 px-3 text-muted-foreground">
+                              {sw.existingMeaning || <i>(Trùng trong file tải lên)</i>}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              {sw.existingLevel ? (
+                                <span
+                                  className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${LEVEL_COLOR[sw.existingLevel as WordLevel] || "bg-muted text-muted-foreground"
+                                    }`}
+                                >
+                                  {sw.existingLevel}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-[11px]">-</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-amber-600 font-medium text-[11px]">
+                              {sw.reason || "Đã có trong DB"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-center text-emerald-600 text-sm">
+                  Toàn bộ {importSummary.insertedCount} từ vựng đã được nạp thành công, không có từ nào bị trùng lặp.
+                </div>
+              )}
+
+              <Button
+                className="w-full mt-2"
+                onClick={() => {
+                  setImportOpen(false);
+                  setImportSummary(null);
+                  setUploadedFiles([]);
+                }}
+              >
+                Đóng & Cập nhật danh sách từ vựng
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2 text-sm">
+              <div className="bg-muted/50 rounded-lg p-3 text-muted-foreground space-y-1 text-xs font-mono">
+                <p className="font-semibold text-foreground mb-1 font-sans text-xs">Định dạng CSV (không có header, mỗi dòng 1 từ):</p>
+                <p>word, meaning, topic, level, word_type, example (tùy chọn)</p>
+                <p className="text-muted-foreground/70 mt-1">Ví dụ:</p>
+                <p>persevere, "kiên trì, bền bỉ", business, B2, verb, She persevered.</p>
+                <p>resilient, kiên cường, psychology, C1, adjective</p>
+              </div>
+
+              {/* Vùng Dropzone lớn: chỉ hiển thị khi CHƯA có file nào */}
+              {uploadedFiles.length === 0 && (
+                <div
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${isDragging
                     ? "border-primary bg-primary/10"
                     : "hover:border-primary/50 hover:bg-muted/30 border-border"
-                }`}
-                onClick={() => fileRef.current?.click()}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="font-medium text-sm">Kéo thả hoặc click để chọn một hoặc nhiều file .csv</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Hỗ trợ chọn nhiều file cùng lúc</p>
-              </div>
-            )}
-
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-
-            {/* Danh sách file đã tải: hiển thị khi ĐÃ có file (hỗ trợ kéo thả trực tiếp vào khung) */}
-            {uploadedFiles.length > 0 && (
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-foreground font-semibold">
-                    Danh sách file đã chọn ({uploadedFiles.length})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setUploadedFiles([])}
-                    className="text-muted-foreground hover:text-destructive text-xs transition-colors"
-                  >
-                    Xoá tất cả
-                  </button>
-                </div>
-
-                <div
+                    }`}
+                  onClick={() => fileRef.current?.click()}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`flex flex-wrap gap-3 max-h-56 overflow-y-auto p-2.5 border-2 rounded-xl transition-colors [scrollbar-width:thin] ${
-                    isDragging
+                >
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="font-medium text-sm">Kéo thả hoặc click để chọn một hoặc nhiều file .csv</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Hỗ trợ chọn nhiều file cùng lúc</p>
+                </div>
+              )}
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,text/csv"
+                multiple
+                className="hidden"
+                onChange={handleFileChange}
+              />
+
+              {/* Danh sách file đã tải: hiển thị khi ĐÃ có file (hỗ trợ kéo thả trực tiếp vào khung) */}
+              {uploadedFiles.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="text-foreground font-semibold">
+                      Danh sách file đã chọn ({uploadedFiles.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setUploadedFiles([])}
+                      className="text-muted-foreground hover:text-destructive text-xs transition-colors"
+                    >
+                      Xoá tất cả
+                    </button>
+                  </div>
+
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`flex flex-wrap gap-3 max-h-56 overflow-y-auto p-2.5 border-2 rounded-xl transition-colors [scrollbar-width:thin] ${isDragging
                       ? "border-primary bg-primary/5"
                       : "border-border bg-muted/20"
-                  }`}
-                >
-                  {uploadedFiles.map((file) => (
-                    <div
-                      key={file.id}
-                      className="relative group flex flex-col items-center p-3 rounded-xl border border-border bg-card hover:border-primary/40 transition-all w-28 shrink-0 shadow-xs"
-                    >
-                      {/* Nút xoá file */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeFile(file.id);
-                        }}
-                        className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:scale-110 z-10"
-                        title="Xoá file này"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-
-                      {/* Icon file tài liệu CSV */}
-                      <div className="w-12 h-14 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center relative mb-2 shadow-xs group-hover:scale-105 transition-transform">
-                        <div className="absolute top-0 right-0 w-3 h-3 bg-card border-b border-l border-emerald-500/30 rounded-bl-xs" />
-                        <span className="text-[11px] font-black text-emerald-600 tracking-wider">CSV</span>
-                      </div>
-
-                      {/* Tên file */}
-                      <span
-                        className="text-xs font-medium text-foreground truncate w-full text-center"
-                        title={file.name}
-                      >
-                        {file.name}
-                      </span>
-                      {/* Số dòng */}
-                      <span className="text-[10px] text-emerald-600 font-semibold mt-0.5">
-                        {file.rowCount} dòng
-                      </span>
-                    </div>
-                  ))}
-
-                  {/* Nút thêm file nữa */}
-                  <div
-                    onClick={() => fileRef.current?.click()}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 bg-muted/30 hover:bg-muted/60 cursor-pointer transition-colors w-28 h-[122px] shrink-0 text-muted-foreground hover:text-foreground"
-                    title="Thêm file CSV khác (hoặc kéo thả file vào đây)"
+                      }`}
                   >
-                    <Plus className="w-6 h-6 mb-1 text-muted-foreground" />
-                    <span className="text-xs font-medium text-center">Thêm file</span>
+                    {uploadedFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="relative group flex flex-col items-center p-3 rounded-xl border border-border bg-card hover:border-primary/40 transition-all w-28 shrink-0 shadow-xs"
+                      >
+                        {/* Nút xoá file */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile(file.id);
+                          }}
+                          className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:scale-110 z-10"
+                          title="Xoá file này"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+
+                        {/* Icon file tài liệu CSV */}
+                        <div className="w-12 h-14 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center relative mb-2 shadow-xs group-hover:scale-105 transition-transform">
+                          <div className="absolute top-0 right-0 w-3 h-3 bg-card border-b border-l border-emerald-500/30 rounded-bl-xs" />
+                          <span className="text-[11px] font-black text-emerald-600 tracking-wider">CSV</span>
+                        </div>
+
+                        {/* Tên file */}
+                        <span
+                          className="text-xs font-medium text-foreground truncate w-full text-center"
+                          title={file.name}
+                        >
+                          {file.name}
+                        </span>
+                        {/* Số dòng */}
+                        <span className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                          {file.rowCount} dòng
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Nút thêm file nữa */}
+                    <div
+                      onClick={() => fileRef.current?.click()}
+                      className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 bg-muted/30 hover:bg-muted/60 cursor-pointer transition-colors w-28 h-[122px] shrink-0 text-muted-foreground hover:text-foreground"
+                      title="Thêm file CSV khác (hoặc kéo thả file vào đây)"
+                    >
+                      <Plus className="w-6 h-6 mb-1 text-muted-foreground" />
+                      <span className="text-xs font-medium text-center">Thêm file</span>
+                    </div>
+                  </div>
+
+                  {/* Thống kê tổng số từ */}
+                  <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg text-xs text-emerald-600 font-medium">
+                    <span>Đã chọn {uploadedFiles.length} file</span>
+                    <span className="font-bold">Tổng cộng: {totalImportRows} từ vựng</span>
                   </div>
                 </div>
+              )}
 
-                {/* Thống kê tổng số từ */}
-                <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg text-xs text-emerald-600 font-medium">
-                  <span>Đã chọn {uploadedFiles.length} file</span>
-                  <span className="font-bold">Tổng cộng: {totalImportRows} từ vựng</span>
-                </div>
-              </div>
-            )}
-
-            {importError && <p className="text-destructive text-xs font-medium">{importError}</p>}
-            <Button
-              className="w-full"
-              onClick={handleImport}
-              disabled={importLoading || uploadedFiles.length === 0}
-            >
-              {importLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-              Import ngay {totalImportRows > 0 ? `(${totalImportRows} từ)` : ""}
-            </Button>
-          </div>
+              {importError && <p className="text-destructive text-xs font-medium">{importError}</p>}
+              <Button
+                className="w-full"
+                onClick={handleImport}
+                disabled={importLoading || uploadedFiles.length === 0}
+              >
+                {importLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
+                Import ngay {totalImportRows > 0 ? `(${totalImportRows} từ)` : ""}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

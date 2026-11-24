@@ -15,6 +15,7 @@ import {
     activateSubscription,
     updateSubscriptionSettings,
     getVndBalance,
+    getTodayTopupVnd,
     topupWalletVnd,
     deductWalletVnd,
     hasUsedTrial,
@@ -22,10 +23,13 @@ import {
     getOrderByReference,
     getInvoiceByOrderId,
     cancelPendingOrdersOfUser,
+    cancelSinglePendingOrder,
     CreditPackage,
+    TIER_RANKS,
 } from './payment.repository';
+export { TIER_RANKS };
 import { getActiveCampaigns } from './campaign.repository';
-export { claimCampaignGift } from './campaign.service';
+export { claimCampaignGift, claimRewardCampaign, getActiveRewardCampaigns } from './campaign.service';
 import { sendSubscriptionSuccessEmail } from '../email/email.service';
 
 // ============================================================
@@ -35,12 +39,145 @@ import { sendSubscriptionSuccessEmail } from '../email/email.service';
 export function calcFinalPrice(pkg: CreditPackage): number {
     if (pkg.sale_percent > 0 && pkg.sale_ends_at) {
         const now = new Date();
+        const saleStart = pkg.sale_starts_at ? new Date(pkg.sale_starts_at) : new Date(0);
         const saleEnd = new Date(pkg.sale_ends_at);
-        if (now < saleEnd) {
+        if (now >= saleStart && now < saleEnd) {
             return Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100));
         }
     }
     return pkg.price_vnd;
+}
+
+export interface UpgradeCalculation {
+    type: 'NEW' | 'EXTEND' | 'UPGRADE' | 'DOWNGRADE' | 'INVALID_CYCLE';
+    isUpgrade: boolean;
+    finalPrice: number;
+    originalPrice: number;
+    unusedOldValue: number;
+    remainingDays: number;
+    currentTier: string | null;
+    targetTier: string | null;
+    currentPackageName?: string;
+    message?: string;
+}
+
+// Tính toán giá cước khi mua gói hội viên (hỗ trợ Nâng cấp bù trừ Prorated / Chặn hạ cấp)
+export async function calculateSubscriptionPricing(
+    userId: string,
+    targetPkg: CreditPackage
+): Promise<UpgradeCalculation> {
+    const finalPrice = calcFinalPrice(targetPkg);
+
+    if (targetPkg.package_type !== 'SUBSCRIPTION') {
+        return {
+            type: 'NEW',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: null,
+            targetTier: targetPkg.tier,
+        };
+    }
+
+    const currentSub = await getUserSubscription(userId);
+
+    // Trường hợp 1: Chưa có subscription hoặc gói cũ đã hết hạn
+    if (!currentSub || !currentSub.expires_at || new Date(currentSub.expires_at).getTime() <= Date.now()) {
+        return {
+            type: 'NEW',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: 'FREE',
+            targetTier: targetPkg.tier,
+        };
+    }
+
+    const curRank = TIER_RANKS[currentSub.tier] ?? 0;
+    const targetRank = TIER_RANKS[targetPkg.tier ?? ''] ?? 0;
+
+    // Trường hợp 2: Hạ cấp (targetRank < curRank) -> Không cho phép khi gói cũ còn hạn
+    if (targetRank < curRank) {
+        return {
+            type: 'DOWNGRADE',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: currentSub.tier,
+            targetTier: targetPkg.tier,
+            message: 'Đã bao gồm trong gói của bạn (không thể xuống gói thấp hơn)',
+        };
+    }
+
+    // Trường hợp 3: Cùng hạng gói -> Gia hạn
+    if (targetRank === curRank) {
+        return {
+            type: 'EXTEND',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: currentSub.tier,
+            targetTier: targetPkg.tier,
+        };
+    }
+
+    // Trường hợp 4: Nâng cấp gói cao hơn (targetRank > curRank)
+    const curDuration = Number(currentSub.duration_days) || 30;
+    const targetDuration = Number(targetPkg.duration_days) || 30;
+
+    // Ràng buộc chu kỳ: Phải chọn gói có chu kỳ >= chu kỳ đang sử dụng
+    if (targetDuration < curDuration) {
+        return {
+            type: 'INVALID_CYCLE',
+            isUpgrade: false,
+            finalPrice,
+            originalPrice: finalPrice,
+            unusedOldValue: 0,
+            remainingDays: 0,
+            currentTier: currentSub.tier,
+            targetTier: targetPkg.tier,
+            message: `Chỉ được nâng cấp lên gói có chu kỳ từ ${curDuration} ngày trở lên`,
+        };
+    }
+
+    // Tính toán số tiền bù trừ (Prorated Formula theo chuẩn docs/payment-subscription.md)
+    let oldPrice = 0;
+    let oldPkgName: string = currentSub.tier;
+    if (currentSub.package_id) {
+        const oldPkg = await getPackageById(currentSub.package_id);
+        if (oldPkg && !oldPkg.is_trial) {
+            oldPrice = calcFinalPrice(oldPkg);
+            oldPkgName = oldPkg.name;
+        }
+    }
+
+    const remainingMs = Math.max(0, new Date(currentSub.expires_at).getTime() - Date.now());
+    const remainingDays = Math.max(0, remainingMs / (24 * 60 * 60 * 1000));
+    const unusedOldValue = Math.round((oldPrice / curDuration) * remainingDays);
+
+    const diffPrice = finalPrice - unusedOldValue;
+    // Số tiền chênh lệch thanh toán tối thiểu 10.000 VNĐ theo chuẩn VietQR
+    const upgradePrice = Math.max(10000, Math.round(diffPrice));
+
+    return {
+        type: 'UPGRADE',
+        isUpgrade: true,
+        finalPrice: upgradePrice,
+        originalPrice: finalPrice,
+        unusedOldValue,
+        remainingDays: Math.ceil(remainingDays),
+        currentTier: currentSub.tier,
+        targetTier: targetPkg.tier,
+        currentPackageName: oldPkgName,
+    };
 }
 
 // ============================================================
@@ -57,10 +194,14 @@ export const getPackages = async (userId?: string) => {
     const packages = await getAllPackages();
     let subscriptions = packages.filter(p => p.package_type === 'SUBSCRIPTION');
 
-    // Nếu user đã từng dùng trial, ẩn gói trial chào mừng mặc định đi
+    // Nếu user đã từng dùng trial HOẶC đang có gói trả phí hoạt động, ẩn gói trial chào mừng mặc định đi
     if (userId) {
-        const usedTrial = await hasUsedTrial(userId);
-        if (usedTrial) {
+        const [usedTrial, currentSub] = await Promise.all([
+            hasUsedTrial(userId),
+            getUserSubscription(userId),
+        ]);
+        const isPaidActive = Boolean(currentSub && currentSub.tier !== 'FREE' && currentSub.expires_at && new Date(currentSub.expires_at).getTime() > Date.now());
+        if (usedTrial || isPaidActive) {
             subscriptions = subscriptions.filter(p => !p.is_trial);
         }
     }
@@ -108,10 +249,11 @@ export const getPackages = async (userId?: string) => {
 // ============================================================
 
 export const getMySubscription = async (userId: string) => {
-    const [sub, vndBalance, trialUsed] = await Promise.all([
+    const [sub, vndBalance, trialUsed, todayTopup] = await Promise.all([
         getUserSubscription(userId),
         getVndBalance(userId),
         hasUsedTrial(userId),
+        getTodayTopupVnd(userId),
     ]);
 
     // Lấy coin/diamond balance từ wallets
@@ -132,6 +274,7 @@ export const getMySubscription = async (userId: string) => {
         coinBalance:       Number(wallet.coin_balance),
         diamondBalance:    Number(wallet.diamond_balance),
         walletBalanceVnd:  vndBalance,
+        todayTopupVnd:     todayTopup,
         hasUsedTrial:      trialUsed,
     };
 };
@@ -185,7 +328,15 @@ export const payWithWallet = async (userId: string, packageId: string) => {
         return activateTrialPlan(userId, pkg);
     }
 
-    const finalPrice = calcFinalPrice(pkg);
+    const pricing = await calculateSubscriptionPricing(userId, pkg);
+    if (pricing.type === 'DOWNGRADE') {
+        throw new AppError(pricing.message || 'Không thể hạ xuống gói thấp hơn gói hiện tại', 400);
+    }
+    if (pricing.type === 'INVALID_CYCLE') {
+        throw new AppError(pricing.message || 'Chỉ có thể nâng cấp chu kỳ bằng hoặc dài hơn', 400);
+    }
+
+    const finalPrice = pricing.finalPrice;
     if (finalPrice === 0) throw new AppError('Giá trị gói thanh toán không hợp lệ', 400);
 
     const conn = await (pool as any).getConnection();
@@ -198,15 +349,21 @@ export const payWithWallet = async (userId: string, packageId: string) => {
 
         // Tạo đơn thanh toán
         const orderId = uuidv4();
-        const [orderResult] = await conn.execute(
-            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
-             VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?)`,
-            [orderId, userId, packageId, finalPrice, `WALLET_${orderId.slice(0, 8).toUpperCase()}`]
-        ) as any;
-        const orderCode = `LC${orderResult.insertId}`;
+        const orderCode = await generateUniqueOrderCode();
+        const walletTxnId = `WALLET_${orderId.slice(0, 8).toUpperCase()}`;
+        const metadata = pricing.isUpgrade ? {
+            isUpgrade: true,
+            fromTier: pricing.currentTier,
+            toTier: pricing.targetTier,
+            unusedOldValue: pricing.unusedOldValue,
+            remainingDays: pricing.remainingDays,
+            originalPrice: pricing.originalPrice,
+        } : null;
+
         await conn.execute(
-            `UPDATE payment_orders SET payment_reference = ? WHERE id = ?`,
-            [orderCode, orderId]
+            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id, payment_reference, metadata)
+             VALUES (?, ?, ?, ?, 'WALLET', 'SUCCESS', ?, ?, ?)`,
+            [orderId, userId, packageId, finalPrice, walletTxnId, orderCode, metadata ? JSON.stringify(metadata) : null]
         );
 
         // Cộng coin/diamond (nếu là topup pack)
@@ -216,17 +373,20 @@ export const payWithWallet = async (userId: string, packageId: string) => {
 
         // Kích hoạt subscription (nếu là gói hội viên)
         if (pkg.package_type === 'SUBSCRIPTION' && pkg.tier && pkg.duration_days) {
-            await activateSubscription(conn, userId, packageId, pkg.tier as any, pkg.duration_days);
+            await activateSubscription(conn, userId, packageId, pkg.tier as any, pkg.duration_days, pricing.isUpgrade);
         }
 
         await conn.commit();
         return {
             success: true,
             orderId,
-            message: 'Thanh toán thành công qua Ví LexiCore!',
+            message: pricing.isUpgrade
+                ? `Nâng cấp lên gói ${pkg.name} thành công qua Ví LexiCore!`
+                : 'Thanh toán thành công qua Ví LexiCore!',
             coinEarned:    pkg.coin_amount,
             diamondEarned: pkg.diamond_amount,
             amountVnd:     finalPrice,
+            isUpgrade:     pricing.isUpgrade,
         };
     } catch (err) {
         await conn.rollback();
@@ -245,21 +405,23 @@ export const activateTrialPlan = async (userId: string, pkg: CreditPackage) => {
     if (alreadyUsed) throw new AppError('Bạn đã sử dụng gói dùng thử rồi', 400);
     if (!pkg.duration_days) throw new AppError('Gói dùng thử cấu hình chưa chính xác', 500);
 
+    const currentSub = await getUserSubscription(userId);
+    if (currentSub && currentSub.tier !== 'FREE' && currentSub.expires_at && new Date(currentSub.expires_at).getTime() > Date.now()) {
+        throw new AppError(`Bạn đang sử dụng gói hội viên ${currentSub.tier}. Gói dùng thử chỉ áp dụng cho tài khoản Miễn phí.`, 400);
+    }
+
     const conn = await (pool as any).getConnection();
     try {
         await conn.beginTransaction();
 
         // Tạo đơn với amount = 0
+        // Lưu ý: PK là UUID nên insertId = 0, dùng generateUniqueOrderCode()
         const orderId = uuidv4();
-        const [trialOrderResult] = await conn.execute(
-            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id)
-             VALUES (?, ?, ?, 0, 'MOCK', 'SUCCESS', ?)`,
-            [orderId, userId, pkg.id, `TRIAL_${orderId.slice(0, 8).toUpperCase()}`]
-        ) as any;
-        const trialOrderCode = `LC${trialOrderResult.insertId}`;
+        const trialOrderCode = await generateUniqueOrderCode();
         await conn.execute(
-            `UPDATE payment_orders SET payment_reference = ? WHERE id = ?`,
-            [trialOrderCode, orderId]
+            `INSERT INTO payment_orders (id, user_id, package_id, amount_vnd, gateway, status, gateway_txn_id, payment_reference)
+             VALUES (?, ?, ?, 0, 'MOCK', 'SUCCESS', ?, ?)`,
+            [orderId, userId, pkg.id, `TRIAL_${orderId.slice(0, 8).toUpperCase()}`, trialOrderCode]
         );
 
         await activateSubscription(conn, userId, pkg.id, pkg.tier as any ?? 'PRO', pkg.duration_days);
@@ -357,7 +519,15 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
     const pkg = await getPackageById(packageId);
     if (!pkg) throw new AppError('Gói không tồn tại', 404);
 
-    const finalPrice = calcFinalPrice(pkg);
+    const pricing = await calculateSubscriptionPricing(userId, pkg);
+    if (pricing.type === 'DOWNGRADE') {
+        throw new AppError(pricing.message || 'Không thể hạ xuống gói thấp hơn gói hiện tại', 400);
+    }
+    if (pricing.type === 'INVALID_CYCLE') {
+        throw new AppError(pricing.message || 'Chỉ có thể nâng cấp chu kỳ bằng hoặc dài hơn', 400);
+    }
+
+    const finalPrice = pricing.finalPrice;
     if (finalPrice <= 0) {
         throw new AppError('Gói miễn phí không cần thanh toán qua ngân hàng', 400);
     }
@@ -365,8 +535,17 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
     // Tự động hủy các đơn PENDING cũ của user trước khi tạo đơn mới
     await cancelPendingOrdersOfUser(userId);
 
-    // Tạo đơn trước, sau đó sinh order code duy nhất
-    const orderId = await createPaymentOrder(userId, packageId, finalPrice, 'SEPAY');
+    // Tạo đơn với metadata ghi nhận nếu là đơn nâng cấp
+    const metadata = pricing.isUpgrade ? {
+        isUpgrade: true,
+        fromTier: pricing.currentTier,
+        toTier: pricing.targetTier,
+        unusedOldValue: pricing.unusedOldValue,
+        remainingDays: pricing.remainingDays,
+        originalPrice: pricing.originalPrice,
+    } : null;
+
+    const orderId = await createPaymentOrder(userId, packageId, finalPrice, 'SEPAY', metadata);
 
     // Sinh order_code ngẫu nhiên, đảm bảo không trùng (ví dụ: LC583421)
     const orderCode = await generateUniqueOrderCode();
@@ -375,9 +554,11 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
     const bankCode    = process.env.SEPAY_BANK_CODE   || 'BIDV';
     const accNumber   = process.env.SEPAY_ACC_NUMBER  || '0000000000';
     const accName     = process.env.SEPAY_ACC_NAME    || 'LEXICORE';
+    // BIDV yêu cầu dùng số tài khoản ảo (VA) thay vì số TK thật
+    const qrAcc       = process.env.SEPAY_VA_NUMBER   || accNumber;
 
-    // Cú pháp QR URL chính xác theo SePay
-    const qrUrl = `https://qr.sepay.vn/img?acc=${accNumber}&bank=${bankCode}&amount=${finalPrice}&des=${orderCode}`;
+    // Dùng vietqr.app (cùng chuẩn mà SePay dashboard dùng), VA cho BIDV
+    const qrUrl = `https://vietqr.app/img?bank=${bankCode}&acc=${qrAcc}&amount=${finalPrice}&des=${orderCode}&template=compact`;
 
     return {
         orderId,
@@ -387,6 +568,8 @@ export const initSepayPayment = async (userId: string, packageId: string) => {
         accountNumber: accNumber,
         accountName:   accName,
         qrUrl,
+        isUpgrade: pricing.isUpgrade,
+        pricingDetails: pricing,
     };
 };
 
@@ -424,8 +607,11 @@ export const initWalletTopup = async (userId: string, amountVnd: number) => {
     const bankCode    = process.env.SEPAY_BANK_CODE   || 'BIDV';
     const accNumber   = process.env.SEPAY_ACC_NUMBER  || '0000000000';
     const accName     = process.env.SEPAY_ACC_NAME    || 'LEXICORE';
+    // BIDV yêu cầu dùng số tài khoản ảo (VA) thay vì số TK thật
+    const qrAcc       = process.env.SEPAY_VA_NUMBER   || accNumber;
 
-    const qrUrl = `https://qr.sepay.vn/img?acc=${accNumber}&bank=${bankCode}&amount=${amountVnd}&des=${orderCode}`;
+    // Dùng vietqr.app — cùng chuẩn mà SePay dashboard dùng, hỗ trợ VA cho BIDV
+    const qrUrl = `https://vietqr.app/img?bank=${bankCode}&acc=${qrAcc}&amount=${amountVnd}&des=${orderCode}&template=compact`;
 
     return {
         orderId,
@@ -459,13 +645,24 @@ export const handleSepayWebhook = async (
     payload: SepayWebhookPayload,
     authorizationHeader?: string
 ) => {
+    // Log toàn bộ payload để debug (sẽ xoá sau khi xác nhận hoạt động đúng)
+    console.log('[SePay Webhook] Nhận webhook. Header Authorization:', authorizationHeader || '(không có)');
+    console.log('[SePay Webhook] Payload:', JSON.stringify(payload));
+
     // 1. Kiểm tra API Key nếu cấu hình trong .env
     const configuredApiKey = process.env.SEPAY_API_KEY;
     if (configuredApiKey) {
-        const token = authorizationHeader?.replace(/^Apikey\s+/i, '').trim();
+        const rawToken = authorizationHeader || '';
+        const token = rawToken.replace(/^Apikey\s+/i, '').replace(/^Bearer\s+/i, '').trim();
+        console.log('[SePay Webhook] API Key nhận được:', token ? token.slice(0, 8) + '...' : '(trống)');
+        console.log('[SePay Webhook] API Key cấu hình:', configuredApiKey ? configuredApiKey.slice(0, 8) + '...' : '(chưa cấu hình)');
         if (token !== configuredApiKey) {
+            console.error('[SePay Webhook] Xác thực thất bại! Key không khớp.');
             throw new AppError('Xác thực SePay webhook thất bại: API Key không hợp lệ', 401);
         }
+        console.log('[SePay Webhook] Xác thực API Key thành công.');
+    } else {
+        console.warn('[SePay Webhook] CANH BAO: SEPAY_API_KEY chua duoc cau hinh, bo qua kiem tra xac thuc!');
     }
 
     // Chỉ xử lý giao dịch tiền vào (transferType = 'in')
@@ -551,12 +748,21 @@ export const handleSepayWebhook = async (
         } else {
             // Kích hoạt subscription nếu là gói SUBSCRIPTION
             if (order.package_type === 'SUBSCRIPTION' && order.tier && order.duration_days) {
+                let isUpgrade = false;
+                try {
+                    if (order.metadata) {
+                        const meta = typeof order.metadata === 'string' ? JSON.parse(order.metadata) : order.metadata;
+                        if (meta?.isUpgrade) isUpgrade = true;
+                    }
+                } catch { }
+
                 await activateSubscription(
                     conn,
                     order.user_id,
                     order.package_id,
                     order.tier,
-                    order.duration_days
+                    order.duration_days,
+                    isUpgrade
                 );
             }
 
@@ -585,7 +791,7 @@ export const handleSepayWebhook = async (
         );
 
         await conn.commit();
-        console.log(`[SePay Webhook] ✅ Kích hoạt thành công đơn hàng ${order.id} (${matchRef})!`);
+        console.log(`[SePay Webhook] Kích hoạt thành công đơn hàng ${order.id} (${matchRef})!`);
 
         // Gửi email biên lai tự động nếu là gói SUBSCRIPTION và user có email
         if (order.package_type === 'SUBSCRIPTION' && order.user_email) {
@@ -617,6 +823,18 @@ export const handleSepayWebhook = async (
     } finally {
         conn.release();
     }
+};
+
+// ============================================================
+// Huỷ đơn PENDING do user chủ động yêu cầu
+// ============================================================
+
+export const cancelMyPendingOrder = async (userId: string, orderId: string) => {
+    const cancelled = await cancelSinglePendingOrder(orderId, userId);
+    if (!cancelled) {
+        throw new AppError('Không tìm thấy đơn hàng hoặc đơn không ở trạng thái chờ thanh toán', 404);
+    }
+    return { success: true, message: 'Đã huỷ đơn hàng thành công' };
 };
 
 // ============================================================

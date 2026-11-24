@@ -5,7 +5,7 @@ export interface InvoiceTransaction {
   date: string;
   description: string;
   amountVnd: number;
-  status: "SUCCESS" | "PENDING" | "FAILED";
+  status: "SUCCESS" | "PENDING" | "FAILED" | "CANCELLED";
   paymentMethod?: string;
 }
 

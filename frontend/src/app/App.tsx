@@ -26,11 +26,14 @@ import { SubscriptionView } from "./components/dashboard/SubscriptionView";
 import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
 import { FriendsButton } from "./components/global/FriendsButton";
+import { FriendlyInviteToast } from "./components/dashboard/arena/FriendlyInviteToast";
+import { MatchedPayload } from "./services/arena-socket.service";
 import { ChatButton } from "./components/global/ChatButton";
 import { ChatDialog } from "./components/global/ChatDialog";
 import { SocialProvider, useSocial } from "./features/social/SocialContext";
 import { Badge } from "./components/ui/badge";
 import { CircleDollarSign, Flame } from "lucide-react";
+import { MaintenancePage } from "./components/global/MaintenancePage";
 
 const TAB_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -74,6 +77,36 @@ function AppContent() {
   const [userTier, setUserTier] = useState<"STARTER" | "PRO" | "ELITE" | null>(() => {
     return (localStorage.getItem("lexicore_user_tier") as any) || null;
   });
+  const [pendingArenaMatch, setPendingArenaMatch] = useState<MatchedPayload | null>(null);
+  const [maintenance, setMaintenance] = useState<{
+    active: boolean;
+    title?: string;
+    message?: string;
+    estimatedEnd?: string | null;
+  }>({ active: false });
+
+  // Kiểm tra tình trạng bảo trì hệ thống
+  useEffect(() => {
+    const checkSystemStatus = () => {
+      fetch("/api/system/status")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.success) {
+            setMaintenance({
+              active: Boolean(data.active),
+              title: data.title,
+              message: data.message,
+              estimatedEnd: data.estimatedEnd,
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    checkSystemStatus();
+    const interval = setInterval(checkSystemStatus, 45000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Sync tab khi location state hoặc search params thay đổi
   useEffect(() => {
@@ -127,18 +160,30 @@ function AppContent() {
         else localStorage.removeItem("lexicore_user_tier");
       }
     };
+    const handleWalletChange = (e: any) => {
+      if (e.detail?.coinBalance !== undefined) {
+        setCoins(Number(e.detail.coinBalance));
+      }
+    };
     window.addEventListener("navigate-tab", handleNavigateTab);
     window.addEventListener("membership-tier-change", handleTierChange);
+    window.addEventListener("wallet-balance-change", handleWalletChange);
     return () => {
       window.removeEventListener("navigate-tab", handleNavigateTab);
       window.removeEventListener("membership-tier-change", handleTierChange);
+      window.removeEventListener("wallet-balance-change", handleWalletChange);
     };
   }, []);
 
-  const handleChallenge = () => {
+  const handleChallenge = (friend?: any) => {
     setFriendsOpen(false);
     setIsChatOpen(false);
     setActiveTab("arena");
+    if (friend) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('arena:challenge_user', { detail: friend }));
+      }, 150);
+    }
   };
 
   const handleOpenChatWithFriend = (friend: { id: string; full_name: string; avatar_url: string | null }) => {
@@ -154,7 +199,12 @@ function AppContent() {
       case "shadowing": return <ShadowingView />;
       case "practice": return <PracticeView />;
       case "exam": return <ExamView />;
-      case "arena": return <ArenaView />;
+      case "arena": return (
+        <ArenaView
+          initialPendingMatch={pendingArenaMatch}
+          onClearPendingMatch={() => setPendingArenaMatch(null)}
+        />
+      );
       case "community": return <CommunityView />;
       case "private-space": return <PrivateSpaceView onNavigateTab={setActiveTab} userRole={userRole || "user"} creatorStatus={creatorStatus} />;
       case "creator": return <CreatorStudioView onNavigateTab={setActiveTab} userRole={userRole || "user"} creatorStatus={creatorStatus} />;
@@ -173,6 +223,16 @@ function AppContent() {
       default: return <DashboardView onNavigateTab={setActiveTab} userName={userName} />;
     }
   };
+
+  if (maintenance.active && userRole !== "admin") {
+    return (
+      <MaintenancePage
+        title={maintenance.title}
+        message={maintenance.message}
+        estimatedEnd={maintenance.estimatedEnd}
+      />
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -233,6 +293,15 @@ function AppContent() {
         open={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         onChallenge={handleChallenge}
+      />
+
+      {/* Thông báo thách đấu giao hữu trượt từ mép phải dưới header */}
+      <FriendlyInviteToast
+        onNavigateArena={() => setActiveTab("arena")}
+        onAcceptMatched={(matchData) => {
+          setPendingArenaMatch(matchData);
+          setActiveTab("arena");
+        }}
       />
     </SidebarProvider>
   );

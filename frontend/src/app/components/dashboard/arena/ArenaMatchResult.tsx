@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import {
   Swords,
@@ -12,6 +12,12 @@ import {
   Check,
   X,
   CheckCircle2,
+  XCircle,
+  CircleDollarSign,
+  Zap,
+  Gift,
+  ArrowRight,
+  Info,
 } from 'lucide-react';
 import { getRankBadgeUrl } from '../../../services/arena-service';
 import { GameOverPayload, MatchReviewWord, ArenaPlayerInfo } from '../../../services/arena-socket.service';
@@ -141,6 +147,32 @@ const RankProgressBar: React.FC<{
   );
 };
 
+// So sánh từng ký tự người dùng gõ với từ đúng để gạch chân chính xác ký tự sai (ví dụ evel thì gạch chân e thứ 2)
+const renderMismatchCharacters = (userAnswer: string, correctWord: string) => {
+  const target = (correctWord || '').toLowerCase();
+  const chars = (userAnswer || '').split('');
+
+  return (
+    <span className="inline-flex items-center tracking-wide">
+      {chars.map((char, idx) => {
+        const isWrongChar = idx >= target.length || char.toLowerCase() !== target[idx];
+        return (
+          <span
+            key={idx}
+            className={
+              isWrongChar
+                ? 'underline underline-offset-4 decoration-rose-500 decoration-[2.5px] font-black text-rose-500'
+                : 'text-rose-400 font-bold'
+            }
+          >
+            {char}
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
 export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
   gameOverData,
   mePlayerInfo,
@@ -150,9 +182,56 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
 }) => {
   const { myResult, myStats, opponentStats, words, reason } = gameOverData;
 
+  const [wordFilter, setWordFilter] = useState<'ALL' | 'INCORRECT' | 'CORRECT'>('ALL');
+
+  // Tự động làm mới số dư ví trên Navbar toàn cục khi xem kết quả trận đấu
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.coin_balance !== undefined) {
+          window.dispatchEvent(
+            new CustomEvent('wallet-balance-change', {
+              detail: { coinBalance: data.coin_balance },
+            })
+          );
+        }
+      })
+      .catch(() => { });
+  }, []);
+
   const isWin = myResult === 'WIN';
   const isLoss = myResult === 'LOSS';
   const isDraw = myResult === 'DRAW';
+
+  // Nhận diện trạng thái x2 thưởng từ gói cước
+  const isDouble = Boolean(gameOverData.wasDoubleReward || myStats.wasDoubleReward);
+  const earnedCoins =
+    typeof myStats.earnedCoins === 'number'
+      ? myStats.earnedCoins
+      : isWin
+        ? isDouble ? 100 : 50
+        : isLoss
+          ? isDouble ? 20 : 10
+          : isDouble ? 40 : 20;
+
+  const earnedExp =
+    typeof myStats.earnedExp === 'number'
+      ? myStats.earnedExp
+      : isWin
+        ? isDouble ? 200 : 100
+        : isLoss
+          ? isDouble ? 60 : 30
+          : isDouble ? 100 : 50;
+
+  const incorrectWordsCount = words.filter((w) => !w.myCorrect).length;
+  const correctWordsCount = words.filter((w) => w.myCorrect).length;
+
+  const filteredWords = words.filter((item) => {
+    if (wordFilter === 'INCORRECT') return !item.myCorrect;
+    if (wordFilter === 'CORRECT') return item.myCorrect;
+    return true;
+  });
 
   // Xác định banner và emblem cho P1 (bản thân)
   const myBannerSrc = isWin
@@ -542,153 +621,324 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
         </div>
       </div>
 
-      {/* ── NỬA DƯỚI: BẢNG THỐNG KÊ (BÊN TRÁI) ── BẢNG 25 TỪ VỰNG CỦA USER (BÊN PHẢI) ── */}
+      {/* ── NỬA DƯỚI: BẢNG THỐNG KÊ & THƯỞNG (BÊN TRÁI) ── BẢNG 25 TỪ VỰNG DẠNG THẺ (BÊN PHẢI) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pt-2">
-        {/* ── CỘT TRÁI (BẢNG THỐNG KÊ ĐỐI ĐẦU TRỰC TIẾP): lg:col-span-5 ── */}
-        <div className="lg:col-span-5 rounded-3xl border bg-card/70 backdrop-blur-md p-5 sm:p-6 shadow-lg space-y-4">
-          <div className="flex items-center justify-between border-b pb-3 text-xs font-black uppercase text-foreground">
-            <div className="flex items-center gap-2 text-primary">
-              <Trophy className="w-4 h-4" />
-              <span>Thống Kê Đối Đầu</span>
+        {/* ── CỘT TRÁI: lg:col-span-5 GỒM 2 CARD LIÊN HOÀN (THỐNG KÊ ĐỐI ĐẦU + PHẦN THƯỞNG TRẬN ĐẤU) ── */}
+        <div className="lg:col-span-5 flex flex-col gap-4">
+          {/* CARD 1: THỐNG KÊ ĐỐI ĐẦU */}
+          <div className="rounded-3xl border bg-card/70 backdrop-blur-md p-5 sm:p-6 shadow-lg space-y-4">
+            <div className="flex items-center justify-between border-b pb-3 text-xs font-black uppercase text-foreground">
+              <div className="flex items-center gap-2 text-primary">
+                <Trophy className="w-4 h-4" />
+                <span>Thống Kê Đối Đầu</span>
+              </div>
+              <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-bold">
+                <span className="text-primary font-black">P1</span>
+                <span>vs</span>
+                <span className="text-amber-500 font-black">P2</span>
+              </div>
             </div>
-            <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-bold">
-              <span className="text-primary font-black">P1</span>
-              <span>vs</span>
-              <span className="text-amber-500 font-black">P2</span>
+
+            {/* 4 DÒNG THỐNG KÊ ĐỒNG BỘ TUYỆT ĐỐI */}
+            <div className="space-y-2.5">
+              {/* Dòng 1: Tổng điểm */}
+              <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
+                <div className="col-span-1 text-base sm:text-lg font-black font-mono text-amber-500 text-right pr-2">
+                  {myScore}
+                </div>
+                <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+                  <span>Tổng Điểm (250)</span>
+                </div>
+                <div className="col-span-1 text-base sm:text-lg font-black font-mono text-amber-500 text-left pl-2">
+                  {oppScore}
+                </div>
+              </div>
+
+              {/* Dòng 2: Câu trả lời đúng */}
+              <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
+                <div className="col-span-1 text-base sm:text-lg font-black font-mono text-emerald-500 text-right pr-2">
+                  {myStats.correct}/25
+                </div>
+                <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Câu Đúng</span>
+                </div>
+                <div className="col-span-1 text-base sm:text-lg font-black font-mono text-emerald-500 text-left pl-2">
+                  {opponentStats.correct}/25
+                </div>
+              </div>
+
+              {/* Dòng 3: Thời gian dùng */}
+              <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
+                <div className="col-span-1 text-base sm:text-lg font-black font-mono text-sky-500 text-right pr-2">
+                  {formatTimeMs(myStats.timeMs)}
+                </div>
+                <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
+                  <Clock className="w-4 h-4 text-sky-400" />
+                  <span>Thời Gian</span>
+                </div>
+                <div className="col-span-1 text-base sm:text-lg font-black font-mono text-sky-500 text-left pl-2">
+                  {formatTimeMs(opponentStats.timeMs)}
+                </div>
+              </div>
+
+              {/* Dòng 4: Độ chính xác */}
+              <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
+                <div className="col-span-1 text-base sm:text-lg font-black font-mono text-rose-500 text-right pr-2">
+                  {myAccuracy}%
+                </div>
+                <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
+                  <Target className="w-4 h-4 text-rose-400" />
+                  <span>Độ Chính Xác</span>
+                </div>
+                <div className="col-span-1 text-base sm:text-lg font-black font-mono text-rose-500 text-left pl-2">
+                  {oppAccuracy}%
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* 4 DÒNG THỐNG KÊ ĐỒNG BỘ TUYỆT ĐỐI */}
-          <div className="space-y-2.5">
-            {/* Dòng 1: Tổng điểm */}
-            <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-amber-500 text-right pr-2">
-                {myScore}
+          {/* CARD 2: PHẦN THƯỞNG TRẬN ĐẤU (COINS & EXP + BADGE X2) */}
+          <div className="rounded-3xl border bg-card/70 backdrop-blur-md p-5 sm:p-6 shadow-lg space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2 text-primary font-black uppercase text-xs">
+                <Gift className="w-4 h-4" />
+                <span>Phần Thưởng Trận Đấu</span>
               </div>
-              <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400/20" />
-                <span>Tổng Điểm (250)</span>
+              {isDouble && (
+                <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-500 text-[10px] font-black uppercase tracking-wider shadow-xs animate-pulse">
+                  <Zap className="w-3 h-3 text-amber-500" />
+                  <span>x2 Thưởng Hội Viên</span>
+                </div>
+              )}
+            </div>
+
+            {/* 2 BOX PHẦN THƯỞNG: COIN & EXP */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Box Coin (chuẩn màu emerald và icon CircleDollarSign như trên Header) */}
+              <div className="relative rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 flex items-center gap-3 overflow-hidden shadow-xs">
+                {isDouble && (
+                  <span className="absolute top-1.5 right-2 px-1.5 py-0.5 rounded-md bg-emerald-600 text-[9px] font-black text-white leading-none uppercase">
+                    x2
+                  </span>
+                )}
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                  <CircleDollarSign className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                    LexiCoin
+                  </p>
+                  <p className="text-lg sm:text-xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+                    +{earnedCoins.toLocaleString()}
+                  </p>
+                </div>
               </div>
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-amber-500 text-left pl-2">
-                {oppScore}
+
+              {/* Box EXP */}
+              <div className="relative rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-3.5 flex items-center gap-3 overflow-hidden shadow-xs">
+                {isDouble && (
+                  <span className="absolute top-1.5 right-2 px-1.5 py-0.5 rounded-md bg-indigo-500 text-[9px] font-black text-white leading-none uppercase">
+                    x2
+                  </span>
+                )}
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+                  <Zap className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Kinh Nghiệm
+                  </p>
+                  <p className="text-lg sm:text-xl font-black font-mono text-indigo-400">
+                    +{earnedExp.toLocaleString()} EXP
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Dòng 2: Câu trả lời đúng */}
-            <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-emerald-500 text-right pr-2">
-                {myStats.correct}/25
-              </div>
-              <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Câu Đúng</span>
-              </div>
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-emerald-500 text-left pl-2">
-                {opponentStats.correct}/25
-              </div>
-            </div>
-
-            {/* Dòng 3: Thời gian dùng */}
-            <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-sky-500 text-right pr-2">
-                {formatTimeMs(myStats.timeMs)}
-              </div>
-              <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
-                <Clock className="w-4 h-4 text-sky-400" />
-                <span>Thời Gian</span>
-              </div>
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-sky-500 text-left pl-2">
-                {formatTimeMs(opponentStats.timeMs)}
-              </div>
-            </div>
-
-            {/* Dòng 4: Độ chính xác */}
-            <div className="grid grid-cols-5 items-center p-3 rounded-2xl bg-muted/40 border border-border/50 text-center">
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-rose-500 text-right pr-2">
-                {myAccuracy}%
-              </div>
-              <div className="col-span-3 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-bold text-foreground">
-                <Target className="w-4 h-4 text-rose-400" />
-                <span>Độ Chính Xác</span>
-              </div>
-              <div className="col-span-1 text-base sm:text-lg font-black font-mono text-rose-500 text-left pl-2">
-                {oppAccuracy}%
-              </div>
+            {/* Chú thích trạng thái phần thưởng */}
+            <div className="pt-1">
+              {isDouble ? (
+                <p className="text-[11px] text-muted-foreground/85 font-medium flex items-center justify-center gap-1.5 bg-muted/30 px-2.5 py-1.5 rounded-xl border border-border/30">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                  <span>Đã áp dụng nhân đôi x2 Coin & EXP từ quyền lợi gói hội viên của bạn.</span>
+                </p>
+              ) : earnedCoins === 0 && earnedExp === 0 ? (
+                <p className="text-[11px] text-muted-foreground/85 font-medium flex items-center justify-center gap-1.5 bg-muted/30 px-2.5 py-1.5 rounded-xl border border-border/30">
+                  <Info className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                  <span>Trận giao hữu không áp dụng cộng thưởng Coin & EXP.</span>
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground/85 font-medium flex items-center justify-center gap-1.5 bg-muted/30 px-2.5 py-1.5 rounded-xl border border-border/30">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                  <span>Phần thưởng Coin & EXP đã được ghi nhận.</span>
+                </p>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ── CỘT PHẢI (BẢNG 25 TỪ VỰNG CỦA USER): lg:col-span-7 ── */}
-        <div className="lg:col-span-7 rounded-3xl border bg-card/70 backdrop-blur-md p-5 sm:p-6 shadow-lg space-y-3.5">
+        {/* ── CỘT PHẢI (BẢNG 25 TỪ VỰNG DẠNG THẺ THOÁNG ĐÃNG KÈM TAB LỌC): lg:col-span-7 ── */}
+        <div className="lg:col-span-7 rounded-3xl border bg-card/70 backdrop-blur-md p-5 sm:p-6 shadow-lg space-y-4">
           {/* Header Bảng từ vựng */}
-          <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b pb-3">
             <div className="flex items-center gap-2 text-primary font-black uppercase text-xs">
               <BookOpen className="w-4 h-4" />
               <span>Đối Chiếu 25 Từ Vựng Trận Đấu</span>
             </div>
-            <div className="flex items-center gap-2 text-xs font-bold">
-              <span className="text-emerald-500 flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" />
-                {myStats.correct} đúng
-              </span>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-rose-500 flex items-center gap-1">
-                <X className="w-3.5 h-3.5" />
-                {25 - myStats.correct} sai
-              </span>
+
+            {/* Bộ lọc nhanh: Tất cả / Câu sai / Câu đúng */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/50 border border-border/50 text-[11px] font-bold">
+              <button
+                type="button"
+                onClick={() => setWordFilter('ALL')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${wordFilter === 'ALL'
+                  ? 'bg-primary text-primary-foreground shadow-xs font-black'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
+              >
+                Tất cả ({words.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setWordFilter('INCORRECT')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${wordFilter === 'INCORRECT'
+                  ? 'bg-rose-500 text-white shadow-xs font-black'
+                  : 'text-rose-500 hover:bg-rose-500/10'
+                  }`}
+              >
+                <X className="w-3 h-3" />
+                <span>Câu sai ({incorrectWordsCount})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWordFilter('CORRECT')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${wordFilter === 'CORRECT'
+                  ? 'bg-emerald-500 text-white shadow-xs font-black'
+                  : 'text-emerald-500 hover:bg-emerald-500/10'
+                  }`}
+              >
+                <Check className="w-3 h-3" />
+                <span>Câu đúng ({correctWordsCount})</span>
+              </button>
             </div>
           </div>
 
-          {/* Lưới 2 cột hiển thị 25 từ vựng theo định dạng người dùng yêu cầu */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[340px] overflow-y-auto pr-1">
-            {words.map((item: MatchReviewWord) => {
-              const isCorrect = item.myCorrect;
-              const userAnswer = item.myAnswer?.trim();
-              const correctWord = item.word;
+          {/* Danh sách từ vựng dạng 1 cột rộng rãi, chữ hiển thị đầy đủ không bị cắt ba chấm */}
+          <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1.5 [scrollbar-width:thin]">
+            {filteredWords.length === 0 ? (
+              <div className="text-center py-10 space-y-2 bg-muted/20 rounded-2xl border border-dashed border-border/60 px-4">
+                {wordFilter === 'CORRECT' ? (
+                  <>
+                    <Info className="w-7 h-7 text-muted-foreground mx-auto" />
+                    <p className="text-xs font-bold text-muted-foreground">
+                      Chưa có câu trả lời đúng nào trong trận này.
+                    </p>
+                  </>
+                ) : wordFilter === 'INCORRECT' ? (
+                  <>
+                    <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto" />
+                    <p className="text-xs font-bold text-foreground">
+                      Tuyệt vời! Bạn không làm sai câu nào trong trận này.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Info className="w-7 h-7 text-muted-foreground mx-auto" />
+                    <p className="text-xs font-bold text-muted-foreground">
+                      Không có dữ liệu câu hỏi trong trận này.
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : (
+              filteredWords.map((item: MatchReviewWord) => {
+                const isCorrect = item.myCorrect;
+                const userAnswer = item.myAnswer?.trim();
+                const correctWord = item.word;
+                const isUnanswered = !isCorrect && !userAnswer;
 
-              return (
-                <div
-                  key={item.orderIndex}
-                  className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-muted/30 hover:bg-muted/60 transition-colors text-xs gap-1.5 border border-border/30"
-                  title={item.meaning ? `Nghĩa: ${item.meaning}` : undefined}
-                >
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1 truncate">
-                    <span className="text-[11px] font-mono text-muted-foreground shrink-0 w-5">
-                      {item.orderIndex}.
-                    </span>
+                return (
+                  <div
+                    key={item.orderIndex}
+                    className={`p-3.5 rounded-2xl border transition-all text-xs space-y-2 ${isCorrect
+                      ? 'bg-emerald-500/[0.04] border-emerald-500/25 hover:border-emerald-500/45'
+                      : isUnanswered
+                        ? 'bg-muted/20 border-border/70 hover:border-border'
+                        : 'bg-rose-500/[0.04] border-rose-500/25 hover:border-rose-500/45'
+                      }`}
+                  >
+                    {/* Hàng 1: Thứ tự + Đáp án + Loại từ + Thời gian */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <span className="px-2 py-0.5 rounded-md bg-muted text-[11px] font-mono font-bold text-muted-foreground shrink-0">
+                          #{item.orderIndex < 10 ? `0${item.orderIndex}` : item.orderIndex}
+                        </span>
 
-                    {isCorrect ? (
-                      /* Trường hợp 1: Đúng (Ví dụ: 1. resident <Check> màu xanh) */
-                      <div className="flex items-center gap-1 truncate text-emerald-500 font-bold">
-                        <span className="truncate">{correctWord}</span>
-                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        {isCorrect ? (
+                          <div className="flex items-center gap-1.5 font-black text-sm text-emerald-500">
+                            <span>{correctWord}</span>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          </div>
+                        ) : isUnanswered ? (
+                          /* Trường hợp Chưa trả lời / Bỏ qua: Nhãn trung tính, không gạch ngang, không icon X */
+                          <div className="flex items-center gap-1.5 flex-wrap text-xs sm:text-sm">
+                            <span className="text-muted-foreground font-semibold bg-muted px-2.5 py-0.5 rounded-md border border-border/60">
+                              Chưa trả lời
+                            </span>
+                            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-emerald-500 font-black flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                              {correctWord}
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            </span>
+                          </div>
+                        ) : (
+                          /* Trường hợp Trả lời SAI: Gạch chân chính xác các ký tự gõ sai -> Từ đúng màu xanh */
+                          <div className="flex items-center gap-1.5 flex-wrap text-xs sm:text-sm">
+                            <span className="flex items-center gap-1 bg-rose-500/10 px-2 py-0.5 rounded-md">
+                              <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              {renderMismatchCharacters(userAnswer, correctWord)}
+                            </span>
+                            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-emerald-500 font-black flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                              {correctWord}
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      /* Trường hợp 2: Sai (Ví dụ: 2. evel <X> màu đỏ (evil <Check>) màu xanh) */
-                      <div className="flex items-center gap-1 truncate">
-                        <span className="text-rose-500 font-semibold truncate">
-                          {userAnswer || '—'}
-                        </span>
-                        <X className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                        <span className="text-muted-foreground font-normal shrink-0 flex items-center gap-0.5">
-                          (
-                          <span className="text-emerald-500 font-bold">{correctWord}</span>
-                          <Check className="w-3 h-3 text-emerald-500 shrink-0" />
-                          )
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {item.wordType && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-muted/80 text-muted-foreground border border-border/50">
+                            {item.wordType}
+                          </span>
+                        )}
+                        <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-muted-foreground" />
+                          {(item.myTimeMs / 1000).toFixed(1)}s
                         </span>
                       </div>
+                    </div>
+
+                    {/* Hàng 2: Nghĩa tiếng Việt trọn vẹn, thuần ký tự bàn phím, không có chấm tròn */}
+                    {item.meaning && (
+                      <p className="text-xs sm:text-sm font-semibold text-foreground/90 leading-relaxed pl-1">
+                        {item.meaning}
+                      </p>
+                    )}
+
+                    {/* Hàng 3: Câu ví dụ ngữ cảnh thuần chữ với tiền tố Ex: */}
+                    {item.example && (
+                      <p className="text-[11px] sm:text-xs text-muted-foreground italic leading-relaxed pl-1 line-clamp-3">
+                        <span className="font-bold not-italic text-muted-foreground/90 mr-1">Ex:</span>"{item.example}"
+                      </p>
                     )}
                   </div>
-
-                  {/* Nghĩa tiếng Việt gợi ý mờ ở cuối dòng */}
-                  {item.meaning && (
-                    <span className="text-[10px] text-muted-foreground truncate max-w-[85px] shrink-0 text-right opacity-70">
-                      {item.meaning}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </div>

@@ -46,6 +46,7 @@ interface Course {
   title: string;
   description: string;
   thumbnail: string;
+  level?: string;
   isPublished: boolean;
   createdAt: string;
 }

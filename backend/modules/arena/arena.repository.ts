@@ -1,9 +1,12 @@
 import { pool } from '../../config/mysql';
+import redis from '../../config/redis';
 import {
     ArenaRank,
     RANK_THRESHOLDS,
     getRankOrder,
 } from './arena-rank.utils';
+import { ensureMatchRankColumns } from './arena-match.repository';
+import { getUserTier, getTierLimit, getVNDateKey } from '../../utils/tierLimits';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -35,6 +38,19 @@ export interface UserArenaProfileResult {
         winRate: number;
         rankOrder: number;
     };
+    dailyQuota?: {
+        tier: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+        rankMatches: {
+            used: number;
+            limit: number;
+            remaining: number;
+        };
+        doubleRewards: {
+            used: number;
+            limit: number;
+            remaining: number;
+        };
+    };
     recentMatches: Array<{
         id: string;
         startedAt: string;
@@ -61,6 +77,8 @@ export interface MatchHistoryItem {
     endedAt: string | null;
     topic: string;
     rankSnapshot: ArenaRank;
+    myRank?: ArenaRank;
+    matchType: 'RANK' | 'NORMAL' | 'FRIENDLY';
     totalQuestions: number;
     timeLimitSec: number;
     myResult: 'WIN' | 'LOSS' | 'DRAW';
@@ -230,6 +248,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
     // 5 ván đấu gần nhất
     const [recentRows] = await pool.execute(
         `SELECT m.id, m.player1_id, m.player2_id, m.topic, m.rank_snapshot,
+                m.p1_rank as match_p1_rank, m.p2_rank as match_p2_rank,
                 m.total_questions, m.time_limit_sec,
                 m.p1_correct, m.p1_time_used_ms,
                 m.p2_correct, m.p2_time_used_ms,
@@ -238,7 +257,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
                 m.started_at, m.ended_at,
                 u1.full_name as p1_name, u1.avatar_url as p1_avatar,
                 u2.full_name as p2_name, u2.avatar_url as p2_avatar,
-                w1.arena_rank as p1_rank, w2.arena_rank as p2_rank
+                w1.arena_rank as current_p1_rank, w2.arena_rank as current_p2_rank
          FROM arena_matches m
          JOIN users u1 ON m.player1_id = u1.id
          JOIN users u2 ON m.player2_id = u2.id
@@ -256,12 +275,21 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
             ? (m.result === 'P1_WIN' ? 'WIN' : m.result === 'DRAW' ? 'DRAW' : 'LOSS')
             : (m.result === 'P2_WIN' ? 'WIN' : m.result === 'DRAW' ? 'DRAW' : 'LOSS');
 
+        const myRank = ((isP1
+            ? (m.match_p1_rank || m.current_p1_rank || m.rank_snapshot)
+            : (m.match_p2_rank || m.current_p2_rank || m.rank_snapshot)) as ArenaRank) || 'BRONZE';
+
+        const opponentRank = ((isP1
+            ? (m.match_p2_rank || m.current_p2_rank || m.rank_snapshot)
+            : (m.match_p1_rank || m.current_p1_rank || m.rank_snapshot)) as ArenaRank) || 'BRONZE';
+
         return {
             id: m.id,
             startedAt: m.started_at,
             endedAt: m.ended_at,
             topic: m.topic,
-            rankSnapshot: m.rank_snapshot,
+            rankSnapshot: myRank,
+            myRank,
             result: myResult,
             myPointsChange: Number(isP1 ? m.p1_points_change : m.p2_points_change) || 0,
             myCorrect: Number(isP1 ? m.p1_correct : m.p2_correct) || 0,
@@ -271,10 +299,33 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
                 id: isP1 ? m.player2_id : m.player1_id,
                 fullName: isP1 ? m.p2_name : m.p1_name,
                 avatarUrl: isP1 ? m.p2_avatar : m.p1_avatar,
-                rank: (isP1 ? m.p2_rank : m.p1_rank) || 'BRONZE',
+                rank: opponentRank,
             },
         };
     });
+
+    // Lấy thông tin hạn ngạch đấu Rank và đặc quyền x2 hàng ngày từ Redis & tierLimits
+    const userTier = await getUserTier(userId);
+    const todayKey = getVNDateKey();
+    const maxRankMatches = getTierLimit('arenaDailyRankMatches', userTier);
+    const maxDoubleMatches = getTierLimit('arenaDailyDoubleRewardMatches', userTier);
+
+    let playedRankMatches = 0;
+    let usedDoubleMatches = 0;
+
+    try {
+        const [dailyRankCount, dailyDoubleCount] = await Promise.all([
+            redis.get(`arena:daily_rank:${userId}:${todayKey}`),
+            redis.get(`arena:daily_x2:${userId}:${todayKey}`),
+        ]);
+        playedRankMatches = Number(dailyRankCount) || 0;
+        usedDoubleMatches = Number(dailyDoubleCount) || 0;
+    } catch (redisErr) {
+        console.warn('[Arena] Không thể lấy quota hàng ngày từ Redis:', redisErr);
+    }
+
+    const remainingRankMatches = maxRankMatches === -1 ? -1 : Math.max(0, maxRankMatches - playedRankMatches);
+    const remainingDoubleMatches = Math.max(0, maxDoubleMatches - usedDoubleMatches);
 
     return {
         user: {
@@ -304,15 +355,66 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
             winRate,
             rankOrder: getRankOrder(rank),
         },
+        dailyQuota: {
+            tier: userTier,
+            rankMatches: {
+                used: playedRankMatches,
+                limit: maxRankMatches,
+                remaining: remainingRankMatches,
+            },
+            doubleRewards: {
+                used: usedDoubleMatches,
+                limit: maxDoubleMatches,
+                remaining: remainingDoubleMatches,
+            },
+        },
         recentMatches,
     };
 }
 
-// ─── 2. Lấy danh sách lịch sử trận đấu (Phân trang + Bộ lọc) ──────────────────
+// ─── 2. Dọn dẹp & Lấy danh sách lịch sử trận đấu (Phân trang + Bộ lọc) ──────────
+
+/**
+ * Tối ưu hóa Database: Chỉ lưu tối đa 16 trận đấu gần nhất cho mỗi người chơi (vừa đủ 2 trang lịch sử).
+ * Khi người chơi vượt quá 16 trận, hệ thống sẽ tự động xóa các trận đấu cũ hơn cùng với chi tiết 25 câu hỏi (ON DELETE CASCADE).
+ */
+export async function pruneOldMatchesForUser(userId: string): Promise<number> {
+    if (!userId || userId.startsWith('bot-')) return 0;
+
+    try {
+        // Lấy danh sách ID các ván đấu vượt quá 16 ván gần nhất của người chơi này
+        const [rows] = await pool.execute(
+            `SELECT id FROM arena_matches
+             WHERE player1_id = ? OR player2_id = ?
+             ORDER BY started_at DESC, id DESC
+             LIMIT 500 OFFSET 16`,
+            [userId, userId]
+        );
+
+        const oldMatches = rows as { id: string }[];
+        if (!oldMatches || oldMatches.length === 0) {
+            return 0;
+        }
+
+        const idsToDelete = oldMatches.map((m) => m.id);
+        const placeholders = idsToDelete.map(() => '?').join(', ');
+
+        await pool.execute(
+            `DELETE FROM arena_matches WHERE id IN (${placeholders})`,
+            idsToDelete
+        );
+
+        console.log(`[Arena Retention] Đã xóa ${idsToDelete.length} trận đấu cũ vượt quá 16 trận của user ${userId}`);
+        return idsToDelete.length;
+    } catch (error) {
+        console.error(`[Arena Retention] Lỗi khi dọn dẹp trận đấu cũ của user ${userId}:`, error);
+        return 0;
+    }
+}
 
 export async function getUserMatches(
     userId: string,
-    options: { page?: number; limit?: number; filter?: string }
+    options: { page?: number; limit?: number; filter?: string; mode?: string }
 ): Promise<{
     matches: MatchHistoryItem[];
     pagination: {
@@ -322,10 +424,14 @@ export async function getUserMatches(
         totalPages: number;
     };
 }> {
+    // Tự động dọn dẹp nếu người chơi có nhiều hơn 16 trận đấu trong DB
+    await pruneOldMatchesForUser(userId);
+
     const page = Math.max(1, Number(options.page) || 1);
-    const limit = Math.min(50, Math.max(1, Number(options.limit) || 10));
+    const limit = Math.min(50, Math.max(1, Number(options.limit) || 8));
     const offset = (page - 1) * limit;
     const filter = (options.filter || 'all').toLowerCase();
+    const mode = (options.mode || 'all').toUpperCase();
 
     let whereClause = '(m.player1_id = ? OR m.player2_id = ?)';
     const queryParams: any[] = [userId, userId];
@@ -338,17 +444,27 @@ export async function getUserMatches(
         whereClause = '((m.player1_id = ? OR m.player2_id = ?) AND m.result = "DRAW")';
     }
 
-    // Đếm tổng số ván đấu phù hợp
+    const upperMode = mode ? String(mode).toUpperCase().trim() : 'ALL';
+    if (upperMode !== 'ALL' && ['RANK', 'NORMAL', 'FRIENDLY'].includes(upperMode)) {
+        whereClause += ' AND m.match_type = ?';
+        queryParams.push(upperMode);
+    }
+
+    // Đếm tổng số ván đấu phù hợp (giới hạn tối đa 16 trận = 2 trang)
     const [countRows] = await pool.execute(
         `SELECT COUNT(*) as total FROM arena_matches m WHERE ${whereClause}`,
         queryParams
     );
-    const totalItems = Number((countRows as any[])[0]?.total) || 0;
-    const totalPages = Math.ceil(totalItems / limit) || 1;
+    const rawTotal = Number((countRows as any[])[0]?.total) || 0;
+    const totalItems = Math.min(rawTotal, 16);
+    const totalPages = Math.min(2, Math.ceil(totalItems / limit) || 1);
 
-    // Lấy dữ liệu phân trang
+    // Lấy dữ liệu phân trang (đảm bảo không vượt quá 16 trận)
+    await ensureMatchRankColumns(pool);
+    const safeOffset = Math.min(offset, 16);
     const [rows] = await pool.execute(
-        `SELECT m.id, m.player1_id, m.player2_id, m.topic, m.rank_snapshot,
+        `SELECT m.id, m.player1_id, m.player2_id, m.topic, m.rank_snapshot, m.match_type,
+                m.p1_rank as match_p1_rank, m.p2_rank as match_p2_rank,
                 m.total_questions, m.time_limit_sec,
                 m.p1_correct, m.p1_time_used_ms,
                 m.p2_correct, m.p2_time_used_ms,
@@ -357,7 +473,7 @@ export async function getUserMatches(
                 m.started_at, m.ended_at,
                 u1.full_name as p1_name, u1.avatar_url as p1_avatar,
                 u2.full_name as p2_name, u2.avatar_url as p2_avatar,
-                w1.arena_rank as p1_rank, w2.arena_rank as p2_rank
+                w1.arena_rank as current_p1_rank, w2.arena_rank as current_p2_rank
          FROM arena_matches m
          JOIN users u1 ON m.player1_id = u1.id
          JOIN users u2 ON m.player2_id = u2.id
@@ -366,7 +482,7 @@ export async function getUserMatches(
          WHERE ${whereClause}
          ORDER BY m.started_at DESC
          LIMIT ? OFFSET ?`,
-        [...queryParams, String(limit), String(offset)]
+        [...queryParams, String(limit), String(safeOffset)]
     );
 
     const matches: MatchHistoryItem[] = (rows as any[]).map((m) => {
@@ -375,12 +491,24 @@ export async function getUserMatches(
             ? (m.result === 'P1_WIN' ? 'WIN' : m.result === 'DRAW' ? 'DRAW' : 'LOSS')
             : (m.result === 'P2_WIN' ? 'WIN' : m.result === 'DRAW' ? 'DRAW' : 'LOSS');
 
+        // Snapshot rank của bản thân lúc đấu trận này: ưu tiên snapshot match_p1/p2_rank
+        const myRank = ((isP1
+            ? (m.match_p1_rank || m.current_p1_rank || m.rank_snapshot)
+            : (m.match_p2_rank || m.current_p2_rank || m.rank_snapshot)) as ArenaRank) || 'BRONZE';
+
+        // Snapshot rank của đối thủ lúc đấu trận này: ưu tiên snapshot match_p2/p1_rank
+        const opponentRank = ((isP1
+            ? (m.match_p2_rank || m.current_p2_rank || m.rank_snapshot)
+            : (m.match_p1_rank || m.current_p1_rank || m.rank_snapshot)) as ArenaRank) || 'BRONZE';
+
         return {
             id: m.id,
             startedAt: m.started_at,
             endedAt: m.ended_at,
             topic: m.topic,
-            rankSnapshot: m.rank_snapshot,
+            rankSnapshot: myRank,
+            myRank,
+            matchType: (m.match_type as 'RANK' | 'NORMAL' | 'FRIENDLY') || 'RANK',
             totalQuestions: Number(m.total_questions) || 25,
             timeLimitSec: Number(m.time_limit_sec) || 360,
             myResult,
@@ -391,7 +519,7 @@ export async function getUserMatches(
                 id: isP1 ? m.player2_id : m.player1_id,
                 fullName: isP1 ? m.p2_name : m.p1_name,
                 avatarUrl: isP1 ? m.p2_avatar : m.p1_avatar,
-                rank: (isP1 ? m.p2_rank : m.p1_rank) || 'BRONZE',
+                rank: opponentRank,
                 correct: Number(isP1 ? m.p2_correct : m.p1_correct) || 0,
                 timeMs: Number(isP1 ? m.p2_time_used_ms : m.p1_time_used_ms) || 0,
                 pointsChange: Number(isP1 ? m.p2_points_change : m.p1_points_change) || 0,
@@ -418,6 +546,7 @@ export async function getMatchDetail(
 ): Promise<MatchDetailResult | null> {
     const [matchRows] = await pool.execute(
         `SELECT m.id, m.player1_id, m.player2_id, m.topic, m.rank_snapshot,
+                m.p1_rank as match_p1_rank, m.p2_rank as match_p2_rank,
                 m.total_questions, m.time_limit_sec,
                 m.p1_correct, m.p1_time_used_ms,
                 m.p2_correct, m.p2_time_used_ms,
@@ -426,7 +555,7 @@ export async function getMatchDetail(
                 m.started_at, m.ended_at,
                 u1.full_name as p1_name, u1.avatar_url as p1_avatar,
                 u2.full_name as p2_name, u2.avatar_url as p2_avatar,
-                w1.arena_rank as p1_rank, w2.arena_rank as p2_rank
+                w1.arena_rank as current_p1_rank, w2.arena_rank as current_p2_rank
          FROM arena_matches m
          JOIN users u1 ON m.player1_id = u1.id
          JOIN users u2 ON m.player2_id = u2.id
@@ -444,6 +573,14 @@ export async function getMatchDetail(
     const myResult: 'WIN' | 'LOSS' | 'DRAW' = isP1
         ? (m.result === 'P1_WIN' ? 'WIN' : m.result === 'DRAW' ? 'DRAW' : 'LOSS')
         : (m.result === 'P2_WIN' ? 'WIN' : m.result === 'DRAW' ? 'DRAW' : 'LOSS');
+
+    const myRank = ((isP1
+        ? (m.match_p1_rank || m.current_p1_rank || m.rank_snapshot)
+        : (m.match_p2_rank || m.current_p2_rank || m.rank_snapshot)) as ArenaRank) || 'BRONZE';
+
+    const opponentRank = ((isP1
+        ? (m.match_p2_rank || m.current_p2_rank || m.rank_snapshot)
+        : (m.match_p1_rank || m.current_p1_rank || m.rank_snapshot)) as ArenaRank) || 'BRONZE';
 
     // Lấy chi tiết 25 câu hỏi
     const [wordRows] = await pool.execute(
@@ -480,7 +617,7 @@ export async function getMatchDetail(
         startedAt: m.started_at,
         endedAt: m.ended_at,
         topic: m.topic,
-        rankSnapshot: m.rank_snapshot,
+        rankSnapshot: myRank,
         totalQuestions: Number(m.total_questions) || 25,
         timeLimitSec: Number(m.time_limit_sec) || 360,
         result: m.result,
@@ -490,7 +627,7 @@ export async function getMatchDetail(
             id: isP1 ? m.player1_id : m.player2_id,
             fullName: isP1 ? m.p1_name : m.p2_name,
             avatarUrl: isP1 ? m.p1_avatar : m.p2_avatar,
-            rank: (isP1 ? m.p1_rank : m.p2_rank) || 'BRONZE',
+            rank: myRank,
             correct: Number(isP1 ? m.p1_correct : m.p2_correct) || 0,
             timeMs: Number(isP1 ? m.p1_time_used_ms : m.p2_time_used_ms) || 0,
             pointsChange: Number(isP1 ? m.p1_points_change : m.p2_points_change) || 0,
@@ -499,7 +636,7 @@ export async function getMatchDetail(
             id: isP1 ? m.player2_id : m.player1_id,
             fullName: isP1 ? m.p2_name : m.p1_name,
             avatarUrl: isP1 ? m.p2_avatar : m.p1_avatar,
-            rank: (isP1 ? m.p2_rank : m.p1_rank) || 'BRONZE',
+            rank: opponentRank,
             correct: Number(isP1 ? m.p2_correct : m.p1_correct) || 0,
             timeMs: Number(isP1 ? m.p2_time_used_ms : m.p1_time_used_ms) || 0,
             pointsChange: Number(isP1 ? m.p2_points_change : m.p1_points_change) || 0,
@@ -660,5 +797,310 @@ export async function getLeaderboard(options: {
             totalPages,
         },
         myRank,
+    };
+}
+
+// ─── 4. Lấy dữ liệu Biểu đồ Radar 6 Kỹ năng & Thống kê Chuyên sâu (Pro Analytics) ───
+export interface PlayerRadarStatsResult {
+    isLocked: boolean;
+    tier: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+    radar: {
+        accuracy: number;
+        speed: number;
+        coreVocab: number;
+        advancedVocab: number | null;
+        idioms: number | null;
+        composure: number | null;
+    };
+    overview: {
+        totalMatches: number;
+        totalWins: number;
+        totalLosses: number;
+        winRate: number;
+        avgTimeMs: number;
+        bestStreak: number;
+        currentStreak: number;
+        totalWordsAnswered: number;
+        totalWordsCorrect: number;
+        overallAccuracy: number;
+    };
+    topicPerformance: {
+        bestTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+        weakTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+        allTopics: Array<{ topic: string; totalMatches: number; wins: number; winRate: number }>;
+    };
+    cefrBreakdown: {
+        a1_a2: { total: number; correct: number; rate: number };
+        b1_b2: { total: number; correct: number; rate: number };
+        c1_c2: { total: number; correct: number; rate: number };
+    };
+    recentForm: Array<{
+        matchId: string;
+        topic: string;
+        result: 'WIN' | 'LOSS' | 'DRAW';
+        startedAt: string;
+    }>;
+}
+
+export async function getPlayerRadarStats(userId: string): Promise<PlayerRadarStatsResult> {
+    const tier = await getUserTier(userId);
+    const isLocked = tier === 'FREE' || tier === 'STARTER';
+
+    // 1. Lấy thông tin ví và tổng số trận từ wallets
+    const [walletRows] = await pool.execute(
+        `SELECT arena_total_matches, arena_total_wins, arena_total_losses, arena_total_draws,
+                arena_current_win_streak, arena_longest_win_streak
+         FROM wallets
+         WHERE user_id = ?
+         LIMIT 1`,
+        [userId]
+    );
+    const wallet = (walletRows as any[])[0] || {};
+    const totalMatches = Number(wallet.arena_total_matches) || 0;
+    const totalWins = Number(wallet.arena_total_wins) || 0;
+    const totalLosses = Number(wallet.arena_total_losses) || 0;
+    const winRate = totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0;
+    const bestStreak = Number(wallet.arena_longest_win_streak) || 0;
+    const currentStreak = Number(wallet.arena_current_win_streak) || 0;
+
+    // 2. Lấy tối đa 50 trận đấu gần nhất của người dùng
+    const [matchRows] = await pool.execute(
+        `SELECT id, player1_id, player2_id, topic, match_type, result, winner_id,
+                started_at, ended_at
+         FROM arena_matches
+         WHERE (player1_id = ? OR player2_id = ?)
+           AND result IN ('P1_WIN', 'P2_WIN', 'DRAW')
+         ORDER BY started_at DESC
+         LIMIT 50`,
+        [userId, userId]
+    );
+    const matches = matchRows as any[];
+
+    // Chuỗi phong độ 10 trận gần nhất
+    const recentForm = matches.slice(0, 10).map((m) => {
+        let res: 'WIN' | 'LOSS' | 'DRAW' = 'DRAW';
+        if (m.result === 'DRAW') {
+            res = 'DRAW';
+        } else if (m.winner_id === userId) {
+            res = 'WIN';
+        } else {
+            res = 'LOSS';
+        }
+        return {
+            matchId: m.id,
+            topic: m.topic || 'general',
+            result: res,
+            startedAt: m.started_at ? new Date(m.started_at).toISOString() : '',
+        };
+    });
+
+    // Thống kê theo chủ đề (Topic Performance)
+    const topicMap: Record<string, { total: number; wins: number }> = {};
+    for (const m of matches) {
+        const top = m.topic || 'general';
+        if (!topicMap[top]) topicMap[top] = { total: 0, wins: 0 };
+        topicMap[top].total += 1;
+        if (m.winner_id === userId) {
+            topicMap[top].wins += 1;
+        }
+    }
+
+    const allTopics = Object.entries(topicMap).map(([topic, data]) => ({
+        topic,
+        totalMatches: data.total,
+        wins: data.wins,
+        winRate: data.total > 0 ? Math.round((data.wins / data.total) * 100) : 0,
+    })).sort((a, b) => b.winRate - a.winRate);
+
+    const bestTopics = allTopics.filter((t) => t.totalMatches >= 2 && t.winRate >= 60).slice(0, 3);
+    const weakTopics = allTopics.filter((t) => t.totalMatches >= 2 && t.winRate < 50).slice(-3);
+
+    // Nếu chưa có trận nào hoặc user bị khóa tính năng:
+    if (matches.length === 0) {
+        return {
+            isLocked,
+            tier,
+            radar: {
+                accuracy: 0,
+                speed: 0,
+                coreVocab: 0,
+                advancedVocab: null,
+                idioms: null,
+                composure: null,
+            },
+            overview: {
+                totalMatches,
+                totalWins,
+                totalLosses,
+                winRate,
+                avgTimeMs: 0,
+                bestStreak,
+                currentStreak,
+                totalWordsAnswered: 0,
+                totalWordsCorrect: 0,
+                overallAccuracy: 0,
+            },
+            topicPerformance: {
+                bestTopics: [],
+                weakTopics: [],
+                allTopics: [],
+            },
+            cefrBreakdown: {
+                a1_a2: { total: 0, correct: 0, rate: 0 },
+                b1_b2: { total: 0, correct: 0, rate: 0 },
+                c1_c2: { total: 0, correct: 0, rate: 0 },
+            },
+            recentForm: [],
+        };
+    }
+
+    const matchIds = matches.map((m) => m.id);
+    const placeholders = matchIds.map(() => '?').join(', ');
+
+    // 3. Truy vấn toàn bộ câu hỏi và từ vựng trong 50 trận này
+    const [wordRows] = await pool.execute(
+        `SELECT amw.match_id, amw.order_index, amw.word_id,
+                CASE WHEN am.player1_id = ? THEN amw.p1_answer ELSE amw.p2_answer END as my_answer,
+                CASE WHEN am.player1_id = ? THEN amw.p1_correct ELSE amw.p2_correct END as my_correct,
+                CASE WHEN am.player1_id = ? THEN amw.p1_time_ms ELSE amw.p2_time_ms END as my_time_ms,
+                aw.word, aw.level, aw.word_type
+         FROM arena_match_words amw
+         JOIN arena_matches am ON amw.match_id = am.id
+         JOIN arena_words aw ON amw.word_id = aw.id
+         WHERE am.id IN (${placeholders})`,
+        [userId, userId, userId, ...matchIds]
+    );
+    const words = wordRows as any[];
+
+    // ─── TÍNH TOÁN CÁC ĐỈNH KỸ NĂNG THEO QUY CHUẨN KHOA HỌC ───
+
+    // Lọc các câu mà user THỰC SỰ đã trả lời (không tính câu rỗng/đầu hàng trước đó)
+    const answeredWords = words.filter((w) => w.my_answer !== null && w.my_answer !== '');
+    const totalWordsAnswered = answeredWords.length;
+    const totalWordsCorrect = answeredWords.filter((w) => Boolean(w.my_correct)).length;
+
+    // Đỉnh 1: Độ chính xác (Accuracy - Thang 0 - 100)
+    const accuracyScore = totalWordsAnswered > 0
+        ? Math.round((totalWordsCorrect / totalWordsAnswered) * 100)
+        : 0;
+
+    // Đỉnh 2: Tốc độ phản xạ (Speed / Reflex - Thang 0 - 100)
+    // Chỉ tính các câu user đã trả lời và có thời gian > 0
+    const wordsWithTime = answeredWords.filter((w) => Number(w.my_time_ms) > 0);
+    let avgTimeMs = 0;
+    let speedScore = 0;
+    if (wordsWithTime.length > 0) {
+        const totalTime = wordsWithTime.reduce((sum, w) => sum + Number(w.my_time_ms), 0);
+        avgTimeMs = Math.round(totalTime / wordsWithTime.length);
+        // Dưới 1200ms đạt 100 điểm, mỗi 100ms chậm hơn trừ 3 điểm
+        speedScore = Math.max(0, Math.min(100, Math.round(100 - ((avgTimeMs - 1200) / 100) * 3)));
+    }
+
+    // Đỉnh 3: Từ vựng cốt lõi (Core Vocab - A1, A2, B1, loại trừ idiom/collocation)
+    const coreWords = answeredWords.filter(
+        (w) => ['A1', 'A2', 'B1'].includes(w.level) && !['idiom', 'collocation'].includes(w.word_type)
+    );
+    let coreVocabScore = 0;
+    if (coreWords.length > 0) {
+        const coreCorrect = coreWords.filter((w) => Boolean(w.my_correct)).length;
+        coreVocabScore = Math.round((coreCorrect / coreWords.length) * 100);
+    }
+
+    // Đỉnh 4: Từ vựng nâng cao (Advanced Vocab - B2, C1, C2, loại trừ idiom/collocation)
+    const advWords = answeredWords.filter(
+        (w) => ['B2', 'C1', 'C2'].includes(w.level) && !['idiom', 'collocation'].includes(w.word_type)
+    );
+    let advancedVocabScore: number | null = null;
+    if (advWords.length > 0) {
+        const advCorrect = advWords.filter((w) => Boolean(w.my_correct)).length;
+        advancedVocabScore = Math.round((advCorrect / advWords.length) * 100);
+    } // Nếu advWords.length === 0, trả về null (Chưa mở khóa ở rank thấp)
+
+    // Đỉnh 5: Thành ngữ và Cụm từ (Idioms & Collocations)
+    const idiomWords = answeredWords.filter(
+        (w) => ['idiom', 'collocation'].includes(w.word_type)
+    );
+    let idiomsScore: number | null = null;
+    if (idiomWords.length > 0) {
+        const idiomCorrect = idiomWords.filter((w) => Boolean(w.my_correct)).length;
+        idiomsScore = Math.round((idiomCorrect / idiomWords.length) * 100);
+    } // Nếu idiomWords.length === 0, trả về null (Chưa mở khóa)
+
+    // Đỉnh 6: Tâm lý thi đấu (Match Composure - 5 câu cuối cùng của các trận đủ điều kiện)
+    // Điều kiện chặt chẽ: Chỉ xét các trận đấu mà user đã trả lời ít nhất 20/25 câu!
+    const matchAnsweredCounts: Record<string, number> = {};
+    for (const w of answeredWords) {
+        matchAnsweredCounts[w.match_id] = (matchAnsweredCounts[w.match_id] || 0) + 1;
+    }
+
+    const eligibleMatchIds = Object.keys(matchAnsweredCounts).filter(
+        (mId) => matchAnsweredCounts[mId] >= 20
+    );
+
+    let composureScore: number | null = null;
+    if (eligibleMatchIds.length > 0) {
+        // Lấy 5 câu hỏi cuối (order_index >= 21) của các trận hợp lệ
+        const last5Words = answeredWords.filter(
+            (w) => eligibleMatchIds.includes(w.match_id) && w.order_index >= 21
+        );
+        if (last5Words.length > 0) {
+            const last5Correct = last5Words.filter((w) => Boolean(w.my_correct)).length;
+            composureScore = Math.round((last5Correct / last5Words.length) * 100);
+        }
+    }
+
+    // ─── PHÂN LOẠI CEFR BREAKDOWN ───
+    const cefrA = answeredWords.filter((w) => ['A1', 'A2'].includes(w.level));
+    const cefrB = answeredWords.filter((w) => ['B1', 'B2'].includes(w.level));
+    const cefrC = answeredWords.filter((w) => ['C1', 'C2'].includes(w.level));
+
+    const cefrBreakdown = {
+        a1_a2: {
+            total: cefrA.length,
+            correct: cefrA.filter((w) => Boolean(w.my_correct)).length,
+            rate: cefrA.length > 0 ? Math.round((cefrA.filter((w) => Boolean(w.my_correct)).length / cefrA.length) * 100) : 0,
+        },
+        b1_b2: {
+            total: cefrB.length,
+            correct: cefrB.filter((w) => Boolean(w.my_correct)).length,
+            rate: cefrB.length > 0 ? Math.round((cefrB.filter((w) => Boolean(w.my_correct)).length / cefrB.length) * 100) : 0,
+        },
+        c1_c2: {
+            total: cefrC.length,
+            correct: cefrC.filter((w) => Boolean(w.my_correct)).length,
+            rate: cefrC.length > 0 ? Math.round((cefrC.filter((w) => Boolean(w.my_correct)).length / cefrC.length) * 100) : 0,
+        },
+    };
+
+    return {
+        isLocked,
+        tier,
+        radar: {
+            accuracy: accuracyScore,
+            speed: speedScore,
+            coreVocab: coreVocabScore,
+            advancedVocab: advancedVocabScore,
+            idioms: idiomsScore,
+            composure: composureScore,
+        },
+        overview: {
+            totalMatches,
+            totalWins,
+            totalLosses,
+            winRate,
+            avgTimeMs,
+            bestStreak,
+            currentStreak,
+            totalWordsAnswered,
+            totalWordsCorrect,
+            overallAccuracy: accuracyScore,
+        },
+        topicPerformance: {
+            bestTopics,
+            weakTopics,
+            allTopics,
+        },
+        cefrBreakdown,
+        recentForm,
     };
 }

@@ -4,6 +4,7 @@ import {
     getUserMatches,
     getMatchDetail,
     getLeaderboard,
+    getPlayerRadarStats,
 } from './arena.repository';
 import { RANK_TIER_DETAILS } from './arena-rank.utils';
 
@@ -54,8 +55,9 @@ export const getMyArenaMatches = async (
         const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
         const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
         const filter = (req.query.filter as string) || 'all';
+        const mode = (req.query.mode as string) || 'all';
 
-        const result = await getUserMatches(userId, { page, limit, filter });
+        const result = await getUserMatches(userId, { page, limit, filter, mode });
 
         res.status(200).json({
             status: 'success',
@@ -135,6 +137,29 @@ export const getArenaRankTiers = async (
         res.status(200).json({
             status: 'success',
             data: RANK_TIER_DETAILS,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ─── 6. Lấy số liệu Biểu đồ Radar 6 Kỹ năng & Thống kê Chuyên sâu (Pro Analytics) ───
+export const getMyArenaRadarStats = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ status: 'error', message: 'Yêu cầu đăng nhập.' });
+            return;
+        }
+
+        const data = await getPlayerRadarStats(userId);
+        res.status(200).json({
+            status: 'success',
+            data,
         });
     } catch (error) {
         next(error);

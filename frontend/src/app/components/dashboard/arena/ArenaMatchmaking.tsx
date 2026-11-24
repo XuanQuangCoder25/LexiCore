@@ -8,15 +8,17 @@ import {
   AlertCircle,
   Swords,
   VenetianMask,
-  Bot,
+  BookOpen,
 } from 'lucide-react';
-import { UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
+import { UserArenaProfile, getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
 import { arenaSocketService, MatchedPayload, ArenaPlayerInfo } from '../../../services/arena-socket.service';
 
 export interface ArenaMatchmakingModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserProfile: UserArenaProfile | null;
+  matchType?: 'RANK' | 'NORMAL' | 'FRIENDLY';
+  initialMatchedData?: MatchedPayload | null;
   onMatchReady?: (matchData: MatchedPayload) => void;
 }
 
@@ -26,22 +28,22 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
   isOpen,
   onClose,
   currentUserProfile,
+  matchType = 'RANK',
+  initialMatchedData = null,
   onMatchReady,
 }) => {
-  const [stage, setStage] = useState<MatchmakingStage>('SEARCHING');
+  const [stage, setStage] = useState<MatchmakingStage>(initialMatchedData ? 'MATCHED' : 'SEARCHING');
   const [searchSeconds, setSearchSeconds] = useState<number>(0);
-  const [matchedData, setMatchedData] = useState<MatchedPayload | null>(null);
+  const [matchedData, setMatchedData] = useState<MatchedPayload | null>(initialMatchedData || null);
   const [p1Ready, setP1Ready] = useState<boolean>(false);
   const [p2Ready, setP2Ready] = useState<boolean>(false);
   const [readyCountdown, setReadyCountdown] = useState<number>(15);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [isFlippingBack, setIsFlippingBack] = useState<boolean>(false);
-  const [isMockMode, setIsMockMode] = useState<boolean>(false);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sử dụng Ref để lưu trữ state mới nhất mà không làm re-run useEffect socket
   const matchedDataRef = useRef<MatchedPayload | null>(null);
@@ -83,7 +85,6 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       hasTriggeredReadyRef.current = false;
       if (timerRef.current) clearInterval(timerRef.current);
       if (readyTimerRef.current) clearInterval(readyTimerRef.current);
-      if (mockTimeoutRef.current) clearTimeout(mockTimeoutRef.current);
       return;
     }
 
@@ -208,9 +209,27 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
     socket.on('arena:countdown', handleCountdown);
     socket.on('arena:match_cancelled', handleMatchCancelled);
     socket.on('arena:match_error', handleMatchError);
+    socket.on('arena:queue_rejected', handleMatchError);
 
-    // Bắn event tìm trận thật lên server MỘT LẦN DUY NHẤT
-    arenaSocketService.findMatch();
+    // Nếu đã có sẵn dữ liệu trận đấu (ví dụ: vừa chấp nhận đấu giao hữu), không cần emit findMatch
+    if (initialMatchedData) {
+      setMatchedData(initialMatchedData);
+      setStage('MATCHED');
+      setReadyCountdown(15);
+      if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+      readyTimerRef.current = setInterval(() => {
+        setReadyCountdown((prev) => {
+          if (prev <= 1) {
+            if (readyTimerRef.current) clearInterval(readyTimerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (matchType !== 'FRIENDLY') {
+      // Bắn event tìm trận thật lên server MỘT LẦN DUY NHẤT theo matchType đã chọn
+      arenaSocketService.findMatch(matchType);
+    }
 
     return () => {
       socket.off('arena:searching', handleSearching);
@@ -219,9 +238,9 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
       socket.off('arena:countdown', handleCountdown);
       socket.off('arena:match_cancelled', handleMatchCancelled);
       socket.off('arena:match_error', handleMatchError);
+      socket.off('arena:queue_rejected', handleMatchError);
       if (timerRef.current) clearInterval(timerRef.current);
       if (readyTimerRef.current) clearInterval(readyTimerRef.current);
-      if (mockTimeoutRef.current) clearTimeout(mockTimeoutRef.current);
     };
   }, [isOpen]);
 
@@ -229,7 +248,6 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
   const handleCancel = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (readyTimerRef.current) clearInterval(readyTimerRef.current);
-    if (mockTimeoutRef.current) clearTimeout(mockTimeoutRef.current);
     arenaSocketService.cancelMatch();
     onClose();
   };
@@ -238,57 +256,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
   const handleReady = () => {
     if (!matchedData || p1Ready) return;
     setP1Ready(true);
-
-    if (isMockMode) {
-      // Giả lập bot cũng ready sau 1.2 giây
-      setTimeout(() => {
-        setP2Ready(true);
-        if (readyTimerRef.current) clearInterval(readyTimerRef.current);
-        // Cả 2 đã ready -> kích hoạt chuyển cảnh cánh cửa sau 400ms
-        setTimeout(() => {
-          if (onMatchReady && matchedData) {
-            onMatchReady(matchedData);
-          }
-        }, 400);
-      }, 1200);
-    } else {
-      arenaSocketService.ready(matchedData.roomId);
-    }
-  };
-
-  // Chế độ Test Mock Solo (Giả lập đối thủ sau 2.5s)
-  const triggerMockMatch = () => {
-    setIsMockMode(true);
-    setErrorMessage(null);
-    mockTimeoutRef.current = setTimeout(() => {
-      const mockOpponent: ArenaPlayerInfo = {
-        id: 'bot-lexi-ai',
-        full_name: 'LexiBot Master (AI)',
-        avatar_url: null,
-        arena_rank: 'DIAMOND_1',
-        rank_point: 750,
-        arena_current_win_streak: 5,
-      };
-
-      const mockPayload: MatchedPayload = {
-        roomId: 'mock-room-1234',
-        me: {
-          id: currentUserProfile?.user?.id || 'me',
-          full_name: currentUserProfile?.user?.fullName || 'Bạn',
-          avatar_url: currentUserProfile?.user?.avatarUrl || null,
-          arena_rank: currentUserProfile?.arena?.rank || 'BRONZE',
-          rank_point: currentUserProfile?.arena?.rankPoint || 0,
-          arena_current_win_streak: currentUserProfile?.arena?.currentWinStreak || 0,
-        },
-        opponent: mockOpponent,
-        questions: [],
-        totalQuestions: 25,
-        timeLimitSec: 360,
-      };
-
-      setMatchedData(mockPayload);
-      setStage('MATCHED');
-    }, 2500);
+    arenaSocketService.ready(matchedData.roomId);
   };
 
   if (!isOpen) return null;
@@ -325,6 +293,15 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
             {stage === 'SEARCHING' && 'Hệ thống đang quét các chiến binh có cùng đẳng cấp Elo...'}
             {stage === 'MATCHED' && 'Cả hai người chơi cần bấm Sẵn sàng để mở cửa Đấu trường.'}
           </p>
+
+          {stage === 'MATCHED' && matchedData?.topic && (
+            <div className="pt-1.5 flex justify-center">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold tracking-wide">
+                <BookOpen className="w-3.5 h-3.5" />
+                Chủ đề: {formatTopicName(matchedData.topic)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ── KHU VỰC TRUNG TÂM: CARD P1 - VS - CARD P2 ── */}
@@ -563,19 +540,6 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
               <X className="w-4 h-4 mr-1.5" />
               HỦY TÌM TRẬN
             </Button>
-          )}
-
-          {/* Dev Test Tool: Ghép với Bot AI (Solo test) */}
-          {stage === 'SEARCHING' && !isMockMode && (
-            <button
-              onClick={triggerMockMatch}
-              type="button"
-              className="text-[11px] text-muted-foreground/60 hover:text-primary transition-colors flex items-center gap-1 mt-1 font-mono cursor-pointer"
-              title="Test giả lập ghép ngay với Bot AI mà không cần mở 2 tài khoản"
-            >
-              <Bot className="w-3.5 h-3.5" />
-              <span>[Dev Test: Thử ghép ngay với Bot AI]</span>
-            </button>
           )}
         </div>
       </div>

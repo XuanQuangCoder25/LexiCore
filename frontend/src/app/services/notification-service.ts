@@ -16,10 +16,22 @@ export interface UserNotificationSettings {
   timezone: string;
 }
 
+export type NotificationType =
+  | 'reminder'
+  | 'srs'
+  | 'challenge'
+  | 'system'
+  | 'achievement'
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'reward'
+  | 'sale'
+  | 'subscription';
+
 export interface InAppNotification {
   id: string;
   user_id: string;
-  type: 'reminder' | 'srs' | 'challenge' | 'system' | 'achievement' | 'friend_request' | 'friend_accepted';
+  type: NotificationType;
   title: string;
   body: string;
   is_read: boolean;

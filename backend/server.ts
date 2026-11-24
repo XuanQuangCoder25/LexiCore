@@ -31,6 +31,7 @@ import socialRoute from './modules/social/social.route';
 import communityRoute from './modules/community/community.route';
 import { initSocialSocket } from './modules/social/social-socket';
 import { initArenaSocket } from './modules/arena/arena-socket';
+import { checkMaintenance, getMaintenanceStatus } from './middlewares/checkMaintenance';
 import { createServer } from 'http';
 import { Server as SocketIO } from 'socket.io';
 
@@ -73,7 +74,14 @@ const corsOptions: cors.CorsOptions = {
 
 const io = new SocketIO(httpServer, {
     cors: {
-        origin: allowedOrigins,
+        origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+            if (!origin || isOriginAllowed(origin)) {
+                callback(null, true);
+            } else {
+                console.warn(`[Socket CORS Warning] Origin không được phép: ${origin}`);
+                callback(new Error(`[Socket CORS] Origin không được phép: ${origin}`));
+            }
+        },
         credentials: true
     }
 });
@@ -81,6 +89,19 @@ const io = new SocketIO(httpServer, {
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
+
+// Endpoint kiểm tra trạng thái bảo trì hệ thống công khai
+app.get('/api/system/status', async (_req, res) => {
+    try {
+        const status = await getMaintenanceStatus();
+        res.json({ success: true, ...status });
+    } catch {
+        res.json({ success: true, active: false });
+    }
+});
+
+// Middleware kiểm tra chế độ bảo trì khẩn cấp (Admin được phép bỏ qua)
+app.use('/api', checkMaintenance);
 
 // Đăng ký các Routes
 app.use('/api/v1/dashboard', dashboardRoutes);

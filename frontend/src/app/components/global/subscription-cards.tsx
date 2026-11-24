@@ -392,8 +392,8 @@ export function useSaleActive(salePercent: number, saleEndsAt: string | null): b
 
 // ============================================================
 // CompactCountdown
-// size="sm" → topup cards (nhỏ)
-// size="md" → subscription cards (to, nổi bật như badge "Best Value" cũ)
+// size="sm": topup cards (nhỏ)
+// size="md": subscription cards (to, nổi bật như badge "Best Value" cũ)
 // ============================================================
 export function CompactCountdown({
   endsAt,
@@ -689,6 +689,9 @@ export function TopupCard({
   unit,
   onBuy,
   loading,
+  selected = false,
+  onSelect,
+  onMouseEnter,
 }: {
   pkg: CreditPackage;
   icon: typeof CircleDollarSign;
@@ -696,6 +699,9 @@ export function TopupCard({
   unit: string;
   onBuy: (pkg: CreditPackage) => void;
   loading: string | null;
+  selected?: boolean;
+  onSelect?: () => void;
+  onMouseEnter?: () => void;
 }) {
   const hasSale = useSaleActive(pkg.sale_percent, pkg.sale_ends_at);
   const finalPrice = hasSale ? Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100)) : pkg.price_vnd;
@@ -706,9 +712,13 @@ export function TopupCard({
     ? "hover:border-emerald-600 hover:shadow-[0_0_20px_rgba(5,150,105,0.35)] hover:bg-emerald-500/[0.04]"
     : "hover:border-fuchsia-500 hover:shadow-[0_0_20px_rgba(217,70,239,0.35)] hover:bg-fuchsia-500/[0.04]";
 
+  const activeCardStyles = isCoin
+    ? "border-emerald-600 shadow-[0_0_20px_rgba(5,150,105,0.35)] bg-emerald-500/[0.04] -translate-y-0.5"
+    : "border-fuchsia-500 shadow-[0_0_20px_rgba(217,70,239,0.35)] bg-fuchsia-500/[0.04] -translate-y-0.5";
+
   const iconBg = isCoin
-    ? "bg-emerald-500/10 group-hover:bg-emerald-500/20"
-    : "bg-fuchsia-500/10 group-hover:bg-fuchsia-500/20";
+    ? (selected ? "bg-emerald-500/20" : "bg-emerald-500/10 group-hover:bg-emerald-500/20")
+    : (selected ? "bg-fuchsia-500/20" : "bg-fuchsia-500/10 group-hover:bg-fuchsia-500/20");
 
   const buttonStyle = isCoin
     ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/25"
@@ -716,8 +726,11 @@ export function TopupCard({
 
   return (
     <div
-      onClick={() => onBuy(pkg)}
-      className={`group relative flex-shrink-0 w-[150px] min-w-[150px] rounded-2xl border-2 border-border bg-card p-3.5 flex flex-col items-center justify-between transition-all duration-300 hover:-translate-y-0.5 cursor-pointer select-none ${hoverCardStyles}`}
+      onClick={onSelect}
+      onMouseEnter={onMouseEnter}
+      className={`group relative flex-shrink-0 w-[150px] min-w-[150px] rounded-2xl border-2 bg-card p-3.5 flex flex-col items-center justify-between transition-all duration-300 hover:-translate-y-0.5 cursor-pointer select-none ${
+        selected ? activeCardStyles : `border-border ${hoverCardStyles}`
+      }`}
       style={{ scrollSnapAlign: "start" }}
     >
       {/* Badge thời gian */}
@@ -783,5 +796,223 @@ export function HScrollRow({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   );
+}
+
+// ============================================================
+// Logic phân định Hành động Nâng cấp / Gia hạn / Hạ cấp
+// ============================================================
+export const TIER_RANKS: Record<string, number> = {
+  FREE: 0,
+  TRIAL: 1,
+  STARTER: 1,
+  PRO: 2,
+  ELITE: 3,
+};
+
+export interface SubscriptionActionInfo {
+  type: "NEW" | "EXTEND" | "UPGRADE" | "DOWNGRADE" | "INVALID_CYCLE";
+  disabled: boolean;
+  buttonText: string;
+  badgeText?: string;
+  finalPrice: number;
+  originalPrice: number;
+  unusedOldValue: number;
+  remainingDays: number;
+  targetTier?: string | null;
+  currentTier?: string | null;
+}
+
+export function getSubscriptionActionInfo(
+  membership: {
+    tier: string;
+    packageId?: string | null;
+    durationDays?: number | null;
+    expiresAt?: string | null;
+  },
+  selectedPkg: CreditPackage | null | undefined,
+  allPackages: CreditPackage[] = []
+): SubscriptionActionInfo {
+  if (!selectedPkg) {
+    return {
+      type: "NEW",
+      disabled: true,
+      buttonText: "Chọn gói",
+      finalPrice: 0,
+      originalPrice: 0,
+      unusedOldValue: 0,
+      remainingDays: 0,
+    };
+  }
+
+  const originalPrice = getFinalPrice(selectedPkg);
+
+  // 1. Gói Campaign
+  if (selectedPkg.campaign_id) {
+    const currentRank = TIER_RANKS[membership.tier?.toUpperCase()] ?? 0;
+    const targetRank = TIER_RANKS[selectedPkg.tier?.toUpperCase()] ?? 1;
+
+    // Hạ gói -> Khóa nút (Downgrade Prevention)
+    if (currentRank > targetRank) {
+      return {
+        type: "DOWNGRADE",
+        disabled: true,
+        buttonText: `Đã bao gồm trong ${membership.tier}`,
+        badgeText: "Đang có gói cao hơn",
+        finalPrice: 0,
+        originalPrice: 0,
+        unusedOldValue: 0,
+        remainingDays: 0,
+        targetTier: selectedPkg.tier,
+        currentTier: membership.tier,
+      };
+    }
+
+    // Cùng hạng -> Cộng dồn thêm ngày
+    const isSameTier = currentRank === targetRank && membership.tier !== "FREE";
+    return {
+      type: isSameTier ? "EXTEND" : (currentRank > 0 ? "UPGRADE" : "NEW"),
+      disabled: false,
+      buttonText: isSameTier
+        ? `Cộng thêm ${selectedPkg.duration_days} ngày ${selectedPkg.tier}`
+        : `Nhận quà sự kiện (${selectedPkg.duration_days} ngày)`,
+      finalPrice: 0,
+      originalPrice: 0,
+      unusedOldValue: 0,
+      remainingDays: 0,
+      targetTier: selectedPkg.tier,
+      currentTier: membership.tier,
+    };
+  }
+
+  // 2. Gói Trial mặc định
+  if (selectedPkg.is_trial) {
+    const isPaidActive = membership.tier && membership.tier !== "FREE" && (!membership.expiresAt || new Date(membership.expiresAt).getTime() > Date.now());
+    if (isPaidActive) {
+      return {
+        type: "DOWNGRADE",
+        disabled: true,
+        buttonText: `Đang có gói ${membership.tier}`,
+        badgeText: "Chỉ dành cho tài khoản Miễn phí",
+        finalPrice: 0,
+        originalPrice: 0,
+        unusedOldValue: 0,
+        remainingDays: 0,
+        targetTier: selectedPkg.tier,
+        currentTier: membership.tier,
+      };
+    }
+    return {
+      type: "NEW",
+      disabled: false,
+      buttonText: `Dùng thử miễn phí (${selectedPkg.duration_days ?? 3} ngày)`,
+      finalPrice: 0,
+      originalPrice: 0,
+      unusedOldValue: 0,
+      remainingDays: 0,
+      targetTier: selectedPkg.tier,
+      currentTier: membership.tier,
+    };
+  }
+
+  const isExpired = !membership.expiresAt || new Date(membership.expiresAt).getTime() <= Date.now();
+
+  // 3. Nếu đang FREE hoặc gói cũ hết hạn -> Đăng ký mới
+  if (membership.tier === "FREE" || isExpired) {
+    return {
+      type: "NEW",
+      disabled: false,
+      buttonText: `Đăng ký ${selectedPkg.name} (${formatVND(originalPrice)}${getDurationLabel(selectedPkg.duration_days)})`,
+      finalPrice: originalPrice,
+      originalPrice,
+      unusedOldValue: 0,
+      remainingDays: 0,
+      targetTier: selectedPkg.tier,
+      currentTier: membership.tier,
+    };
+  }
+
+  const curRank = TIER_RANKS[membership.tier] ?? 0;
+  const targetRank = TIER_RANKS[selectedPkg.tier ?? ""] ?? 0;
+
+  // 4. Hạ cấp (targetRank < curRank) -> Khoá nút
+  if (targetRank < curRank) {
+    return {
+      type: "DOWNGRADE",
+      disabled: true,
+      buttonText: "Đã bao gồm trong gói của bạn",
+      badgeText: "Gói thấp hơn",
+      finalPrice: originalPrice,
+      originalPrice,
+      unusedOldValue: 0,
+      remainingDays: 0,
+      targetTier: selectedPkg.tier,
+      currentTier: membership.tier,
+    };
+  }
+
+  // 5. Cùng thứ hạng gói -> Gia hạn
+  if (targetRank === curRank) {
+    return {
+      type: "EXTEND",
+      disabled: false,
+      buttonText: `Gia hạn ${selectedPkg.name} (${formatVND(originalPrice)}${getDurationLabel(selectedPkg.duration_days)})`,
+      badgeText: "Gia hạn thêm",
+      finalPrice: originalPrice,
+      originalPrice,
+      unusedOldValue: 0,
+      remainingDays: 0,
+      targetTier: selectedPkg.tier,
+      currentTier: membership.tier,
+    };
+  }
+
+  // 6. Nâng cấp lên gói cao hơn (targetRank > curRank)
+  const curDuration = Number(membership.durationDays) || 30;
+  const targetDuration = Number(selectedPkg.duration_days) || 30;
+
+  // Ràng buộc chu kỳ: chu kỳ gói mới phải >= chu kỳ gói đang dùng
+  if (targetDuration < curDuration) {
+    return {
+      type: "INVALID_CYCLE",
+      disabled: true,
+      buttonText: `Chỉ nâng cấp chu kỳ từ ${curDuration} ngày trở lên`,
+      badgeText: "Chu kỳ không hợp lệ",
+      finalPrice: originalPrice,
+      originalPrice,
+      unusedOldValue: 0,
+      remainingDays: 0,
+      targetTier: selectedPkg.tier,
+      currentTier: membership.tier,
+    };
+  }
+
+  // Tìm gói cũ để tính giá gốc
+  let oldPrice = 0;
+  if (membership.packageId) {
+    const oldPkg = allPackages.find((p) => p.id === membership.packageId);
+    if (oldPkg && !oldPkg.is_trial) {
+      oldPrice = getFinalPrice(oldPkg);
+    }
+  }
+
+  const remainingMs = Math.max(0, new Date(membership.expiresAt).getTime() - Date.now());
+  const remainingDays = Math.max(0, remainingMs / (24 * 60 * 60 * 1000));
+  const unusedOldValue = Math.round((oldPrice / curDuration) * remainingDays);
+
+  const diffPrice = originalPrice - unusedOldValue;
+  const upgradePrice = Math.max(10000, Math.round(diffPrice));
+
+  return {
+    type: "UPGRADE",
+    disabled: false,
+    buttonText: `Nâng cấp lên ${selectedPkg.name} (${formatVND(upgradePrice)})`,
+    badgeText: `Bù chênh lệch ${formatVND(upgradePrice)}`,
+    finalPrice: upgradePrice,
+    originalPrice,
+    unusedOldValue,
+    remainingDays: Math.ceil(remainingDays),
+    targetTier: selectedPkg.tier,
+    currentTier: membership.tier,
+  };
 }
 

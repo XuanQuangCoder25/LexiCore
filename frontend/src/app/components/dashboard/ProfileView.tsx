@@ -175,11 +175,10 @@ export function ProfileView() {
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
       {/* ── Cover Photo ── */}
-      <div className="w-full h-64 md:h-80 lg:h-96 rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 shadow-sm relative overflow-hidden flex items-center justify-center">
+      <div className="w-full h-64 md:h-80 lg:h-96 rounded-2xl bg-gradient-to-r from-slate-800 via-indigo-950 to-slate-900 shadow-sm relative overflow-hidden flex items-center justify-center">
         {userData?.cover_url && (
           <img src={userData.cover_url} alt="Cover" className="absolute inset-0 w-full h-full object-cover object-center" />
         )}
-        <div className="absolute inset-0 bg-black/10"></div>
       </div>
 
       {/* ── Avatar & Header Info ── */}
