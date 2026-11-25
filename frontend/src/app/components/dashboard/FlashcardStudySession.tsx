@@ -2,10 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-import { Progress } from "../ui/progress";
 import { toast } from "sonner";
-import { srsService } from "../../services/srs-service";
+import { srsService, previewSM2Intervals } from "../../services/srs-service";
 import { creatorService } from "../../services/creator-service";
 import { 
   ArrowLeft, 
@@ -18,7 +16,8 @@ import {
   Sparkles,
   BookOpen,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Activity
 } from "lucide-react";
 
 interface FlashcardStudySessionProps {
@@ -36,6 +35,28 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
   const [cardStartTime, setCardStartTime] = useState<number>(Date.now());
   const [isFinished, setIsFinished] = useState(false);
 
+  const normalizeCard = (fc: any, defaultStatus = "New") => ({
+    ...fc,
+    _id: fc._id || fc.cardId,
+    cardId: fc.cardId || fc._id,
+    courseId: fc.courseId,
+    front: fc.front,
+    back: fc.back,
+    partOfSpeech: fc.partOfSpeech || "noun",
+    phonetic: fc.phonetic || "",
+    audioUrl: fc.audioUrl || "",
+    example: fc.example || "",
+    exampleMeaning: fc.exampleMeaning || "",
+    synonyms: fc.synonyms || [],
+    note: fc.note || "",
+    imageUrl: fc.imageUrl || "",
+    easeFactor: Number(fc.easeFactor ?? 2.5),
+    interval: Number(fc.interval ?? 0),
+    repetitions: Number(fc.repetitions ?? 0),
+    status: fc.status || defaultStatus,
+    previousReviewDate: fc.previousReviewDate || null,
+  });
+
   const fetchCards = async () => {
     setLoading(true);
     setIsFinished(false);
@@ -44,29 +65,14 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
     try {
       const res = await srsService.getDueCards(deckId);
       if (res.success && Array.isArray(res.data?.cards) && res.data.cards.length > 0) {
-        setDueCards(res.data.cards);
-        setTotalDue(res.data.totalDue || res.data.cards.length);
+        const normalized = res.data.cards.map((c: any) => normalizeCard(c, c.status || "New"));
+        setDueCards(normalized);
+        setTotalDue(res.data.totalDue || normalized.length);
         setCardStartTime(Date.now());
       } else {
-        // Fallback: nếu srs không có thẻ nào, lấy danh sách trực tiếp từ creatorService
         const fallbackRes = await creatorService.getFlashcards(deckId);
         if (fallbackRes.success && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
-          const cards = fallbackRes.data.map((fc: any) => ({
-            _id: fc._id,
-            cardId: fc._id,
-            courseId: fc.courseId,
-            front: fc.front,
-            back: fc.back,
-            partOfSpeech: fc.partOfSpeech,
-            phonetic: fc.phonetic,
-            audioUrl: fc.audioUrl,
-            example: fc.example,
-            exampleMeaning: fc.exampleMeaning,
-            synonyms: fc.synonyms,
-            note: fc.note,
-            imageUrl: fc.imageUrl,
-            status: 'Practice'
-          }));
+          const cards = fallbackRes.data.map((fc: any) => normalizeCard(fc, "Practice"));
           setDueCards(cards);
           setTotalDue(cards.length);
           setCardStartTime(Date.now());
@@ -75,26 +81,11 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
           setTotalDue(0);
         }
       }
-    } catch (error) {
+    } catch {
       try {
         const fallbackRes = await creatorService.getFlashcards(deckId);
         if (fallbackRes.success && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
-          const cards = fallbackRes.data.map((fc: any) => ({
-            _id: fc._id,
-            cardId: fc._id,
-            courseId: fc.courseId,
-            front: fc.front,
-            back: fc.back,
-            partOfSpeech: fc.partOfSpeech,
-            phonetic: fc.phonetic,
-            audioUrl: fc.audioUrl,
-            example: fc.example,
-            exampleMeaning: fc.exampleMeaning,
-            synonyms: fc.synonyms,
-            note: fc.note,
-            imageUrl: fc.imageUrl,
-            status: 'Practice'
-          }));
+          const cards = fallbackRes.data.map((fc: any) => normalizeCard(fc, "Practice"));
           setDueCards(cards);
           setTotalDue(cards.length);
           setCardStartTime(Date.now());
@@ -118,10 +109,10 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
   };
 
   const speakText = (text: string) => {
-    if (!text || !('speechSynthesis' in window)) return;
+    if (!text || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
+    utterance.lang = "en-US";
     utterance.rate = 0.95;
     window.speechSynthesis.speak(utterance);
   };
@@ -154,7 +145,7 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
       setCurrentCardIndex(prev => prev + 1);
     } else {
       setIsFinished(true);
-      toast.success("Tuyệt vời! Bạn đã hoàn thành phiên ôn tập thẻ!");
+      toast.success("Hoàn thành phiên ôn tập thẻ từ vựng.");
     }
   };
 
@@ -163,26 +154,87 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
     
     const responseTimeMs = Date.now() - cardStartTime;
     const card = dueCards[currentCardIndex];
-    
+    const prevEf = Number(card.easeFactor ?? 2.5);
+    const prevInterval = Number(card.interval ?? 0);
+    const preview = previewSM2Intervals(card);
+    const predicted =
+      quality === 0 ? preview.again :
+      quality === 2 ? preview.hard :
+      quality === 4 ? preview.good : preview.easy;
+
+    let newEf = predicted.easeFactor;
+    let newInterval = predicted.interval;
+    let newRep = predicted.repetitions;
+    let newStatus: string = predicted.status;
+
     try {
-      await srsService.submitReview({
+      const res = await srsService.submitReview({
         cardId: card._id, 
         courseId: card.courseId || deckId,
         quality: quality,
         responseTimeMs
       });
+
+      if (res?.delta) {
+        newEf = Number(res.delta.newEaseFactor ?? newEf);
+        newInterval = Number(res.delta.newInterval ?? newInterval);
+        newRep = Number(res.delta.newRepetitions ?? newRep);
+        newStatus = res.delta.newStatus || newStatus;
+      } else if (res?.data) {
+        newEf = Number(res.data.easeFactor ?? newEf);
+        newInterval = Number(res.data.interval ?? newInterval);
+        newRep = Number(res.data.repetitions ?? newRep);
+        newStatus = res.data.status || newStatus;
+      }
+
+      // Phát sự kiện để Dashboard tự động refetch real-time
+      window.dispatchEvent(new CustomEvent("srs:review-updated"));
     } catch (error) {
       console.warn("Lỗi khi đồng bộ kết quả ôn tập:", error);
+    }
+
+    // Hiển thị SM-2+ Delta Toast chuẩn Monochrome
+    if (quality < 2) {
+      toast(
+        `Reset: Interval ${prevInterval}d → ${newInterval}d · EF ${prevEf.toFixed(2)} → ${newEf.toFixed(2)} · Status: ${newStatus}`,
+        {
+          description: "Thẻ được đưa về cuối hàng đợi để ôn lại ngay trong phiên hiện tại.",
+        }
+      );
+    } else {
+      toast(
+        `SM-2+ Updated: Interval ${prevInterval}d → ${newInterval}d · EF ${prevEf.toFixed(2)} → ${newEf.toFixed(2)} · Status: ${newStatus}`,
+        {
+          description: `Lần lặp liên tiếp (Rep): ${newRep} · Hẹn ôn lại sau ${newInterval} ngày.`,
+        }
+      );
     }
     
     setShowAnswer(false);
     setCardStartTime(Date.now());
     
+    // Nếu học viên bấm Sai (quality = 0), đưa thẻ đó quay lại cuối hàng đợi của phiên học hiện tại
+    if (quality < 2) {
+      const requeuedCard = {
+        ...card,
+        easeFactor: newEf,
+        interval: newInterval,
+        repetitions: newRep,
+        status: newStatus,
+        previousReviewDate: new Date().toISOString(),
+        isRequeued: true,
+      };
+      setDueCards(prev => [...prev, requeuedCard]);
+      setTotalDue(prev => prev + 1);
+      setCurrentCardIndex(prev => prev + 1);
+      return;
+    }
+
     if (currentCardIndex + 1 < dueCards.length) {
       setCurrentCardIndex(prev => prev + 1);
     } else {
       setIsFinished(true);
-      toast.success("Tuyệt vời! Bạn đã hoàn thành phiên ôn tập thẻ!");
+      toast.success("Hoàn thành phiên ôn tập thẻ từ vựng.");
     }
   }, [dueCards, currentCardIndex, cardStartTime, deckId]);
 
@@ -216,8 +268,8 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-16 space-y-4">
-        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-muted-foreground text-sm">Đang tải bộ thẻ từ vựng...</p>
+        <div className="w-10 h-10 border-4 border-zinc-900 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-zinc-500 text-sm">Đang tải bộ thẻ từ vựng...</p>
       </div>
     );
   }
@@ -250,9 +302,9 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
         <div className="w-16 h-16 bg-zinc-100 rounded-2xl flex items-center justify-center text-zinc-900 mb-5 border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
           <CheckCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 mb-2">Hoàn thành phiên học!</h2>
+        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 mb-2">Hoàn thành phiên học</h2>
         <p className="text-zinc-500 mb-6 text-sm leading-relaxed">
-          Tuyệt vời! Bạn đã hoàn thành ôn tập tất cả {totalDue || dueCards.length} thẻ từ vựng với thuật toán Spaced Repetition.
+          Bạn đã hoàn thành ôn tập toàn bộ <span className="font-mono font-semibold text-zinc-900">{totalDue || dueCards.length}</span> lượt thẻ với thuật toán Spaced Repetition SM-2 Plus.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           <Button 
@@ -275,11 +327,31 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
 
   const activeCard = dueCards[currentCardIndex];
   const progress = totalDue > 0 ? ((currentCardIndex) / totalDue) * 100 : 0;
+  const sm2Preview = previewSM2Intervals(activeCard);
+
+  const renderSrsMiniBadge = () => (
+    <div className="inline-flex flex-wrap items-center gap-1.5 bg-zinc-100 border border-zinc-200 text-zinc-700 font-mono text-xs px-2.5 py-1 rounded-lg">
+      <Activity className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+      <span>EF: {Number(activeCard?.easeFactor ?? 2.5).toFixed(2)}</span>
+      <span className="text-zinc-300">·</span>
+      <span>Interval: {Number(activeCard?.interval ?? 0)}d</span>
+      <span className="text-zinc-300">·</span>
+      <span>Rep: {Number(activeCard?.repetitions ?? 0)}</span>
+      <span className="text-zinc-300">·</span>
+      <span className="font-semibold text-zinc-900">Status: {activeCard?.status || "New"}</span>
+      {activeCard?.isRequeued && (
+        <>
+          <span className="text-zinc-300">·</span>
+          <span className="bg-zinc-900 text-white px-1.5 py-0.2 rounded text-[10px]">Ôn lại</span>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto py-2 animate-in fade-in duration-300">
       {/* Top Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-zinc-200/80">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-zinc-200/80">
         <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
@@ -291,15 +363,12 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
           </Button>
           <div>
             <h2 className="text-lg font-bold text-zinc-900">{deckTitle || "Luyện tập Flashcards"}</h2>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500 font-mono">
               Thẻ {currentCardIndex + 1} / {totalDue}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] font-semibold tracking-wider uppercase bg-zinc-100 text-zinc-700 px-2.5 py-0.5 rounded-full border border-zinc-200/60">
-            {activeCard?.status || "New"}
-          </span>
           <div className="w-28 sm:w-36 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
             <div 
               className="h-full bg-zinc-900 rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -310,10 +379,10 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
       </div>
 
       {/* 3D Flipping Card */}
-      <div className="flex justify-center perspective-1000 py-3">
+      <div className="flex justify-center perspective-1000 py-2">
         <motion.div 
           id="study-card-flipper"
-          className="w-full min-h-[360px] cursor-pointer relative select-none"
+          className="w-full min-h-[370px] cursor-pointer relative select-none"
           onClick={handleFlip}
           animate={{ rotateX: showAnswer ? 180 : 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
@@ -325,7 +394,7 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
             style={{ backfaceVisibility: "hidden" }}
           >
             <CardContent className="p-6 sm:p-8 h-full flex flex-col justify-between items-center text-center relative overflow-y-auto">
-              <div className="w-full flex justify-between items-center text-xs text-zinc-500">
+              <div className="w-full flex flex-wrap justify-between items-center gap-2 text-xs text-zinc-500">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold uppercase tracking-wider text-[11px] text-zinc-600">Từ vựng (Front)</span>
                   {activeCard?.partOfSpeech && (
@@ -334,15 +403,19 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
                     </span>
                   )}
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-full transition-colors"
-                  onClick={(e) => { e.stopPropagation(); playAudioOrSpeak(activeCard?.front, activeCard?.audioUrl); }}
-                  title="Phát âm"
-                >
-                  <Volume2 className="h-4 w-4" />
-                </Button>
+
+                <div className="flex items-center gap-2">
+                  {renderSrsMiniBadge()}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-full transition-colors"
+                    onClick={(e) => { e.stopPropagation(); playAudioOrSpeak(activeCard?.front, activeCard?.audioUrl); }}
+                    title="Phát âm"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="my-auto py-6 space-y-3 max-w-lg w-full">
@@ -374,7 +447,7 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
             style={{ backfaceVisibility: "hidden", transform: "rotateX(180deg)" }}
           >
             <CardContent className="p-6 sm:p-8 h-full flex flex-col justify-between items-center text-center relative overflow-y-auto">
-              <div className="w-full flex justify-between items-center text-xs text-zinc-500">
+              <div className="w-full flex flex-wrap justify-between items-center gap-2 text-xs text-zinc-500">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold uppercase tracking-wider text-[11px] text-zinc-600">Ý nghĩa & Ngữ cảnh (Back)</span>
                   {activeCard?.partOfSpeech && (
@@ -383,15 +456,19 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
                     </span>
                   )}
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-full transition-colors"
-                  onClick={(e) => { e.stopPropagation(); playAudioOrSpeak(activeCard?.front, activeCard?.audioUrl); }}
-                  title="Phát âm"
-                >
-                  <Volume2 className="h-4 w-4" />
-                </Button>
+
+                <div className="flex items-center gap-2">
+                  {renderSrsMiniBadge()}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-full transition-colors"
+                    onClick={(e) => { e.stopPropagation(); playAudioOrSpeak(activeCard?.front, activeCard?.audioUrl); }}
+                    title="Phát âm"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="my-auto py-3 space-y-4 w-full max-w-xl text-left">
@@ -448,44 +525,67 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
               </div>
 
               <div className="text-xs text-zinc-400 pt-1">
-                Đánh giá mức độ ghi nhớ của bạn bên dưới (1 - 4)
+                Đánh giá mức độ ghi nhớ của bạn bên dưới (Phím 1 - 4)
               </div>
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
-      {/* SRS Controls */}
-      <div className="min-h-[56px] flex items-center justify-center">
+      {/* SRS Controls with Predicted Next Intervals */}
+      <div className="min-h-[68px] flex items-center justify-center">
         {showAnswer ? (
-          <div className="flex flex-wrap gap-2.5 sm:gap-3.5 justify-center animate-in fade-in slide-in-from-bottom-2 duration-200 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5 w-full max-w-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
             <Button 
               variant="outline" 
               onClick={() => handleNext(0)} 
-              className="flex-1 max-w-[130px] bg-white border border-zinc-200 text-zinc-700 hover:border-red-500 hover:bg-red-50/50 hover:text-red-700 active:scale-[0.98] transition-all duration-150 rounded-xl font-medium text-xs sm:text-sm h-10 shadow-none"
+              className="h-auto py-2.5 px-3 flex flex-col items-center justify-center gap-1 bg-white border border-zinc-200 text-zinc-800 hover:border-zinc-900 hover:bg-zinc-900 hover:text-white active:scale-[0.98] transition-all duration-150 rounded-xl shadow-none"
             >
-              <XCircle className="h-4 w-4 mr-1.5" /> Sai (1)
+              <span className="flex items-center text-xs sm:text-sm font-semibold">
+                <XCircle className="h-3.5 w-3.5 mr-1.5" /> Sai (1)
+              </span>
+              <span className="font-mono text-[11px] opacity-75">
+                {sm2Preview.again.label}
+              </span>
             </Button>
+
             <Button 
               variant="outline" 
               onClick={() => handleNext(2)} 
-              className="flex-1 max-w-[130px] bg-white border border-zinc-200 text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 active:scale-[0.98] transition-all duration-150 rounded-xl font-medium text-xs sm:text-sm h-10 shadow-none"
+              className="h-auto py-2.5 px-3 flex flex-col items-center justify-center gap-1 bg-white border border-zinc-200 text-zinc-800 hover:border-zinc-900 hover:bg-zinc-900 hover:text-white active:scale-[0.98] transition-all duration-150 rounded-xl shadow-none"
             >
-              <Clock className="h-4 w-4 mr-1.5" /> Khó (2)
+              <span className="flex items-center text-xs sm:text-sm font-semibold">
+                <Clock className="h-3.5 w-3.5 mr-1.5" /> Khó (2)
+              </span>
+              <span className="font-mono text-[11px] opacity-75">
+                {sm2Preview.hard.label}
+              </span>
             </Button>
+
             <Button 
               variant="outline" 
               onClick={() => handleNext(4)} 
-              className="flex-1 max-w-[130px] bg-white border border-zinc-200 text-zinc-700 hover:border-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 active:scale-[0.98] transition-all duration-150 rounded-xl font-medium text-xs sm:text-sm h-10 shadow-none"
+              className="h-auto py-2.5 px-3 flex flex-col items-center justify-center gap-1 bg-white border border-zinc-300 text-zinc-900 hover:border-zinc-900 hover:bg-zinc-900 hover:text-white active:scale-[0.98] transition-all duration-150 rounded-xl shadow-none"
             >
-              <CheckCircle className="h-4 w-4 mr-1.5" /> Nhớ (3)
+              <span className="flex items-center text-xs sm:text-sm font-semibold">
+                <CheckCircle className="h-3.5 w-3.5 mr-1.5" /> Nhớ (3)
+              </span>
+              <span className="font-mono text-[11px] opacity-75">
+                {sm2Preview.good.label}
+              </span>
             </Button>
+
             <Button 
               variant="outline" 
               onClick={() => handleNext(5)} 
-              className="flex-1 max-w-[130px] bg-white border border-zinc-200 text-zinc-700 hover:border-emerald-600 hover:bg-emerald-50/50 hover:text-emerald-800 active:scale-[0.98] transition-all duration-150 rounded-xl font-medium text-xs sm:text-sm h-10 shadow-none"
+              className="h-auto py-2.5 px-3 flex flex-col items-center justify-center gap-1 bg-zinc-900 border border-zinc-900 text-white hover:bg-zinc-800 active:scale-[0.98] transition-all duration-150 rounded-xl shadow-none"
             >
-              <Sparkles className="h-4 w-4 mr-1.5" /> Dễ (4)
+              <span className="flex items-center text-xs sm:text-sm font-semibold">
+                <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Dễ (4)
+              </span>
+              <span className="font-mono text-[11px] opacity-80">
+                {sm2Preview.easy.label}
+              </span>
             </Button>
           </div>
         ) : (
@@ -512,7 +612,7 @@ export function FlashcardStudySession({ deckId, deckTitle, onBack }: FlashcardSt
         </Button>
 
         <span className="text-xs text-zinc-400 font-medium hidden sm:inline">
-          Dùng phím ← / → để chuyển thẻ, Space để lật thẻ
+          Dùng phím ← / → để chuyển thẻ, Space để lật thẻ, 1-4 để chấm điểm
         </span>
 
         <Button

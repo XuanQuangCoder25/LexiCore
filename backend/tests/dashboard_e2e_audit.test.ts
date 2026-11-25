@@ -175,6 +175,10 @@ async function runDashboardAuditTests() {
     // TEST CASE 3: SRS Flashcard Reviews, Due Cards & Retention Curve
     // ------------------------------------------------------------------
     console.log('\n--- TEST CASE 3: SRS Reviews, Words Learned & 7-Day Retention Curve ---');
+    const elevenDaysAgo = new Date();
+    elevenDaysAgo.setDate(elevenDaysAgo.getDate() - 11);
+    elevenDaysAgo.setHours(9, 0, 0, 0);
+
     await CardReview.create({
       userId: testUserId,
       cardId: new mongoose.Types.ObjectId(),
@@ -186,11 +190,18 @@ async function runDashboardAuditTests() {
       status: 'Review',
       reviewHistory: [
         {
+          date: elevenDaysAgo,
+          quality: 4,
+          interval: 6,
+          easeFactor: 2.5,
+          responseTimeMs: 4000
+        },
+        {
           date: new Date(),
           quality: 5,
           interval: 3,
           easeFactor: 2.6,
-          responseTimeMs: 8000 // 8 seconds
+          responseTimeMs: 4000 // Total 8 seconds
         }
       ]
     });
@@ -201,7 +212,13 @@ async function runDashboardAuditTests() {
     if (!Array.isArray(retPoints) || retPoints.length !== 7) {
       throw new Error(`Expected 7 retention curve points from SRS history, got: ${JSON.stringify(retPoints)}`);
     }
-    console.log(`✅ Test Case 3 Passed: 7-day retention curve computed dynamically (latest withReview = ${retPoints[6].withReview}%).`);
+    if (retPoints[6].withReview <= retPoints[5].withReview) {
+      throw new Error(`Expected today's SRS review to rebound withReview higher than yesterday (${retPoints[5].withReview}% -> ${retPoints[6].withReview}%)`);
+    }
+    if (retPoints[0].retention <= retPoints[6].retention) {
+      throw new Error(`Expected Ebbinghaus natural forgetting curve to decay across the week (${retPoints[0].retention}% -> ${retPoints[6].retention}%)`);
+    }
+    console.log(`✅ Test Case 3 Passed: 7-day retention curve computed dynamically (yesterday = ${retPoints[5].withReview}% -> today after review = ${retPoints[6].withReview}%, Ebbinghaus curve = ${retPoints[0].retention}% -> ${retPoints[6].retention}%).`);
 
     // ------------------------------------------------------------------
     // TEST CASE 4: Exam Study Time & Aggregated Quick Stats + Activities

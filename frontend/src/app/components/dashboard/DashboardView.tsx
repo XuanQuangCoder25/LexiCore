@@ -147,6 +147,9 @@ export function DashboardView({ onNavigateTab, userName }: DashboardViewProps) {
       <RetentionChartCard
         data={data.retentionData}
         dueCardsToday={data.stats.dueCardsToday ?? 0}
+        forecastData={data.forecastData}
+        reviewedCards={data.reviewedCards}
+        onNavigateTab={handleNavigate}
       />
     </div>
   );
