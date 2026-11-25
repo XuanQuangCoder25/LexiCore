@@ -9,6 +9,7 @@ export interface UserArenaProfile {
     avatarUrl: string | null;
     coverUrl: string | null;
     role?: string;
+    tier?: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
     level: number;
     exp: number;
     coinBalance: number;

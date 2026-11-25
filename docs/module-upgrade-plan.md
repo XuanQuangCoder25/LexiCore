@@ -267,39 +267,30 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ---
 
-## Phần 6: Nâng cấp hiển thị VIP Styling (Gradient tên)
+## Phần 6: Nâng cấp hiển thị VIP Styling (Gradient tên & Khung Avatar ELITE) [TRẠNG THÁI: ĐÃ HOÀN THÀNH 100%]
 
-### 6.1 Thêm helper lấy CSS class gradient theo tier
+### 6.1 Helper lấy CSS class hiển thị VIP theo tier
 
-**File cần tạo (Frontend):** `frontend/src/utils/vipStyling.ts`
+**File đã tạo (Frontend):** `frontend/src/app/utils/vipStyling.ts` (khớp alias `@/* -> ./src/app/*`)
 
-```typescript
-export type Tier = 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
+- `getNameGradientClass(tier)`:
+  - `PRO`: Gradient Xanh Dương Đại Dương (Ocean Blue: `bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent font-bold`).
+  - `ELITE`: Gradient Vàng Kim Hoàng Gia (Royal Gold: `bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-600 bg-clip-text text-transparent font-bold drop-shadow-sm`).
+  - `FREE` / `STARTER`: Trả về chuỗi rỗng (hiển thị tên bình thường).
+- `getEliteAvatarFrameClass(tier)`: Khung viền Avatar mạ vàng phát sáng (`ring-2 ring-amber-400 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.55)]`) dành riêng cho gói `ELITE`.
+- `getEliteRowHighlightClass(tier)`: Làm nổi bật nhẹ dòng bảng xếp hạng (`bg-amber-500/5 hover:bg-amber-500/10`) cho hội viên `ELITE`.
+- `getVipBadgeLabel(tier)`: Trả về nhãn ngắn `'PRO' | 'ELITE' | null`.
 
-// Tra ve Tailwind class cho ten hien thi theo tier
-export function getNameGradientClass(tier: Tier): string {
-  switch (tier) {
-    case 'PRO':
-      // Xanh Duong Dai Duong (Ocean Blue)
-      return 'bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent font-bold';
-    case 'ELITE':
-      // Vang Kim Hoang Gia (Royal Gold)
-      return 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-600 bg-clip-text text-transparent font-bold drop-shadow-sm';
-    default:
-      return '';
-  }
-}
-```
+### 6.2 Đồng bộ Backend & áp dụng giao diện hiển thị người dùng
 
-### 6.2 Áp dụng gradient tại các vị trí hiển thị tên người dùng
-
-Áp dụng hàm `getNameGradientClass(user.tier)` tại các component sau:
-- **Bảng Xếp Hạng (Leaderboard):** Dòng tên của từng người chơi.
-- **Màn hình In-Game Arena (HUD thanh thông tin):** Tên hiển thị cạnh avatar trong trận đấu.
-- **Màn hình Tổng kết ván đấu (Match Result):** Tên trên thẻ kết quả.
-- **Thẻ Hồ Sơ Công Khai (Public Profile Modal):** Tên hiển thị trên header.
-
-**Điều kiện hiển thị:** Gradient chỉ hiển thị khi `tier` là `PRO` hoặc `ELITE`, các tier khác hiển thị tên bình thường.
+- **Backend (JOIN `user_subscription` lọc gói `ACTIVE` và `expires_at > NOW()`):**
+  - `backend/modules/gamification/gamification-repository.ts` (`getLeaderboard`): Bổ sung trường `tier` vào bảng xếp hạng toàn cầu.
+  - `backend/modules/arena/arena.repository.ts` (`getUserArenaProfile`, `getLeaderboard`): Bổ sung `tier` cho thông tin người chơi và Top 50 bảng xếp hạng Arena.
+  - `backend/modules/arena/arena-socket.ts` (`getPlayerProfiles`): Truyền `tier` trong payload `arena:matched` (`me.tier`, `opponent.tier`) phục vụ Matchmaking, In-Game HUD và Match Result.
+  - `backend/modules/community/community.repository.ts` (`getUsersByIds`) & `community.types.ts`: Bổ sung `tier` cho `CommunityAuthor`.
+- **Frontend (Services & Components):**
+  - Cập nhật kiểu `tier` tại `arena-service.ts`, `arena-socket.service.ts` và `community-service.ts`.
+  - Áp dụng gradient tên, khung Avatar mạ vàng `ELITE` và highlight bảng xếp hạng tại: `AchievementsView.tsx` (Bảng xếp hạng toàn cầu), `ArenaLeaderboard.tsx` (thẻ thứ hạng cá nhân & danh sách Top 50), `ArenaHub.tsx`, `ArenaMatchmaking.tsx`, `ArenaGameplay.tsx` (HUD trong trận), `ArenaMatchResult.tsx`, `ProfileView.tsx`, `AuthorPopover.tsx` và `PostCard.tsx` (Cộng đồng).
 
 ---
 

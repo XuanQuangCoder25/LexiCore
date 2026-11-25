@@ -7,6 +7,7 @@ export interface ArenaPlayerInfo {
   id: string;
   full_name: string;
   avatar_url: string | null;
+  tier?: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
   arena_rank: string;
   rank_point: number;
   leaderboard_point?: number;

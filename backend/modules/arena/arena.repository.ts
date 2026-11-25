@@ -6,7 +6,7 @@ import {
     getRankOrder,
 } from './arena-rank.utils';
 import { ensureMatchRankColumns } from './arena-match.repository';
-import { getUserTier, getTierLimit, getVNDateKey } from '../../utils/tierLimits';
+import { getUserTier, getTierLimit, getVNDateKey, Tier } from '../../utils/tierLimits';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -17,6 +17,7 @@ export interface UserArenaProfileResult {
         avatarUrl: string | null;
         coverUrl: string | null;
         role?: string;
+        tier?: Tier;
         level: number;
         exp: number;
         coinBalance: number;
@@ -148,6 +149,7 @@ export interface LeaderboardItem {
     userId: string;
     fullName: string;
     avatarUrl: string | null;
+    tier?: Tier;
     arenaRank: ArenaRank;
     arenaHighestRank: ArenaRank;
     leaderboardPoint: number;
@@ -334,6 +336,7 @@ export async function getUserArenaProfile(userId: string): Promise<UserArenaProf
             avatarUrl: userRow.avatar_url,
             coverUrl: userRow.cover_url,
             role: userRow.role || 'USER',
+            tier: userTier,
             level: Number(userRow.level) || 1,
             exp: Number(userRow.exp) || 0,
             coinBalance: Number(userRow.coin_balance) || 0,
@@ -687,6 +690,7 @@ export async function getLeaderboard(options: {
     // 2. Lấy top người chơi
     const listQuery = hasHighest
         ? `SELECT u.id as user_id, u.full_name, u.avatar_url,
+                  CASE WHEN s.status = 'ACTIVE' AND s.expires_at > NOW() THEN s.tier ELSE 'FREE' END as tier,
                   COALESCE(w.arena_rank, 'BRONZE') as arena_rank,
                   COALESCE(w.arena_highest_rank, w.arena_rank, 'BRONZE') as arena_highest_rank,
                   COALESCE(w.rank_point, 0) as rank_point,
@@ -699,10 +703,12 @@ export async function getLeaderboard(options: {
                   COALESCE(w.arena_total_matches, 0) as arena_total_matches
            FROM wallets w
            JOIN users u ON w.user_id = u.id
+           LEFT JOIN user_subscription s ON s.user_id = u.id
            WHERE u.status = 'ACTIVE'
            ORDER BY w.leaderboard_point DESC, w.rank_point DESC, w.arena_total_wins DESC
            LIMIT ? OFFSET ?`
         : `SELECT u.id as user_id, u.full_name, u.avatar_url,
+                  CASE WHEN s.status = 'ACTIVE' AND s.expires_at > NOW() THEN s.tier ELSE 'FREE' END as tier,
                   COALESCE(w.arena_rank, 'BRONZE') as arena_rank,
                   COALESCE(w.arena_rank, 'BRONZE') as arena_highest_rank,
                   COALESCE(w.rank_point, 0) as rank_point,
@@ -715,6 +721,7 @@ export async function getLeaderboard(options: {
                   COALESCE(w.arena_total_matches, 0) as arena_total_matches
            FROM wallets w
            JOIN users u ON w.user_id = u.id
+           LEFT JOIN user_subscription s ON s.user_id = u.id
            WHERE u.status = 'ACTIVE'
            ORDER BY w.leaderboard_point DESC, w.rank_point DESC, w.arena_total_wins DESC
            LIMIT ? OFFSET ?`;
@@ -731,6 +738,7 @@ export async function getLeaderboard(options: {
             userId: r.user_id,
             fullName: r.full_name,
             avatarUrl: r.avatar_url,
+            tier: (r.tier || 'FREE') as Tier,
             arenaRank: (r.arena_rank || 'BRONZE') as ArenaRank,
             arenaHighestRank: (r.arena_highest_rank || r.arena_rank || 'BRONZE') as ArenaRank,
             leaderboardPoint: Number(r.leaderboard_point) || 0,

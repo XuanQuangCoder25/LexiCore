@@ -19,9 +19,11 @@ export const communityRepository = {
     // mysql2 hỗ trợ truyền mảng cho toán tử IN (?)
     const [rows] = await pool.query(
       `SELECT u.id, u.full_name, u.avatar_url, u.role,
-              COALESCE(w.level, 1) AS level
+              COALESCE(w.level, 1) AS level,
+              CASE WHEN s.status = 'ACTIVE' AND s.expires_at > NOW() THEN s.tier ELSE 'FREE' END AS tier
        FROM users u
        LEFT JOIN wallets w ON w.user_id = u.id
+       LEFT JOIN user_subscription s ON s.user_id = u.id
        WHERE u.id IN (?)`,
       [uniqueIds]
     );
@@ -33,6 +35,7 @@ export const communityRepository = {
         avatar_url: r.avatar_url || null,
         level: Number(r.level) || 1,
         role: r.role || 'USER',
+        tier: r.tier || 'FREE',
       });
     }
 

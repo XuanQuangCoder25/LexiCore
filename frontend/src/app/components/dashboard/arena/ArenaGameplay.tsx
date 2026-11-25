@@ -16,6 +16,7 @@ import {
   arenaSocketService,
 } from '../../../services/arena-socket.service';
 import { getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
+import { getNameGradientClass, getEliteAvatarFrameClass } from '../../../utils/vipStyling';
 
 interface QuestionItem {
   id: string;
@@ -686,7 +687,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
           {/* Player 1 (Bạn) */}
           <div className="bg-gradient-to-r from-primary/15 via-card to-card border-2 border-primary/40 rounded-2xl p-3 sm:p-4 flex items-center justify-between shadow-md relative overflow-hidden">
             <div className="flex items-center gap-2.5 sm:gap-3.5">
-              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-primary/50 overflow-hidden bg-primary/10 flex items-center justify-center relative shrink-0 shadow-sm">
+              <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-primary/50 overflow-hidden bg-primary/10 flex items-center justify-center relative shrink-0 shadow-sm ${getEliteAvatarFrameClass(p1?.tier)}`}>
                 {p1?.avatar_url ? (
                   <img
                     src={p1.avatar_url}
@@ -701,7 +702,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-black text-xs sm:text-sm text-foreground truncate max-w-[90px] sm:max-w-[150px]">
+                  <span className={`font-black text-xs sm:text-sm truncate max-w-[90px] sm:max-w-[150px] ${getNameGradientClass(p1?.tier) || 'text-foreground'}`}>
                     {p1?.full_name || 'Bạn'}
                   </span>
                   <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-primary/20 text-primary font-black uppercase">
@@ -757,7 +758,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
                   <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-400 font-black uppercase">
                     ĐỐI THỦ
                   </span>
-                  <span className="font-black text-xs sm:text-sm text-foreground truncate max-w-[90px] sm:max-w-[150px]">
+                  <span className={`font-black text-xs sm:text-sm truncate max-w-[90px] sm:max-w-[150px] ${getNameGradientClass(p2?.tier) || 'text-foreground'}`}>
                     {p2?.full_name || 'Đối thủ'}
                   </span>
                 </div>
@@ -773,7 +774,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
                 </div>
               </div>
 
-              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-rose-500/40 overflow-hidden bg-rose-500/10 flex items-center justify-center relative shrink-0 shadow-sm">
+              <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-rose-500/40 overflow-hidden bg-rose-500/10 flex items-center justify-center relative shrink-0 shadow-sm ${getEliteAvatarFrameClass(p2?.tier)}`}>
                 {p2?.avatar_url ? (
                   <img
                     src={p2.avatar_url}

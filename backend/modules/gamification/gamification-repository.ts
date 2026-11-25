@@ -165,9 +165,9 @@ export const getLeaderboard = async () => {
                 COALESCE(w.leaderboard_point, 0) as leaderboard_point,
                 COALESCE(w.leaderboard_point, 0) as rank_point,
                 COALESCE(w.level, 1) as level,
-                COALESCE(w.arena_rank, 'BRONZE') as arena_rank
+                COALESCE(w.arena_rank, 'BRONZE') as arena_rank, CASE WHEN s.status = 'ACTIVE' AND s.expires_at > NOW() THEN s.tier ELSE 'FREE' END AS tier
          FROM wallets w
-         JOIN users u ON w.user_id = u.id
+         JOIN users u ON w.user_id = u.id LEFT JOIN user_subscription s ON s.user_id = u.id
          WHERE u.status = 'ACTIVE'
          ORDER BY w.leaderboard_point DESC, w.level DESC
          LIMIT 50`,

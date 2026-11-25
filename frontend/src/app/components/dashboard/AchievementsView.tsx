@@ -33,6 +33,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { getRankBadgeUrl, formatRankName, optimizeAvatarUrl } from "../../services/arena-service";
+import { getNameGradientClass, getEliteAvatarFrameClass, getEliteRowHighlightClass } from "../../utils/vipStyling";
 
 interface Quest {
   user_goal_id: string;
@@ -75,6 +76,7 @@ full_name?: string | null;
   level?: number;
   arena_rank?: string;
   arenaRank?: string;
+  tier?: string;
 }
 
 interface Collection {
@@ -894,7 +896,7 @@ export function AchievementsView() {
                       const points = user.leaderboard_point ?? user.leaderboardPoint ?? 0;
 
                       return (
-                        <TableRow key={user.id} className="hover:bg-muted/50 transition-colors">
+                        <TableRow key={user.id} className={`transition-colors ${getEliteRowHighlightClass(user.tier) || 'hover:bg-muted/50'}`}>
                           {/* Cột 1: Thứ hạng */}
                           <TableCell className="text-center align-middle font-bold">
                             {rankBadge}
@@ -904,7 +906,7 @@ export function AchievementsView() {
                           <TableCell>
                             <div className="flex items-center gap-3">
 
-                              <Avatar className="h-9 w-9 border border-border shadow-xs">
+                              <Avatar className={`h-9 w-9 border border-border shadow-xs ${getEliteAvatarFrameClass(user.tier)}`}>
                                 {avatarUrl && (
                                   <AvatarImage src={optimizeAvatarUrl(avatarUrl, 100)} alt={fullName} className="object-cover" />
                                 )}
@@ -913,7 +915,7 @@ export function AchievementsView() {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                <p className="font-semibold text-sm text-foreground truncate max-w-[150px] sm:max-w-[220px]">
+                                <p className={`font-semibold text-sm truncate max-w-[150px] sm:max-w-[220px] ${getNameGradientClass(user.tier) || 'text-foreground'}`}>
                                   {fullName}
                                 </p>
                               </div>

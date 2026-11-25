@@ -59,6 +59,7 @@ export interface PlayerProfile {
     id: string;
     full_name: string;
     avatar_url: string | null;
+    tier?: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
     arena_rank: string;
     rank_point: number;
     leaderboard_point: number;
@@ -120,13 +121,15 @@ async function getPlayerProfiles(userIds: string[]): Promise<Map<string, PlayerP
 
     const placeholders = userIds.map(() => '?').join(', ');
     const [rows] = await pool.execute(
-        `SELECT u.id, u.full_name, u.avatar_url, 
+        `SELECT u.id, u.full_name, u.avatar_url,
+                CASE WHEN s.status = 'ACTIVE' AND s.expires_at > NOW() THEN s.tier ELSE 'FREE' END as tier,
                 COALESCE(w.arena_rank, 'BRONZE') as arena_rank, 
                 COALESCE(w.rank_point, 0) as rank_point, 
                 COALESCE(w.leaderboard_point, 0) as leaderboard_point, 
                 COALESCE(w.arena_current_win_streak, 0) as arena_current_win_streak
          FROM users u
          LEFT JOIN wallets w ON u.id = w.user_id
+         LEFT JOIN user_subscription s ON u.id = s.user_id
          WHERE u.id IN (${placeholders})`,
         userIds
     );
@@ -136,6 +139,7 @@ async function getPlayerProfiles(userIds: string[]): Promise<Map<string, PlayerP
             id: row.id,
             full_name: row.full_name || 'Người chơi',
             avatar_url: row.avatar_url || null,
+            tier: row.tier || 'FREE',
             arena_rank: row.arena_rank || 'BRONZE',
             rank_point: Number(row.rank_point) || 0,
             leaderboard_point: Number(row.leaderboard_point) || 0,

@@ -6,6 +6,7 @@ export interface CommunityAuthor {
   avatar_url: string | null;
   level: number;
   role: string;
+  tier?: string;
 }
 
 export interface PostResponse {

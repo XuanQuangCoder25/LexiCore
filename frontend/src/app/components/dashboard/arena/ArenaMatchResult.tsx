@@ -24,6 +24,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getRankBadgeUrl } from '../../../services/arena-service';
+import { getNameGradientClass, getEliteAvatarFrameClass } from '../../../utils/vipStyling';
 import {
   GameOverPayload,
   MatchReviewWord,
@@ -696,7 +697,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
             <div className="w-full pt-1">
               <div className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-muted/40 border border-border/60 backdrop-blur-xs">
                 {/* Avatar hình vuông sát bên trái */}
-                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-primary/40 bg-muted flex items-center justify-center shadow-xs">
+                <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-primary/40 bg-muted flex items-center justify-center shadow-xs ${getEliteAvatarFrameClass(mePlayerInfo?.tier)}`}>
                   {mePlayerInfo?.avatar_url ? (
                     <img
                       src={mePlayerInfo.avatar_url}
@@ -714,7 +715,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
                 <div className="flex-1 min-w-0 space-y-1">
                   {/* Hàng 1: Tên user & Tên rank */}
                   <div className="flex items-center justify-between gap-1">
-                    <h4 className="font-extrabold text-xs sm:text-sm text-foreground truncate max-w-[140px]">
+                    <h4 className={`font-extrabold text-xs sm:text-sm truncate max-w-[140px] ${getNameGradientClass(mePlayerInfo?.tier) || 'text-foreground'}`}>
                       {mePlayerInfo?.full_name || 'Bạn'}
                     </h4>
                     <span className="text-[10px] font-bold text-primary uppercase shrink-0">
@@ -942,7 +943,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
             <div className="w-full pt-1">
               <div className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-muted/40 border border-border/60 backdrop-blur-xs">
                 {/* Avatar hình vuông sát bên trái */}
-                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-amber-500/40 bg-muted flex items-center justify-center shadow-xs">
+                <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-amber-500/40 bg-muted flex items-center justify-center shadow-xs ${getEliteAvatarFrameClass(opponentPlayerInfo?.tier)}`}>
                   {opponentPlayerInfo?.avatar_url ? (
                     <img
                       src={opponentPlayerInfo.avatar_url}
@@ -960,7 +961,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
                 <div className="flex-1 min-w-0 space-y-1">
                   {/* Hàng 1: Tên đối thủ & Tên rank */}
                   <div className="flex items-center justify-between gap-1">
-                    <h4 className="font-extrabold text-xs sm:text-sm text-foreground truncate max-w-[140px]">
+                    <h4 className={`font-extrabold text-xs sm:text-sm truncate max-w-[140px] ${getNameGradientClass(opponentPlayerInfo?.tier) || 'text-foreground'}`}>
                       {opponentPlayerInfo?.full_name || 'Đối thủ'}
                     </h4>
                     <span className="text-[10px] font-bold text-amber-500 uppercase shrink-0">

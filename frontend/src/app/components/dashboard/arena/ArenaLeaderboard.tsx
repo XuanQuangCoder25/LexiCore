@@ -14,12 +14,14 @@ import {
   UserCheck
 } from 'lucide-react';
 import { arenaService, UserArenaProfile, getRankBadgeUrl, optimizeAvatarUrl } from '../../../services/arena-service';
+import { getNameGradientClass, getEliteAvatarFrameClass, getEliteRowHighlightClass } from '../../../utils/vipStyling';
 
 export interface LeaderboardPlayer {
   rankPosition: number;
   userId: string;
   fullName: string;
   avatarUrl: string | null;
+  tier?: 'FREE' | 'STARTER' | 'PRO' | 'ELITE';
   arenaRank: string;
   arenaHighestRank: string;
   leaderboardPoint: number;
@@ -107,7 +109,7 @@ export const ArenaLeaderboard: React.FC = () => {
           <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               {/* Avatar người chơi */}
-              <Avatar className="w-13 h-13 rounded-2xl border-2 border-primary/20 shadow-xs shrink-0 overflow-hidden">
+              <Avatar className={`w-13 h-13 rounded-2xl border-2 border-primary/20 shadow-xs shrink-0 overflow-hidden ${getEliteAvatarFrameClass(profile?.user?.tier || profile?.dailyQuota?.tier)}`}>
                 {profile?.user?.avatarUrl && (
                   <AvatarImage src={optimizeAvatarUrl(profile.user.avatarUrl, 160)} alt={profile.user.fullName} className="object-cover" />
                 )}
@@ -118,7 +120,7 @@ export const ArenaLeaderboard: React.FC = () => {
 
               <div className="space-y-0.5">
                 {/* Dòng 1: Tên người chơi */}
-                <p className="text-base sm:text-lg font-extrabold text-foreground tracking-tight leading-tight">
+                <p className={`text-base sm:text-lg font-extrabold tracking-tight leading-tight ${getNameGradientClass(profile?.user?.tier || profile?.dailyQuota?.tier) || 'text-foreground'}`}>
                   {profile?.user?.fullName || 'Vị trí của bạn'}
                 </p>
 
@@ -212,8 +214,12 @@ export const ArenaLeaderboard: React.FC = () => {
                     rankBadge = <span className="font-semibold text-muted-foreground">{rank}</span>;
                   }
 
+                  const nameVipClass = getNameGradientClass(player.tier);
+                  const avatarVipClass = getEliteAvatarFrameClass(player.tier);
+                  const rowVipClass = getEliteRowHighlightClass(player.tier);
+
                   return (
-                    <TableRow key={player.userId} className="hover:bg-muted/50 transition-colors">
+                    <TableRow key={player.userId} className={`transition-colors ${rowVipClass || 'hover:bg-muted/50'}`}>
                       {/* Cột 1: Thứ hạng */}
                       <TableCell className="text-center align-middle font-bold">
                         {rankBadge}
@@ -222,7 +228,7 @@ export const ArenaLeaderboard: React.FC = () => {
                       {/* Cột 2: Avatar + Tên người chơi */}
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9 border border-border shadow-xs">
+                          <Avatar className={`h-9 w-9 border border-border shadow-xs ${avatarVipClass}`}>
                             {player.avatarUrl && (
                               <AvatarImage src={optimizeAvatarUrl(player.avatarUrl, 100)} alt={player.fullName} />
                             )}
@@ -231,7 +237,7 @@ export const ArenaLeaderboard: React.FC = () => {
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <p className="font-semibold text-sm text-foreground truncate max-w-[150px] sm:max-w-[220px]">
+                            <p className={`font-semibold text-sm truncate max-w-[150px] sm:max-w-[220px] ${nameVipClass || 'text-foreground'}`}>
                               {player.fullName}
                             </p>
                             <span className="text-[11px] text-muted-foreground sm:hidden">

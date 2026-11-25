@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { UserArenaProfile, getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
 import { arenaSocketService, MatchedPayload, ArenaPlayerInfo } from '../../../services/arena-socket.service';
+import { getNameGradientClass, getEliteAvatarFrameClass } from '../../../utils/vipStyling';
 
 export interface ArenaMatchmakingModalProps {
   isOpen: boolean;
@@ -267,8 +268,10 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
   const myRank = currentUserProfile?.arena?.rank || matchedData?.me?.arena_rank || 'BRONZE';
   const myAvatar = currentUserProfile?.user?.avatarUrl || matchedData?.me?.avatar_url;
   const myLP = currentUserProfile?.arena?.leaderboardPoint ?? matchedData?.me?.leaderboard_point ?? 0;
+  const myTier = currentUserProfile?.user?.tier || currentUserProfile?.dailyQuota?.tier || matchedData?.me?.tier;
 
   const opponent = matchedData?.opponent;
+  const oppTier = opponent?.tier;
   const resolvedMode = matchedData?.matchType || matchType;
 
   return (
@@ -356,7 +359,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
 
             {/* Avatar & Badge */}
             <div className="my-2 relative flex flex-col items-center">
-              <Avatar className="w-24 h-24 rounded-2xl border-2 border-primary/60 shadow-md overflow-hidden">
+              <Avatar className={`w-24 h-24 rounded-2xl border-2 border-primary/60 shadow-md overflow-hidden ${getEliteAvatarFrameClass(myTier)}`}>
                 {myAvatar && <AvatarImage src={myAvatar} alt={myName} className="object-cover" />}
                 <AvatarFallback className="bg-primary/15 text-primary font-black text-2xl">
                   {myName.charAt(0).toUpperCase()}
@@ -375,7 +378,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
 
             {/* Tên & Rank */}
             <div className="space-y-0.5">
-              <h3 className="font-extrabold text-base text-foreground truncate max-w-[200px]" title={myName}>
+              <h3 className={`font-extrabold text-base truncate max-w-[200px] ${getNameGradientClass(myTier) || 'text-foreground'}`} title={myName}>
                 {myName}
               </h3>
               <p className="text-xs font-bold text-primary uppercase tracking-wide">
@@ -520,7 +523,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
 
                 {/* Avatar & Badge Đối thủ */}
                 <div className="my-2 relative flex flex-col items-center">
-                  <Avatar className="w-24 h-24 rounded-2xl border-2 border-amber-500/60 shadow-md overflow-hidden">
+                  <Avatar className={`w-24 h-24 rounded-2xl border-2 border-amber-500/60 shadow-md overflow-hidden ${getEliteAvatarFrameClass(oppTier)}`}>
                     {opponent?.avatar_url && (
                       <AvatarImage src={opponent.avatar_url} alt={opponent.full_name} className="object-cover" />
                     )}
@@ -541,7 +544,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
 
                 {/* Tên & Rank */}
                 <div className="space-y-0.5">
-                  <h3 className="font-extrabold text-base text-foreground truncate max-w-[200px]" title={opponent?.full_name}>
+                  <h3 className={`font-extrabold text-base truncate max-w-[200px] ${getNameGradientClass(oppTier) || 'text-foreground'}`} title={opponent?.full_name}>
                     {opponent?.full_name || 'Đối thủ'}
                   </h3>
                   <p className="text-xs font-bold text-amber-500 uppercase tracking-wide">

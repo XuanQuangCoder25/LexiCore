@@ -5,6 +5,7 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Card, CardContent } from "../ui/card";
 import { Loader2, Mail, Calendar, User, XCircle, Clock, Upload, GraduationCap, Flame, CircleDollarSign, Gem, Trophy, Info, Crown, Medal, Copy, Check, ShieldCheck } from "lucide-react";
+import { getNameGradientClass, getEliteAvatarFrameClass } from "../../utils/vipStyling";
 
 interface CopyButtonProps {
   textToCopy: string;
@@ -184,7 +185,7 @@ export function ProfileView() {
       {/* ── Avatar & Header Info ── */}
       <div className="flex flex-col md:flex-row items-center md:items-end gap-6 px-6 -mt-12 md:-mt-16 relative z-10">
         <div
-          className="w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden flex items-center justify-center text-4xl md:text-5xl font-bold shrink-0 relative border-4 border-background shadow-lg"
+          className={`w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden flex items-center justify-center text-4xl md:text-5xl font-bold shrink-0 relative border-4 border-background shadow-lg ${getEliteAvatarFrameClass(userData?.tier)}`}
           style={{
             boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
             backgroundColor: isDark ? "#1f2937" : "#e5e7eb",
@@ -198,7 +199,7 @@ export function ProfileView() {
           )}
         </div>
         <div className="text-center md:text-left">
-          <h1 className="text-3xl font-bold drop-shadow-sm">{userData?.full_name || "Guest"}</h1>
+          <h1 className={`text-3xl font-bold drop-shadow-sm ${getNameGradientClass(userData?.tier)}`}>{userData?.full_name || "Guest"}</h1>
           <div className="flex items-center gap-2 text-muted-foreground text-base font-medium mt-1">
             <span>{`ID: ${userData?.id || "Chưa rõ ID"}`}</span>
             {userData?.id && <CopyButton textToCopy={userData.id} />}

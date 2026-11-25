@@ -20,6 +20,7 @@ import {
 import { useSocial } from '../social/SocialContext';
 import { CommunityAuthor } from '../../services/community-service';
 import { getInitials } from '../social/utils';
+import { getNameGradientClass, getEliteAvatarFrameClass } from '../../utils/vipStyling';
 
 interface AuthorPopoverProps {
   author: CommunityAuthor;
@@ -81,7 +82,7 @@ export const AuthorPopover: React.FC<AuthorPopoverProps> = ({
         {/* Profile Header */}
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Avatar className="h-12 w-12 border-2 border-border">
+            <Avatar className={`h-12 w-12 border-2 border-border ${getEliteAvatarFrameClass(author.tier)}`}>
               <AvatarImage src={author.avatar_url || ''} />
               <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
                 {getInitials(author.full_name)}
@@ -97,7 +98,7 @@ export const AuthorPopover: React.FC<AuthorPopoverProps> = ({
           </div>
 
           <div className="min-w-0 flex-1">
-            <h4 className="font-bold text-sm text-foreground truncate">{author.full_name}</h4>
+            <h4 className={`font-bold text-sm truncate ${getNameGradientClass(author.tier) || 'text-foreground'}`}>{author.full_name}</h4>
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
                 Cấp độ {author.level}

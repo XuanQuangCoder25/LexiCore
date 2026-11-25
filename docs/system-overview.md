@@ -244,6 +244,10 @@ Hòa:   rank_point ±0,  leaderboard_point ±0
 Thăng bậc khi `rank_point` vượt `RANK_THRESHOLDS[currentRank]`. Giáng bậc khi về 0.
 Chi tiết 15 bậc và huy hiệu → xem [gamification.md](./gamification.md)
 
+**Nhận diện VIP Styling (PRO / ELITE):**
+- Frontend sử dụng helper `frontend/src/app/utils/vipStyling.ts`: `getNameGradientClass` (Ocean Blue cho `PRO`, Royal Gold cho `ELITE`), `getEliteAvatarFrameClass` (khung Avatar mạ vàng phát sáng cho `ELITE`) và `getEliteRowHighlightClass` (làm nổi bật dòng bảng xếp hạng cho `ELITE`).
+- Backend truy vấn `LEFT JOIN user_subscription` (`status = 'ACTIVE' AND expires_at > NOW()`) tại `gamification-repository.ts`, `arena.repository.ts`, `arena-socket.ts` và `community.repository.ts` để đồng bộ hiển thị trên Bảng xếp hạng toàn cầu/Arena, Matchmaking, In-Game HUD, Match Result, Hồ sơ cá nhân và Cộng đồng.
+
 ---
 
 ## 8. MODULE PAYMENT & SUBSCRIPTION
