@@ -27,6 +27,7 @@ import { NotificationPopover } from "./components/global/NotificationPopover";
 import { FriendsPanel } from "./components/global/FriendsPanel";
 import { FriendsButton } from "./components/global/FriendsButton";
 import { FriendlyInviteToast } from "./components/dashboard/arena/FriendlyInviteToast";
+import { FriendlyInviteModal } from "./components/dashboard/arena/FriendlyInviteModal";
 import { MatchedPayload } from "./services/arena-socket.service";
 import { ChatButton } from "./components/global/ChatButton";
 import { ChatDialog } from "./components/global/ChatDialog";
@@ -74,11 +75,15 @@ function AppContent() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [creatorStatus, setCreatorStatus] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("Guest");
+  const [userId, setUserId] = useState<string | undefined>(undefined);
   const [userTier, setUserTier] = useState<"STARTER" | "PRO" | "ELITE" | null>(() => {
     return (localStorage.getItem("lexicore_user_tier") as any) || null;
   });
   const [pendingArenaMatch, setPendingArenaMatch] = useState<MatchedPayload | null>(null);
   const [initialArenaTab, setInitialArenaTab] = useState<"hub" | "history" | "leaderboard" | "analytics">("hub");
+  const [isFriendlyModalOpen, setIsFriendlyModalOpen] = useState<boolean>(false);
+  const [targetFriendForInvite, setTargetFriendForInvite] = useState<{ id: string; fullName: string; avatarUrl?: string | null } | null>(null);
+  const [friendlyRestoreTick, setFriendlyRestoreTick] = useState<number>(0);
   const [maintenance, setMaintenance] = useState<{
     active: boolean;
     title?: string;
@@ -138,6 +143,7 @@ function AppContent() {
         const statusVal = data?.creator_status ?? null;
         setCreatorStatus(statusVal);
         localStorage.setItem("lexicore_creator_status", statusVal || "");
+        if (data?.id) setUserId(data.id);
         if (data?.full_name) setUserName(data.full_name);
         if (data?.tier !== undefined) {
           setUserTier(data.tier);
@@ -169,13 +175,41 @@ function AppContent() {
         setCoins(Number(e.detail.coinBalance));
       }
     };
+    const handleOpenFriendlyInvite = () => {
+      setTargetFriendForInvite(null);
+      setFriendlyRestoreTick((prev) => prev + 1);
+      setIsFriendlyModalOpen(true);
+    };
+    const handleChallengeUser = (e: any) => {
+      const friend = e.detail;
+      if (friend) {
+        setTargetFriendForInvite({
+          id: friend.id,
+          fullName: friend.full_name || friend.fullName,
+          avatarUrl: friend.avatar_url || friend.avatarUrl,
+        });
+      } else {
+        setTargetFriendForInvite(null);
+      }
+      setFriendlyRestoreTick((prev) => prev + 1);
+      setIsFriendlyModalOpen(true);
+    };
+    const handleCloseFriendlyInvite = () => {
+      setIsFriendlyModalOpen(false);
+    };
     window.addEventListener("navigate-tab", handleNavigateTab);
     window.addEventListener("membership-tier-change", handleTierChange);
     window.addEventListener("wallet-balance-change", handleWalletChange);
+    window.addEventListener("arena:open_friendly_invite", handleOpenFriendlyInvite);
+    window.addEventListener("arena:challenge_user", handleChallengeUser);
+    window.addEventListener("arena:close_friendly_invite", handleCloseFriendlyInvite);
     return () => {
       window.removeEventListener("navigate-tab", handleNavigateTab);
       window.removeEventListener("membership-tier-change", handleTierChange);
       window.removeEventListener("wallet-balance-change", handleWalletChange);
+      window.removeEventListener("arena:open_friendly_invite", handleOpenFriendlyInvite);
+      window.removeEventListener("arena:challenge_user", handleChallengeUser);
+      window.removeEventListener("arena:close_friendly_invite", handleCloseFriendlyInvite);
     };
   }, []);
 
@@ -184,10 +218,16 @@ function AppContent() {
     setIsChatOpen(false);
     setActiveTab("arena");
     if (friend) {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('arena:challenge_user', { detail: friend }));
-      }, 150);
+      setTargetFriendForInvite({
+        id: friend.id,
+        fullName: friend.full_name || friend.fullName,
+        avatarUrl: friend.avatar_url || friend.avatarUrl,
+      });
+    } else {
+      setTargetFriendForInvite(null);
     }
+    setFriendlyRestoreTick((prev) => prev + 1);
+    setIsFriendlyModalOpen(true);
   };
 
   const handleOpenChatWithFriend = (friend: { id: string; full_name: string; avatar_url: string | null }) => {
@@ -320,6 +360,22 @@ function AppContent() {
       <FriendlyInviteToast
         onNavigateArena={() => setActiveTab("arena")}
         onAcceptMatched={(matchData) => {
+          setPendingArenaMatch(matchData);
+          setActiveTab("arena");
+        }}
+      />
+
+      {/* Modal mời đấu giao hữu (render cấp App để toast thu nhỏ luôn tồn tại khi chuyển tab) */}
+      <FriendlyInviteModal
+        isOpen={isFriendlyModalOpen}
+        onClose={() => {
+          setIsFriendlyModalOpen(false);
+          setTargetFriendForInvite(null);
+        }}
+        currentUserId={userId}
+        initialTargetFriend={targetFriendForInvite}
+        restoreTrigger={friendlyRestoreTick}
+        onFriendlyMatched={(matchData) => {
           setPendingArenaMatch(matchData);
           setActiveTab("arena");
         }}

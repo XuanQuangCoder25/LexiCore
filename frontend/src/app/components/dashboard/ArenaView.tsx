@@ -7,7 +7,6 @@ import { ArenaLeaderboard } from './arena/ArenaLeaderboard';
 import { ArenaRadarStats } from './arena/ArenaRadarStats';
 import { ArenaRankModal } from './arena/ArenaRankModal';
 import { ArenaMatchmakingModal } from './arena/ArenaMatchmaking';
-import { FriendlyInviteModal } from './arena/FriendlyInviteModal';
 import { ArenaGateTransition, ArenaGateHandle } from './arena/ArenaGateTransition';
 import { ArenaGameplay } from './arena/ArenaGameplay';
 import { ArenaMatchResult } from './arena/ArenaMatchResult';
@@ -52,8 +51,6 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch, initialTab
   const [isRankModalOpen, setIsRankModalOpen] = useState<boolean>(false);
   const [isMatchmakingOpen, setIsMatchmakingOpen] = useState<boolean>(false);
   const [matchType, setMatchType] = useState<'RANK' | 'NORMAL' | 'FRIENDLY'>('RANK');
-  const [isFriendlyModalOpen, setIsFriendlyModalOpen] = useState<boolean>(false);
-  const [targetFriendForInvite, setTargetFriendForInvite] = useState<{ id: string; fullName: string; avatarUrl?: string | null } | null>(null);
   const [friendlyMatchedData, setFriendlyMatchedData] = useState<MatchedPayload | null>(initialPendingMatch || null);
   const [profile, setProfile] = useState<UserArenaProfile | null>(null);
   const [activeMatchData, setActiveMatchData] = useState<MatchedPayload | null>(null);
@@ -70,7 +67,7 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch, initialTab
     handledMatchRoomIdRef.current = matchedData.roomId;
 
     setMatchType('FRIENDLY');
-    setIsFriendlyModalOpen(false);
+    window.dispatchEvent(new CustomEvent('arena:close_friendly_invite'));
     setFriendlyMatchedData(matchedData);
 
     gateRef.current?.triggerGateTransition({
@@ -117,25 +114,6 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch, initialTab
     };
   }, []);
 
-  // Lắng nghe sự kiện thách đấu trực tiếp từ FriendsPanel hoặc Chat
-  useEffect(() => {
-    const handleChallengeUser = (e: any) => {
-      const friend = e.detail;
-      if (friend) {
-        setTargetFriendForInvite({
-          id: friend.id,
-          fullName: friend.full_name || friend.fullName,
-          avatarUrl: friend.avatar_url || friend.avatarUrl,
-        });
-        setIsFriendlyModalOpen(true);
-      }
-    };
-    window.addEventListener('arena:challenge_user', handleChallengeUser);
-    return () => {
-      window.removeEventListener('arena:challenge_user', handleChallengeUser);
-    };
-  }, []);
-
   /**
    * KÍCH HOẠT LẦN 1: Bấm "TÌM TRẬN ĐẤU" (Đấu Xếp Hạng hoặc Đấu Thường)
    * Cửa đóng sầm lại -> Chuyển sang màn hình Searching ngầm bên dưới -> Cửa mở toang ra
@@ -148,13 +126,6 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch, initialTab
         setIsMatchmakingOpen(true);
       },
     });
-  };
-
-  /**
-   * KHI ĐẤU GIAO HỮU KHỚP TRẬN THÀNH CÔNG
-   */
-  const handleFriendlyMatched = (matchedData: MatchedPayload) => {
-    openFriendlyMatchedLobby(matchedData);
   };
 
   /**
@@ -336,8 +307,7 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch, initialTab
                 onProfileLoaded={(p) => setProfile(p)}
                 onFindMatch={handleStartFindMatch}
                 onOpenFriendlyInvite={() => {
-                  setTargetFriendForInvite(null);
-                  setIsFriendlyModalOpen(true);
+                  window.dispatchEvent(new CustomEvent('arena:open_friendly_invite'));
                 }}
                 rankChangeData={pendingRankChange}
                 onRankChangeAnimationComplete={() => setPendingRankChange(null)}
@@ -366,18 +336,6 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch, initialTab
             onClose={() => setIsRankModalOpen(false)}
             currentRank={profile?.arena?.rank}
             highestRank={profile?.arena?.highestRank}
-          />
-
-          {/* Modal Mời Đấu Giao Hữu */}
-          <FriendlyInviteModal
-            isOpen={isFriendlyModalOpen}
-            onClose={() => {
-              setIsFriendlyModalOpen(false);
-              setTargetFriendForInvite(null);
-            }}
-            currentUserId={profile?.user?.id}
-            initialTargetFriend={targetFriendForInvite}
-            onFriendlyMatched={handleFriendlyMatched}
           />
 
           {/* Màn hình Ghép trận Matchmaking */}

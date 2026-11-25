@@ -37,6 +37,7 @@ interface FriendlyInviteModalProps {
   onClose: () => void;
   currentUserId?: string;
   initialTargetFriend?: { id: string; fullName: string; avatarUrl?: string | null } | null;
+  restoreTrigger?: number;
   onFriendlyMatched?: (matchedData: MatchedPayload) => void;
 }
 
@@ -45,6 +46,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
   onClose,
   currentUserId,
   initialTargetFriend,
+  restoreTrigger,
   onFriendlyMatched,
 }) => {
   const { friends, onlineUserIds } = useSocial();
@@ -77,12 +79,19 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
       if (!activeInvite) {
         setIsMinimized(false);
       }
-      if (initialTargetFriend) {
+      if (initialTargetFriend && !activeInvite) {
         // Nếu có sẵn thông tin friend được truyền vào từ FriendsPanel
         setTargetInput(initialTargetFriend.id);
       }
     }
   }, [isOpen, initialTargetFriend]);
+
+  // Phóng to lại modal nếu người dùng bấm mở mời đấu từ nơi khác khi đang thu nhỏ
+  useEffect(() => {
+    if (isOpen && restoreTrigger) {
+      setIsMinimized(false);
+    }
+  }, [isOpen, restoreTrigger]);
 
   // ─── 1. EFFECT SOCKET: Lắng nghe trạng thái lời mời ───
   useEffect(() => {
@@ -90,6 +99,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
 
     // Lời mời đã được gửi đi thành công -> Chuyển sang màn hình chờ
     const handleSent = (payload: FriendlyInviteSentPayload) => {
+      if (payload.isRematch) return;
       console.log('[FriendlyInviteModal] Đã gửi lời mời:', payload);
       setActiveInvite(payload);
       setIsSending(false);
@@ -144,7 +154,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
       arenaSocketService.offFriendlyError(handleError);
       socket.off('arena:matched', handleMatched);
     };
-  }, [isOpen]);
+  }, [isOpen, currentUserId]);
 
   // ─── 2. EFFECT TIMER: Đếm ngược thời gian chờ đối thủ chấp nhận ───
   useEffect(() => {
@@ -306,7 +316,7 @@ export const FriendlyInviteModal: React.FC<FriendlyInviteModalProps> = ({
               {/* Dòng ghi chú thân thiện có icon inline trước chữ Mẹo */}
               <p className="text-[11px] text-muted-foreground text-center pt-1 leading-relaxed">
                 <Info className="inline h-3.5 w-3.5 mr-1 text-emerald-600 dark:text-emerald-400 align-[-2px]" />
-                Mẹo: Bạn có thể thu nhỏ hoặc click ra ngoài để xem Lịch sử đấu/BXH trong lúc chờ.
+                Mẹo: Bạn có thể thu nhỏ hoặc click ra ngoài để chuyển sang các tab khác trong lúc chờ.
               </p>
             </div>
           ) : (
