@@ -5,7 +5,7 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Card, CardContent } from "../ui/card";
 import { Loader2, Mail, Calendar, User, XCircle, Clock, Upload, GraduationCap, Flame, CircleDollarSign, Gem, Trophy, Info, Crown, Medal, Copy, Check, ShieldCheck } from "lucide-react";
-import { getNameGradientClass, getEliteAvatarFrameClass } from "../../utils/vipStyling";
+import { getNameGradientClass, getVipAvatarFrameClass } from "../../utils/vipStyling";
 
 interface CopyButtonProps {
   textToCopy: string;
@@ -172,6 +172,7 @@ export function ProfileView() {
   // Styles dynamically based on theme (for Avatar border overlap)
   const isDark = document.documentElement.classList.contains("dark");
   const avatarBorderColor = isDark ? "#09090b" : "#ffffff";
+  const vipFrameClass = getVipAvatarFrameClass(userData?.tier);
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
@@ -185,9 +186,9 @@ export function ProfileView() {
       {/* ── Avatar & Header Info ── */}
       <div className="flex flex-col md:flex-row items-center md:items-end gap-6 px-6 -mt-12 md:-mt-16 relative z-10">
         <div
-          className={`w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden flex items-center justify-center text-4xl md:text-5xl font-bold shrink-0 relative border-4 border-background shadow-lg ${getEliteAvatarFrameClass(userData?.tier)}`}
+          className={`w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden flex items-center justify-center text-4xl md:text-5xl font-bold shrink-0 relative border-4 border-background ${vipFrameClass || "shadow-lg"}`}
           style={{
-            boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+            boxShadow: vipFrameClass ? undefined : "0 4px 14px rgba(0,0,0,0.08)",
             backgroundColor: isDark ? "#1f2937" : "#e5e7eb",
             color: isDark ? "#f3f4f6" : "#374151"
           }}

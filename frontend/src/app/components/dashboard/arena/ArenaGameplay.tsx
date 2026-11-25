@@ -16,7 +16,7 @@ import {
   arenaSocketService,
 } from '../../../services/arena-socket.service';
 import { getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
-import { getNameGradientClass, getEliteAvatarFrameClass } from '../../../utils/vipStyling';
+import { getNameGradientClass, getVipAvatarFrameClass } from '../../../utils/vipStyling';
 
 interface QuestionItem {
   id: string;
@@ -687,7 +687,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
           {/* Player 1 (Bạn) */}
           <div className="bg-gradient-to-r from-primary/15 via-card to-card border-2 border-primary/40 rounded-2xl p-3 sm:p-4 flex items-center justify-between shadow-md relative overflow-hidden">
             <div className="flex items-center gap-2.5 sm:gap-3.5">
-              <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-primary/50 overflow-hidden bg-primary/10 flex items-center justify-center relative shrink-0 shadow-sm ${getEliteAvatarFrameClass(p1?.tier)}`}>
+              <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-primary/50 overflow-hidden bg-primary/10 flex items-center justify-center relative shrink-0 shadow-sm ${getVipAvatarFrameClass(p1?.tier)}`}>
                 {p1?.avatar_url ? (
                   <img
                     src={p1.avatar_url}
@@ -774,7 +774,7 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
                 </div>
               </div>
 
-              <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-rose-500/40 overflow-hidden bg-rose-500/10 flex items-center justify-center relative shrink-0 shadow-sm ${getEliteAvatarFrameClass(p2?.tier)}`}>
+              <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-rose-500/40 overflow-hidden bg-rose-500/10 flex items-center justify-center relative shrink-0 shadow-sm ${getVipAvatarFrameClass(p2?.tier)}`}>
                 {p2?.avatar_url ? (
                   <img
                     src={p2.avatar_url}

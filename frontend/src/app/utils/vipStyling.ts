@@ -22,12 +22,18 @@ export function getNameGradientClass(tier?: VipTier): string {
   }
 }
 
-// Trả về class khung viền Avatar mạ vàng phát sáng độc quyền cho gói ELITE
-export function getEliteAvatarFrameClass(tier?: VipTier): string {
-  if (normalizeTier(tier) === 'ELITE') {
-    return 'ring-2 ring-amber-400 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.55)]';
+// Trả về class khung viền Avatar phát sáng theo gói VIP (PRO: Lam Ngọc Sapphire, ELITE: Vàng Kim Hoàng Gia)
+export function getVipAvatarFrameClass(tier?: VipTier): string {
+  switch (normalizeTier(tier)) {
+    case 'PRO':
+      // Lam Ngọc (Sapphire Blue) cho gói PRO - giữ viền nền tách ảnh thanh thoát
+      return 'ring-2 ring-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.45)]';
+    case 'ELITE':
+      // Vàng Kim Hoàng Gia (Royal Gold) cho gói ELITE
+      return 'ring-2 ring-amber-400 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.55)]';
+    default:
+      return '';
   }
-  return '';
 }
 
 // Trả về class làm nổi bật nhẹ dòng bảng xếp hạng của hội viên ELITE

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { UserArenaProfile, getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
 import { arenaSocketService, MatchedPayload, ArenaPlayerInfo } from '../../../services/arena-socket.service';
-import { getNameGradientClass, getEliteAvatarFrameClass } from '../../../utils/vipStyling';
+import { getNameGradientClass, getVipAvatarFrameClass } from '../../../utils/vipStyling';
 
 export interface ArenaMatchmakingModalProps {
   isOpen: boolean;
@@ -359,7 +359,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
 
             {/* Avatar & Badge */}
             <div className="my-2 relative flex flex-col items-center">
-              <Avatar className={`w-24 h-24 rounded-2xl border-2 border-primary/60 shadow-md overflow-hidden ${getEliteAvatarFrameClass(myTier)}`}>
+              <Avatar className={`w-24 h-24 rounded-2xl border-2 border-primary/60 shadow-md overflow-hidden ${getVipAvatarFrameClass(myTier)}`}>
                 {myAvatar && <AvatarImage src={myAvatar} alt={myName} className="object-cover" />}
                 <AvatarFallback className="bg-primary/15 text-primary font-black text-2xl">
                   {myName.charAt(0).toUpperCase()}
@@ -523,7 +523,7 @@ export const ArenaMatchmakingModal: React.FC<ArenaMatchmakingModalProps> = ({
 
                 {/* Avatar & Badge Đối thủ */}
                 <div className="my-2 relative flex flex-col items-center">
-                  <Avatar className={`w-24 h-24 rounded-2xl border-2 border-amber-500/60 shadow-md overflow-hidden ${getEliteAvatarFrameClass(oppTier)}`}>
+                  <Avatar className={`w-24 h-24 rounded-2xl border-2 border-amber-500/60 shadow-md overflow-hidden ${getVipAvatarFrameClass(oppTier)}`}>
                     {opponent?.avatar_url && (
                       <AvatarImage src={opponent.avatar_url} alt={opponent.full_name} className="object-cover" />
                     )}

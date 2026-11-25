@@ -44,7 +44,7 @@ import { getInitials, formatRelativeTime } from '../social/utils';
 import { CommentSection } from './CommentSection';
 import { AuthorPopover } from './AuthorPopover';
 import { SharePostDialog } from './SharePostDialog';
-import { getNameGradientClass, getEliteAvatarFrameClass } from '../../utils/vipStyling';
+import { getNameGradientClass, getVipAvatarFrameClass } from '../../utils/vipStyling';
 
 interface PostCardProps {
   post: PostItem;
@@ -221,7 +221,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             {/* Author Popover: Mini Profile + Chat 1-1 + Kết bạn */}
             <AuthorPopover author={post.author} authorRole={post.authorRole}>
               <div className="cursor-pointer group flex items-center gap-3">
-                <Avatar className={`h-10 w-10 shrink-0 border border-border group-hover:border-primary transition-colors ${getEliteAvatarFrameClass(post.author.tier)}`}>
+                <Avatar className={`h-10 w-10 shrink-0 border border-border group-hover:border-primary transition-colors ${getVipAvatarFrameClass(post.author.tier)}`}>
                   <AvatarImage src={post.author.avatar_url || ''} />
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
                     {getInitials(post.author.full_name)}

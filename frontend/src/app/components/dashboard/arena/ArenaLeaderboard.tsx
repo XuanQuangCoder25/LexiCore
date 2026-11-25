@@ -14,7 +14,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { arenaService, UserArenaProfile, getRankBadgeUrl, optimizeAvatarUrl } from '../../../services/arena-service';
-import { getNameGradientClass, getEliteAvatarFrameClass, getEliteRowHighlightClass } from '../../../utils/vipStyling';
+import { getNameGradientClass, getVipAvatarFrameClass, getEliteRowHighlightClass } from '../../../utils/vipStyling';
 
 export interface LeaderboardPlayer {
   rankPosition: number;
@@ -109,7 +109,7 @@ export const ArenaLeaderboard: React.FC = () => {
           <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               {/* Avatar người chơi */}
-              <Avatar className={`w-13 h-13 rounded-2xl border-2 border-primary/20 shadow-xs shrink-0 overflow-hidden ${getEliteAvatarFrameClass(profile?.user?.tier || profile?.dailyQuota?.tier)}`}>
+              <Avatar className={`w-13 h-13 rounded-2xl border-2 border-primary/20 shadow-xs shrink-0 overflow-hidden ${getVipAvatarFrameClass(profile?.user?.tier || profile?.dailyQuota?.tier)}`}>
                 {profile?.user?.avatarUrl && (
                   <AvatarImage src={optimizeAvatarUrl(profile.user.avatarUrl, 160)} alt={profile.user.fullName} className="object-cover" />
                 )}
@@ -215,7 +215,7 @@ export const ArenaLeaderboard: React.FC = () => {
                   }
 
                   const nameVipClass = getNameGradientClass(player.tier);
-                  const avatarVipClass = getEliteAvatarFrameClass(player.tier);
+                  const avatarVipClass = getVipAvatarFrameClass(player.tier);
                   const rowVipClass = getEliteRowHighlightClass(player.tier);
 
                   return (

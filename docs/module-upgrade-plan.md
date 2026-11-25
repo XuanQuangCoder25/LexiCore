@@ -267,7 +267,7 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ---
 
-## Phần 6: Nâng cấp hiển thị VIP Styling (Gradient tên & Khung Avatar ELITE) [TRẠNG THÁI: ĐÃ HOÀN THÀNH 100%]
+## Phần 6: Nâng cấp hiển thị VIP Styling (Gradient tên & Khung Avatar VIP) [TRẠNG THÁI: ĐÃ HOÀN THÀNH 100%]
 
 ### 6.1 Helper lấy CSS class hiển thị VIP theo tier
 
@@ -277,8 +277,11 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
   - `PRO`: Gradient Xanh Dương Đại Dương (Ocean Blue: `bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-600 bg-clip-text text-transparent font-bold`).
   - `ELITE`: Gradient Vàng Kim Hoàng Gia (Royal Gold: `bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-600 bg-clip-text text-transparent font-bold drop-shadow-sm`).
   - `FREE` / `STARTER`: Trả về chuỗi rỗng (hiển thị tên bình thường).
-- `getEliteAvatarFrameClass(tier)`: Khung viền Avatar mạ vàng phát sáng (`ring-2 ring-amber-400 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.55)]`) dành riêng cho gói `ELITE`.
-- `getEliteRowHighlightClass(tier)`: Làm nổi bật nhẹ dòng bảng xếp hạng (`bg-amber-500/5 hover:bg-amber-500/10`) cho hội viên `ELITE`.
+- `getVipAvatarFrameClass(tier)`:
+  - `PRO`: Khung Avatar Lam Ngọc Sapphire (`ring-2 ring-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.45)]`).
+  - `ELITE`: Khung Avatar Vàng Kim Hoàng Gia (`ring-2 ring-amber-400 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.55)]`).
+  - `FREE` / `STARTER`: Trả về chuỗi rỗng.
+- `getEliteRowHighlightClass(tier)`: Làm nổi bật nhẹ dòng bảng xếp hạng (`bg-amber-500/5 hover:bg-amber-500/10`) dành riêng cho hội viên `ELITE`.
 - `getVipBadgeLabel(tier)`: Trả về nhãn ngắn `'PRO' | 'ELITE' | null`.
 
 ### 6.2 Đồng bộ Backend & áp dụng giao diện hiển thị người dùng
@@ -290,7 +293,7 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
   - `backend/modules/community/community.repository.ts` (`getUsersByIds`) & `community.types.ts`: Bổ sung `tier` cho `CommunityAuthor`.
 - **Frontend (Services & Components):**
   - Cập nhật kiểu `tier` tại `arena-service.ts`, `arena-socket.service.ts` và `community-service.ts`.
-  - Áp dụng gradient tên, khung Avatar mạ vàng `ELITE` và highlight bảng xếp hạng tại: `AchievementsView.tsx` (Bảng xếp hạng toàn cầu), `ArenaLeaderboard.tsx` (thẻ thứ hạng cá nhân & danh sách Top 50), `ArenaHub.tsx`, `ArenaMatchmaking.tsx`, `ArenaGameplay.tsx` (HUD trong trận), `ArenaMatchResult.tsx`, `ProfileView.tsx`, `AuthorPopover.tsx` và `PostCard.tsx` (Cộng đồng).
+  - Áp dụng gradient tên, khung Avatar VIP (`PRO` Sapphire / `ELITE` Royal Gold) và highlight bảng xếp hạng (`ELITE`) tại: `AchievementsView.tsx` (Bảng xếp hạng toàn cầu), `ArenaLeaderboard.tsx` (thẻ thứ hạng cá nhân & danh sách Top 50), `ArenaHub.tsx`, `ArenaMatchmaking.tsx`, `ArenaGameplay.tsx` (HUD trong trận), `ArenaMatchResult.tsx`, `ProfileView.tsx`, `AuthorPopover.tsx` và `PostCard.tsx` (Cộng đồng).
 
 ---
 

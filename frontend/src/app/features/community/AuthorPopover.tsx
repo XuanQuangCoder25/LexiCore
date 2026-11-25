@@ -20,7 +20,7 @@ import {
 import { useSocial } from '../social/SocialContext';
 import { CommunityAuthor } from '../../services/community-service';
 import { getInitials } from '../social/utils';
-import { getNameGradientClass, getEliteAvatarFrameClass } from '../../utils/vipStyling';
+import { getNameGradientClass, getVipAvatarFrameClass } from '../../utils/vipStyling';
 
 interface AuthorPopoverProps {
   author: CommunityAuthor;
@@ -82,7 +82,7 @@ export const AuthorPopover: React.FC<AuthorPopoverProps> = ({
         {/* Profile Header */}
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Avatar className={`h-12 w-12 border-2 border-border ${getEliteAvatarFrameClass(author.tier)}`}>
+            <Avatar className={`h-12 w-12 border-2 border-border ${getVipAvatarFrameClass(author.tier)}`}>
               <AvatarImage src={author.avatar_url || ''} />
               <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
                 {getInitials(author.full_name)}

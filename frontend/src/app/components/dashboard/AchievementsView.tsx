@@ -33,7 +33,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { getRankBadgeUrl, formatRankName, optimizeAvatarUrl } from "../../services/arena-service";
-import { getNameGradientClass, getEliteAvatarFrameClass, getEliteRowHighlightClass } from "../../utils/vipStyling";
+import { getNameGradientClass, getVipAvatarFrameClass, getEliteRowHighlightClass } from "../../utils/vipStyling";
 
 interface Quest {
   user_goal_id: string;
@@ -906,7 +906,7 @@ export function AchievementsView() {
                           <TableCell>
                             <div className="flex items-center gap-3">
 
-                              <Avatar className={`h-9 w-9 border border-border shadow-xs ${getEliteAvatarFrameClass(user.tier)}`}>
+                              <Avatar className={`h-9 w-9 border border-border shadow-xs ${getVipAvatarFrameClass(user.tier)}`}>
                                 {avatarUrl && (
                                   <AvatarImage src={optimizeAvatarUrl(avatarUrl, 100)} alt={fullName} className="object-cover" />
                                 )}

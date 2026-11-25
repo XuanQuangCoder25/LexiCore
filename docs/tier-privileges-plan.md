@@ -19,7 +19,7 @@
 | **Trận nhân đôi thưởng Arena (x2 Coin & EXP)** | Không có | **3 trận đầu/ngày** | **5 trận đầu/ngày** | **10 trận đầu/ngày** |
 | **Hồ sơ năng lực Pro Analytics (Trang Profile)** | Cơ bản | Cơ bản | **Mở khóa Biểu đồ Mạng nhện 5 Kỹ năng + Tỷ lệ thắng chủ đề** | **Mở khóa Biểu đồ Mạng nhện 5 Kỹ năng + Tỷ lệ thắng chủ đề** |
 | **Bảo vệ Chuỗi Streak tự động (Streak Immunity)** | Không | Không | Không | **Tự động giữ chuỗi (Không bao giờ đứt chuỗi)** |
-| **Nhận diện VIP (Tên Gradient & Khung Avatar In-Game)** | Mặc định | Mặc định | **Tên Gradient Xanh Đại Dương** | **Tên Gradient Vàng Kim + Khung Avatar Mạ Vàng Phát Sáng** |
+| **Nhận diện VIP (Tên Gradient & Khung Avatar In-Game)** | Mặc định | Mặc định | **Tên Gradient Xanh Đại Dương + Khung Avatar Lam Ngọc Sapphire** | **Tên Gradient Vàng Kim + Khung Avatar Mạ Vàng Phát Sáng** |
 
 ---
 
@@ -42,11 +42,11 @@ Mở khóa tab **"Hồ sơ năng lực"** trên trang cá nhân (`/profile`) c�
 * **Màu tên Gradient chuẩn thương hiệu LexiCore:**
   * **PRO:** Text Gradient **Xanh Dương Đại Dương (Ocean Blue)** (`from-sky-400 via-blue-500 to-indigo-600 font-bold`).
   * **ELITE:** Text Gradient **Vàng Hoàng Gia (Royal Gold)** (`from-amber-400 via-yellow-400 to-amber-600 font-bold drop-shadow-sm`).
-* **Vị trí hiển thị Khung Mạ Vàng của ELITE (Nơi đối thủ ngắm nhìn lâu dài):**
-  1. **Trong trận đấu Arena (In-Game Battle HUD):** Khung Avatar mạ vàng có hiệu ứng ánh kim phát sáng nhẹ hiển thị suốt trận đấu 5–6 phút cạnh thanh điểm.
-  2. **Màn hình Tổng kết ván đấu (Match Result):** Thẻ vinh danh người chiến thắng bọc dải viền mạ vàng.
-  3. **Bảng Xếp Hạng (Leaderboard):** Dòng tài khoản Elite có viền highlight mạ vàng sang trọng.
-  4. **Thẻ Hồ Sơ Công Khai (Public Profile Modal):** Header bọc khung mạ vàng khi bạn bè hoặc người khác bấm vào xem thông tin.
+* **Vị trí hiển thị Khung Avatar VIP (`PRO` Lam Ngọc Sapphire / `ELITE` Vàng Kim Hoàng Gia):**
+  1. **Trong trận đấu Arena (In-Game Battle HUD):** Khung Avatar phát sáng (Lam Ngọc cho `PRO`, Mạ Vàng cho `ELITE`) hiển thị suốt trận đấu cạnh thanh điểm.
+  2. **Màn hình Ghép trận & Tổng kết ván đấu (Matchmaking & Match Result):** Thẻ thông tin hai người chơi bọc khung Avatar VIP.
+  3. **Bảng Xếp Hạng (Leaderboard) & Sảnh Arena (`ArenaHub`):** Avatar người chơi hiện khung tương ứng; riêng dòng tài khoản `ELITE` có thêm nền highlight vàng kim sang trọng.
+  4. **Hồ sơ cá nhân & Cộng đồng (`ProfileView`, `PostCard`, `AuthorPopover`):** Header hồ sơ cá nhân, đầu bài viết cộng đồng và thẻ hồ sơ công khai khi bấm vào tên tác giả đều đồng bộ khung VIP.
 
 ### 3. Cơ chế Bảo vệ Chuỗi Streak tự động (ELITE Streak Immunity)
 * Khi tài khoản có gói ELITE còn hiệu lực, nếu học viên bận rộn không vào học trong 3 ngày hay 7 ngày, chuỗi Streak không bị reset về 0. Khi học viên quay lại học bài, chuỗi sẽ tiếp tục tăng lên bình thường mà không cần dùng bùa bảo vệ `STREAK_FREEZE`.

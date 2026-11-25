@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { arenaService, UserArenaProfile, getRankBadgeUrl } from '../../../services/arena-service';
 import { ArenaRankChangeEffect, RankChangeData } from './ArenaRankChangeEffect';
-import { getNameGradientClass, getEliteAvatarFrameClass } from '../../../utils/vipStyling';
+import { getNameGradientClass, getVipAvatarFrameClass } from '../../../utils/vipStyling';
 
 interface ArenaHubProps {
     onNavigateToLeaderboard?: (rankFilter?: string) => void;
@@ -300,7 +300,7 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                             <div className="flex items-end justify-between gap-3 -mt-10 relative z-10">
                                 {/* Bên trái: Avatar + Tên + Level */}
                                 <div className="flex items-end gap-3 sm:gap-4 min-w-0">
-                                    <div className={`w-20 h-20 rounded-full border-4 border-background bg-muted overflow-hidden shrink-0 shadow-md flex items-center justify-center text-2xl font-bold ${getEliteAvatarFrameClass(tier)}`}>
+                                    <div className={`w-20 h-20 rounded-full border-4 border-background bg-muted overflow-hidden shrink-0 shadow-md flex items-center justify-center text-2xl font-bold ${getVipAvatarFrameClass(tier)}`}>
                                         {user.avatarUrl ? (
                                             <img
                                                 src={user.avatarUrl}

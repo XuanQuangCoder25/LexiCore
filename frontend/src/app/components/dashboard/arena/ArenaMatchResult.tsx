@@ -24,7 +24,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getRankBadgeUrl } from '../../../services/arena-service';
-import { getNameGradientClass, getEliteAvatarFrameClass } from '../../../utils/vipStyling';
+import { getNameGradientClass, getVipAvatarFrameClass } from '../../../utils/vipStyling';
 import {
   GameOverPayload,
   MatchReviewWord,
@@ -697,7 +697,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
             <div className="w-full pt-1">
               <div className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-muted/40 border border-border/60 backdrop-blur-xs">
                 {/* Avatar hình vuông sát bên trái */}
-                <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-primary/40 bg-muted flex items-center justify-center shadow-xs ${getEliteAvatarFrameClass(mePlayerInfo?.tier)}`}>
+                <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-primary/40 bg-muted flex items-center justify-center shadow-xs ${getVipAvatarFrameClass(mePlayerInfo?.tier)}`}>
                   {mePlayerInfo?.avatar_url ? (
                     <img
                       src={mePlayerInfo.avatar_url}
@@ -943,7 +943,7 @@ export const ArenaMatchResult: React.FC<ArenaMatchResultProps> = ({
             <div className="w-full pt-1">
               <div className="w-full flex items-center gap-3 p-2.5 rounded-2xl bg-muted/40 border border-border/60 backdrop-blur-xs">
                 {/* Avatar hình vuông sát bên trái */}
-                <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-amber-500/40 bg-muted flex items-center justify-center shadow-xs ${getEliteAvatarFrameClass(opponentPlayerInfo?.tier)}`}>
+                <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-amber-500/40 bg-muted flex items-center justify-center shadow-xs ${getVipAvatarFrameClass(opponentPlayerInfo?.tier)}`}>
                   {opponentPlayerInfo?.avatar_url ? (
                     <img
                       src={opponentPlayerInfo.avatar_url}
