@@ -11,10 +11,10 @@ Hệ thống cung cấp 3 hạng gói hội viên chính thức phân chia theo 
 
 | Hạng gói (Tier) | Chu kỳ 7 ngày | Chu kỳ 30 ngày (Tháng) | Chu kỳ 365 ngày (Năm) | Đặc quyền cốt lõi |
 | :--- | :--- | :--- | :--- | :--- |
-| **STARTER** | 9.000đ | 19.000đ | 159.000đ | Mở khóa toàn bộ thư viện Shadowing cơ bản, nhiệm vụ Daily, Streak freeze |
-| **PRO** *(Phổ biến)* | 15.000đ | 35.000đ | 269.000đ | Whisper AI không giới hạn, từ điển ngữ cảnh Gemini, nhân 1.5x EXP và Coin |
-| **ELITE** | 25.000đ | 49.000đ | 349.000đ | Toàn bộ quyền lợi Pro + Huy hiệu vinh danh độc quyền, vé đấu trường Arena VIP, hỗ trợ ưu tiên |
-| **TRIAL** | - | 0đ (3 ngày) | - | Trải nghiệm hạng PRO 3 ngày, tự động cấp cho người dùng mới |
+| **STARTER** | 9.000đ | 19.000đ | 159.000đ | 25 câu phát âm Whisper/ngày, 10 video Shadowing (<15 phút), Đấu Rank vô hạn, 3 trận x2 Coin & EXP/ngày |
+| **PRO** *(Phổ biến)* | 15.000đ | 35.000đ | 269.000đ | 60 câu Whisper/ngày, 50 video mọi thời lượng, 5 trận x2/ngày, Radar Năng lực 6D, Tên Ocean Blue + Khung Sapphire |
+| **ELITE** | 25.000đ | 49.000đ | 349.000đ | 120 câu Whisper/ngày, Video không giới hạn, 10 trận x2/ngày, Tự động bảo vệ Streak, Tên Royal Gold + Khung Mạ Vàng + Highlight |
+| **TRIAL** | - | 0đ (3 ngày) | - | Trải nghiệm hạng PRO 3 ngày, áp dụng một lần cho tài khoản miễn phí mới |
 
 ---
 

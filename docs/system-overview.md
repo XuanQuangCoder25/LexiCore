@@ -268,7 +268,7 @@ Chi tiết 15 bậc và huy hiệu → xem [gamification.md](./gamification.md)
 Chính sách mua/nâng cấp, bảng giá, Prorated → xem [payment-subscription.md](./payment-subscription.md)
 
 **Đồng bộ hiển thị đặc quyền Gói Hội viên:**
-- Mặt sau thẻ gói (`frontend/src/app/components/global/subscription-cards.tsx`) hiển thị tóm tắt chính xác hạn mức từng hạng (Whisper AI, Shadowing video, Rank & x2 Arena, Radar 6D, Streak Immunity, VIP Styling) kèm phần thưởng Coin/Diamond theo chu kỳ.
+- Mặt sau thẻ gói (`frontend/src/app/components/global/subscription-cards.tsx`) hiển thị tóm tắt chính xác hạn mức từng hạng (Whisper AI, Shadowing video, Rank & x2 Arena, Radar 6D, Streak Immunity, VIP Styling).
 - Tab "Thông tin và chính sách" trong `SubscriptionModal.tsx` (có thể mở nhanh từ nút "So sánh quyền lợi" trên `SubscriptionView.tsx` hoặc link ở mặt sau mỗi thẻ gói) cung cấp **Bảng so sánh đặc quyền chi tiết giữa 4 hạng gói (Free / Starter / Pro / Elite)**.
 - `ProfileView.tsx` tích hợp thẻ "Hồ sơ năng lực (Pro Analytics)" cho phép nhảy thẳng tới Tab "Năng lực" (`analytics`) trong `ArenaView.tsx`.
 

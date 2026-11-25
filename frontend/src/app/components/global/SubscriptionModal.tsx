@@ -184,13 +184,6 @@ function InfoTabContent() {
                 <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">Tên Ocean Blue + Khung Sapphire</td>
                 <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">Tên Royal Gold + Khung Vàng + Highlight</td>
               </tr>
-              <tr className="hover:bg-muted/30 transition-colors">
-                <td className="p-2.5 font-semibold">Coin &amp; Diamond tặng kèm (gói tháng)</td>
-                <td className="p-2.5 text-center text-muted-foreground">0</td>
-                <td className="p-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">200 Coin + 5 Diamond</td>
-                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">500 Coin + 15 Diamond</td>
-                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">1.500 Coin + 50 Diamond</td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -407,7 +400,7 @@ export function SubscriptionModal({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-4xl sm:max-w-4xl w-[92vw] p-0 flex flex-col gap-0 overflow-hidden bg-background/95 backdrop-blur-md border shadow-2xl rounded-2xl"
+        className="max-w-4xl sm:max-w-4xl w-[92vw] p-0 flex flex-col gap-0 overflow-hidden bg-background border shadow-2xl rounded-2xl"
         aria-describedby={undefined}
       >
         {/* Header */}
@@ -446,11 +439,11 @@ export function SubscriptionModal({
           {/* Tab: Tất cả các gói */}
           {activeTab === "subscription" && (
             <div className="flex flex-col">
-              <div className="w-full min-w-0 overflow-hidden px-6">
+              <div className="w-full min-w-0 px-6">
                 <div
                   ref={subScrollRef}
                   onWheel={handleWheel}
-                  className="w-full overflow-x-auto flex items-stretch gap-5 pt-8 pb-5 px-1.5 select-none scroll-smooth [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50"
+                  className="w-full overflow-x-auto flex items-stretch gap-5 pt-8 pb-5 px-1.5 select-none [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-muted/40 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50"
                   style={{ scrollbarWidth: "thin" }}
                 >
                   {displaySubscriptions.map((pkg) => (
