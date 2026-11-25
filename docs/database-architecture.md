@@ -69,7 +69,8 @@ schema.sql
 
 | Tên bảng | Khóa chính | Mục đích sử dụng | Ràng buộc quan trọng |
 | :--- | :--- | :--- | :--- |
-| **`shadowing_videos`** | `id` (VARCHAR 36) | Lưu trữ thông tin video YouTube đã qua kiểm định phụ đề thủ công, kèm cột `ai_summary` (JSON cache tóm tắt và từ vựng từ Google Gemini). | `youtube_id` indexed |
+| **`shadowing_videos`** | `id` (VARCHAR 36) | Kho dữ liệu gốc và cache dùng chung cho video YouTube đã qua kiểm định phụ đề thủ công, kèm cột `ai_summary` (JSON cache tóm tắt song ngữ Anh-Việt và 10 từ vựng từ Google Gemini) và cờ `is_system` phân biệt video thư viện hệ thống. | `youtube_id` UNIQUE, `INDEX(is_system)` |
+| **`user_shadowing_videos`** | `id` (VARCHAR 36) | Thư viện video cá nhân của từng học viên (liên kết N-N giữa `users` và `shadowing_videos`). Giúp cô lập danh sách video hiển thị theo từng người dùng nhưng vẫn tái sử dụng được phụ đề và AI Summary cache khi nhiều người dùng import cùng một video. | `UNIQUE KEY (user_id, video_id)`, `INDEX(user_id, created_at)`, `ON DELETE CASCADE` |
 | **`shadowing_segments`** | `id` (VARCHAR 36) | Lưu từng câu phụ đề tương ứng với mốc thời gian bắt đầu (`start_time`) và kết thúc (`end_time`). | `video_id` FK, `ON DELETE CASCADE` |
 | **`user_shadowing_history`** | `id` (VARCHAR 36) | Lưu lịch sử từng lần thu âm của học viên, điểm phát âm chính xác từ Whisper AI (`accuracy_score`) và đường dẫn file ghi âm `audio_url`. | `user_id`, `video_id`, `segment_id` FK |
 | **`shadowing_notes`** | `id` (VARCHAR 36) | Sổ tay ghi chú cá nhân của học viên cho từng bài học video. | `UNIQUE KEY (user_id, video_id)` |

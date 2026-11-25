@@ -1,15 +1,20 @@
 import OpenAI from 'openai';
-import { YoutubeTranscript } from 'youtube-transcript';
 import { AppError } from '../../errors/AppError';
 import { updateStreak } from '../../utils/streak';
 import { updateAchievementProgress, updateGoalProgress } from '../gamification/gamification-repository';
 import { callGeminiWithRetry } from '../../utils/gemini';
+import { getTierLimit, getUserTier, Tier } from '../../utils/tierLimits';
 import {
-    getVideos,
+    getVideosForUser,
+    countUserVideos,
+    hasUserSavedVideo,
+    userHasVideoAccess,
     getVideoById,
     getVideoByYoutubeId,
-    insertVideo,
-    insertSegments,
+    countSegmentsByVideoId,
+    linkUserVideo,
+    unlinkUserVideo,
+    createVideoWithSegmentsAndLink,
     getSegmentById,
     getSegmentsByVideoId,
     saveUserHistory,
@@ -20,6 +25,10 @@ import {
 } from './shadowing-repository';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const INNERTUBE_API_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
+const INNERTUBE_CLIENT_VERSION = '20.10.38';
+const MAX_GEMINI_TRANSCRIPT_CHARS = 24000;
 
 // ─── Hàm tiện ích ──────────────────────────────────────────────────────────────
 
@@ -32,7 +41,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 function parseYoutubeId(input: string): string | null {
     const urlPatterns = [
         /(?:v=|\/embed\/|\/v\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-        /^([a-zA-Z0-9_-]{11})$/, // raw ID
+        /^([a-zA-Z0-9_-]{11})$/,
     ];
     for (const pattern of urlPatterns) {
         const match = input.match(pattern);
@@ -64,23 +73,7 @@ export function compareWords(
     return result;
 }
 
-// ─── Handlers ──────────────────────────────────────────────────────────────────
-
-export const getLibrary = async () => {
-    return getVideos();
-};
-
-export const getVideoDetail = async (id: string) => {
-    const video = await getVideoById(id);
-    if (!video) throw new AppError('Video không tồn tại.', 404);
-    const segments = await getSegmentsByVideoId(id);
-    return { ...video, segments };
-};
-
-const INNERTUBE_API_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
-const INNERTUBE_CLIENT_VERSION = '20.10.38';
-
-async function fetchCaptionTracks(youtubeId: string): Promise<any[]> {
+async function fetchYoutubeVideoMeta(youtubeId: string): Promise<{ tracks: any[]; durationSeconds: number }> {
     // 1. Thử qua InnerTube API trước (nhanh và chính xác)
     try {
         const resp = await fetch(INNERTUBE_API_URL, {
@@ -102,12 +95,13 @@ async function fetchCaptionTracks(youtubeId: string): Promise<any[]> {
         if (resp.ok) {
             const data = await resp.json() as any;
             const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+            const lengthSeconds = Number(data?.videoDetails?.lengthSeconds || 0);
             if (Array.isArray(tracks) && tracks.length > 0) {
-                return tracks;
+                return { tracks, durationSeconds: Number.isFinite(lengthSeconds) ? lengthSeconds : 0 };
             }
         }
     } catch (e) {
-        console.warn(`[Shadowing] InnerTube caption fetch failed for ${youtubeId}:`, e);
+        console.warn(`[Shadowing] InnerTube fetch failed for ${youtubeId}:`, e);
     }
 
     // 2. Fallback sang cào HTML trang YouTube nếu InnerTube bị chặn
@@ -124,31 +118,90 @@ async function fetchCaptionTracks(youtubeId: string): Promise<any[]> {
             if (match && match[1]) {
                 const data = JSON.parse(match[1]);
                 const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+                const lengthSeconds = Number(data?.videoDetails?.lengthSeconds || 0);
                 if (Array.isArray(tracks) && tracks.length > 0) {
-                    return tracks;
+                    return { tracks, durationSeconds: Number.isFinite(lengthSeconds) ? lengthSeconds : 0 };
                 }
             }
         }
     } catch (e) {
-        console.warn(`[Shadowing] Web page caption fetch fallback failed for ${youtubeId}:`, e);
+        console.warn(`[Shadowing] Web page fetch fallback failed for ${youtubeId}:`, e);
     }
 
-    return [];
+    return { tracks: [], durationSeconds: 0 };
 }
+
+function buildLimitErrorMessage(maxVideos: number, tier: Tier): string {
+    return `Bạn đã lưu tối đa ${maxVideos} video cá nhân cho gói ${tier}. Vui lòng xóa bớt hoặc nâng cấp gói để lưu thêm video.`;
+}
+
+function buildDurationErrorMessage(maxMinutes: number, tier: Tier): string {
+    return `Video dài hơn ${maxMinutes} phút. Gói ${tier} hiện tại chỉ hỗ trợ video có thời lượng tối đa ${maxMinutes} phút.`;
+}
+
+// ─── Handlers ──────────────────────────────────────────────────────────────────
+
+export const getLibrary = async (userId: string) => {
+    const [videos, used, tier] = await Promise.all([
+        getVideosForUser(userId),
+        countUserVideos(userId),
+        getUserTier(userId),
+    ]);
+
+    const limit = getTierLimit('shadowingVideos', tier);
+    const maxDurationMinutes = getTierLimit('shadowingVideoDurationMinutes', tier);
+
+    return {
+        videos,
+        quota: {
+            used,
+            limit,
+            maxDurationMinutes,
+            tier,
+        },
+    };
+};
+
+export const getVideoDetail = async (id: string, userId: string) => {
+    const video = await getVideoById(id);
+    if (!video) throw new AppError('Video không tồn tại.', 404);
+
+    const hasAccess = await userHasVideoAccess(userId, id);
+    if (!hasAccess) {
+        throw new AppError('Bạn chưa thêm video này vào thư viện cá nhân.', 403);
+    }
+
+    const segments = await getSegmentsByVideoId(id);
+    return { ...video, segments };
+};
 
 export interface CheckManualSubResult {
     valid: boolean;
-    reason?: 'INVALID_URL' | 'ALREADY_EXISTS' | 'NO_SUBTITLES' | 'NO_ENGLISH_SUB' | 'AUTO_GENERATED' | 'OK';
+    reason?:
+        | 'INVALID_URL'
+        | 'ALREADY_EXISTS'
+        | 'ALREADY_IN_SYSTEM'
+        | 'LIMIT_REACHED'
+        | 'DURATION_EXCEEDED'
+        | 'NO_SUBTITLES'
+        | 'NO_ENGLISH_SUB'
+        | 'AUTO_GENERATED'
+        | 'OK';
     message: string;
     isManual: boolean;
     isAutoGenerated?: boolean;
+    cachedInCatalog?: boolean;
     youtubeId?: string;
     title?: string;
     channel?: string;
+    duration?: number;
     track?: any;
 }
 
-export const checkManualSub = async (youtubeUrl: string): Promise<CheckManualSubResult> => {
+export const checkManualSub = async (
+    youtubeUrl: string,
+    userId?: string
+): Promise<CheckManualSubResult> => {
     const youtubeId = parseYoutubeId(youtubeUrl.trim());
     if (!youtubeId) {
         return {
@@ -159,15 +212,97 @@ export const checkManualSub = async (youtubeUrl: string): Promise<CheckManualSub
         };
     }
 
+    const tier: Tier = userId ? await getUserTier(userId) : 'FREE';
+    const maxVideos = getTierLimit('shadowingVideos', tier);
+    const maxDurationMinutes = getTierLimit('shadowingVideoDurationMinutes', tier);
+
+    // 1. Kiểm tra xem video đã có trong kho cache dùng chung chưa
     const existing = await getVideoByYoutubeId(youtubeId);
     if (existing) {
+        if (existing.is_system) {
+            return {
+                valid: false,
+                reason: 'ALREADY_IN_SYSTEM',
+                isManual: true,
+                youtubeId,
+                title: existing.title,
+                channel: existing.channel,
+                duration: existing.duration,
+                message: 'Video này đã có sẵn trong Thư viện hệ thống. Bạn có thể luyện tập ngay mà không tốn lượt lưu cá nhân.',
+            };
+        }
+
+        if (userId && (await hasUserSavedVideo(userId, existing.id))) {
+            return {
+                valid: false,
+                reason: 'ALREADY_EXISTS',
+                isManual: true,
+                youtubeId,
+                title: existing.title,
+                channel: existing.channel,
+                duration: existing.duration,
+                message: 'Video này đã có trong thư viện cá nhân của bạn.',
+            };
+        }
+
+        if (userId && maxVideos !== -1) {
+            const currentCount = await countUserVideos(userId);
+            if (currentCount >= maxVideos) {
+                return {
+                    valid: false,
+                    reason: 'LIMIT_REACHED',
+                    isManual: true,
+                    youtubeId,
+                    title: existing.title,
+                    channel: existing.channel,
+                    duration: existing.duration,
+                    message: buildLimitErrorMessage(maxVideos, tier),
+                };
+            }
+        }
+
+        if (
+            userId &&
+            maxDurationMinutes !== -1 &&
+            existing.duration > maxDurationMinutes * 60
+        ) {
+            return {
+                valid: false,
+                reason: 'DURATION_EXCEEDED',
+                isManual: true,
+                youtubeId,
+                title: existing.title,
+                channel: existing.channel,
+                duration: existing.duration,
+                message: buildDurationErrorMessage(maxDurationMinutes, tier),
+            };
+        }
+
         return {
-            valid: false,
-            reason: 'ALREADY_EXISTS',
+            valid: true,
+            reason: 'OK',
             isManual: true,
+            cachedInCatalog: true,
             youtubeId,
-            message: 'Video này đã có trong thư viện của bạn.',
+            title: existing.title,
+            channel: existing.channel,
+            duration: existing.duration,
+            message: 'Video hợp lệ và đã có sẵn dữ liệu phụ đề, sẵn sàng thêm vào thư viện cá nhân!',
         };
+    }
+
+    // 2. Nếu là video mới hoàn toàn -> kiểm tra số lượng slot trước khi gọi YouTube API
+    if (userId && maxVideos !== -1) {
+        const currentCount = await countUserVideos(userId);
+        if (currentCount >= maxVideos) {
+            return {
+                valid: false,
+                reason: 'LIMIT_REACHED',
+                isManual: false,
+                youtubeId,
+                message: buildLimitErrorMessage(maxVideos, tier),
+            };
+        }
     }
 
     // Lấy tiêu đề và tên kênh qua YouTube oEmbed
@@ -183,12 +318,10 @@ export const checkManualSub = async (youtubeUrl: string): Promise<CheckManualSub
             channel = oembedData.author_name || channel;
         }
     } catch {
-        // Nếu oEmbed gặp lỗi (mạng chậm, timeout hoặc video bị hạn chế nhúng),
-        // chương trình sẽ dùng tiêu đề và tác giả mặc định đã khởi tạo ở dòng 174-175.
         console.warn(`[Shadowing] oEmbed thất bại cho video ${youtubeId}, sử dụng tiêu đề mặc định.`);
     }
 
-    const captionTracks = await fetchCaptionTracks(youtubeId);
+    const { tracks: captionTracks, durationSeconds } = await fetchYoutubeVideoMeta(youtubeId);
     if (!captionTracks || captionTracks.length === 0) {
         return {
             valid: false,
@@ -197,6 +330,7 @@ export const checkManualSub = async (youtubeUrl: string): Promise<CheckManualSub
             youtubeId,
             title,
             channel,
+            duration: durationSeconds,
             message: 'Video này không có phụ đề hoặc đã tắt tính năng phụ đề.',
         };
     }
@@ -214,6 +348,7 @@ export const checkManualSub = async (youtubeUrl: string): Promise<CheckManualSub
             youtubeId,
             title,
             channel,
+            duration: durationSeconds,
             message: 'Video này không có phụ đề tiếng Anh để luyện tập Shadowing.',
         };
     }
@@ -232,7 +367,27 @@ export const checkManualSub = async (youtubeUrl: string): Promise<CheckManualSub
             youtubeId,
             title,
             channel,
+            duration: durationSeconds,
             message: 'Video này sử dụng phụ đề tự động (Auto-generated) nên việc ngắt câu và đồng bộ thời gian chưa chuẩn xác. Vui lòng sử dụng video có phụ đề được biên dịch thủ công để tối ưu hiệu quả luyện tập Shadowing.',
+        };
+    }
+
+    // Kiểm tra giới hạn thời lượng video theo gói hội viên
+    if (
+        userId &&
+        maxDurationMinutes !== -1 &&
+        durationSeconds > 0 &&
+        durationSeconds > maxDurationMinutes * 60
+    ) {
+        return {
+            valid: false,
+            reason: 'DURATION_EXCEEDED',
+            isManual: true,
+            youtubeId,
+            title,
+            channel,
+            duration: durationSeconds,
+            message: buildDurationErrorMessage(maxDurationMinutes, tier),
         };
     }
 
@@ -243,6 +398,7 @@ export const checkManualSub = async (youtubeUrl: string): Promise<CheckManualSub
         youtubeId,
         title,
         channel,
+        duration: durationSeconds,
         track: manualEnTrack,
         message: 'Video có phụ đề tiếng Anh thủ công chuẩn xác!',
     };
@@ -300,16 +456,42 @@ function parseTranscriptXml(xml: string): Array<{ text: string; offset: number; 
     return results;
 }
 
-export const addVideo = async (youtubeUrl: string) => {
-    const subCheck = await checkManualSub(youtubeUrl);
-    if (!subCheck.valid || !subCheck.isManual || !subCheck.track) {
+export const addVideo = async (youtubeUrl: string, userId: string) => {
+    const subCheck = await checkManualSub(youtubeUrl, userId);
+    if (!subCheck.valid || !subCheck.isManual) {
+        let statusCode = 422;
+        if (subCheck.reason === 'ALREADY_EXISTS' || subCheck.reason === 'ALREADY_IN_SYSTEM') {
+            statusCode = 409;
+        } else if (subCheck.reason === 'LIMIT_REACHED' || subCheck.reason === 'DURATION_EXCEEDED') {
+            statusCode = 403;
+        }
         throw new AppError(
             subCheck.message || 'Video không đáp ứng tiêu chuẩn phụ đề thủ công.',
-            subCheck.reason === 'ALREADY_EXISTS' ? 409 : 422
+            statusCode
         );
     }
 
     const youtubeId = subCheck.youtubeId!;
+
+    // Trường hợp video đã có trong kho cache dùng chung -> chỉ gắn vào thư viện cá nhân của user
+    if (subCheck.cachedInCatalog) {
+        const existing = await getVideoByYoutubeId(youtubeId);
+        if (existing) {
+            await linkUserVideo(userId, existing.id);
+            const segmentsCount = await countSegmentsByVideoId(existing.id);
+            return {
+                videoId: existing.id,
+                segmentsCount,
+                title: existing.title,
+                reusedCache: true,
+            };
+        }
+    }
+
+    if (!subCheck.track) {
+        throw new AppError('Không tìm thấy track phụ đề thủ công hợp lệ.', 422);
+    }
+
     const title = subCheck.title!;
     const channel = subCheck.channel!;
 
@@ -326,7 +508,7 @@ export const addVideo = async (youtubeUrl: string) => {
         }
         const xml = await transcriptResp.text();
         transcriptItems = parseTranscriptXml(xml);
-    } catch (err: any) {
+    } catch {
         throw new AppError('Không thể tải hoặc phân tích nội dung phụ đề thủ công.', 422);
     }
 
@@ -335,9 +517,15 @@ export const addVideo = async (youtubeUrl: string) => {
     }
 
     const lastItem = transcriptItems[transcriptItems.length - 1];
-    const duration = Math.ceil(((lastItem?.offset ?? 0) + (lastItem?.duration ?? 0)) / 1000);
+    const transcriptDuration = Math.ceil(((lastItem?.offset ?? 0) + (lastItem?.duration ?? 0)) / 1000);
+    const duration = subCheck.duration && subCheck.duration > 0 ? subCheck.duration : transcriptDuration;
 
-    const videoId = await insertVideo({ youtube_id: youtubeId, title, channel, duration });
+    // Kiểm tra lại thời lượng trong trường hợp InnerTube không trả lengthSeconds
+    const tier = await getUserTier(userId);
+    const maxDurationMinutes = getTierLimit('shadowingVideoDurationMinutes', tier);
+    if (maxDurationMinutes !== -1 && duration > maxDurationMinutes * 60) {
+        throw new AppError(buildDurationErrorMessage(maxDurationMinutes, tier), 403);
+    }
 
     const segments = transcriptItems.map((item, index) => ({
         start_time: item.offset / 1000,
@@ -346,9 +534,35 @@ export const addVideo = async (youtubeUrl: string) => {
         order_index: index + 1,
     }));
 
-    await insertSegments(videoId, segments);
+    const result = await createVideoWithSegmentsAndLink(
+        userId,
+        { youtube_id: youtubeId, title, channel, duration },
+        segments
+    );
 
-    return { videoId, segmentsCount: segments.length, title };
+    return {
+        videoId: result.videoId,
+        segmentsCount: result.segmentsCount,
+        title,
+        reusedCache: result.reusedCache,
+    };
+};
+
+export const deleteUserVideo = async (userId: string, videoId: string): Promise<void> => {
+    const video = await getVideoById(videoId);
+    if (!video) {
+        throw new AppError('Video không tồn tại.', 404);
+    }
+
+    const isSaved = await hasUserSavedVideo(userId, videoId);
+    if (!isSaved) {
+        if (video.is_system) {
+            throw new AppError('Không thể xóa video thuộc thư viện hệ thống.', 403);
+        }
+        throw new AppError('Bạn không có quyền xóa video này.', 403);
+    }
+
+    await unlinkUserVideo(userId, videoId);
 };
 
 export const analyzeAudio = async (
@@ -359,6 +573,13 @@ export const analyzeAudio = async (
 ) => {
     const segment = await getSegmentById(segmentId);
     if (!segment) throw new AppError('Không tìm thấy đoạn phụ đề này.', 404);
+
+    if (userId) {
+        const hasAccess = await userHasVideoAccess(userId, segment.video_id);
+        if (!hasAccess) {
+            throw new AppError('Bạn chưa thêm video này vào thư viện cá nhân.', 403);
+        }
+    }
 
     const referenceText: string = segment.transcript;
 
@@ -388,13 +609,10 @@ export const analyzeAudio = async (
     if (userId) {
         await saveUserHistory(userId, segment.video_id, segmentId, accuracy);
         await updateStreak(userId);
-        // Tính thời lượng câu (giây) từ segment, quy đổi sang phần trăm phút để cộng dồn
+        // Tính thời lượng câu (giây) từ segment để cộng dồn tiến trình
         const durationSeconds = segment.end_time && segment.start_time
             ? (segment.end_time - segment.start_time)
-            : 10; // fallback 10 giây nếu không có metadata
-        const minuteFraction = Math.round((durationSeconds / 60) * 100) / 100;
-        // Lưu bằng đơn vị 0.01 phút (tránh số thập phân, DB dùng INT)
-        // Quy ước: target_value trong achievement_definitions tính bằng "1/100 phút" = giây * (100/60)
+            : 10;
         const secondsToStore = Math.round(durationSeconds);
         await updateAchievementProgress(userId, 'shadowing_minutes_studied', secondsToStore);
         await updateGoalProgress(userId, 'shadowing_minutes_studied', secondsToStore);
@@ -411,6 +629,7 @@ export const analyzeAudio = async (
 // ─── Gemini AI Summary ─────────────────────────────────────────────────────────────────
 
 export interface GeminiSummary {
+    summaryEn?: string;
     summary: string;
     vocabulary: Array<{
         word: string;
@@ -421,40 +640,59 @@ export interface GeminiSummary {
     }>;
 }
 
-export const getVideoSummary = async (videoId: string): Promise<GeminiSummary> => {
-    // 1. Kiểm tra cache trong DB trước
+function buildTranscriptForGemini(segments: Array<{ transcript: string }>): string {
+    const fullTranscript = segments.map((s) => s.transcript).join(' ').trim();
+    if (fullTranscript.length <= MAX_GEMINI_TRANSCRIPT_CHARS) {
+        return fullTranscript;
+    }
+    // Video quá dài: lấy đều phần đầu, giữa và cuối để giữ trọn mạch nội dung mà không vượt ngưỡng token
+    const chunkSize = Math.floor(MAX_GEMINI_TRANSCRIPT_CHARS / 3);
+    const midStart = Math.floor((fullTranscript.length - chunkSize) / 2);
+    const startPart = fullTranscript.slice(0, chunkSize);
+    const midPart = fullTranscript.slice(midStart, midStart + chunkSize);
+    const endPart = fullTranscript.slice(fullTranscript.length - chunkSize);
+    return `${startPart}\n...\n${midPart}\n...\n${endPart}`;
+}
+
+export const getVideoSummary = async (videoId: string, userId: string): Promise<GeminiSummary> => {
+    const video = await getVideoById(videoId);
+    if (!video) throw new AppError('Video không tồn tại.', 404);
+
+    const hasAccess = await userHasVideoAccess(userId, videoId);
+    if (!hasAccess) {
+        throw new AppError('Bạn chưa thêm video này vào thư viện cá nhân.', 403);
+    }
+
+    // 1. Kiểm tra cache dùng chung trong DB trước
     const cached = await getVideoAiSummary(videoId);
     if (cached) return cached as GeminiSummary;
 
-    // 2. Chưa có cache → lấy phụ đề và gọi Gemini
+    // 2. Chưa có cache -> lấy phụ đề và gọi Gemini một lần duy nhất
     const segments = await getSegmentsByVideoId(videoId);
     if (!segments.length) throw new AppError('Video không có phụ đề để phân tích.', 422);
 
-    // Lấy tối đa 150 câu đầu để tiết kiệm token
-    const transcript = segments
-        .slice(0, 150)
-        .map((s: any) => s.transcript)
-        .join(' ');
+    const transcript = buildTranscriptForGemini(segments);
 
     const prompt = `
 You are an English learning assistant. Analyze the following transcript from a YouTube video.
 Return a JSON object with EXACTLY this structure (no markdown, no code blocks, raw JSON only):
 {
-  "summary": "A concise 2-3 sentence summary of the video content in Vietnamese",
+  "summaryEn": "A natural 3-4 sentence summary in English that covers the core ideas of the video and naturally weaves in the most important vocabulary from the talk.",
+  "summary": "Bản dịch tiếng Việt tự nhiên, sát nghĩa với đoạn summaryEn ở trên (3-4 câu).",
   "vocabulary": [
     {
-      "word": "the English word",
-      "ipa": "/phên âm IPA/",
+      "word": "the English word or phrase",
+      "ipa": "/IPA/",
       "partOfSpeech": "noun | verb | adjective | adverb | phrase",
-      "definition": "Giải nghĩa ngắn gọn bằng tiếng Việt, dựa đúng theo ngữ cảnh video này",
-      "exampleSentence": "A short example sentence from or inspired by the transcript"
+      "definition": "Giải nghĩa ngắn gọn bằng tiếng Việt theo đúng ngữ cảnh video này",
+      "exampleSentence": "A short sentence from summaryEn or the transcript using this word"
     }
   ]
 }
 Rules:
-- The "vocabulary" array must contain exactly 20 entries.
-- Only include vocabulary that is truly important and appears meaningfully in this specific transcript.
-- Definitions MUST be context-aware (based on how the word is used in THIS video, not general meaning).
+- The "vocabulary" array must contain exactly 10 high-value entries (or fewer only if the transcript is very short).
+- Prioritize valuable words/phrases that appear in "summaryEn" and in the video transcript itself; avoid trivial everyday words.
+- Definitions MUST be context-aware in Vietnamese based on how the word is used in THIS video.
 - Sort vocabulary by importance (most important first).
 
 Transcript:
@@ -463,10 +701,8 @@ ${transcript}
 
     let result: GeminiSummary;
     try {
-        // callGeminiWithRetry tự động retry 3 lần khi bị 503 (quá tải)
         const text = await callGeminiWithRetry(prompt);
         console.log('[Gemini] Raw response:', text.substring(0, 50) + '...');
-        // Loại bỏ markdown code fences nếu Gemini vẫn thêm vào
         const cleanJson = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
         result = JSON.parse(cleanJson) as GeminiSummary;
     } catch (err: any) {
@@ -478,7 +714,7 @@ ${transcript}
         throw new AppError(`Gemini lỗi: ${err?.message || 'Không xác định'}`, 500);
     }
 
-    // 3. Lưu vào DB để dùng lại lần sau
+    // 3. Lưu cache vào shadowing_videos để mọi người dùng về sau đều tái sử dụng không tốn token
     await updateVideoAiSummary(videoId, result);
 
     return result;
@@ -487,10 +723,18 @@ ${transcript}
 // ─── Notebook Service ─────────────────────────────────────────────────────────────────
 
 export const fetchNote = async (userId: string, videoId: string): Promise<string> => {
+    const hasAccess = await userHasVideoAccess(userId, videoId);
+    if (!hasAccess) {
+        throw new AppError('Bạn chưa thêm video này vào thư viện cá nhân.', 403);
+    }
     return getNote(userId, videoId);
 };
 
 export const saveNote = async (userId: string, videoId: string, content: string): Promise<void> => {
+    const hasAccess = await userHasVideoAccess(userId, videoId);
+    if (!hasAccess) {
+        throw new AppError('Bạn chưa thêm video này vào thư viện cá nhân.', 403);
+    }
     await upsertNote(userId, videoId, content);
 };
 

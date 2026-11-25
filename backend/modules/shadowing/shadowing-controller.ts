@@ -1,10 +1,22 @@
 import { Request, Response } from 'express';
-import { getLibrary, getVideoDetail, addVideo, analyzeAudio, getVideoSummary, fetchNote, saveNote, explainWordInContext, checkManualSub } from './shadowing-service';
+import {
+    getLibrary,
+    getVideoDetail,
+    addVideo,
+    deleteUserVideo,
+    analyzeAudio,
+    getVideoSummary,
+    fetchNote,
+    saveNote,
+    explainWordInContext,
+    checkManualSub,
+} from './shadowing-service';
 
 export const getLibraryHandler = async (req: Request, res: Response) => {
     try {
-        const videos = await getLibrary();
-        res.json({ status: 'success', data: videos });
+        const user = (req as any).user;
+        const result = await getLibrary(user.id);
+        res.json({ status: 'success', data: result.videos, quota: result.quota });
     } catch (error: any) {
         console.error(error);
         res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi server' });
@@ -14,7 +26,8 @@ export const getLibraryHandler = async (req: Request, res: Response) => {
 export const getVideoDetailHandler = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const data = await getVideoDetail(id as string);
+        const user = (req as any).user;
+        const data = await getVideoDetail(id as string, user.id);
         res.json({ status: 'success', data });
     } catch (error: any) {
         console.error(error);
@@ -25,10 +38,11 @@ export const getVideoDetailHandler = async (req: Request, res: Response) => {
 export const checkManualSubHandler = async (req: Request, res: Response) => {
     try {
         const { url } = req.body;
+        const user = (req as any).user;
         if (!url) {
             return res.status(400).json({ status: 'error', message: 'Vui lòng cung cấp URL YouTube.' });
         }
-        const result = await checkManualSub(url);
+        const result = await checkManualSub(url, user?.id);
         res.json({
             status: 'success',
             data: result,
@@ -42,14 +56,30 @@ export const checkManualSubHandler = async (req: Request, res: Response) => {
 export const addVideoHandler = async (req: Request, res: Response) => {
     try {
         const { url } = req.body;
+        const user = (req as any).user;
         if (!url) {
             return res.status(400).json({ status: 'error', message: 'Vui lòng cung cấp URL YouTube.' });
         }
-        const result = await addVideo(url);
+        const result = await addVideo(url, user.id);
         res.status(201).json({
             status: 'success',
             message: `Đã thêm "${result.title}" và tải ${result.segmentsCount} câu phụ đề thành công!`,
             data: result,
+        });
+    } catch (error: any) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi server' });
+    }
+};
+
+export const deleteVideoHandler = async (req: Request, res: Response) => {
+    try {
+        const { videoId } = req.params;
+        const user = (req as any).user;
+        await deleteUserVideo(user.id, videoId as string);
+        res.json({
+            status: 'success',
+            message: 'Đã xóa video khỏi danh sách cá nhân.',
         });
     } catch (error: any) {
         console.error(error);
@@ -86,8 +116,9 @@ export const analyzeAudioHandler = async (req: Request, res: Response) => {
 export const getVideoSummaryHandler = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const user = (req as any).user;
         console.log(`[Gemini] Fetching summary for video ${id}...`);
-        const summary = await getVideoSummary(id as string);
+        const summary = await getVideoSummary(id as string, user.id);
         res.json({ status: 'success', data: summary });
     } catch (error: any) {
         console.error(error);
@@ -103,7 +134,7 @@ export const getNoteHandler = async (req: Request, res: Response) => {
         res.json({ status: 'success', data: { content } });
     } catch (error: any) {
         console.error(error);
-        res.status(500).json({ status: 'error', message: 'Lỗi tải sổ tay.' });
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi tải sổ tay.' });
     }
 };
 
@@ -116,7 +147,7 @@ export const saveNoteHandler = async (req: Request, res: Response) => {
         res.json({ status: 'success', message: 'Sổ tay đã được lưu.' });
     } catch (error: any) {
         console.error(error);
-        res.status(500).json({ status: 'error', message: 'Lỗi lưu sổ tay.' });
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi lưu sổ tay.' });
     }
 };
 

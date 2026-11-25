@@ -181,21 +181,24 @@ Level 1 -> 2: 100 EXP    Level 2 -> 3: 120 EXP    Level 5 -> 6: 180 EXP
 
 **API:**
 ```text
-GET  /api/shadowing/videos              -> Thư viện video
-GET  /api/shadowing/videos/:id          -> Chi tiết + danh sách segments
-POST /api/shadowing/check-sub           -> Kiểm tra phụ đề thủ công (trước khi thêm)
-POST /api/shadowing/videos              -> Thêm video sau khi check-sub thành công
-POST /api/shadowing/analyze/:segmentId  -> Gửi audio -> Whisper -> chấm điểm
-GET  /api/shadowing/videos/:id/summary  -> Gemini AI Summary (lazy cache vào DB)
-GET/PUT /api/shadowing/notes/:videoId   -> Ghi chú cá nhân của user
-POST /api/shadowing/dictionary/explain  -> Gemini giải thích từ theo ngữ cảnh câu
+GET    /api/shadowing/videos              -> Thư viện video cá nhân + hệ thống kèm quota theo tier
+GET    /api/shadowing/videos/:id          -> Chi tiết + danh sách segments (kiểm tra quyền sở hữu/hệ thống)
+POST   /api/shadowing/check-sub           -> Kiểm tra phụ đề thủ công, cache có sẵn và hạn mức gói
+POST   /api/shadowing/videos              -> Thêm video vào thư viện cá nhân (tái sử dụng cache nếu đã có)
+DELETE /api/shadowing/videos/:videoId     -> Gỡ video khỏi thư viện cá nhân của user
+POST   /api/shadowing/analyze/:segmentId  -> Gửi audio -> Whisper -> chấm điểm
+GET    /api/shadowing/videos/:id/summary  -> Gemini AI Summary song ngữ Anh-Việt + 10 từ cốt lõi (lazy cache)
+GET/PUT /api/shadowing/notes/:videoId     -> Ghi chú cá nhân của user
+POST   /api/shadowing/dictionary/explain  -> Gemini giải thích từ theo ngữ cảnh câu
 ```
 
-**Flow thêm video:**
-1. `POST /check-sub` với URL YouTube
-2. `checkManualSub()`: parse ID → kiểm tra DB → InnerTube API → lọc track tiếng Anh → xác nhận `kind !== 'asr'`
-3. Nếu hợp lệ, frontend hiển thị preview → user xác nhận → `POST /videos`
-4. `addVideo()`: tải XML từ `track.baseUrl` → parse → insert segments vào DB
+**Flow thêm video (Personal Library + Shared Cache):**
+1. `POST /check-sub` với URL YouTube (kèm `userId`): kiểm tra `youtube_id` đã có trong `shadowing_videos` chưa.
+   - Nếu đã có trong kho cache: kiểm tra trùng trong `user_shadowing_videos`, hạn mức số lượng (`shadowingVideos`) và thời lượng (`shadowingVideoDurationMinutes`) theo tier (`tierLimits.ts`).
+   - Nếu là video mới: kiểm tra slot trước, rồi gọi InnerTube API + oEmbed, lọc track tiếng Anh, xác nhận `kind !== 'asr'` và đối chiếu thời lượng theo tier.
+2. Nếu hợp lệ, frontend tự động gọi `POST /videos`:
+   - Nếu đã có cache trong `shadowing_videos`: chỉ liên kết vào `user_shadowing_videos` (0 gọi YouTube, 0 nhân bản segments, tái sử dụng `ai_summary`).
+   - Nếu video mới: tải XML từ `track.baseUrl`, parse và bulk-insert vào `shadowing_videos`, `shadowing_segments` và `user_shadowing_videos` trong một transaction.
 
 **Flow phân tích giọng nói:**
 1. Frontend: `getUserMedia` + `MediaRecorder` → ghi âm → Blob → `FormData`

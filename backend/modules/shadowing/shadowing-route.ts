@@ -5,6 +5,7 @@ import {
     getLibraryHandler,
     getVideoDetailHandler,
     addVideoHandler,
+    deleteVideoHandler,
     checkManualSubHandler,
     analyzeAudioHandler,
     getVideoSummaryHandler,
@@ -15,23 +16,24 @@ import {
 
 const router = Router();
 
-// Configure multer to store file in memory (buffer) instead of disk
+// Cấu hình multer lưu file âm thanh tạm trong bộ nhớ thay vì ổ đĩa
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.get('/videos', requireAuth, getLibraryHandler);
 router.get('/videos/:id', requireAuth, getVideoDetailHandler);
 router.post('/check-sub', requireAuth, checkManualSubHandler);
 router.post('/videos', requireAuth, addVideoHandler);
+router.delete('/videos/:videoId', requireAuth, deleteVideoHandler);
 router.post('/analyze/:segmentId', requireAuth, upload.single('audio'), analyzeAudioHandler);
 
-// Gemini AI Summary (lazy-load, cached in DB)
+// Tóm tắt & từ vựng Gemini AI (lazy-load, cache dùng chung trong DB)
 router.get('/videos/:id/summary', requireAuth, getVideoSummaryHandler);
 
-// Notebook (Sổ tay cá nhân)
+// Sổ tay cá nhân
 router.get('/notes/:videoId', requireAuth, getNoteHandler);
 router.put('/notes/:videoId', requireAuth, saveNoteHandler);
 
-// Interactive Dictionary (Gemini contextual explanation)
+// Từ điển ngữ cảnh thông minh (Gemini)
 router.post('/dictionary/explain', requireAuth, explainWordHandler);
 
 export default router;

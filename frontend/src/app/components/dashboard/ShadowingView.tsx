@@ -6,8 +6,19 @@ import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
-  Play, Pause, RotateCcw, RotateCw, Timer, Repeat, Mic, MicOff, BookOpen, Loader2, PlusCircle, Sparkles, Notebook, Save, Captions, CaptionsOff, Volume2, X, MoveLeft, Lightbulb, AlertTriangle, AlertCircle
+  Play, Pause, RotateCcw, RotateCw, Timer, Repeat, Mic, MicOff, BookOpen, Loader2, PlusCircle, Sparkles, Notebook, Save, Captions, CaptionsOff, Volume2, X, MoveLeft, Lightbulb, AlertTriangle, AlertCircle, Trash2, Clock, Video as VideoIcon, Crown, Globe
 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 
 interface Video {
   id: string;
@@ -15,7 +26,16 @@ interface Video {
   title: string;
   channel: string;
   duration: number;
-  difficulty: string;
+  difficulty?: string;
+  is_system?: number | boolean;
+  is_owner?: number | boolean;
+}
+
+interface ShadowingQuota {
+  used: number;
+  limit: number;
+  maxDurationMinutes: number;
+  tier: string;
 }
 
 interface Segment {
@@ -45,10 +65,13 @@ export function ShadowingView() {
 
   // Library State
   const [videos, setVideos] = useState<Video[]>([]);
+  const [quota, setQuota] = useState<ShadowingQuota | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [addVideoUrl, setAddVideoUrl] = useState("");
   const [isAddingVideo, setIsAddingVideo] = useState(false);
   const [addVideoError, setAddVideoError] = useState("");
+  const [videoToDelete, setVideoToDelete] = useState<Video | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [subValidation, setSubValidation] = useState<{
     valid: boolean;
     reason?: string;
@@ -231,7 +254,10 @@ export function ShadowingView() {
       const res = await fetch('/api/shadowing/videos', { credentials: 'include' });
       const data = await res.json();
       if (data.status === 'success') {
-        setVideos(data.data);
+        setVideos(Array.isArray(data.data) ? data.data : []);
+        if (data.quota) {
+          setQuota(data.quota);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -249,7 +275,7 @@ export function ShadowingView() {
     setSubValidation(null);
 
     try {
-      // 1. Chỉ kiểm tra loại phụ đề khi người dùng nhấn nút Thêm Video
+      // 1. Kiểm tra phụ đề thủ công và giới hạn gói trước khi thêm
       const checkRes = await fetch('/api/shadowing/check-sub', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -259,7 +285,6 @@ export function ShadowingView() {
       const checkData = await checkRes.json();
 
       if (checkData.status !== 'success' || !checkData.data?.valid || !checkData.data?.isManual) {
-        // Video có phụ đề tự động (Auto-generated) hoặc lỗi -> chặn và hiển thị cảnh báo
         setSubValidation(checkData.data || {
           valid: false,
           isManual: false,
@@ -269,7 +294,7 @@ export function ShadowingView() {
         return;
       }
 
-      // 2. Phụ đề thủ công hợp lệ -> Gọi API lưu video & tải câu luyện tập
+      // 2. Hợp lệ -> Gọi API lưu liên kết video cá nhân & phụ đề (tái sử dụng cache nếu đã có)
       const addRes = await fetch('/api/shadowing/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,17 +302,44 @@ export function ShadowingView() {
         body: JSON.stringify({ url: trimmedUrl }),
       });
       const addData = await addRes.json();
-      if (addData.status === 'success') {
+      if (addRes.ok && addData.status === 'success') {
         setAddVideoUrl("");
         setSubValidation(null);
-        await fetchVideos(); // Tải lại danh sách video trong thư viện
+        toast.success(addData.message || 'Đã thêm video vào thư viện cá nhân.');
+        await fetchVideos();
       } else {
-        setAddVideoError(addData.message || 'Đã có lỗi xảy ra khi thêm video.');
+        const msg = addData.message || 'Đã có lỗi xảy ra khi thêm video.';
+        setAddVideoError(msg);
+        toast.error(msg);
       }
     } catch (e) {
       setAddVideoError('Không thể kết nối tới server.');
+      toast.error('Không thể kết nối tới server.');
     } finally {
       setIsAddingVideo(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!videoToDelete || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/shadowing/videos/${videoToDelete.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        toast.success(data.message || 'Đã xóa video khỏi danh sách cá nhân.');
+        setVideoToDelete(null);
+        await fetchVideos();
+      } else {
+        toast.error(data.message || 'Không thể xóa video này.');
+      }
+    } catch {
+      toast.error('Không thể kết nối tới server.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -301,7 +353,7 @@ export function ShadowingView() {
     try {
       const res = await fetch(`/api/shadowing/videos/${videoId}`, { credentials: 'include' });
       const data = await res.json();
-      if (data.status === 'success') {
+      if (res.ok && data.status === 'success') {
         setCurrentVideo(data.data);
         setSegments(data.data.segments);
         setActiveSegmentIndex(0);
@@ -309,9 +361,14 @@ export function ShadowingView() {
         // Fetch AI Summary & Notebook in background
         fetchAiSummary(videoId);
         fetchNotebook(videoId);
+      } else {
+        toast.error(data.message || 'Không thể mở bài luyện tập video này.');
+        setCurrentView("library");
       }
     } catch (e) {
       console.error(e);
+      toast.error('Không thể kết nối tới server.');
+      setCurrentView("library");
     }
   };
 
@@ -878,11 +935,22 @@ export function ShadowingView() {
                     </div>
                   ) : (
                     <div className="animate-in fade-in duration-500">
-                      <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 mb-6 text-sm leading-relaxed text-foreground/90 italic">
-                        "{aiSummary.summary}"
+                      {aiSummary.summaryEn && (
+                        <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20 mb-3 text-sm leading-relaxed text-foreground/90">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1.5">
+                            English Summary
+                          </p>
+                          <p className="italic">"{aiSummary.summaryEn}"</p>
+                        </div>
+                      )}
+                      <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 mb-6 text-sm leading-relaxed text-foreground/90">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-1.5">
+                          Tóm tắt tiếng Việt
+                        </p>
+                        <p className="italic">"{aiSummary.summary}"</p>
                       </div>
                       <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-primary" /> Top 20 Context Words
+                        <Sparkles className="h-4 w-4 text-primary" /> Top {aiSummary.vocabulary?.length || 10} Context Words
                       </h4>
                       <div className="space-y-3">
                         {aiSummary.vocabulary?.map((v: any, i: number) => (
@@ -1066,21 +1134,114 @@ export function ShadowingView() {
 
   }
 
+  const myVideos = videos.filter((v) => Boolean(v.is_owner));
+  const systemVideos = videos.filter((v) => Boolean(v.is_system) && !Boolean(v.is_owner));
+  const isVideoLimitReached = Boolean(quota && quota.limit !== -1 && quota.used >= quota.limit);
+
+  const renderVideoCard = (video: Video, canDelete: boolean) => (
+    <Card key={video.id} className="hover:shadow-lg transition-all duration-300 group flex flex-col">
+      <div className="relative overflow-hidden rounded-t-lg bg-muted">
+        <img
+          src={`https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`}
+          alt={video.title}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${video.youtube_id}/mqdefault.jpg`;
+          }}
+          className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-300 flex items-center justify-center">
+          <Button
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md"
+            onClick={() => handleStartPractice(video.id)}
+          >
+            <Play className="h-4 w-4 mr-2" />
+            Practice Now
+          </Button>
+        </div>
+        <div className="absolute bottom-2 right-2 bg-black/75 backdrop-blur-xs text-white text-xs px-2 py-1 rounded font-medium">
+          {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+        </div>
+      </div>
+
+      <CardContent className="p-4 flex-1 flex flex-col justify-between gap-3">
+        <div>
+          <h3 className="font-semibold mb-1 line-clamp-2 group-hover:text-primary transition-colors">
+            {video.title}
+          </h3>
+          <p className="text-sm text-muted-foreground">{video.channel}</p>
+        </div>
+        <div className="flex items-center justify-between pt-2 border-t border-border/60">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2.5 text-xs font-medium text-primary hover:bg-primary/10"
+            onClick={() => handleStartPractice(video.id)}
+          >
+            <Play className="h-3.5 w-3.5 mr-1" />
+            Luyện ngay
+          </Button>
+          {canDelete ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setVideoToDelete(video)}
+              title="Xóa khỏi danh sách cá nhân"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Xóa
+            </Button>
+          ) : (
+            <Badge variant="secondary" className="text-[11px] font-medium">
+              <Globe className="h-3 w-3 mr-1" />
+              Hệ thống
+            </Badge>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   // Library View
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">YouTube Shadowing</h1>
-        <p className="text-muted-foreground">Practice pronunciation and rhythm with real videos and AI feedback</p>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">YouTube Shadowing</h1>
+          <p className="text-muted-foreground">Luyện phát âm và ngữ điệu qua video thực tế với phản hồi AI</p>
+        </div>
+        {quota && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="px-3 py-1 text-xs font-semibold flex items-center gap-1.5">
+              <VideoIcon className="h-3.5 w-3.5 text-primary" />
+              <span>
+                Đã lưu {quota.used}/{quota.limit === -1 ? 'Không giới hạn' : quota.limit} video cá nhân
+              </span>
+            </Badge>
+            <Badge variant="outline" className="px-3 py-1 text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              <span>
+                Tối đa: {quota.maxDurationMinutes === -1 ? 'Không giới hạn' : `${quota.maxDurationMinutes} phút/video`}
+              </span>
+            </Badge>
+          </div>
+        )}
       </div>
 
       {/* Add Video Card */}
       <Card className="border-2 shadow-sm">
         <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <p className="text-sm font-semibold flex items-center gap-2">
-              Thêm video YouTube để luyện tập
+              Thêm video YouTube vào thư viện cá nhân
             </p>
+            {quota && (
+              <span className="text-xs font-medium text-muted-foreground">
+                Gói hiện tại: <strong className="text-foreground">{quota.tier}</strong>
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <Input
@@ -1091,13 +1252,13 @@ export function ShadowingView() {
                 if (subValidation) setSubValidation(null);
                 if (addVideoError) setAddVideoError("");
               }}
-              onKeyDown={(e) => e.key === 'Enter' && !isAddingVideo && handleAddVideo()}
+              onKeyDown={(e) => e.key === 'Enter' && !isAddingVideo && !isVideoLimitReached && handleAddVideo()}
               disabled={isAddingVideo}
               className="flex-1"
             />
             <Button
               onClick={handleAddVideo}
-              disabled={isAddingVideo || !addVideoUrl.trim()}
+              disabled={isAddingVideo || !addVideoUrl.trim() || isVideoLimitReached}
               className="shrink-0"
             >
               {isAddingVideo ? (
@@ -1108,6 +1269,15 @@ export function ShadowingView() {
               {isAddingVideo ? 'Đang kiểm tra & tải...' : 'Thêm Video'}
             </Button>
           </div>
+
+          {isVideoLimitReached && quota && (
+            <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 flex items-center gap-2.5 text-xs sm:text-sm">
+              <Crown className="h-4 w-4 shrink-0 text-amber-500" />
+              <span>
+                Bạn đã dùng hết {quota.used}/{quota.limit} slot video cá nhân của gói {quota.tier}. Hãy xóa bớt video cũ hoặc nâng cấp gói để lưu thêm.
+              </span>
+            </div>
+          )}
 
           {/* Cảnh báo phụ đề tự động (Auto-generated) */}
           {subValidation && subValidation.isAutoGenerated && (
@@ -1132,8 +1302,16 @@ export function ShadowingView() {
             </div>
           )}
 
+          {/* Cảnh báo vượt giới hạn gói (Số lượng hoặc thời lượng) */}
+          {subValidation && !subValidation.valid && (subValidation.reason === 'LIMIT_REACHED' || subValidation.reason === 'DURATION_EXCEEDED') && (
+            <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 flex items-start gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-1 duration-200">
+              <Crown className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" />
+              <p className="font-medium text-xs sm:text-sm">{subValidation.message}</p>
+            </div>
+          )}
+
           {/* Các lỗi khác (URL sai, không có sub, video đã có trong thư viện) */}
-          {subValidation && !subValidation.valid && !subValidation.isAutoGenerated && (
+          {subValidation && !subValidation.valid && !subValidation.isAutoGenerated && subValidation.reason !== 'LIMIT_REACHED' && subValidation.reason !== 'DURATION_EXCEEDED' && (
             <div className="mt-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive flex items-start gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-1 duration-200">
               <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
               <p className="font-medium text-xs sm:text-sm">{subValidation.message}</p>
@@ -1145,51 +1323,85 @@ export function ShadowingView() {
           )}
 
           <p className="text-xs text-muted-foreground mt-2">
-            Bạn nên dùng video có phụ đề được biên dịch thủ công bởi con người để bảo đảm độ chính xác từng câu khi luyện nói.
+            Mỗi tài khoản lưu trữ thư viện video riêng biệt. Bạn nên dùng video có phụ đề tiếng Anh thủ công để bảo đảm độ chính xác từng câu khi luyện nói.
           </p>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {isLoading ? (
-          <div className="col-span-3 flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin" /></div>
-        ) : videos.map((video) => (
-          <Card key={video.id} className="hover:shadow-lg transition-all duration-300 group">
-            <div className="relative overflow-hidden rounded-t-lg bg-muted">
-              <img
-                src={`https://i.ytimg.com/vi/${video.youtube_id}/hqdefault.jpg`}
-                alt={video.title}
-                referrerPolicy="no-referrer"
-                loading="lazy"
-                onError={(e) => {
-                  // Fallback sang img.youtube.com mqdefault nếu cần
-                  (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${video.youtube_id}/mqdefault.jpg`;
-                }}
-                className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-300 flex items-center justify-center">
-                <Button
-                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md"
-                  onClick={() => handleStartPractice(video.id)}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Practice Now
-                </Button>
-              </div>
-              <div className="absolute bottom-2 right-2 bg-black/75 backdrop-blur-xs text-white text-xs px-2 py-1 rounded font-medium">
-                {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
-              </div>
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin" /></div>
+      ) : (
+        <div className="space-y-8">
+          {/* Personal Videos Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <VideoIcon className="h-5 w-5 text-primary" />
+                Video của tôi ({myVideos.length})
+              </h2>
             </div>
 
-            <CardContent className="p-4">
-              <h3 className="font-semibold mb-1 line-clamp-2 group-hover:text-primary transition-colors">
-                {video.title}
-              </h3>
-              <p className="text-sm text-muted-foreground">{video.channel}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            {myVideos.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="p-8 text-center space-y-3">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <VideoIcon className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="space-y-1 max-w-md mx-auto">
+                    <p className="font-semibold text-base">Bạn chưa lưu video cá nhân nào</p>
+                    <p className="text-sm text-muted-foreground">
+                      Hãy dán liên kết YouTube có phụ đề tiếng Anh thủ công vào khung phía trên (gợi ý: TED Talks, BBC Learning English, Kurzgesagt) để bắt đầu luyện Shadowing.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {myVideos.map((video) => renderVideoCard(video, true))}
+              </div>
+            )}
+          </div>
+
+          {/* System Videos Section (if any) */}
+          {systemVideos.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Globe className="h-5 w-5 text-primary" />
+                Thư viện hệ thống ({systemVideos.length})
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {systemVideos.map((video) => renderVideoCard(video, false))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Confirm Delete Dialog */}
+      <AlertDialog open={Boolean(videoToDelete)} onOpenChange={(open) => { if (!open && !isDeleting) setVideoToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa video khỏi thư viện cá nhân?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa video "{videoToDelete?.title}" khỏi danh sách cá nhân? Lịch sử luyện tập và thành tựu trước đó của bạn vẫn được giữ nguyên.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Xác nhận xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

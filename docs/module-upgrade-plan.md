@@ -190,89 +190,47 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ---
 
-## Phần 3: Nâng cấp module Shadowing (Import Video cá nhân)
+## Phần 3: Nâng cấp module Shadowing (Thư viện cá nhân & Tối ưu AI Cache) [TRẠNG THÁI: ĐÃ HOÀN THÀNH 100%]
 
-### 3.1 Thêm cột owner vào bảng shadowing_videos
+> **Tổng kết:** Đã nâng cấp từ phương án 1 bảng ban đầu sang mô hình **Kho nội dung dùng chung (`shadowing_videos`) + Thư viện sở hữu cá nhân (`user_shadowing_videos`)**, vừa bảo đảm tính riêng tư tuyệt đối giữa các người dùng và áp dụng hạn mức gói hội viên, vừa tái sử dụng hoàn toàn phụ đề và cache Gemini AI khi nhiều người dùng import cùng một video YouTube.
 
-**Vấn đề:** Bảng `shadowing_videos` hiện tại không có cột `created_by` (owner). Không biết video nào là của user nào để đếm giới hạn và phân quyền xóa.
+### 3.1 Tách bảng sở hữu `user_shadowing_videos` & chuẩn hóa `shadowing_videos` [ĐÃ XONG]
 
-**File cần tạo:** `backend/database/migration_shadowing_personal.sql`
-```sql
--- Them cot created_by de xac dinh ai la chu so huu video ca nhan
--- NULL = video trong thu vien chung (cua admin/he thong), co gia tri = video ca nhan cua user do
-ALTER TABLE shadowing_videos
-  ADD COLUMN created_by VARCHAR(36) NULL DEFAULT NULL AFTER ai_summary,
-  ADD INDEX idx_shadowing_videos_owner (created_by);
-```
+- **File đã tạo/sửa:** `backend/database/migration_shadowing_personal.sql`, `backend/database/schema.sql`.
+- **Thiết kế thực tế:**
+  - `shadowing_videos`: Lưu trữ thông tin video duy nhất theo `youtube_id` (`UNIQUE`), bổ sung cột `is_system BOOLEAN NOT NULL DEFAULT FALSE` và `INDEX idx_shadowing_videos_system (is_system)` để phân biệt video thư viện hệ thống với video do người dùng tự import.
+  - `user_shadowing_videos`: Bảng liên kết cá nhân (`id`, `user_id`, `video_id`, `created_at`) với `UNIQUE KEY uq_user_shadowing_video (user_id, video_id)` và `INDEX idx_user_shadowing_owner_created (user_id, created_at)`.
+  - Các bảng phụ thuộc (`shadowing_segments`, `user_shadowing_history`, `shadowing_notes`) giữ nguyên khóa ngoại tới `shadowing_videos(id)` mà không bị nhân bản dữ liệu.
 
 ---
 
-### 3.2 Thêm giới hạn khi import video YouTube cá nhân
+### 3.2 Áp dụng giới hạn theo Tier & Tái sử dụng Cache khi import video [ĐÃ XONG]
 
-**File cần sửa:** Backend service hoặc controller xử lý route thêm video mới (tìm route `POST /api/shadowing/videos` hoặc tương đương).
-
-**Logic cần thêm (thực hiện trước khi INSERT):**
-
-**Bước 1: Lấy tier**
-```typescript
-// Lay tier hien tai cua user tu bang user_subscription
-const tierRow = await pool.query(
-  `SELECT s.tier FROM user_subscription s
-   WHERE s.user_id = ? AND s.status = 'ACTIVE' AND s.expires_at > NOW()
-   ORDER BY s.expires_at DESC LIMIT 1`,
-  [userId]
-);
-const tier: Tier = tierRow[0]?.tier || 'FREE';
-```
-
-**Bước 2: Kiểm tra số lượng video đã lưu**
-```typescript
-const maxVideos = getTierLimit('shadowingVideos', tier); // -1 la khong gioi han
-if (maxVideos !== -1) {
-  const [countRow] = await pool.query(
-    `SELECT COUNT(*) as cnt FROM shadowing_videos WHERE created_by = ?`,
-    [userId]
-  );
-  const currentCount = countRow[0]?.cnt || 0;
-  if (currentCount >= maxVideos) {
-    // Tra ve loi 403 kem thong bao
-    return res.status(403).json({
-      message: `Bạn đã lưu tối đa ${maxVideos} video. Nâng cấp gói để lưu thêm video.`
-    });
-  }
-}
-```
-
-**Bước 3: Kiểm tra thời lượng video**
-Khi frontend gửi lên YouTube link, backend cần gọi YouTube oEmbed API hoặc lấy metadata để biết `duration` (giây). So sánh với `getTierLimit('shadowingVideoDurationMinutes', tier) * 60`.
-```typescript
-const maxDurationMinutes = getTierLimit('shadowingVideoDurationMinutes', tier);
-if (maxDurationMinutes !== -1 && videoDurationSeconds > maxDurationMinutes * 60) {
-  return res.status(403).json({
-    message: `Video dài hơn ${maxDurationMinutes} phút. Gói của bạn chỉ hỗ trợ video dưới ${maxDurationMinutes} phút.`
-  });
-}
-```
+- **File đã sửa:** `backend/modules/shadowing/shadowing-repository.ts`, `backend/modules/shadowing/shadowing-service.ts`, `backend/modules/shadowing/shadowing-controller.ts`.
+- **Nghiệp vụ đã hiện thực:**
+  - `GET /api/shadowing/videos`: Truy vấn theo chỉ mục `user_shadowing_videos` kết hợp `UNION ALL` với `shadowing_videos WHERE is_system = TRUE`, bảo đảm mỗi học viên chỉ thấy video cá nhân của chính mình (cùng video hệ thống nếu có) và không phải quét dữ liệu của user khác; trả kèm `quota: { used, limit, maxDurationMinutes, tier }`.
+  - Giới hạn số lượng video cá nhân theo [tierLimits.ts](file:///e:/Downloads/LexiCore/backend/utils/tierLimits.ts): `FREE` (3), `STARTER` (10), `PRO` (50), `ELITE` (không giới hạn).
+  - Giới hạn thời lượng mỗi video khi import: `FREE` (7 phút), `STARTER` (15 phút), `PRO` và `ELITE` (không giới hạn), lấy chính xác từ YouTube `videoDetails.lengthSeconds` (fallback qua timestamp phụ đề cuối).
+  - **Cơ chế Deduplication & Reuse Cache:** Nếu `youtube_id` đã có trong `shadowing_videos` (do người dùng khác import trước đó), hệ thống vẫn kiểm tra đầy đủ quota số lượng và thời lượng theo tier của người dùng hiện tại, sau đó chỉ chèn 1 bản ghi vào `user_shadowing_videos` mà không cần gọi lại YouTube hay nhân bản `shadowing_segments`, đồng thời dùng lại ngay `ai_summary` đã cache.
+  - Kiểm soát quyền truy cập (`userHasVideoAccess`) trên `GET /videos/:id`, `GET /videos/:id/summary`, `POST /analyze/:segmentId`, `GET/PUT /notes/:videoId`: từ chối HTTP 403 nếu video không phải hệ thống và chưa được user lưu vào thư viện cá nhân.
 
 ---
 
-### 3.3 Thêm route xóa video cá nhân
+### 3.3 Route xóa video cá nhân & Cập nhật giao diện ShadowingView [ĐÃ XONG]
 
-**File cần sửa:** `backend/modules/shadowing/` - Tìm route file và service file tương ứng.
+- **File đã sửa:** `backend/modules/shadowing/shadowing-route.ts`, `frontend/src/app/components/dashboard/ShadowingView.tsx`.
+- **Nghiệp vụ đã hiện thực:**
+  - **Route mới:** `DELETE /api/shadowing/videos/:videoId` chỉ xóa dòng liên kết trong `user_shadowing_videos WHERE user_id = ? AND video_id = ?` (từ chối HTTP 403 với video hệ thống hoặc video không thuộc sở hữu). Cơ chế này giữ nguyên bản ghi cache `shadowing_videos` cho các người dùng khác và bảo toàn `user_shadowing_history` (streak, thành tựu) của chính học viên.
+  - **Frontend (`ShadowingView.tsx`):** Hiển thị bộ đếm `Đã lưu X/Y video cá nhân` và giới hạn thời lượng tối đa theo gói hiện tại; tách khu `Video của tôi` và `Thư viện hệ thống`; bổ sung Empty State thân thiện khi chưa có video; nút Xóa kèm `AlertDialog` xác nhận và thông báo `sonner`.
 
-**Route mới:** `DELETE /api/shadowing/videos/:videoId`
+---
 
-**Logic:**
-1. Xác thực người dùng đang đăng nhập (middleware auth đã có).
-2. Query: `SELECT created_by FROM shadowing_videos WHERE id = ?`.
-3. Nếu `created_by` khác `userId` đang đăng nhập, trả 403: "Bạn không có quyền xóa video này."
-4. Nếu `created_by` là NULL (video thư viện chung của hệ thống), trả 403: "Không thể xóa video thư viện hệ thống."
-5. Nếu hợp lệ: `DELETE FROM shadowing_videos WHERE id = ? AND created_by = ?`.
-6. Do có `ON DELETE CASCADE` trong schema, các bản ghi liên quan trong `shadowing_segments`, `user_shadowing_history`, `shadowing_notes` sẽ tự xóa theo.
+### 3.4 Tối ưu Gemini AI Summary (Đọc đầy đủ Script, Song ngữ Anh - Việt, 10 từ cốt lõi) [ĐÃ XONG]
 
-**Frontend cần thêm:**
-- Nút "Xóa khỏi danh sách" cạnh mỗi video cá nhân (chỉ hiển thị nếu `video.created_by === currentUserId`).
-- Hiển thị nhãn số lượng video đã lưu: `Đã lưu X/Y video cá nhân` (Y = -1 thì hiện "Không giới hạn").
+- **File đã sửa:** `backend/modules/shadowing/shadowing-service.ts`, `frontend/src/app/components/dashboard/ShadowingView.tsx`.
+- **Nghiệp vụ đã hiện thực:**
+  - Thay vì cắt cứng 150 câu đầu tiên, `buildTranscriptForGemini` lấy toàn bộ transcript (với ngưỡng an toàn 24.000 ký tự; video quá dài được trích đều 3 đoạn đầu - giữa - cuối).
+  - Prompt trả về JSON gồm `summaryEn` (tóm tắt 3-4 câu tiếng Anh lồng ghép từ khóa trọng tâm), `summary` (bản dịch tiếng Việt tương ứng) và giảm từ 20 xuống **10 từ vựng cốt lõi** (giảm ~40-50% output token, tăng tốc độ phản hồi và chất lượng từ vựng). Tương thích ngược với các bản ghi JSON cũ không có `summaryEn`.
 
 ---
 

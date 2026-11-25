@@ -266,15 +266,29 @@ CREATE TABLE user_collections (
 
 -- C. AI VOICE ANALYSIS (SHADOWING)
 
--- 1. Bảng lưu trữ Video YouTube
+-- 1. Bảng lưu trữ Video YouTube (Kho nội dung gốc và cache AI Summary dùng chung)
 CREATE TABLE shadowing_videos (
     id VARCHAR(36) PRIMARY KEY,
-    youtube_id VARCHAR(50) NOT NULL,
+    youtube_id VARCHAR(50) NOT NULL UNIQUE,
     title VARCHAR(255) NOT NULL,
     channel VARCHAR(100),
     duration INT,
     ai_summary JSON, -- Cache tóm tắt & từ vựng từ Gemini AI (lazy-load, lưu 1 lần dùng mãi)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    is_system BOOLEAN NOT NULL DEFAULT FALSE, -- TRUE = video thư viện chung, FALSE = video do người dùng import
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_shadowing_videos_system (is_system)
+);
+
+-- 1b. Bảng liên kết danh sách Video cá nhân của từng người dùng
+CREATE TABLE user_shadowing_videos (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    video_id VARCHAR(36) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_user_shadowing_video (user_id, video_id),
+    INDEX idx_user_shadowing_owner_created (user_id, created_at),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (video_id) REFERENCES shadowing_videos (id) ON DELETE CASCADE
 );
 
 -- 2. Bảng lưu trữ Phụ đề (Transcripts/Segments) của Video
