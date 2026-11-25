@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import httpClient from '../../../services/httpClient';
+import { srsService, ForecastDayItem, ReviewedCardItem } from '../../../services/srs-service';
 
 const API_BASE = `${(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')}/api/v1/dashboard`;
 
@@ -23,6 +24,8 @@ export interface RetentionPoint {
   retention: number;
   withReview: number;
   reviewsCount?: number;
+  correctCount?: number;
+  wrongCount?: number;
 }
 
 export interface CourseProgress {
@@ -69,6 +72,8 @@ export interface DashboardActivities {
 export interface DashboardData {
   stats: DashboardStats | null;
   retentionData: RetentionPoint[];
+  forecastData: ForecastDayItem[];
+  reviewedCards: ReviewedCardItem[];
   courses: CourseProgress[];
   nextLessons: NextLesson[];
   activities: DashboardActivities | null;
@@ -78,6 +83,8 @@ export function useDashboardData() {
   const [data, setData] = useState<DashboardData>({
     stats: null,
     retentionData: [],
+    forecastData: [],
+    reviewedCards: [],
     courses: [],
     nextLessons: [],
     activities: null,
@@ -89,18 +96,23 @@ export function useDashboardData() {
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const ts = Date.now();
     try {
-      const [statsRes, retRes, coursesRes, lessonsRes, activitiesRes] = await Promise.all([
-        httpClient.get<DashboardStats>(`${API_BASE}/stats`),
-        httpClient.get<RetentionPoint[]>(`${API_BASE}/retention`),
-        httpClient.get<CourseProgress[]>(`${API_BASE}/courses`),
-        httpClient.get<NextLesson[]>(`${API_BASE}/lessons`),
-        httpClient.get<DashboardActivities>(`${API_BASE}/activities`),
+      const [statsRes, retRes, coursesRes, lessonsRes, activitiesRes, forecastRes, reviewedCardsRes] = await Promise.all([
+        httpClient.get<DashboardStats>(`${API_BASE}/stats?_t=${ts}`),
+        httpClient.get<RetentionPoint[]>(`${API_BASE}/retention?_t=${ts}`),
+        httpClient.get<CourseProgress[]>(`${API_BASE}/courses?_t=${ts}`),
+        httpClient.get<NextLesson[]>(`${API_BASE}/lessons?_t=${ts}`),
+        httpClient.get<DashboardActivities>(`${API_BASE}/activities?_t=${ts}`),
+        srsService.getForecast().catch(() => ({ success: false, data: [] })),
+        srsService.getReviewedCards().catch(() => ({ success: false, data: [] })),
       ]);
 
       setData({
         stats: statsRes.data,
         retentionData: Array.isArray(retRes.data) ? retRes.data : [],
+        forecastData: Array.isArray(forecastRes?.data) ? forecastRes.data : [],
+        reviewedCards: Array.isArray(reviewedCardsRes?.data) ? reviewedCardsRes.data : [],
         courses: Array.isArray(coursesRes.data) ? coursesRes.data : [],
         nextLessons: Array.isArray(lessonsRes.data) ? lessonsRes.data : [],
         activities: activitiesRes.data || { achievements: [], weeklyActivityScore: 0 },
@@ -119,6 +131,14 @@ export function useDashboardData() {
 
   useEffect(() => {
     fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    const handleSrsUpdate = () => {
+      fetchDashboardData();
+    };
+    window.addEventListener('srs:review-updated', handleSrsUpdate);
+    return () => window.removeEventListener('srs:review-updated', handleSrsUpdate);
   }, [fetchDashboardData]);
 
   return { data, loading, error, refetch: fetchDashboardData };

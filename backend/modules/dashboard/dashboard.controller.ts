@@ -216,25 +216,41 @@ export const getRetention = async (req: Request, res: Response) => {
 
     // 1. Kiểm tra dữ liệu ôn tập thật từ CardReview
     const cardReviews = await CardReview.find({ userId }).lean();
-    const allReviews: Array<{ date: Date; quality: number; interval: number; easeFactor: number }> = [];
+
+    interface NormalizedReviewEntry {
+      date: Date;
+      quality: number;
+      interval: number;
+      easeFactor: number;
+    }
+
+    const allReviews: NormalizedReviewEntry[] = [];
+    const cardHistories: NormalizedReviewEntry[][] = [];
 
     for (const cr of cardReviews) {
-      if (Array.isArray(cr.reviewHistory)) {
+      if (Array.isArray(cr.reviewHistory) && cr.reviewHistory.length > 0) {
+        const singleCardHistory: NormalizedReviewEntry[] = [];
         for (const rev of cr.reviewHistory) {
           if (rev.date) {
-            allReviews.push({
+            const entry: NormalizedReviewEntry = {
               date: new Date(rev.date),
               quality: Number(rev.quality ?? 4),
               interval: Number(rev.interval ?? cr.interval ?? 1),
               easeFactor: Number(rev.easeFactor ?? cr.easeFactor ?? 2.5)
-            });
+            };
+            allReviews.push(entry);
+            singleCardHistory.push(entry);
           }
+        }
+        if (singleCardHistory.length > 0) {
+          singleCardHistory.sort((a, b) => a.date.getTime() - b.date.getTime());
+          cardHistories.push(singleCardHistory);
         }
       }
     }
 
     if (allReviews.length > 0) {
-      // Sắp xếp lịch sử ôn tập theo thời gian tăng dần
+      // Sắp xếp toàn bộ lịch sử ôn tập theo thời gian tăng dần
       allReviews.sort((a, b) => a.date.getTime() - b.date.getTime());
 
       const firstReviewDay = new Date(allReviews[0].date);
@@ -242,7 +258,61 @@ export const getRetention = async (req: Request, res: Response) => {
 
       const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const now = new Date();
-      const points: Array<{ day: string; date: string; retention: number; withReview: number; reviewsCount: number }> = [];
+      const windowStartDay = new Date(now);
+      windowStartDay.setDate(now.getDate() - 6);
+      windowStartDay.setHours(0, 0, 0, 0);
+
+      // Mốc bắt đầu hoạt động trong cửa sổ tuần hiện tại (để vẽ đường cong quên tự nhiên Ebbinghaus trong tuần)
+      const activeWeekStartDay = new Date(Math.max(windowStartDay.getTime(), firstReviewDay.getTime()));
+
+      const points: Array<{
+        day: string;
+        date: string;
+        retention: number;
+        withReview: number;
+        reviewsCount: number;
+        correctCount: number;
+        wrongCount: number;
+      }> = [];
+
+      // Hằng số chuyển đổi từ chu kỳ interval (ngưỡng nhớ 80% khi đến hạn) sang độ bền ký ức S: S = I / -ln(0.8) ≈ 4.4814 * I
+      const LN_RETENTION_THRESHOLD = -Math.log(0.8);
+
+      const computeRecallFromEntry = (
+        entry: NormalizedReviewEntry,
+        targetDay: Date,
+        distinctStudyDaysCount: number
+      ): number => {
+        const revDay = new Date(entry.date);
+        revDay.setHours(0, 0, 0, 0);
+        const daysElapsed = Math.max(0, Math.round((targetDay.getTime() - revDay.getTime()) / (1000 * 60 * 60 * 24)));
+
+        const q = entry.quality;
+        const initialRecall =
+          q >= 5 ? 100 :
+          q >= 4 ? 95 :
+          q >= 3 ? 90 :
+          q >= 2 ? 84 : 76;
+
+        // Chống hiện tượng "Same-day Cram Inflation":
+        // Nếu người học bấm ôn nhiều lần cùng 1 thẻ trong cùng 1 ngày (chế độ Practice/Cram),
+        // interval trong DB có thể tăng vọt dù chưa qua giãn cách ngày thực tế (Spacing Effect).
+        // Giới hạn chu kỳ hiệu dụng theo số ngày học thực tế khác nhau (distinctStudyDaysCount).
+        const rawInterval = entry.interval > 0 ? entry.interval : 0.5;
+        const maxSpacedInterval =
+          distinctStudyDaysCount <= 1
+            ? 5.5
+            : distinctStudyDaysCount === 2
+              ? 12
+              : Math.min(90, 12 * Math.pow(2.0, distinctStudyDaysCount - 2));
+        const effectiveInterval = Math.min(rawInterval, maxSpacedInterval);
+
+        const efRatio = Math.min(1.25, Math.max(0.7, (entry.easeFactor || 2.5) / 2.5));
+        // Độ bền ký ức S (ngày): với thẻ học ngày đầu (effectiveInterval ~ 4.5), S ~ 22 ngày -> giảm ~3%/ngày khi không ôn
+        const stability = Math.max(2.5, (effectiveInterval / LN_RETENTION_THRESHOLD) * efRatio);
+
+        return initialRecall * Math.exp(-daysElapsed / stability);
+      };
 
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now);
@@ -258,7 +328,9 @@ export const getRetention = async (req: Request, res: Response) => {
             date: dateStr,
             retention: 0,
             withReview: 0,
-            reviewsCount: 0
+            reviewsCount: 0,
+            correctCount: 0,
+            wrongCount: 0
           });
           continue;
         }
@@ -272,41 +344,103 @@ export const getRetention = async (req: Request, res: Response) => {
             rd.getDate() === d.getDate()
           );
         });
+        const correctCount = dayReviews.filter((r) => r.quality >= 3).length;
+        const wrongCount = dayReviews.length - correctCount;
 
-        // Các lượt ôn tập tính từ đầu cho tới hết ngày d
         const endOfDay = new Date(d);
         endOfDay.setHours(23, 59, 59, 999);
-        const reviewsUpToDay = allReviews.filter((r) => r.date.getTime() <= endOfDay.getTime());
-        const lastReviewBeforeOrOnDay = reviewsUpToDay[reviewsUpToDay.length - 1];
+        const startOfDayMs = d.getTime();
 
-        // Số ngày trôi qua kể từ ngày bắt đầu học thẻ đầu tiên (cho đường cong quên tự nhiên không ôn tập)
-        const daysSinceFirst = Math.max(0, Math.round((d.getTime() - firstReviewDay.getTime()) / (1000 * 60 * 60 * 24)));
-        const naturalRetention = Math.max(15, Math.round(100 * Math.exp(-daysSinceFirst / 3)));
+        // 1. Tính Portfolio Retrievability (withReview) trên toàn bộ tập thẻ C(d) đã học tính đến hết ngày d
+        let totalPortfolioRetention = 0;
+        let activeCardsCount = 0;
 
-        // Tính tỷ lệ nhớ thực tế (withReview) dựa trên lịch sử ôn tập thật
-        let withReview = 0;
-        if (dayReviews.length > 0) {
-          // Có ôn tập trong ngày: tính điểm nhớ thực tế từ quality (0..5) của các lượt ôn trong ngày
-          const avgQualityRatio =
-            dayReviews.reduce((sum, r) => sum + Math.min(1, Math.max(0, r.quality >= 3 ? 0.8 + (r.quality - 3) * 0.1 : r.quality * 0.2)), 0) /
-            dayReviews.length;
-          withReview = Math.round(avgQualityRatio * 100);
-        } else if (lastReviewBeforeOrOnDay) {
-          // Không ôn tập trong ngày d, nhưng đã ôn trước đó: suy giảm theo interval & easeFactor thật của lần ôn gần nhất
-          const lastRevDay = new Date(lastReviewBeforeOrOnDay.date);
-          lastRevDay.setHours(0, 0, 0, 0);
-          const daysElapsed = Math.max(1, Math.round((d.getTime() - lastRevDay.getTime()) / (1000 * 60 * 60 * 24)));
-          const stability = Math.max(1, (lastReviewBeforeOrOnDay.interval || 1) * (lastReviewBeforeOrOnDay.easeFactor || 2.5));
-          const lastScore = lastReviewBeforeOrOnDay.quality >= 3 ? (80 + (lastReviewBeforeOrOnDay.quality - 3) * 10) : 50;
-          withReview = Math.max(naturalRetention, Math.round(lastScore * Math.exp(-daysElapsed / stability)));
+        for (const history of cardHistories) {
+          // Tìm lượt ôn tập gần nhất của thẻ này tính đến cuối ngày d và đếm số ngày học thực tế khác nhau
+          let latestOnOrBeforeDay: NormalizedReviewEntry | null = null;
+          let latestBeforeDay: NormalizedReviewEntry | null = null;
+          const distinctDaysOnOrBefore = new Set<string>();
+          const distinctDaysBefore = new Set<string>();
+
+          for (let k = 0; k < history.length; k++) {
+            const entry = history[k];
+            const revTime = entry.date.getTime();
+            if (revTime <= endOfDay.getTime()) {
+              latestOnOrBeforeDay = entry;
+              const dayKey = `${entry.date.getFullYear()}-${entry.date.getMonth()}-${entry.date.getDate()}`;
+              distinctDaysOnOrBefore.add(dayKey);
+              if (revTime < startOfDayMs) {
+                latestBeforeDay = entry;
+                distinctDaysBefore.add(dayKey);
+              }
+            }
+          }
+
+          if (!latestOnOrBeforeDay) continue;
+
+          activeCardsCount++;
+          let cardRetention = computeRecallFromEntry(
+            latestOnOrBeforeDay,
+            d,
+            Math.max(1, distinctDaysOnOrBefore.size)
+          );
+
+          // Nếu thẻ vừa được ôn tập trong ngày d và trước đó đã từng học,
+          // việc chủ động ôn lại (Active Recall + Feedback) luôn củng cố ký ức cao hơn trạng thái chưa ôn trong ngày
+          if (latestBeforeDay && latestOnOrBeforeDay.date.getTime() >= startOfDayMs) {
+            const unreviewedRetentionToday = computeRecallFromEntry(
+              latestBeforeDay,
+              d,
+              Math.max(1, distinctDaysBefore.size)
+            );
+            cardRetention = Math.max(cardRetention, Math.min(100, unreviewedRetentionToday + 8));
+          }
+
+          totalPortfolioRetention += cardRetention;
         }
+
+        // 2. Đường cong quên tự nhiên Ebbinghaus trong tuần (Without review - Counterfactual Baseline)
+        // Mô phỏng sự suy giảm trí nhớ ngắn hạn R(t) = R0 * e^(-t / S_raw) nếu không có cơ chế lặp lại ngắt quãng SRS
+        const daysInActiveWeek = Math.max(0, Math.round((d.getTime() - activeWeekStartDay.getTime()) / (1000 * 60 * 60 * 24)));
+        const rawDecayRetention = Math.max(15, Math.round(90 * Math.exp(-(daysInActiveWeek + 1) / 4.0)));
+
+        let portfolioAvg =
+          activeCardsCount > 0
+            ? totalPortfolioRetention / activeCardsCount
+            : rawDecayRetention;
+
+        // Nếu trong ngày d có phiên ôn tập chủ động (dayReviews.length > 0),
+        // kết hợp trạng thái danh mục thẻ (Portfolio Retention) với hiệu ứng củng cố phiên học (Active Session Consolidation)
+        // để phản ánh rõ đường răng cưa SRS bật tăng khi người học thực hiện ôn tập trong ngày
+        if (dayReviews.length > 0) {
+          const sessionRecallAvg =
+            dayReviews.reduce((sum, r) => {
+              const q = r.quality;
+              const postFeedbackRecall =
+                q >= 5 ? 100 :
+                q >= 4 ? 95 :
+                q >= 3 ? 90 :
+                q >= 2 ? 84 : 76;
+              return sum + postFeedbackRecall;
+            }, 0) / dayReviews.length;
+
+          // Trọng số phiên học tăng theo số lượt ôn trong ngày (tối đa 0.65)
+          const sessionWeight = Math.min(0.65, 0.25 + dayReviews.length * 0.12);
+          const consolidated = (1 - sessionWeight) * portfolioAvg + sessionWeight * sessionRecallAvg;
+          portfolioAvg = Math.max(portfolioAvg, consolidated);
+        }
+
+        const withReview = Math.min(100, Math.max(0, Math.round(portfolioAvg)));
+        const naturalRetention = Math.min(withReview, rawDecayRetention);
 
         points.push({
           day: `${dayLabels[d.getDay()]} (${d.getDate()}/${d.getMonth() + 1})`,
           date: dateStr,
           retention: naturalRetention,
-          withReview: Math.min(100, Math.max(0, withReview)),
-          reviewsCount: dayReviews.length
+          withReview,
+          reviewsCount: dayReviews.length,
+          correctCount,
+          wrongCount
         });
       }
 
