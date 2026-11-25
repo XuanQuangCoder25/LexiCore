@@ -1094,10 +1094,23 @@ export function SubscriptionView() {
                 <Crown className="h-4 w-4 text-amber-500" />
                 <h2 className="text-sm font-semibold">Gói Hội viên</h2>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground hidden sm:inline">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground hidden md:inline mr-1">
                   Bấm vào thẻ để chọn hoặc lật thẻ xem quyền lợi
                 </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7 px-2.5 font-medium text-muted-foreground hover:text-foreground gap-1"
+                  onClick={() => {
+                    setModalPackageId(selectedSubId);
+                    setModalTab("info");
+                    setModalOpen(true);
+                  }}
+                >
+                  <Info className="h-3.5 w-3.5" />
+                  So sánh quyền lợi
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1127,6 +1140,11 @@ export function SubscriptionView() {
                   selected={selectedSubId === pkg.id}
                   onSelect={() => setSelectedSubId(pkg.id)}
                   onBuy={handleBuySub}
+                  onOpenComparison={() => {
+                    setModalPackageId(pkg.id);
+                    setModalTab("info");
+                    setModalOpen(true);
+                  }}
                   widthClass="w-full"
                 />
               ))}

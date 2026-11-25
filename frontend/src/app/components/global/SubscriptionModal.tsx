@@ -114,7 +114,92 @@ function InfoTabContent() {
         </div>
       </Section>
 
-      {/* 2. Quy tắc nâng cấp và gia hạn */}
+      {/* 2. Bảng so sánh đặc quyền chi tiết theo hạng gói */}
+      <Section title="Bảng so sánh đặc quyền theo Hạng gói">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse text-left">
+            <thead>
+              <tr className="bg-muted/70 text-foreground border-b">
+                <th className="p-2.5 font-bold rounded-tl-lg min-w-[165px]">Quyền lợi / Tính năng</th>
+                <th className="p-2.5 font-bold text-center text-muted-foreground">Free</th>
+                <th className="p-2.5 font-bold text-center text-emerald-600 dark:text-emerald-400">Starter</th>
+                <th className="p-2.5 font-bold text-center text-blue-600 dark:text-blue-400">Pro</th>
+                <th className="p-2.5 font-bold text-center text-amber-600 dark:text-amber-400 rounded-tr-lg">Elite</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Luyện phát âm AI (Whisper)</td>
+                <td className="p-2.5 text-center text-muted-foreground">5 câu/ngày</td>
+                <td className="p-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">25 câu/ngày</td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">60 câu/ngày</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">120 câu/ngày</td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Video Shadowing cá nhân</td>
+                <td className="p-2.5 text-center text-muted-foreground">3 video (&lt;7 phút)</td>
+                <td className="p-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">10 video (&lt;15 phút)</td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">50 video (Mọi thời lượng)</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">Không giới hạn</td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Lượt Đấu Rank Arena</td>
+                <td className="p-2.5 text-center text-muted-foreground">10 trận/ngày</td>
+                <td className="p-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">Không giới hạn</td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">Không giới hạn</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">Không giới hạn</td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Đấu Giao Hữu (Friendly)</td>
+                <td className="p-2.5 text-center text-muted-foreground">Không giới hạn</td>
+                <td className="p-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">Không giới hạn</td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">Không giới hạn</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">Không giới hạn</td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Trận x2 Coin &amp; EXP Arena</td>
+                <td className="p-2.5 text-center text-muted-foreground">Không</td>
+                <td className="p-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">3 trận đầu/ngày</td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">5 trận đầu/ngày</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">10 trận đầu/ngày</td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Hồ sơ Năng lực Radar 6D</td>
+                <td className="p-2.5 text-center text-muted-foreground">Khóa</td>
+                <td className="p-2.5 text-center text-muted-foreground">Khóa</td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">Mở khóa đầy đủ</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">Mở khóa đầy đủ</td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Tự động bảo vệ chuỗi Streak</td>
+                <td className="p-2.5 text-center text-muted-foreground">Không</td>
+                <td className="p-2.5 text-center text-muted-foreground">Không</td>
+                <td className="p-2.5 text-center text-muted-foreground">Không</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">Tự động giữ chuỗi</td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Nhận diện VIP (Tên &amp; Avatar)</td>
+                <td className="p-2.5 text-center text-muted-foreground">Mặc định</td>
+                <td className="p-2.5 text-center text-muted-foreground">Mặc định</td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">Tên Ocean Blue + Khung Sapphire</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">Tên Royal Gold + Khung Vàng + Highlight</td>
+              </tr>
+              <tr className="hover:bg-muted/30 transition-colors">
+                <td className="p-2.5 font-semibold">Coin &amp; Diamond tặng kèm (gói tháng)</td>
+                <td className="p-2.5 text-center text-muted-foreground">0</td>
+                <td className="p-2.5 text-center font-medium text-emerald-600 dark:text-emerald-400">200 Coin + 5 Diamond</td>
+                <td className="p-2.5 text-center font-semibold text-blue-600 dark:text-blue-400">500 Coin + 15 Diamond</td>
+                <td className="p-2.5 text-center font-bold text-amber-600 dark:text-amber-400">1.500 Coin + 50 Diamond</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-2.5">
+          Gói Dùng thử Pro (3 ngày) được hưởng toàn bộ đặc quyền của hạng Pro. Các hạn mức theo ngày tự động làm mới lúc 00:00 (giờ Việt Nam UTC+7).
+        </p>
+      </Section>
+
+      {/* 3. Quy tắc nâng cấp và gia hạn */}
       <Section title="Quy tắc Gia hạn và Nâng cấp gói">
         <ul className="space-y-2.5 text-xs text-muted-foreground">
           <li className="flex gap-2 items-start">
@@ -375,6 +460,7 @@ export function SubscriptionModal({
                       selected={selectedSubId === pkg.id}
                       onSelect={() => setSelectedSubId(pkg.id)}
                       onBuy={handleBuyClick}
+                      onOpenComparison={() => setActiveTab("info")}
                     />
                   ))}
                 </div>

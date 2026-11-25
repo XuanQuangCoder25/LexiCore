@@ -42,10 +42,12 @@ const getRankOrderVal = (rank?: string | null): number => {
 export interface ArenaViewProps {
   initialPendingMatch?: MatchedPayload | null;
   onClearPendingMatch?: () => void;
+  initialTab?: ArenaTab;
+  onConsumeInitialTab?: () => void;
 }
 
-export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaViewProps = {}) {
-  const [activeTab, setActiveTab] = useState<ArenaTab>('hub');
+export function ArenaView({ initialPendingMatch, onClearPendingMatch, initialTab, onConsumeInitialTab }: ArenaViewProps = {}) {
+  const [activeTab, setActiveTab] = useState<ArenaTab>(initialTab || 'hub');
   const [activeScreen, setActiveScreen] = useState<'lobby' | 'gameplay' | 'result'>('lobby');
   const [isRankModalOpen, setIsRankModalOpen] = useState<boolean>(false);
   const [isMatchmakingOpen, setIsMatchmakingOpen] = useState<boolean>(false);
@@ -81,6 +83,15 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch }: ArenaVie
       },
     });
   };
+
+  // Mở đúng tab con khi được điều hướng từ ProfileView hoặc nơi khác
+  useEffect(() => {
+    if (initialTab && initialTab !== 'hub') {
+      setActiveTab(initialTab);
+      setActiveScreen('lobby');
+      onConsumeInitialTab?.();
+    }
+  }, [initialTab, onConsumeInitialTab]);
 
   // Xử lý khi có trận đấu chờ (ví dụ P2 vừa chấp nhận lời mời đấu giao hữu từ bất kỳ trang nào)
   useEffect(() => {

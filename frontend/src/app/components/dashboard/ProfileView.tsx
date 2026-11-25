@@ -4,7 +4,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Card, CardContent } from "../ui/card";
-import { Loader2, Mail, Calendar, User, XCircle, Clock, Upload, GraduationCap, Flame, CircleDollarSign, Gem, Trophy, Info, Crown, Medal, Copy, Check, ShieldCheck } from "lucide-react";
+import { Loader2, Mail, Calendar, User, XCircle, Clock, Upload, GraduationCap, Flame, CircleDollarSign, Gem, Trophy, Info, Crown, Medal, Copy, Check, ShieldCheck, BarChart2, ArrowRight, Lock } from "lucide-react";
 import { getNameGradientClass, getVipAvatarFrameClass } from "../../utils/vipStyling";
 
 interface CopyButtonProps {
@@ -342,6 +342,105 @@ export function ProfileView() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Card 2b: Hồ sơ Năng lực (Pro Analytics) */}
+        <div className="w-full">
+          {(() => {
+            const hasProAnalytics = userData?.tier === "PRO" || userData?.tier === "ELITE";
+            const navigateToArenaAnalytics = () => {
+              window.dispatchEvent(
+                new CustomEvent("navigate-tab", {
+                  detail: { tab: "arena", arenaTab: "analytics" },
+                })
+              );
+            };
+            const navigateToSubscription = () => {
+              window.dispatchEvent(
+                new CustomEvent("navigate-tab", {
+                  detail: { tab: "subscription" },
+                })
+              );
+            };
+
+            return (
+              <Card className={`relative overflow-hidden ${hasProAnalytics ? "border-blue-500/30" : "border-amber-500/30"}`}>
+                <div
+                  className={`absolute top-0 right-0 w-64 h-64 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none ${
+                    hasProAnalytics
+                      ? "bg-gradient-to-bl from-blue-500/10 via-indigo-500/5 to-transparent"
+                      : "bg-gradient-to-bl from-amber-500/10 via-orange-500/5 to-transparent"
+                  }`}
+                />
+                <CardContent className="pt-6 relative">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <BarChart2 className={`h-6 w-6 ${hasProAnalytics ? "text-blue-500" : "text-amber-500"}`} />
+                      <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-violet-500">
+                        Hồ sơ năng lực (Pro Analytics)
+                      </h2>
+                    </div>
+                    {hasProAnalytics ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 w-fit">
+                        <Crown className="h-3.5 w-3.5" />
+                        Đã mở khóa ({userData?.tier})
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 w-fit">
+                        <Lock className="h-3.5 w-3.5" />
+                        Đặc quyền PRO & ELITE
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Theo dõi chuyên sâu năng lực từ vựng thực chiến tại Đấu trường Arena với biểu đồ mạng nhện 6 kỹ năng, tỷ lệ thắng theo chủ đề, độ thuần thục CEFR (A1 - C2) và biểu đồ phong độ 10 trận gần nhất.
+                  </p>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5 text-xs">
+                    {[
+                      "Độ chính xác & Tốc độ phản xạ",
+                      "Từ vựng cốt lõi (A1 - B1) & nâng cao (B2 - C2)",
+                      "Thành ngữ & Tâm lý 5 câu cuối trận",
+                    ].map((label) => (
+                      <div key={label} className="flex items-center gap-2 p-2.5 rounded-xl border bg-muted/30">
+                        <Check className={`h-3.5 w-3.5 shrink-0 ${hasProAnalytics ? "text-emerald-500" : "text-muted-foreground"}`} />
+                        <span className="text-muted-foreground font-medium">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      onClick={navigateToArenaAnalytics}
+                      className={
+                        hasProAnalytics
+                          ? "gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                          : "gap-2 rounded-xl"
+                      }
+                      variant={hasProAnalytics ? "default" : "outline"}
+                    >
+                      <BarChart2 className="h-4 w-4" />
+                      {hasProAnalytics ? "Mở Biểu đồ Năng lực 6D" : "Xem trước Radar Năng lực"}
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+
+                    {!hasProAnalytics && (
+                      <Button
+                        type="button"
+                        onClick={navigateToSubscription}
+                        className="gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-none"
+                      >
+                        <Crown className="h-4 w-4" />
+                        Nâng cấp PRO / ELITE
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
 
         {/* Card 3: Creator Application */}

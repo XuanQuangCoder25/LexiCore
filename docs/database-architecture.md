@@ -82,7 +82,7 @@ schema.sql
 | Tên bảng | Khóa chính | Mục đích sử dụng | Ràng buộc quan trọng |
 | :--- | :--- | :--- | :--- |
 | **`arena_words`** | `id` (VARCHAR 36) | Ngân hàng từ vựng thi đấu phân loại theo cấp độ CEFR (A1-C2), chủ đề (`topic`) và loại từ (`word_type`: `noun`, `verb`, `adjective`, `adverb`, `noun_phrase`, `verb_phrase`, `idiom`, `collocation` - đã loại bỏ giá trị thừa `phrase`). | Admin quản trị CRUD, INDEX(`level`, `word_type`) |
-| **`arena_matches`** | `id` (VARCHAR 36) | Lưu kết quả các trận đấu 1v1: Người chơi 1, Người chơi 2, chế độ đấu (`match_type`: `RANK` hoặc `FRIENDLY`), trạng thái áp dụng x2 Coin/EXP (`p1_x2_applied`, `p2_x2_applied`), kết quả, thời gian làm bài, điểm rank thay đổi (`p1_points_change`, `p2_points_change`). | `player1_id`, `player2_id` FK |
+| **`arena_matches`** | `id` (VARCHAR 36) | Lưu kết quả các trận đấu 1v1: Người chơi 1, Người chơi 2, chế độ đấu (`match_type`: `RANK` hoặc `FRIENDLY`), snapshot rank lúc đấu (`p1_rank`, `p2_rank`), kết quả, thời gian làm bài (`p1_time_used_ms`, `p2_time_used_ms`), điểm rank thay đổi (`p1_points_change`, `p2_points_change`). | `player1_id`, `player2_id` FK |
 | **`arena_match_words`** | `id` (VARCHAR 36) | Lưu chi tiết từng câu hỏi trong trận (câu trả lời của 2 người chơi, số lượt thử, đúng/sai, thời gian phản hồi mili-giây `p1_time_ms`, `p2_time_ms`) phục vụ màn hình tổng kết trận và thuật toán tính toán Hồ sơ Năng lực 6 chiều (Radar Analytics). | `match_id` FK, `ON DELETE CASCADE` |
 
 **Cơ chế lưu trữ In-Memory & Caching (Redis Upstash cho Arena & Shadowing):**
@@ -175,5 +175,5 @@ schema.sql
 ## 4. QUẢN TRỊ LƯỢC ĐỒ DỮ LIỆU & NGUỒN CHÂN LÝ DUY NHẤT (SINGLE SOURCE OF TRUTH)
 
 - **Tập trung nguồn chân lý (Single Source of Truth):** Toàn bộ cấu trúc cơ sở dữ liệu của hệ thống LexiCore được quản lý tập trung và chuẩn hóa 100% tại tệp [backend/database/schema.sql](file:///e:/Downloads/LexiCore/backend/database/schema.sql). Đây là bản thiết kế chuẩn xác nhất phản ánh đầy đủ cấu trúc dữ liệu đang vận hành trên môi trường thực tế (Aiven MySQL). Mọi định nghĩa bảng, kiểu dữ liệu ENUM, chỉ mục Index và ràng buộc khóa ngoại ACID đều được đồng bộ tại đây.
-- Các script SQL cập nhật bổ sung (migration) chỉ là công cụ hỗ trợ thao tác nhanh qua DataGrip trong quá trình phát triển tính năng mới và không được lưu giữ như tài liệu kiến trúc lâu dài.
+- Toàn bộ các script migration và seed một lần trước đây đã được hợp nhất hoàn chỉnh vào `backend/database/schema.sql` và dọn sạch khỏi thư mục `backend/database/` để tránh dư thừa và sai lệch cấu trúc.
 

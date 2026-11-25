@@ -17,7 +17,7 @@
 | **SRS - Lưu từ/ngày (Partner làm)** | 50 từ/ngày | 100 từ/ngày | Không giới hạn | Không giới hạn |
 | **Lượt Đấu Rank Arena** | 10 trận/ngày | **Không giới hạn** | **Không giới hạn** | **Không giới hạn** |
 | **Trận nhân đôi thưởng Arena (x2 Coin & EXP)** | Không có | **3 trận đầu/ngày** | **5 trận đầu/ngày** | **10 trận đầu/ngày** |
-| **Hồ sơ năng lực Pro Analytics (Trang Profile)** | Cơ bản | Cơ bản | **Mở khóa Biểu đồ Mạng nhện 5 Kỹ năng + Tỷ lệ thắng chủ đề** | **Mở khóa Biểu đồ Mạng nhện 5 Kỹ năng + Tỷ lệ thắng chủ đề** |
+| **Hồ sơ năng lực Pro Analytics** | Cơ bản | Cơ bản | **Mở khóa Biểu đồ Mạng nhện 6 Kỹ năng + Tỷ lệ thắng chủ đề (Tab Năng lực Arena & thẻ liên kết trên Profile)** | **Mở khóa Biểu đồ Mạng nhện 6 Kỹ năng + Tỷ lệ thắng chủ đề (Tab Năng lực Arena & thẻ liên kết trên Profile)** |
 | **Bảo vệ Chuỗi Streak tự động (Streak Immunity)** | Không | Không | Không | **Tự động giữ chuỗi (Không bao giờ đứt chuỗi)** |
 | **Nhận diện VIP (Tên Gradient & Khung Avatar In-Game)** | Mặc định | Mặc định | **Tên Gradient Xanh Đại Dương + Khung Avatar Lam Ngọc Sapphire** | **Tên Gradient Vàng Kim + Khung Avatar Mạ Vàng Phát Sáng** |
 
@@ -25,17 +25,16 @@
 
 ## Giải thích chi tiết các Cơ chế Nghiệp vụ
 
-### 1. Biểu đồ Mạng nhện 5 Kỹ năng Tiếng Anh Thực Chiến (Trang Profile PRO & ELITE)
-Mở khóa tab **"Hồ sơ năng lực"** trên trang cá nhân (`/profile`) của học viên:
-* **5 Đỉnh Kỹ năng đo lường khoa học từ Database (thang điểm 0 - 100):**
-  1. **Phát âm (Pronunciation Mastery):** Điểm trung bình `accuracy_score` từ các lượt luyện nói Shadowing (`user_shadowing_history`).
-  2. **Tốc độ phản xạ (Reflex / Speed):** Thời gian trả lời trung bình mỗi câu hỏi trong Arena (`p1_time_ms`). Mốc $\le 1.2s$ đạt 100 điểm, mỗi $0.1s$ chậm hơn trừ 3 điểm.
-  3. **Từ vựng cốt lõi (Core Vocab - A1, A2, B1):** Tỷ lệ chọn đúng các từ nền tảng trong `arena_match_words` JOIN `arena_words` có `level IN ('A1','A2','B1')`.
-  4. **Từ vựng nâng cao & Thành ngữ (Advanced Mastery - B2, C1, C2, Idioms):** Tỷ lệ đúng các câu hỏi có `level IN ('B2','C1','C2')` hoặc `word_type IN ('idiom','collocation')`.
-  5. **Bản lĩnh thi đấu (Composure / Consistency):** Tỷ lệ trả lời đúng ở **5 câu hỏi cuối trận** (giai đoạn áp lực thời gian gay cấn nhất) trong Arena.
-* **Phân tích Tỷ lệ Thắng theo Chủ đề từ vựng (Topic Win Rate):**
-  * Dữ liệu lấy từ cột `topic` trong bảng `arena_matches` (`technology`, `travel`, `business`, `daily_life`, `education`...).
-  * Hiển thị tỷ lệ thắng (%) theo từng chủ đề kèm phân loại: *"Chủ đề sở trường"* (>70% thắng) và *"Chủ đề cần cải thiện"* (<40% thắng).
+### 1. Biểu đồ Mạng nhện 6 Kỹ năng Tiếng Anh Thực Chiến (Arena Pro Analytics & Thẻ liên kết Profile)
+Mở khóa Tab **"Năng lực"** tại Đấu trường Arena (`/arena` -> `analytics`), kèm thẻ trạng thái **"Hồ sơ năng lực (Pro Analytics)"** dẫn trực tiếp từ trang cá nhân (`ProfileView.tsx`):
+* **6 Đỉnh Kỹ năng đo lường khoa học từ Database (thang điểm 0 - 100):**
+  1. **Độ chính xác (Accuracy):** Tỷ lệ trả lời đúng trên tổng số câu đã làm thực tế qua 50 trận gần nhất.
+  2. **Tốc độ phản xạ (Reflex / Speed):** Thời gian trả lời trung bình mỗi câu hỏi trong Arena (`p1_time_ms` / `p2_time_ms`). Mốc <= 1.2s đạt 100 điểm, mỗi 0.1s chậm hơn trừ 3 điểm.
+  3. **Từ vựng cốt lõi (Core Vocab - A1, A2, B1):** Tỷ lệ chọn đúng các từ nền tảng (loại trừ idiom/collocation).
+  4. **Từ vựng nâng cao (Advanced Vocab - B2, C1, C2):** Tỷ lệ đúng các từ vựng B2 - C2 (trả về "Chưa mở khóa" nếu chưa gặp ở rank hiện tại).
+  5. **Thành ngữ & Cụm từ (Idioms & Collocations):** Tỷ lệ đúng các câu thuộc nhóm `word_type IN ('idiom','collocation')`.
+  6. **Tâm lý thi đấu (Match Composure):** Tỷ lệ trả lời đúng ở **5 câu hỏi cuối trận** (chỉ tính với trận làm từ 20/25 câu trở lên).
+* **Phân tích Tỷ lệ Thắng theo Chủ đề (Topic Win Rate), Độ thuần thục CEFR (A1 - C2) & Xu hướng 10 trận gần nhất.**
 
 ### 2. Nhận diện VIP (Đồng bộ Màu Sắc & Vị trí Hiển thị Đắt Giá)
 * **Quy ước biểu tượng Vương miện (Icon Crown từ lucide-react):** Giữ độc quyền cho người đứng **Top 1 Bảng Xếp Hạng**, không bán bằng tiền.
@@ -164,9 +163,10 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 4. **Bước 4:** Cập nhật Đấu trường PvP Arena:
    - Áp dụng kiểm tra trần 10 trận Rank/ngày đối với tài khoản Free qua Redis key `arena:daily_rank:{userId}:{YYYYMMDD}`.
    - Áp dụng x2 Coin & EXP cho N trận đầu tiên trong ngày qua Redis key `arena:daily_x2:{userId}:{YYYYMMDD}`.
-5. **Bước 5:** Trang Profile Cá Nhân (Pro Analytics):
-   - Viết API tổng hợp chỉ số 5 đỉnh radar (Phát âm, Tốc độ, Từ vựng cơ bản, Từ vựng nâng cao, Bản lĩnh cuối trận) và thống kê tỷ lệ thắng theo `topic` từ `arena_matches`.
-   - Hiển thị Biểu đồ Mạng nhện trên Profile cho Pro & Elite.
-6. **Bước 6:** Tích hợp Streak Immunity & VIP Styling:
-   - Cập nhật logic tính Streak nửa đêm: nếu có gói Elite còn hiệu lực, giữ nguyên streak không reset về 0.
-   - Áp dụng class CSS Text Gradient (Xanh Dương Ocean cho Pro, Vàng Kim cho Elite) và Khung Avatar mạ vàng phát sáng trong trận đấu Arena, Leaderboard.
+5. **Bước 5:** Hồ sơ Năng lực (Pro Analytics):
+   - API `GET /api/arena/radar-stats` tổng hợp chỉ số 6 đỉnh Radar (Accuracy, Speed, Core Vocab, Advanced Vocab, Idioms & Collocations, Match Composure), Topic Win Rate, CEFR Breakdown và Recent Form.
+   - Hiển thị Biểu đồ Radar tại Tab "Năng lực" (`ArenaRadarStats.tsx`) kèm Thẻ Khóa VIP cho Free/Starter và thẻ liên kết trên `ProfileView.tsx`.
+6. **Bước 6:** Tích hợp Streak Immunity, VIP Styling & Đồng bộ UI gói hội viên:
+   - Cập nhật `updateStreak` trong `backend/utils/streak.ts` (UTC+7): gói Elite còn hạn tự động giữ và cộng tiếp Streak, gắn badge `ShieldCheck` trên Header & Profile.
+   - Áp dụng `vipStyling.ts` (Ocean Blue + Khung Sapphire cho PRO, Royal Gold + Khung Mạ Vàng + Highlight cho ELITE) trên Arena, Leaderboard, Profile và Community.
+   - Đồng bộ quyền lợi mặt sau thẻ gói (`subscription-cards.tsx`) và bảng so sánh chi tiết đầy đủ trong tab "Thông tin và chính sách" của `SubscriptionModal.tsx`.

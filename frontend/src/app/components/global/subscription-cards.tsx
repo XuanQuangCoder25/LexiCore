@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Crown, Check, Zap, Mic, Brain, BarChart3, Users,
   CircleDollarSign, Gem, Star, Clock, Info, ArrowLeft,
-  Sparkles, Gift,
+  Sparkles, Gift, Swords, ShieldCheck, PlayCircle, ArrowRight,
 } from "lucide-react";
 import { Button } from "../ui/button";
 
@@ -62,11 +62,11 @@ export const MOCK_DATA: GroupedPackages = {
       sale_ends_at: null,
       display_order: 0,
       features: [
-        "Toàn bộ tính năng Pro",
-        "AI Voice Recognition",
-        "Unlimited AI feedback",
-        "Analytics chi tiết",
-        "Badge Pro trong 3 ngày",
+        "Trải nghiệm toàn bộ gói Pro",
+        "60 câu phát âm Whisper / ngày",
+        "Mở khóa Radar Năng lực 6D",
+        "Đấu Rank vô hạn + 5 trận x2",
+        "Tên Ocean Blue & Khung Sapphire",
       ],
       is_trial: true,
     },
@@ -85,10 +85,10 @@ export const MOCK_DATA: GroupedPackages = {
       sale_ends_at: null,
       display_order: 1,
       features: [
-        "Không quảng cáo",
-        "200 Coin/tháng",
-        "5 Diamond/tháng",
-        "Truy cập từ vựng Arena",
+        "25 câu phát âm Whisper / ngày",
+        "10 video cá nhân (<15 phút)",
+        "Đấu Rank Arena không giới hạn",
+        "3 trận x2 Coin & EXP / ngày",
       ],
     },
     {
@@ -106,12 +106,11 @@ export const MOCK_DATA: GroupedPackages = {
       sale_ends_at: null,
       display_order: 2,
       features: [
-        "Tất cả tính năng Starter",
-        "AI Voice Recognition",
-        "Analytics chi tiết",
-        "500 Coin/tháng",
-        "15 Diamond/tháng",
-        "Badge Pro độc quyền",
+        "60 câu phát âm Whisper / ngày",
+        "50 video (Mọi thời lượng)",
+        "Đấu Rank vô hạn + 5 trận x2",
+        "Mở khóa Radar Năng lực 6D",
+        "Tên Ocean Blue & Khung Sapphire",
       ],
     },
     {
@@ -129,13 +128,12 @@ export const MOCK_DATA: GroupedPackages = {
       sale_ends_at: null,
       display_order: 3,
       features: [
-        "Tất cả tính năng Pro",
-        "Unlimited AI feedback",
-        "Priority support",
-        "1500 Coin/tháng",
-        "50 Diamond/tháng",
-        "Elite frame + badge",
-        "Early access tính năng mới",
+        "120 câu phát âm Whisper / ngày",
+        "Import video không giới hạn",
+        "Đấu Rank vô hạn + 10 trận x2",
+        "Mở khóa Radar Năng lực 6D",
+        "Tự động bảo vệ chuỗi Streak",
+        "Tên Royal Gold & Khung Vàng VIP",
       ],
     },
   ],
@@ -458,37 +456,32 @@ export function CompactCountdown({
 // ============================================================
 export const TIER_FEATURES_MAP: Record<string, { icon: typeof Zap; label: string }[]> = {
   STARTER: [
-    { icon: Zap, label: "Không quảng cáo" },
-    { icon: CircleDollarSign, label: "200 Coin / tháng" },
-    { icon: Gem, label: "5 Diamond / tháng" },
-    { icon: Brain, label: "Truy cập từ vựng Arena" },
+    { icon: Mic, label: "25 câu phát âm Whisper / ngày" },
+    { icon: PlayCircle, label: "10 video cá nhân (<15 phút)" },
+    { icon: Swords, label: "Đấu Rank Arena không giới hạn" },
+    { icon: Zap, label: "3 trận x2 Coin & EXP / ngày" },
   ],
   PRO: [
-    { icon: Zap, label: "Không quảng cáo" },
-    { icon: Mic, label: "AI Voice Recognition" },
-    { icon: Brain, label: "Unlimited AI feedback" },
-    { icon: BarChart3, label: "Analytics chi tiết" },
-    { icon: CircleDollarSign, label: "500 Coin / tháng" },
-    { icon: Gem, label: "15 Diamond / tháng" },
-    { icon: Crown, label: "Badge Pro độc quyền" },
+    { icon: Mic, label: "60 câu phát âm Whisper / ngày" },
+    { icon: PlayCircle, label: "50 video (Mọi thời lượng)" },
+    { icon: Swords, label: "Đấu Rank vô hạn + 5 trận x2" },
+    { icon: BarChart3, label: "Mở khóa Radar Năng lực 6D" },
+    { icon: Crown, label: "Tên Ocean Blue & Khung Sapphire" },
   ],
   TRIAL: [
-    { icon: Zap, label: "Toàn bộ tính năng Pro" },
-    { icon: Mic, label: "AI Voice Recognition" },
-    { icon: Brain, label: "Unlimited AI feedback" },
-    { icon: BarChart3, label: "Analytics chi tiết" },
-    { icon: Crown, label: "Badge Pro trong 3 ngày" },
+    { icon: Zap, label: "Trải nghiệm toàn bộ gói Pro" },
+    { icon: Mic, label: "60 câu phát âm Whisper / ngày" },
+    { icon: BarChart3, label: "Mở khóa Radar Năng lực 6D" },
+    { icon: Swords, label: "Đấu Rank vô hạn + 5 trận x2" },
+    { icon: Crown, label: "Tên Ocean Blue & Khung Sapphire" },
   ],
   ELITE: [
-    { icon: Zap, label: "Không quảng cáo" },
-    { icon: Mic, label: "AI Voice Recognition" },
-    { icon: Brain, label: "Unlimited AI feedback" },
-    { icon: BarChart3, label: "Analytics chi tiết" },
-    { icon: Users, label: "Priority support" },
-    { icon: CircleDollarSign, label: "1500 Coin / tháng" },
-    { icon: Gem, label: "50 Diamond / tháng" },
-    { icon: Crown, label: "Elite frame + badge" },
-    { icon: Zap, label: "Early access" },
+    { icon: Mic, label: "120 câu phát âm Whisper / ngày" },
+    { icon: PlayCircle, label: "Import video không giới hạn" },
+    { icon: Swords, label: "Đấu Rank vô hạn + 10 trận x2" },
+    { icon: BarChart3, label: "Mở khóa Radar Năng lực 6D" },
+    { icon: ShieldCheck, label: "Tự động bảo vệ chuỗi Streak" },
+    { icon: Crown, label: "Tên Royal Gold & Khung Vàng VIP" },
   ],
 };
 
@@ -501,12 +494,14 @@ export function SubscriptionFlipCard({
   selected,
   onSelect,
   onBuy,
+  onOpenComparison,
   widthClass = "w-[240px] min-w-[240px]",
 }: {
   pkg: CreditPackage;
   selected: boolean;
   onSelect: () => void;
   onBuy: (pkg: CreditPackage) => void;
+  onOpenComparison?: () => void;
   /** Tailwind width classes. Modal dùng cố định 240px; trang dùng flex-1 */
   widthClass?: string;
 }) {
@@ -516,7 +511,14 @@ export function SubscriptionFlipCard({
   const isPro = pkg.tier === "PRO" && !isTrial;
   const hasSale = useSaleActive(pkg.sale_percent, pkg.sale_ends_at);
   const finalPrice = hasSale ? Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100)) : pkg.price_vnd;
-  const features = TIER_FEATURES_MAP[isTrial ? "TRIAL" : (pkg.tier ?? "")] ?? [];
+  const baseFeatures = TIER_FEATURES_MAP[isTrial ? "TRIAL" : (pkg.tier ?? "")] ?? [];
+  const bonusParts: string[] = [];
+  if (pkg.coin_amount > 0) bonusParts.push(`${pkg.coin_amount.toLocaleString("vi-VN")} Coin`);
+  if (pkg.diamond_amount > 0) bonusParts.push(`${pkg.diamond_amount} Diamond`);
+  const bonusSuffix = pkg.duration_days === 30 || pkg.duration_days === 365 ? "/tháng" : "";
+  const features = bonusParts.length > 0
+    ? [...baseFeatures, { icon: CircleDollarSign, label: `Tặng ${bonusParts.join(" + ")}${bonusSuffix}` }]
+    : baseFeatures;
 
   const tierColor = isElite ? "text-amber-500" : isPro ? "text-blue-500" : isTrial ? "text-blue-400" : "text-emerald-500";
   const tierBg = isElite
@@ -656,19 +658,29 @@ export function SubscriptionFlipCard({
               <span className={tierColor}>{cardTitle}</span> - Quyền lợi
             </p>
           </div>
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1 select-none">
+          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 select-none">
             {features.map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-center gap-2 text-xs">
                 <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0">
                   <Icon className="h-3 w-3" />
                 </div>
-                <span>{label}</span>
+                <span className="leading-tight">{label}</span>
               </div>
             ))}
           </div>
+          {onOpenComparison && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onOpenComparison(); }}
+              className="w-full flex items-center justify-center gap-1 pt-2 pb-1 text-[11px] font-semibold text-primary hover:underline transition-colors"
+            >
+              <span>Xem bảng so sánh đầy đủ</span>
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); setFlipped(false); }}
-            className={`w-full flex items-center justify-center gap-1.5 py-2 mt-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-muted-foreground transition-all duration-200 ${detailButtonHover}`}
+            className={`w-full flex items-center justify-center gap-1.5 py-2 mt-1.5 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-muted-foreground transition-all duration-200 ${detailButtonHover}`}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Quay lại mặt trước

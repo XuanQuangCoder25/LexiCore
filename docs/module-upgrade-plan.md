@@ -140,7 +140,7 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 - **Nghiệp vụ đã hiện thực:**
   - Hạn mức theo gói từ `tierLimits.ts`: FREE (0 trận), STARTER (3 trận), PRO (5 trận), ELITE (10 trận/ngày).
   - Sử dụng Redis key `arena:daily_x2:{userId}:{YYYYMMDD}` theo dõi số trận đã nhận thưởng x2 trong ngày.
-  - Trong `finalizeMatch`, kiểm tra quota của từng đấu thủ (P1 và P2 độc lập): nếu còn lượt thì nhân đôi Coin và EXP (`coins * 2`, `exp * 2`), ghi nhận vào DB và gán cờ `p1_x2_applied` / `p2_x2_applied`.
+  - Trong `finalizeMatch`, kiểm tra quota của từng đấu thủ (P1 và P2 độc lập): nếu còn lượt thì nhân đôi Coin và EXP (`coins * 2`, `exp * 2`), cộng thẳng vào ví qua DB Transaction và truyền cờ `wasDoubleReward` trong sự kiện `arena:game_over`.
   - **Màn hình Kết quả (ArenaMatchResult):** Bổ sung khu vực hiển thị biến động Coin & EXP sắc nét với màu xanh ngọc lục bảo (Emerald) chuẩn nhận diện thương hiệu cho Coin và icon thanh kiếm danh dự cho EXP; hiển thị tag "Thưởng x2 Gói VIP" nổi bật.
 
 ---
@@ -159,7 +159,7 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 - **File đã tạo/sửa:**
   - Backend: `backend/modules/arena/arena.repository.ts` (hàm `getPlayerRadarStats`), `backend/modules/arena/arena.controller.ts`, `backend/modules/arena/arena-word.route.ts` (endpoint `GET /api/arena/radar-stats`).
-  - Frontend: `frontend/src/app/components/dashboard/arena/ArenaRadarStats.tsx`, tích hợp Tab thứ 4 "Năng lực" (icon `BarChart2`) trong `ArenaView.tsx`.
+  - Frontend: `frontend/src/app/components/dashboard/arena/ArenaRadarStats.tsx`, tích hợp Tab thứ 4 "Năng lực" (icon `BarChart2`) trong `ArenaView.tsx`, đồng thời bổ sung thẻ **Hồ sơ năng lực (Pro Analytics)** trên `ProfileView.tsx` cho phép điều hướng thẳng tới Tab "Năng lực" Arena (qua `App.tsx` + `ArenaView.tsx`).
 - **6 đỉnh năng lực Lục giác (Thang điểm 0 - 100):**
   1. **Độ chính xác (Accuracy):** Tính trên tổng số câu đã làm thực tế qua 50 trận gần nhất (`(correct / total_answered) * 100`).
   2. **Tốc độ phản xạ (Speed):** Lấy tổng thời gian làm bài `p1_time_ms` chia cho số câu đã làm thực tế; ngưỡng dưới 1200ms đạt 100 điểm, mỗi 100ms chậm hơn trừ 3 điểm (`max(0, 100 - ((avg - 1200)/100) * 3)`).
@@ -196,7 +196,7 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ### 3.1 Tách bảng sở hữu `user_shadowing_videos` & chuẩn hóa `shadowing_videos` [ĐÃ XONG]
 
-- **File đã tạo/sửa:** `backend/database/migration_shadowing_personal.sql`, `backend/database/schema.sql`.
+- **File đã tạo/sửa:** `backend/database/schema.sql` (đã hợp nhất đầy đủ cấu trúc bảng `user_shadowing_videos` và cột `is_system` sau khi chạy và dọn sạch file migration tạm).
 - **Thiết kế thực tế:**
   - `shadowing_videos`: Lưu trữ thông tin video duy nhất theo `youtube_id` (`UNIQUE`), bổ sung cột `is_system BOOLEAN NOT NULL DEFAULT FALSE` và `INDEX idx_shadowing_videos_system (is_system)` để phân biệt video thư viện hệ thống với video do người dùng tự import.
   - `user_shadowing_videos`: Bảng liên kết cá nhân (`id`, `user_id`, `video_id`, `created_at`) với `UNIQUE KEY uq_user_shadowing_video (user_id, video_id)` và `INDEX idx_user_shadowing_owner_created (user_id, created_at)`.

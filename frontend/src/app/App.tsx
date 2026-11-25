@@ -78,6 +78,7 @@ function AppContent() {
     return (localStorage.getItem("lexicore_user_tier") as any) || null;
   });
   const [pendingArenaMatch, setPendingArenaMatch] = useState<MatchedPayload | null>(null);
+  const [initialArenaTab, setInitialArenaTab] = useState<"hub" | "history" | "leaderboard" | "analytics">("hub");
   const [maintenance, setMaintenance] = useState<{
     active: boolean;
     title?: string;
@@ -149,6 +150,9 @@ function AppContent() {
   // Lắng nghe sự kiện chuyển hướng tab toàn cục (ví dụ từ Chat chuyển sang Community)
   useEffect(() => {
     const handleNavigateTab = (e: any) => {
+      if (e.detail?.arenaTab) {
+        setInitialArenaTab(e.detail.arenaTab);
+      }
       if (e.detail?.tab) {
         setActiveTab(e.detail.tab);
       }
@@ -203,6 +207,8 @@ function AppContent() {
         <ArenaView
           initialPendingMatch={pendingArenaMatch}
           onClearPendingMatch={() => setPendingArenaMatch(null)}
+          initialTab={initialArenaTab}
+          onConsumeInitialTab={() => setInitialArenaTab("hub")}
         />
       );
       case "community": return <CommunityView />;
