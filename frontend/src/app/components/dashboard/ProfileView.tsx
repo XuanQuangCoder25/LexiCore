@@ -4,7 +4,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Card, CardContent } from "../ui/card";
-import { Loader2, Mail, Calendar, User, XCircle, Clock, Upload, GraduationCap, Flame, CircleDollarSign, Gem, Trophy, Info, Crown, Medal, Copy, Check } from "lucide-react";
+import { Loader2, Mail, Calendar, User, XCircle, Clock, Upload, GraduationCap, Flame, CircleDollarSign, Gem, Trophy, Info, Crown, Medal, Copy, Check, ShieldCheck } from "lucide-react";
 
 interface CopyButtonProps {
   textToCopy: string;
@@ -299,7 +299,14 @@ export function ProfileView() {
                   </div>
                   <div className="mt-auto">
                     <div className="text-2xl font-bold">{userData?.current_streak || 0} <span className="text-base font-medium text-muted-foreground">ngày</span></div>
-                    <div className="text-xs text-muted-foreground">Giữ lửa đều đặn nhé!</div>
+                    {userData?.tier === 'ELITE' ? (
+                      <div className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5">
+                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                        <span>Bảo vệ tự động (ELITE)</span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">Giữ lửa đều đặn nhé!</div>
+                    )}
                   </div>
                 </div>
 

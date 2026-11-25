@@ -32,7 +32,7 @@ import { ChatButton } from "./components/global/ChatButton";
 import { ChatDialog } from "./components/global/ChatDialog";
 import { SocialProvider, useSocial } from "./features/social/SocialContext";
 import { Badge } from "./components/ui/badge";
-import { CircleDollarSign, Flame } from "lucide-react";
+import { CircleDollarSign, Flame, ShieldCheck } from "lucide-react";
 import { MaintenancePage } from "./components/global/MaintenancePage";
 
 const TAB_LABELS: Record<string, string> = {
@@ -268,9 +268,24 @@ function AppContent() {
               {/* Notifications */}
               <NotificationPopover />
               {/* User badge */}
-              <Badge variant="secondary" className="text-xs px-2.5 py-1 inline-flex items-center gap-1.5 font-medium">
+              <Badge
+                variant="secondary"
+                className={`text-xs px-2.5 py-1 inline-flex items-center gap-1.5 font-medium ${
+                  userTier === "ELITE"
+                    ? "border border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                    : ""
+                }`}
+                title={
+                  userTier === "ELITE"
+                    ? "Chuỗi Streak được bảo vệ tự động bởi gói ELITE"
+                    : "Chuỗi ngày học liên tục"
+                }
+              >
                 <Flame className="w-3.5 h-3.5 shrink-0 text-zinc-900 dark:text-zinc-100" strokeWidth={1.75} />
                 <span>{userStreak} day streak</span>
+                {userTier === "ELITE" && (
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                )}
               </Badge>
             </div>
           </header>

@@ -253,33 +253,17 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ---
 
-## Phần 5: Nâng cấp Bảo vệ Streak tự động cho gói ELITE
+## Phần 5: Nâng cấp Bảo vệ Streak tự động cho gói ELITE [TRẠNG THÁI: ĐÃ HOÀN THÀNH 100%]
 
-### 5.1 Sửa logic cron job reset streak
+### 5.1 Tích hợp Elite Streak Immunity vào `backend/utils/streak.ts` [ĐÃ XONG]
 
-**File cần sửa:** Tìm file cron job tính streak hàng đêm (thường là trong `backend/jobs/` hoặc được đăng ký trong `server.ts`).
-
-**Logic cần thêm:** Trước khi reset `current_streak` về 0 cho một user không học hôm nay, kiểm tra:
-
-```typescript
-// Kiem tra user co dang co goi ELITE con han khong
-const eliteRow = await pool.query(
-  `SELECT id FROM user_subscription
-   WHERE user_id = ? AND tier = 'ELITE' AND status = 'ACTIVE' AND expires_at > NOW()`,
-  [userId]
-);
-
-if (eliteRow.length > 0) {
-  // User dang co goi ELITE: Khong reset streak, bo qua
-  continue;
-}
-
-// Khong co Elite: Reset streak nhu binh thuong
-await pool.query(
-  `UPDATE wallets SET current_streak = 0 WHERE user_id = ?`,
-  [userId]
-);
-```
+- **Kiến trúc thực tế của hệ thống:** LexiCore không dùng cron job reset streak ban đêm (vì reset trước lúc học sẽ làm mất `current_streak` trước khi `STREAK_FREEZE` và `previous_streak` kịp xử lý), mà đánh giá tập trung tại `updateStreak(userId)` trong `backend/utils/streak.ts` khi học viên phát sinh hoạt động học tập.
+- **File đã sửa:** `backend/utils/streak.ts`, `frontend/src/app/App.tsx`, `frontend/src/app/components/dashboard/ProfileView.tsx`.
+- **Nghiệp vụ đã hiện thực:**
+  - Chuẩn hóa tính ngày theo múi giờ Việt Nam (`UTC+7`) qua `getVNDateKey()` và `DATE_FORMAT(last_study_date, '%Y-%m-%d')` để tránh lệch ngày giữa server/DB UTC với người dùng Việt Nam.
+  - Khi học viên bỏ lỡ từ 1 ngày trở lên (`diffDays > 1`), hệ thống kiểm tra `getUserTier(userId)` và `getTierLimit('autoStreakImmunity', tier)` từ `backend/utils/tierLimits.ts`.
+  - Nếu đang có gói `ELITE` còn hạn (`autoStreakImmunity = true`): giữ nguyên và cộng tiếp `current_streak` (`current + 1`), không reset về `1` và không trừ vật phẩm `STREAK_FREEZE` trong `user_items`.
+  - Giao diện `App.tsx` (badge Streak trên Header) và `ProfileView.tsx` (thẻ Chuỗi học) hiển thị huy hiệu `ShieldCheck` màu vàng hổ phách nhận diện tài khoản đang được bảo vệ Streak tự động bởi gói `ELITE`.
 
 ---
 

@@ -154,10 +154,11 @@ setAchievementProgress(userId, metricKey, absoluteValue)       // Đặt tuyệt
 
 | Tình huống | Kết quả |
 |---|---|
-| Đã học hôm nay rồi | Giữ nguyên (idempotent) |
+| Đã học hôm nay rồi (theo UTC+7) | Giữ nguyên (idempotent) |
 | Hôm qua học, hôm nay học tiếp | `current_streak += 1` |
-| Bỏ 1+ ngày nhưng có STREAK_FREEZE | Trừ 1 Freeze, giữ chuỗi |
-| Bỏ 1+ ngày, không có Freeze | `current_streak = 1` |
+| Bỏ 1+ ngày và có gói `ELITE` còn hạn | `current_streak += 1`, không trừ `STREAK_FREEZE` (`autoStreakImmunity`) |
+| Bỏ 1+ ngày, không có `ELITE`, đủ `STREAK_FREEZE` | Trừ số `STREAK_FREEZE` tương ứng, giữ chuỗi và tăng tiếp |
+| Bỏ 1+ ngày, không có `ELITE` và không đủ Freeze | Lưu `previous_streak`, đặt `current_streak = 1` |
 
 `longest_streak` chỉ tăng hoặc giữ nguyên, không bao giờ giảm.
 
