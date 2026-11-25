@@ -6,7 +6,7 @@ import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
-  Play, Pause, RotateCcw, RotateCw, Timer, Repeat, Mic, MicOff, BookOpen, Loader2, PlusCircle, Sparkles, Notebook, Save, Captions, CaptionsOff, Volume2, X, MoveLeft, Lightbulb, AlertTriangle, AlertCircle, Trash2, Clock, Video as VideoIcon, Crown, Globe
+  Play, Pause, RotateCcw, RotateCw, Timer, Repeat, Mic, MicOff, BookOpen, Loader2, PlusCircle, Sparkles, Notebook, Save, Captions, CaptionsOff, Volume2, X, MoveLeft, Lightbulb, AlertTriangle, AlertCircle, Trash2, Clock, Video as VideoIcon, Crown, Globe, Star, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -38,6 +38,13 @@ interface ShadowingQuota {
   tier: string;
 }
 
+interface PronunciationQuota {
+  usedToday: number;
+  limitToday: number;
+  remaining: number;
+  tier: string;
+}
+
 interface Segment {
   id: string;
   start_time: number;
@@ -60,12 +67,49 @@ const getScoreBadgeClass = (score: number) => {
   return "bg-rose-600 text-white hover:bg-rose-600 border-transparent shadow-sm";
 };
 
+const TIER_DISPLAY_STYLES: Record<string, {
+  pillClass: string;
+  textClass: string;
+  iconColor: string;
+  Icon: typeof Crown;
+}> = {
+  ELITE: {
+    pillClass: "bg-amber-500/10 border-amber-500/30 shadow-xs shadow-amber-500/10",
+    textClass: "bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 dark:from-amber-300 dark:via-yellow-400 dark:to-amber-500 bg-clip-text text-transparent font-extrabold",
+    iconColor: "text-amber-500",
+    Icon: Crown,
+  },
+  PRO: {
+    pillClass: "bg-blue-500/10 border-blue-500/30 shadow-xs shadow-blue-500/10",
+    textClass: "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 dark:from-sky-400 dark:via-blue-400 dark:to-indigo-400 bg-clip-text text-transparent font-extrabold",
+    iconColor: "text-blue-500",
+    Icon: Zap,
+  },
+  STARTER: {
+    pillClass: "bg-emerald-500/10 border-emerald-500/30 shadow-xs shadow-emerald-500/10",
+    textClass: "bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 dark:from-emerald-400 dark:via-teal-400 dark:to-emerald-500 bg-clip-text text-transparent font-extrabold",
+    iconColor: "text-emerald-500",
+    Icon: Star,
+  },
+  FREE: {
+    pillClass: "bg-muted/70 border-border",
+    textClass: "text-muted-foreground font-bold",
+    iconColor: "text-muted-foreground",
+    Icon: Star,
+  },
+};
+
+function getTierDisplayStyle(tier?: string) {
+  return TIER_DISPLAY_STYLES[tier || "FREE"] || TIER_DISPLAY_STYLES.FREE;
+}
+
 export function ShadowingView() {
   const [currentView, setCurrentView] = useState<"library" | "practice">("library");
 
   // Library State
   const [videos, setVideos] = useState<Video[]>([]);
   const [quota, setQuota] = useState<ShadowingQuota | null>(null);
+  const [pronunciationQuota, setPronunciationQuota] = useState<PronunciationQuota | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [addVideoUrl, setAddVideoUrl] = useState("");
   const [isAddingVideo, setIsAddingVideo] = useState(false);
@@ -181,6 +225,7 @@ export function ShadowingView() {
 
   useEffect(() => {
     fetchVideos();
+    fetchPronunciationQuota();
   }, []);
 
   useEffect(() => {
@@ -248,6 +293,18 @@ export function ShadowingView() {
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
   }, []);
+
+  const fetchPronunciationQuota = async () => {
+    try {
+      const res = await fetch('/api/shadowing/pronunciation-quota', { credentials: 'include' });
+      const data = await res.json();
+      if (res.ok && data.status === 'success' && data.data) {
+        setPronunciationQuota(data.data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchVideos = async () => {
     try {
@@ -358,9 +415,10 @@ export function ShadowingView() {
         setSegments(data.data.segments);
         setActiveSegmentIndex(0);
 
-        // Fetch AI Summary & Notebook in background
+        // Fetch AI Summary, Notebook & Pronunciation Quota in background
         fetchAiSummary(videoId);
         fetchNotebook(videoId);
+        fetchPronunciationQuota();
       } else {
         toast.error(data.message || 'Không thể mở bài luyện tập video này.');
         setCurrentView("library");
@@ -570,7 +628,18 @@ export function ShadowingView() {
     setContextMenu(null);
   };
 
+  const isPronunciationExhausted = Boolean(
+    pronunciationQuota &&
+    pronunciationQuota.limitToday !== -1 &&
+    pronunciationQuota.remaining <= 0
+  );
+
   const startRecording = async () => {
+    if (isPronunciationExhausted && pronunciationQuota) {
+      toast.error(`Bạn đã dùng hết ${pronunciationQuota.limitToday} lượt luyện phát âm AI hôm nay. Nâng cấp gói để luyện tập nhiều hơn!`);
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -596,7 +665,7 @@ export function ShadowingView() {
       if (playerRef.current) playerRef.current.pauseVideo();
     } catch (err) {
       console.error("Microphone access denied", err);
-      alert("Vui lòng cấp quyền Microphone để luyện nói.");
+      toast.error("Vui lòng cấp quyền Microphone để luyện nói.");
     }
   };
 
@@ -623,17 +692,29 @@ export function ShadowingView() {
         credentials: 'include'
       });
       const data = await res.json();
-      if (data.status === 'success') {
+      if (res.ok && data.status === 'success') {
         setFeedback(data.data);
+        if (data.data?.quota) {
+          setPronunciationQuota(data.data.quota);
+        } else {
+          fetchPronunciationQuota();
+        }
       } else {
-        // Backend trả lọi lỗi (402, 500, v.v.)
         const serverMsg = data.message || 'Lỗi khi phân tích giọng nói.';
-        alert(serverMsg);
+        toast.error(serverMsg);
+        if (res.status === 429) {
+          setPronunciationQuota((prev) => ({
+            usedToday: data.usedToday ?? prev?.usedToday ?? prev?.limitToday ?? 0,
+            limitToday: data.limitToday ?? prev?.limitToday ?? 0,
+            remaining: 0,
+            tier: data.tier ?? prev?.tier ?? 'FREE',
+          }));
+        }
       }
     } catch (err) {
       // Lỗi mạng (backend không phản hồi)
       console.error('[Whisper]', err);
-      alert('Không thể kết nối tới server. Vui lòng kiểm tra backend.');
+      toast.error('Không thể kết nối tới server. Vui lòng kiểm tra backend.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -775,25 +856,46 @@ export function ShadowingView() {
             {/* Voice Analysis Station */}
             <Card className="shrink-0">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <h3 className="font-semibold text-lg flex items-center gap-2">
                       <Mic className="h-5 w-5 text-primary" />
                       Voice Analysis
                     </h3>
                     <p className="text-sm text-muted-foreground">Shadow the speaker and record your voice.</p>
+                    {pronunciationQuota && (
+                      <div className="pt-1 flex items-center gap-2">
+                        <Badge
+                          variant={isPronunciationExhausted ? "destructive" : "secondary"}
+                          className="text-xs font-medium"
+                        >
+                          {pronunciationQuota.limitToday === -1
+                            ? `Không giới hạn lượt hôm nay (Gói ${pronunciationQuota.tier})`
+                            : `Còn ${pronunciationQuota.remaining}/${pronunciationQuota.limitToday} lượt hôm nay`}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                   <Button
                     size="lg"
                     variant={isRecording ? "destructive" : "default"}
                     onClick={isRecording ? stopRecording : startRecording}
                     className={isRecording ? "animate-pulse shadow-lg shadow-destructive/20" : "shadow-lg shadow-primary/20"}
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || (!isRecording && isPronunciationExhausted)}
                   >
                     {isRecording ? <MicOff className="h-5 w-5 mr-2" /> : <Mic className="h-5 w-5 mr-2" />}
                     {isRecording ? "Stop & Analyze" : "Start Shadowing"}
                   </Button>
                 </div>
+
+                {isPronunciationExhausted && pronunciationQuota && !isRecording && (
+                  <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 flex items-center gap-2.5 text-xs sm:text-sm">
+                    <Crown className="h-4 w-4 shrink-0 text-amber-500" />
+                    <span>
+                      Bạn đã sử dụng hết {pronunciationQuota.limitToday}/{pronunciationQuota.limitToday} lượt chấm phát âm AI hôm nay của gói {pronunciationQuota.tier}. Hãy nâng cấp gói để tăng giới hạn luyện tập!
+                    </span>
+                  </div>
+                )}
 
                 {isRecording && (
                   <div className="mt-4 text-sm text-red-600 flex items-center gap-2 bg-red-50 p-3 rounded-md">
@@ -1237,11 +1339,21 @@ export function ShadowingView() {
             <p className="text-sm font-semibold flex items-center gap-2">
               Thêm video YouTube vào thư viện cá nhân
             </p>
-            {quota && (
-              <span className="text-xs font-medium text-muted-foreground">
-                Gói hiện tại: <strong className="text-foreground">{quota.tier}</strong>
-              </span>
-            )}
+            {quota && (() => {
+              const tierStyle = getTierDisplayStyle(quota.tier);
+              const TierIcon = tierStyle.Icon;
+              return (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <span>Gói hiện tại:</span>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border ${tierStyle.pillClass}`}>
+                    <TierIcon className={`h-3.5 w-3.5 ${tierStyle.iconColor}`} />
+                    <span className={`tracking-wide ${tierStyle.textClass}`}>
+                      {quota.tier}
+                    </span>
+                  </span>
+                </div>
+              );
+            })()}
           </div>
           <div className="flex gap-2">
             <Input

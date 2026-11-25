@@ -1,9 +1,10 @@
 import OpenAI from 'openai';
+import redis from '../../config/redis';
 import { AppError } from '../../errors/AppError';
 import { updateStreak } from '../../utils/streak';
 import { updateAchievementProgress, updateGoalProgress } from '../gamification/gamification-repository';
 import { callGeminiWithRetry } from '../../utils/gemini';
-import { getTierLimit, getUserTier, Tier } from '../../utils/tierLimits';
+import { getTierLimit, getUserTier, getVNDateKey, Tier } from '../../utils/tierLimits';
 import {
     getVideosForUser,
     countUserVideos,
@@ -565,6 +566,63 @@ export const deleteUserVideo = async (userId: string, videoId: string): Promise<
     await unlinkUserVideo(userId, videoId);
 };
 
+export interface PronunciationQuotaInfo {
+    usedToday: number;
+    limitToday: number;
+    remaining: number;
+    tier: Tier;
+}
+
+export class PronunciationQuotaError extends AppError {
+    public usedToday: number;
+    public limitToday: number;
+    public tier: Tier;
+
+    constructor(message: string, usedToday: number, limitToday: number, tier: Tier) {
+        super(message, 429);
+        this.usedToday = usedToday;
+        this.limitToday = limitToday;
+        this.tier = tier;
+    }
+}
+
+const PRONUNCIATION_DAILY_TTL_SECONDS = 90000; // 25 giờ để tự reset qua ngày mới UTC+7
+
+function getPronunciationRedisKey(userId: string): string {
+    return `pronunciation:daily_count:${userId}:${getVNDateKey()}`;
+}
+
+export const getPronunciationQuota = async (userId: string): Promise<PronunciationQuotaInfo> => {
+    const tier = await getUserTier(userId);
+    const limitToday: number = getTierLimit('pronunciationSentencesPerDay', tier);
+    let usedToday = 0;
+
+    try {
+        const rawCount = await redis.get(getPronunciationRedisKey(userId));
+        usedToday = parseInt(rawCount || '0', 10) || 0;
+    } catch (err) {
+        console.warn('[Pronunciation Quota] Không thể đọc Redis, tạm fallback về 0:', err);
+    }
+
+    const remaining = limitToday === -1 ? -1 : Math.max(0, limitToday - usedToday);
+    return {
+        usedToday,
+        limitToday,
+        remaining,
+        tier,
+    };
+};
+
+async function incrementPronunciationUsage(userId: string): Promise<void> {
+    try {
+        const key = getPronunciationRedisKey(userId);
+        await redis.incr(key);
+        await redis.expire(key, PRONUNCIATION_DAILY_TTL_SECONDS);
+    } catch (err) {
+        console.warn('[Pronunciation Quota] Không thể cập nhật bộ đếm Redis:', err);
+    }
+}
+
 export const analyzeAudio = async (
     audioBuffer: Buffer,
     audioMimetype: string,
@@ -578,6 +636,16 @@ export const analyzeAudio = async (
         const hasAccess = await userHasVideoAccess(userId, segment.video_id);
         if (!hasAccess) {
             throw new AppError('Bạn chưa thêm video này vào thư viện cá nhân.', 403);
+        }
+
+        const quota = await getPronunciationQuota(userId);
+        if (quota.limitToday !== -1 && quota.usedToday >= quota.limitToday) {
+            throw new PronunciationQuotaError(
+                `Bạn đã dùng hết ${quota.limitToday} lượt luyện phát âm AI hôm nay cho gói ${quota.tier}. Nâng cấp gói để luyện tập nhiều hơn!`,
+                quota.usedToday,
+                quota.limitToday,
+                quota.tier
+            );
         }
     }
 
@@ -606,7 +674,9 @@ export const analyzeAudio = async (
     const correctCount = tokens.filter(t => t.status === 'correct').length;
     const accuracy = Math.round((correctCount / tokens.length) * 100);
 
+    let updatedQuota: PronunciationQuotaInfo | undefined;
     if (userId) {
+        await incrementPronunciationUsage(userId);
         await saveUserHistory(userId, segment.video_id, segmentId, accuracy);
         await updateStreak(userId);
         // Tính thời lượng câu (giây) từ segment để cộng dồn tiến trình
@@ -616,6 +686,7 @@ export const analyzeAudio = async (
         const secondsToStore = Math.round(durationSeconds);
         await updateAchievementProgress(userId, 'shadowing_minutes_studied', secondsToStore);
         await updateGoalProgress(userId, 'shadowing_minutes_studied', secondsToStore);
+        updatedQuota = await getPronunciationQuota(userId);
     }
 
     return {
@@ -623,6 +694,7 @@ export const analyzeAudio = async (
         referenceText,
         accuracy,
         feedback: tokens,
+        quota: updatedQuota,
     };
 };
 

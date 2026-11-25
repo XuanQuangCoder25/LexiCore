@@ -186,7 +186,8 @@ GET    /api/shadowing/videos/:id          -> Chi tiết + danh sách segments (k
 POST   /api/shadowing/check-sub           -> Kiểm tra phụ đề thủ công, cache có sẵn và hạn mức gói
 POST   /api/shadowing/videos              -> Thêm video vào thư viện cá nhân (tái sử dụng cache nếu đã có)
 DELETE /api/shadowing/videos/:videoId     -> Gỡ video khỏi thư viện cá nhân của user
-POST   /api/shadowing/analyze/:segmentId  -> Gửi audio -> Whisper -> chấm điểm
+GET    /api/shadowing/pronunciation-quota -> Lấy hạn mức số câu luyện phát âm AI còn lại trong ngày
+POST   /api/shadowing/analyze/:segmentId  -> Kiểm tra quota Redis -> gửi audio -> Whisper -> chấm điểm
 GET    /api/shadowing/videos/:id/summary  -> Gemini AI Summary song ngữ Anh-Việt + 10 từ cốt lõi (lazy cache)
 GET/PUT /api/shadowing/notes/:videoId     -> Ghi chú cá nhân của user
 POST   /api/shadowing/dictionary/explain  -> Gemini giải thích từ theo ngữ cảnh câu
@@ -202,9 +203,10 @@ POST   /api/shadowing/dictionary/explain  -> Gemini giải thích từ theo ng�
 
 **Flow phân tích giọng nói:**
 1. Frontend: `getUserMedia` + `MediaRecorder` → ghi âm → Blob → `FormData`
-2. Backend: `multer.memoryStorage()` → buffer → Whisper API (`whisper-1`, `language: 'en'`)
-3. `compareWords(referenceText, spokenText)` → `[{ text, status: 'correct'|'wrong' }]`
-4. `accuracy = (correct / total) * 100` → lưu history → `updateStreak()` → cập nhật Achievement/Goal
+2. Backend: Kiểm tra quyền truy cập video + kiểm tra quota ngày trên Redis (`pronunciation:daily_count:{userId}:{YYYYMMDD}`, UTC+7; FREE: 5, STARTER: 25, PRO: 60, ELITE: 120; quá ngưỡng trả HTTP 429)
+3. `multer.memoryStorage()` → buffer → Whisper API (`whisper-1`, `language: 'en'`)
+4. `compareWords(referenceText, spokenText)` → `[{ text, status: 'correct'|'wrong' }]`
+5. `accuracy = (correct / total) * 100` → tăng biến đếm Redis (TTL 25h) → lưu history → `updateStreak()` → cập nhật Achievement/Goal → trả về kết quả kèm `quota` mới nhất
 
 **Quy tắc màu kết quả:**
 - `accuracy >= 80%` → Xanh lá

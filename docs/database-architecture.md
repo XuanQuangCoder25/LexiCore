@@ -85,12 +85,13 @@ schema.sql
 | **`arena_matches`** | `id` (VARCHAR 36) | Lưu kết quả các trận đấu 1v1: Người chơi 1, Người chơi 2, chế độ đấu (`match_type`: `RANK` hoặc `FRIENDLY`), trạng thái áp dụng x2 Coin/EXP (`p1_x2_applied`, `p2_x2_applied`), kết quả, thời gian làm bài, điểm rank thay đổi (`p1_points_change`, `p2_points_change`). | `player1_id`, `player2_id` FK |
 | **`arena_match_words`** | `id` (VARCHAR 36) | Lưu chi tiết từng câu hỏi trong trận (câu trả lời của 2 người chơi, số lượt thử, đúng/sai, thời gian phản hồi mili-giây `p1_time_ms`, `p2_time_ms`) phục vụ màn hình tổng kết trận và thuật toán tính toán Hồ sơ Năng lực 6 chiều (Radar Analytics). | `match_id` FK, `ON DELETE CASCADE` |
 
-**Cơ chế lưu trữ In-Memory & Caching (Redis Upstash cho Arena):**
+**Cơ chế lưu trữ In-Memory & Caching (Redis Upstash cho Arena & Shadowing):**
 
 | Redis Key Pattern | Kiểu dữ liệu | TTL | Mục đích sử dụng |
 | :--- | :--- | :--- | :--- |
 | `arena:daily_rank:{userId}:{YYYYMMDD}` | String (Counter) | 25 giờ | Đếm số trận leo Rank đã chơi trong ngày của tài khoản `FREE`. Chặn vào queue khi đạt 10 trận/ngày. Múi giờ UTC+7. |
 | `arena:daily_x2:{userId}:{YYYYMMDD}` | String (Counter) | 25 giờ | Đếm số trận đã nhận x2 Coin & EXP trong ngày (STARTER: 3, PRO: 5, ELITE: 10). Múi giờ UTC+7. |
+| `pronunciation:daily_count:{userId}:{YYYYMMDD}` | String (Counter) | 25 giờ | Đếm số câu luyện phát âm AI Whisper đã sử dụng trong ngày theo tier (`FREE`: 5, `STARTER`: 25, `PRO`: 60, `ELITE`: 120). Múi giờ UTC+7. |
 | `arena:queue:{rankGroup}` | List / Set | 60 giây | Hàng đợi ghép trận thời gian thực theo nhóm Rank tương đồng. |
 | `arena:room:{roomId}` | Hash / JSON | 600 giây | Lưu trạng thái ván đấu trực tiếp, danh sách 25 câu hỏi và tiến trình thi đấu. |
 

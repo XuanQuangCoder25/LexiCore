@@ -7,6 +7,7 @@ import {
     addVideoHandler,
     deleteVideoHandler,
     checkManualSubHandler,
+    getPronunciationQuotaHandler,
     analyzeAudioHandler,
     getVideoSummaryHandler,
     getNoteHandler,
@@ -24,6 +25,7 @@ router.get('/videos/:id', requireAuth, getVideoDetailHandler);
 router.post('/check-sub', requireAuth, checkManualSubHandler);
 router.post('/videos', requireAuth, addVideoHandler);
 router.delete('/videos/:videoId', requireAuth, deleteVideoHandler);
+router.get('/pronunciation-quota', requireAuth, getPronunciationQuotaHandler);
 router.post('/analyze/:segmentId', requireAuth, upload.single('audio'), analyzeAudioHandler);
 
 // Tóm tắt & từ vựng Gemini AI (lazy-load, cache dùng chung trong DB)

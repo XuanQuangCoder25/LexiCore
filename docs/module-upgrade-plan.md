@@ -234,59 +234,22 @@ export function getTierLimit<K extends keyof typeof TIER_LIMITS>(
 
 ---
 
-## Phần 4: Nâng cấp module Pronunciation (Giới hạn số câu Whisper)
+## Phần 4: Nâng cấp module Pronunciation (Giới hạn số câu Whisper) [TRẠNG THÁI: ĐÃ HOÀN THÀNH 100%]
 
-### 4.1 Kiểm tra quota trước khi gọi Whisper API
+### 4.1 Kiểm tra quota qua Redis trước khi gọi Whisper API [ĐÃ XONG]
 
-**File cần sửa:** Service hoặc controller xử lý route phân tích phát âm (endpoint `POST /api/shadowing/analyze/:segmentId` hoặc tương đương).
+- **File đã sửa:** `backend/modules/shadowing/shadowing-service.ts`, `backend/modules/shadowing/shadowing-controller.ts`.
+- **Nghiệp vụ đã hiện thực:**
+  - Dùng `getUserTier(userId)`, `getTierLimit('pronunciationSentencesPerDay', tier)` và `getVNDateKey()` từ `backend/utils/tierLimits.ts` (`FREE: 5`, `STARTER: 25`, `PRO: 60`, `ELITE: 120`).
+  - Redis key `pronunciation:daily_count:{userId}:{YYYYMMDD}` (múi giờ UTC+7, TTL 90.000 giây = 25 giờ).
+  - Trong `analyzeAudio`, kiểm tra hạn mức trước khi gọi OpenAI Whisper API: nếu vượt ngưỡng trả về HTTP **429** (`PronunciationQuotaError`) kèm `{ usedToday, limitToday, tier }`.
+  - Chỉ tăng bộ đếm Redis sau khi Whisper trả kết quả thành công và trả kèm `quota` mới nhất ngay trong response của `POST /api/shadowing/analyze/:segmentId`.
 
-**Logic cần thêm (trước khi gọi Whisper API):**
+### 4.2 API lấy quota còn lại và hiển thị trên UI [ĐÃ XONG]
 
-```typescript
-import { getTierLimit, Tier } from '../../utils/tierLimits';
-import { redis } from '../../config/redis';
-
-// 1. Lay tier
-const tier: Tier = await getUserTier(userId); // Viet ham nay rieng, query user_subscription
-
-// 2. Lay gioi han
-const maxSentences = getTierLimit('pronunciationSentencesPerDay', tier);
-
-// 3. Kiem tra Redis
-const today = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD theo UTC+7
-const redisKey = `pronunciation:daily_count:${userId}:${today}`;
-const usedCount = parseInt(await redis.get(redisKey) || '0', 10);
-
-if (maxSentences !== -1 && usedCount >= maxSentences) {
-  return res.status(429).json({
-    message: `Bạn đã dùng hết ${maxSentences} lượt luyện phát âm AI hôm nay. Nâng cấp gói để luyện tập nhiều hơn!`,
-    usedToday: usedCount,
-    limitToday: maxSentences,
-  });
-}
-
-// 4. Goi Whisper API (code hien tai)
-// ...
-
-// 5. Sau khi thanh cong, tang bien dem Redis (TTL 25 gio de bao dam reset sau 00:00)
-await redis.incr(redisKey);
-await redis.expire(redisKey, 90000); // 25 gio tinh bang giay
-```
-
-### 4.2 Thêm API lấy quota còn lại trong ngày
-
-**Route mới:** `GET /api/shadowing/pronunciation-quota`
-
-**Response:**
-```json
-{
-  "usedToday": 3,
-  "limitToday": 5,
-  "remaining": 2,
-  "tier": "FREE"
-}
-```
-Frontend dùng response này để hiển thị nhãn `Còn 2/5 lượt hôm nay` cạnh nút thu âm.
+- **File đã sửa:** `backend/modules/shadowing/shadowing-route.ts`, `backend/modules/shadowing/shadowing-controller.ts`, `frontend/src/app/components/dashboard/ShadowingView.tsx`.
+- **Route mới:** `GET /api/shadowing/pronunciation-quota` -> trả `{ status: 'success', data: { usedToday, limitToday, remaining, tier } }`.
+- **Frontend (`ShadowingView.tsx`):** Hiển thị badge `Còn X/Y lượt hôm nay` cạnh nút `Start Shadowing`, tự đồng bộ sau mỗi lần chấm điểm, vô hiệu hóa thu âm và hiển thị thông báo nâng cấp gói khi hết lượt trong ngày.
 
 ---
 

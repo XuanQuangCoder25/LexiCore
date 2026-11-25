@@ -4,6 +4,8 @@ import {
     getVideoDetail,
     addVideo,
     deleteUserVideo,
+    getPronunciationQuota,
+    PronunciationQuotaError,
     analyzeAudio,
     getVideoSummary,
     fetchNote,
@@ -87,6 +89,17 @@ export const deleteVideoHandler = async (req: Request, res: Response) => {
     }
 };
 
+export const getPronunciationQuotaHandler = async (req: Request, res: Response) => {
+    try {
+        const user = (req as any).user;
+        const quota = await getPronunciationQuota(user.id);
+        res.json({ status: 'success', data: quota });
+    } catch (error: any) {
+        console.error(error);
+        res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi server' });
+    }
+};
+
 export const analyzeAudioHandler = async (req: Request, res: Response) => {
     try {
         const { segmentId } = req.params;
@@ -109,6 +122,15 @@ export const analyzeAudioHandler = async (req: Request, res: Response) => {
         res.json({ status: 'success', data: result });
     } catch (error: any) {
         console.error(error);
+        if (error instanceof PronunciationQuotaError) {
+            return res.status(429).json({
+                status: 'error',
+                message: error.message,
+                usedToday: error.usedToday,
+                limitToday: error.limitToday,
+                tier: error.tier,
+            });
+        }
         res.status(error.statusCode || 500).json({ status: 'error', message: error.message || 'Lỗi phân tích AI' });
     }
 };
