@@ -10,6 +10,7 @@ import { ForgotPasswordPage } from "./app/features/auth/ForgotPasswordPage";
 import { VerifyOtpPage } from "./app/features/auth/VerifyOtpPage";
 import { ResetPasswordPage } from "./app/features/auth/ResetPasswordPage";
 import ProtectedRoute from "./app/components/ProtectedRoute";
+import { NotFoundPage } from "./app/components/global/NotFoundPage";
 import { LandingPage } from "./components/LandingPage";
 import "./styles/index.css";
 
@@ -35,6 +36,9 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/verify-otp" element={<VerifyOtpPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
+
+        {/* Catch-all 404 Not Found */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Toaster position="top-right" />
     </BrowserRouter>
