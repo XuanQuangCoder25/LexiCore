@@ -377,7 +377,7 @@ export function AdminMarketingView() {
   const handleNotifyReward = (reward: RewardCampaign) => {
     setConfirmDialog({
       title: "Gửi thông báo chuông nhận quà?",
-      description: `Hệ thống sẽ đẩy thông báo sự kiện "${reward.name}" vào chuông của toàn bộ học viên đang hoạt động (bao gồm cả Production nếu đang dùng chung cơ sở dữ liệu).`,
+      description: `Hệ thống sẽ gửi thông báo nhắc nhận quà sự kiện "${reward.name}" tới chuông của toàn bộ học viên đang hoạt động (học viên đã nhận trước đó sẽ không thể nhận trùng).`,
       confirmLabel: "Gửi thông báo ngay",
       destructive: false,
       onConfirm: async () => {
@@ -400,6 +400,48 @@ export function AdminMarketingView() {
   // Action Handlers: Subscription Campaigns
   // ============================================================
 
+  const getSubCampaignStatus = (s: SubscriptionCampaign): "ACTIVE" | "UPCOMING" | "EXPIRED" | "PAUSED" => {
+    if (!s.is_active) return "PAUSED";
+    const now = Date.now();
+    if (new Date(s.starts_at).getTime() > now) return "UPCOMING";
+    if (new Date(s.ends_at).getTime() < now) return "EXPIRED";
+    return "ACTIVE";
+  };
+
+  const findOverlappingSubCampaign = (startsAtStr: string, endsAtStr: string): SubscriptionCampaign | null => {
+    const startMs = new Date(startsAtStr).getTime();
+    const endMs = new Date(endsAtStr).getTime();
+    if (isNaN(startMs) || isNaN(endMs) || startMs >= endMs) return null;
+    return (
+      subCampaigns.find((s) => {
+        if (!s.is_active) return false;
+        const sStart = new Date(s.starts_at).getTime();
+        const sEnd = new Date(s.ends_at).getTime();
+        return sStart < endMs && sEnd > startMs;
+      }) || null
+    );
+  };
+
+  const openCreateSubDialog = () => {
+    const nowMs = Date.now();
+    const futureOrActiveEndTimes = subCampaigns
+      .filter((s) => s.is_active && new Date(s.ends_at).getTime() > nowMs)
+      .map((s) => new Date(s.ends_at).getTime());
+    const suggestedStartMs = futureOrActiveEndTimes.length > 0 ? Math.max(...futureOrActiveEndTimes) : nowMs;
+    setSubForm({
+      name: "",
+      tier: "PRO",
+      duration_days: 7,
+      starts_at: toLocalDateTimeInput(new Date(suggestedStartMs)),
+      ends_at: toLocalDateTimeInput(new Date(suggestedStartMs + 7 * 86400000)),
+    });
+    setOpenSubDialog(true);
+  };
+
+  const subOverlapConflict = openSubDialog
+    ? findOverlappingSubCampaign(subForm.starts_at, subForm.ends_at)
+    : null;
+
   const handleCreateSub = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -410,7 +452,7 @@ export function AdminMarketingView() {
         body: JSON.stringify(subForm),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.message);
+      if (!res.ok || !json.success) throw new Error(json.message || "Không thể tạo gói sự kiện");
       toast.success("Tạo gói cước sự kiện thành công!");
       setOpenSubDialog(false);
       fetchSubs();
@@ -426,12 +468,13 @@ export function AdminMarketingView() {
         credentials: "include",
       });
       const json = await res.json();
-      if (json.success) {
-        toast.success(json.message);
-        fetchSubs();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Không thể cập nhật trạng thái");
       }
-    } catch {
-      toast.error("Không thể cập nhật trạng thái");
+      toast.success(json.data?.message || json.message || "Đã cập nhật trạng thái chiến dịch");
+      fetchSubs();
+    } catch (err: any) {
+      toast.error(err.message || "Không thể cập nhật trạng thái");
     }
   };
 
@@ -891,10 +934,10 @@ export function AdminMarketingView() {
             <div>
               <h2 className="text-lg font-bold">Gói Hội viên sự kiện (Credit Packages)</h2>
               <p className="text-xs text-muted-foreground">
-                Tạo gói trải nghiệm miễn phí hiển thị trực tiếp trên trang Subscription cùng với các gói tháng đại diện.
+                Hiển thị ở vị trí đầu tiên trên trang Subscription. Tại mỗi thời điểm chỉ chạy tối đa 1 gói (có thể lên lịch nối tiếp nhau trong tương lai).
               </p>
             </div>
-            <Button onClick={() => setOpenSubDialog(true)} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
+            <Button onClick={openCreateSubDialog} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
               <Plus className="h-4 w-4" /> Tạo gói sự kiện mới
             </Button>
           </div>
@@ -937,15 +980,17 @@ export function AdminMarketingView() {
                         </td>
                         <td className="p-3 sm:p-4 font-semibold">{s.duration_days} ngày</td>
                         <td className="p-3 sm:p-4 text-xs font-mono">
-                          <p>{new Date(s.starts_at).toLocaleDateString("vi-VN")}</p>
-                          <p className="text-muted-foreground">đến {new Date(s.ends_at).toLocaleDateString("vi-VN")}</p>
+                          <p>{new Date(s.starts_at).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })}</p>
+                          <p className="text-muted-foreground">đến {new Date(s.ends_at).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })}</p>
                         </td>
                         <td className="p-3 sm:p-4 text-center">
-                          {s.is_active ? (
-                            <Badge className="bg-emerald-500 text-white text-[10px]">Đang chạy</Badge>
-                          ) : (
-                            <Badge variant="destructive" className="text-[10px]">Tạm dừng</Badge>
-                          )}
+                          {(() => {
+                            const st = getSubCampaignStatus(s);
+                            if (st === "ACTIVE") return <Badge className="bg-emerald-500 text-white text-[10px]">Đang chạy</Badge>;
+                            if (st === "UPCOMING") return <Badge variant="secondary" className="text-[10px] text-blue-600">Sắp diễn ra</Badge>;
+                            if (st === "EXPIRED") return <Badge variant="outline" className="text-[10px] text-muted-foreground">Đã kết thúc</Badge>;
+                            return <Badge variant="destructive" className="text-[10px]">Tạm dừng</Badge>;
+                          })()}
                         </td>
                         <td className="p-3 sm:p-4 text-center font-bold">{s.total_claims ?? 0}</td>
                         <td className="p-3 sm:p-4 text-right">
@@ -1452,9 +1497,26 @@ export function AdminMarketingView() {
               </div>
             </div>
 
+            {subOverlapConflict ? (
+              <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[11px] leading-relaxed">
+                <strong>Trùng thời gian:</strong> Đang giao với gói sự kiện{" "}
+                <strong>"{subOverlapConflict.name}"</strong> (
+                {new Date(subOverlapConflict.starts_at).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })}
+                {" → "}
+                {new Date(subOverlapConflict.ends_at).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })}
+                ). Hãy đặt thời gian bắt đầu từ sau khi gói này kết thúc.
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Lưu ý: Tại một thời điểm chỉ chạy tối đa 1 gói hội viên sự kiện. Nếu đã có gói đang chạy, hệ thống tự động gợi ý thời điểm nối tiếp (Sắp diễn ra).
+              </p>
+            )}
+
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setOpenSubDialog(false)}>Hủy</Button>
-              <Button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white">Tạo gói sự kiện</Button>
+              <Button type="submit" disabled={Boolean(subOverlapConflict)} className="bg-amber-600 hover:bg-amber-700 text-white">
+                Tạo gói sự kiện
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

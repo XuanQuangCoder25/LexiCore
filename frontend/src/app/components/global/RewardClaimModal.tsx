@@ -236,7 +236,7 @@ export function RewardClaimModal({
                 : "Nhấn nhận quà ngay để cộng tài nguyên vào tài khoản mà không làm gián đoạn bài học của bạn!"}
             </p>
 
-            <DialogFooter className="pt-2 gap-2 sm:gap-0">
+            <DialogFooter className="pt-2 gap-2.5">
               <Button variant="outline" onClick={onClose} disabled={claiming}>
                 {reward.claimed ? "Đóng" : "Để sau"}
               </Button>

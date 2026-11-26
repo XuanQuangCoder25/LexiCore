@@ -4,6 +4,7 @@ import { AppError } from '../../errors/AppError';
 import {
     getAllCampaigns,
     getCampaignById,
+    findOverlappingActiveCampaign,
     createCampaign,
     toggleCampaign,
     deleteCampaign,
@@ -19,6 +20,19 @@ import {
 import { activateSubscription, getUserSubscription, TIER_RANKS } from './payment.repository';
 
 export { getActiveRewardCampaigns };
+
+function formatCampaignWindowVN(startIso: string, endIso: string): string {
+    const fmt = (iso: string) =>
+        new Date(iso).toLocaleString('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        });
+    return `${fmt(startIso)} → ${fmt(endIso)}`;
+}
 
 // -- Admin: Lấy danh sách chiến dịch ----------------------------------------
 export async function adminGetCampaigns(): Promise<SubscriptionCampaign[]> {
@@ -60,7 +74,24 @@ export async function adminCreateCampaign(data: {
         throw new AppError('Thời gian bắt đầu phải trước thời gian kết thúc', 400);
     }
 
-    const id = await createCampaign(data);
+    // Bảo đảm tại mỗi thời điểm chỉ có tối đa 1 gói hội viên sự kiện hoạt động (cho phép hẹn lịch tương lai không giao nhau)
+    const willBeActive = data.is_active !== false;
+    if (willBeActive) {
+        const overlap = await findOverlappingActiveCampaign(start, end);
+        if (overlap) {
+            throw new AppError(
+                `Khoảng thời gian này bị trùng với gói sự kiện "${overlap.name}" (${formatCampaignWindowVN(overlap.starts_at, overlap.ends_at)}). Mỗi thời điểm chỉ chạy tối đa 1 gói hội viên sự kiện — hãy chọn giờ bắt đầu sau khi gói kia kết thúc hoặc tạm dừng gói cũ.`,
+                409
+            );
+        }
+    }
+
+    const id = await createCampaign({
+        ...data,
+        name: data.name.trim(),
+        starts_at: start,
+        ends_at: end,
+    });
     return { id, message: 'Tạo chiến dịch thành công' };
 }
 
@@ -68,6 +99,21 @@ export async function adminCreateCampaign(data: {
 export async function adminToggleCampaign(id: string): Promise<{ is_active: boolean; message: string }> {
     const campaign = await getCampaignById(id);
     if (!campaign) throw new AppError('Chiến dịch không tồn tại', 404);
+
+    // Nếu chuẩn bị bật lại chiến dịch đang tạm dừng -> kiểm tra trùng lịch với gói khác đang bật
+    if (!campaign.is_active) {
+        const overlap = await findOverlappingActiveCampaign(
+            new Date(campaign.starts_at),
+            new Date(campaign.ends_at),
+            campaign.id
+        );
+        if (overlap) {
+            throw new AppError(
+                `Không thể kích hoạt lại vì khoảng thời gian bị trùng với gói sự kiện "${overlap.name}" (${formatCampaignWindowVN(overlap.starts_at, overlap.ends_at)}).`,
+                409
+            );
+        }
+    }
 
     const is_active = await toggleCampaign(id);
     return {

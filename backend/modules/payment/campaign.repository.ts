@@ -31,6 +31,18 @@ export interface RewardCampaign {
     item_image?: string | null;
 }
 
+function formatCampaignRow(r: RowDataPacket): SubscriptionCampaign {
+    return {
+        ...r,
+        is_active: Boolean(r.is_active),
+        duration_days: Number(r.duration_days),
+        starts_at: new Date(r.starts_at).toISOString(),
+        ends_at: new Date(r.ends_at).toISOString(),
+        created_at: r.created_at ? new Date(r.created_at).toISOString() : '',
+        ...(r.total_claims !== undefined ? { total_claims: Number(r.total_claims || 0) } : {}),
+    } as SubscriptionCampaign;
+}
+
 // -- Admin: Lấy tất cả chiến dịch kèm thống kê lượt nhận ---------------------
 export async function getAllCampaigns(): Promise<SubscriptionCampaign[]> {
     const [rows] = await pool.execute<RowDataPacket[]>(
@@ -42,12 +54,7 @@ export async function getAllCampaigns(): Promise<SubscriptionCampaign[]> {
          GROUP BY sc.id
          ORDER BY sc.created_at DESC`
     );
-    return rows.map((r) => ({
-        ...r,
-        is_active: Boolean(r.is_active),
-        duration_days: Number(r.duration_days),
-        total_claims: Number(r.total_claims || 0),
-    })) as SubscriptionCampaign[];
+    return rows.map(formatCampaignRow);
 }
 
 // -- Lấy chi tiết chiến dịch theo ID ----------------------------------------
@@ -57,12 +64,7 @@ export async function getCampaignById(id: string): Promise<SubscriptionCampaign 
         [id]
     );
     if (rows.length === 0) return null;
-    const r = rows[0];
-    return {
-        ...r,
-        is_active: Boolean(r.is_active),
-        duration_days: Number(r.duration_days),
-    } as SubscriptionCampaign;
+    return formatCampaignRow(rows[0]!);
 }
 
 // -- Lấy các chiến dịch đang có hiệu lực trong thời gian thực ----------------
@@ -74,11 +76,35 @@ export async function getActiveCampaigns(): Promise<SubscriptionCampaign[]> {
            AND ends_at >= NOW()
          ORDER BY created_at DESC`
     );
-    return rows.map((r) => ({
-        ...r,
-        is_active: Boolean(r.is_active),
-        duration_days: Number(r.duration_days),
-    })) as SubscriptionCampaign[];
+    return rows.map(formatCampaignRow);
+}
+
+// -- Kiểm tra trùng khoảng thời gian với chiến dịch đang bật (is_active = TRUE) --
+export async function findOverlappingActiveCampaign(
+    startsAt: Date,
+    endsAt: Date,
+    excludeCampaignId?: string
+): Promise<SubscriptionCampaign | null> {
+    const query = excludeCampaignId
+        ? `SELECT * FROM subscription_campaigns
+           WHERE is_active = TRUE
+             AND id <> ?
+             AND starts_at < ?
+             AND ends_at > ?
+           ORDER BY starts_at ASC
+           LIMIT 1`
+        : `SELECT * FROM subscription_campaigns
+           WHERE is_active = TRUE
+             AND starts_at < ?
+             AND ends_at > ?
+           ORDER BY starts_at ASC
+           LIMIT 1`;
+    const params = excludeCampaignId
+        ? [excludeCampaignId, endsAt, startsAt]
+        : [endsAt, startsAt];
+    const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+    if (rows.length === 0) return null;
+    return formatCampaignRow(rows[0]!);
 }
 
 // -- Admin: Tạo chiến dịch mới ----------------------------------------------
@@ -86,8 +112,8 @@ export async function createCampaign(data: {
     name: string;
     tier: 'STARTER' | 'PRO' | 'ELITE';
     duration_days: number;
-    starts_at: string;
-    ends_at: string;
+    starts_at: Date | string;
+    ends_at: Date | string;
     is_active?: boolean;
 }): Promise<string> {
     const id = uuidv4();
@@ -100,8 +126,8 @@ export async function createCampaign(data: {
             data.name,
             data.tier,
             data.duration_days,
-            data.starts_at,
-            data.ends_at,
+            data.starts_at instanceof Date ? data.starts_at : new Date(data.starts_at),
+            data.ends_at instanceof Date ? data.ends_at : new Date(data.ends_at),
             data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1,
         ]
     );
