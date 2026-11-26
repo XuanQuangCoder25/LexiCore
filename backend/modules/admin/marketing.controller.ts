@@ -13,6 +13,7 @@ import {
     adminGetEmailBlastLogs,
     adminGetPaymentAnnouncements,
     adminCreatePaymentAnnouncement,
+    adminUpdatePaymentAnnouncement,
     adminTogglePaymentAnnouncement,
     adminDeletePaymentAnnouncement,
 } from './marketing.service';
@@ -214,6 +215,23 @@ export const createPaymentAnnouncement = async (req: Request, res: Response, nex
             createdBy: userId,
         });
         res.status(201).json({ success: true, ...result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const updatePaymentAnnouncement = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id = req.params.id as string;
+        const { title, content, type, starts_at, ends_at } = req.body;
+        const result = await adminUpdatePaymentAnnouncement(id, {
+            title,
+            content,
+            type,
+            startsAt: starts_at || null,
+            endsAt: ends_at || null,
+        });
+        res.json({ success: true, ...result });
     } catch (err) {
         next(err);
     }

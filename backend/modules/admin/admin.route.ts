@@ -34,6 +34,7 @@ import {
     getEmailBlastLogs,
     listPaymentAnnouncementsAdmin,
     createPaymentAnnouncement,
+    updatePaymentAnnouncement,
     togglePaymentAnnouncement,
     deletePaymentAnnouncement,
 } from './marketing.controller';
@@ -92,6 +93,7 @@ router.post('/email-blast', sendEmailBlast);
 // -- Payment Announcements (Tab Thông tin gói) ---------------------
 router.get('/payment-announcements', listPaymentAnnouncementsAdmin);
 router.post('/payment-announcements', createPaymentAnnouncement);
+router.put('/payment-announcements/:id', updatePaymentAnnouncement);
 router.patch('/payment-announcements/:id/toggle', togglePaymentAnnouncement);
 router.delete('/payment-announcements/:id', deletePaymentAnnouncement);
 

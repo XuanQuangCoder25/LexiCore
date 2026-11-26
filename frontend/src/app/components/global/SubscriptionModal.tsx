@@ -17,6 +17,7 @@ import {
   CircleChevronUp,
   Megaphone,
   Tag,
+  Clock,
 } from "lucide-react";
 import {
   CreditPackage,
@@ -116,11 +117,18 @@ function InfoTabContent({ announcements = [] }: { announcements?: PaymentAnnounc
                       <IconComp className="h-3 w-3 shrink-0" />
                       {meta.label}
                     </span>
-                    {item.ends_at && (
-                      <span className="text-[11px] text-muted-foreground">
-                        Đến {new Date(item.ends_at).toLocaleDateString("vi-VN")}
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Clock className="h-3 w-3 shrink-0" />
+                      {item.ends_at
+                        ? `Từ ${new Date(item.starts_at || item.created_at).toLocaleDateString("vi-VN")} – Đến ${new Date(item.ends_at).toLocaleDateString("vi-VN")}`
+                        : `Từ ${new Date(item.starts_at || item.created_at).toLocaleString("vi-VN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })}`}
+                    </span>
                   </div>
                   <p className="text-sm font-bold text-foreground">{item.title}</p>
                   <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{item.content}</p>

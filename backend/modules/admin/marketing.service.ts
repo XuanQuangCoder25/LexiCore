@@ -735,6 +735,49 @@ export async function adminCreatePaymentAnnouncement(data: {
     return { id, message: 'Đã đăng thông báo mới lên Tab Thông tin Hội viên!' };
 }
 
+export async function adminUpdatePaymentAnnouncement(
+    id: string,
+    data: {
+        title: string;
+        content: string;
+        type: string;
+        startsAt?: string | null;
+        endsAt?: string | null;
+    }
+) {
+    const { title, content, type, startsAt, endsAt } = data;
+    if (!title || title.trim() === '') {
+        throw new AppError('Tiêu đề thông báo không được để trống', 400);
+    }
+    if (!content || content.trim() === '') {
+        throw new AppError('Nội dung thông báo không được để trống', 400);
+    }
+
+    const normalizedType = (type || 'INFO').toUpperCase() as PaymentAnnouncementType;
+    if (!VALID_ANNOUNCEMENT_TYPES.includes(normalizedType)) {
+        throw new AppError('Loại thông báo không hợp lệ (INFO, SALE, NEW_FEATURE, POLICY)', 400);
+    }
+
+    const startDate = startsAt ? new Date(startsAt) : null;
+    const endDate = endsAt ? new Date(endsAt) : null;
+    if (startDate && endDate && endDate <= startDate) {
+        throw new AppError('Thời gian kết thúc phải sau thời gian bắt đầu', 400);
+    }
+
+    const [result] = await pool.execute(
+        `UPDATE payment_announcements
+         SET title = ?, content = ?, type = ?, starts_at = ?, ends_at = ?
+         WHERE id = ?`,
+        [title.trim(), content.trim(), normalizedType, startDate, endDate, id]
+    ) as any;
+
+    if (result.affectedRows === 0) {
+        throw new AppError('Thông báo không tồn tại', 404);
+    }
+
+    return { id, message: 'Đã cập nhật thông báo thành công!' };
+}
+
 export async function adminTogglePaymentAnnouncement(id: string) {
     const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT is_active FROM payment_announcements WHERE id = ? LIMIT 1`,

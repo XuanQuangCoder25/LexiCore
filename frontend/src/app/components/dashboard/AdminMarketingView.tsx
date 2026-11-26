@@ -21,6 +21,7 @@ import {
   Clock,
   Megaphone,
   Tag,
+  Pencil,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -198,6 +199,7 @@ export function AdminMarketingView() {
   const [paymentAnnouncements, setPaymentAnnouncements] = useState<PaymentAnnouncement[]>([]);
   const [loadingPayAnnouncements, setLoadingPayAnnouncements] = useState(false);
   const [openPayAnnDialog, setOpenPayAnnDialog] = useState(false);
+  const [editingPayAnnId, setEditingPayAnnId] = useState<string | null>(null);
   const [payAnnForm, setPayAnnForm] = useState({
     type: "INFO" as PaymentAnnouncementType,
     title: "",
@@ -576,11 +578,33 @@ export function AdminMarketingView() {
   // Action Handlers: Payment Announcements (Tab Thông tin Hội viên)
   // ============================================================
 
-  const handleCreatePayAnnouncement = async (e: React.FormEvent) => {
+  const openCreatePayAnnModal = () => {
+    setEditingPayAnnId(null);
+    setPayAnnForm({ type: "INFO", title: "", content: "", starts_at: "", ends_at: "" });
+    setOpenPayAnnDialog(true);
+  };
+
+  const openEditPayAnnModal = (ann: PaymentAnnouncement) => {
+    setEditingPayAnnId(ann.id);
+    setPayAnnForm({
+      type: ann.type,
+      title: ann.title,
+      content: ann.content,
+      starts_at: ann.starts_at ? toLocalDateTimeInput(new Date(ann.starts_at)) : "",
+      ends_at: ann.ends_at ? toLocalDateTimeInput(new Date(ann.ends_at)) : "",
+    });
+    setOpenPayAnnDialog(true);
+  };
+
+  const handleSavePayAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/admin/payment-announcements", {
-        method: "POST",
+      const endpoint = editingPayAnnId
+        ? `/api/admin/payment-announcements/${editingPayAnnId}`
+        : "/api/admin/payment-announcements";
+      const method = editingPayAnnId ? "PUT" : "POST";
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
@@ -593,12 +617,13 @@ export function AdminMarketingView() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
-      toast.success(json.message || "Đã đăng thông báo mới!");
+      toast.success(json.message || (editingPayAnnId ? "Đã cập nhật thông báo!" : "Đã đăng thông báo mới!"));
       setOpenPayAnnDialog(false);
+      setEditingPayAnnId(null);
       setPayAnnForm({ type: "INFO", title: "", content: "", starts_at: "", ends_at: "" });
       fetchPaymentAnnouncements();
     } catch (err: any) {
-      toast.error(err.message || "Không thể tạo thông báo");
+      toast.error(err.message || "Không thể lưu thông báo");
     }
   };
 
@@ -1176,7 +1201,7 @@ export function AdminMarketingView() {
                 Đăng tin sự kiện, ưu đãi Sale, tính năng mới hoặc chính sách gói hội viên. Chỉ các thông báo đang bật mới hiện phía trên Bảng giá.
               </p>
             </div>
-            <Button onClick={() => setOpenPayAnnDialog(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">
+            <Button onClick={openCreatePayAnnModal} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">
               <Plus className="h-4 w-4" /> Tạo thông báo mới
             </Button>
           </div>
@@ -1220,6 +1245,9 @@ export function AdminMarketingView() {
                         {ann.is_active ? "Đang hiển thị" : "Đang ẩn"}
                       </span>
                       <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEditPayAnnModal(ann)}>
+                          <Pencil className="h-3.5 w-3.5 mr-1" /> Sửa
+                        </Button>
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleTogglePayAnnouncement(ann.id)}>
                           <Power className="h-3.5 w-3.5 mr-1" /> {ann.is_active ? "Ẩn" : "Bật"}
                         </Button>
@@ -1589,15 +1617,16 @@ export function AdminMarketingView() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog tạo Thông báo Tab Thông tin Hội viên */}
-      <Dialog open={openPayAnnDialog} onOpenChange={setOpenPayAnnDialog}>
+      {/* Dialog tạo / chỉnh sửa Thông báo Tab Thông tin Hội viên */}
+      <Dialog open={openPayAnnDialog} onOpenChange={(open) => { setOpenPayAnnDialog(open); if (!open) setEditingPayAnnId(null); }}>
         <DialogContent className="max-w-lg w-[92vw]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Megaphone className="h-5 w-5 text-indigo-500" /> Tạo thông báo Tab Thông tin Gói
+              <Megaphone className="h-5 w-5 text-indigo-500" />
+              {editingPayAnnId ? "Chỉnh sửa thông báo Tab Thông tin Gói" : "Tạo thông báo Tab Thông tin Gói"}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreatePayAnnouncement} className="space-y-3 text-xs sm:text-sm">
+          <form onSubmit={handleSavePayAnnouncement} className="space-y-3 text-xs sm:text-sm">
             <div>
               <label className="font-semibold block mb-1">Loại thông báo</label>
               <select
@@ -1654,7 +1683,9 @@ export function AdminMarketingView() {
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setOpenPayAnnDialog(false)}>Hủy</Button>
-              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">Đăng thông báo</Button>
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                {editingPayAnnId ? "Lưu thay đổi" : "Đăng thông báo"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
