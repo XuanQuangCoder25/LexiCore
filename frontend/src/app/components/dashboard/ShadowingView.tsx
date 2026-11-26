@@ -1,12 +1,17 @@
 import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import YouTube, { YouTubeEvent, YouTubePlayer } from "react-youtube";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
-  Play, Pause, RotateCcw, RotateCw, Timer, Repeat, Mic, MicOff, BookOpen, Loader2, PlusCircle, Sparkles, Notebook, Save, Captions, CaptionsOff, Volume2, X, MoveLeft, Lightbulb, AlertTriangle, AlertCircle, Trash2, Clock, Video as VideoIcon, Crown, Globe, Star, Zap
+  ShadowingVoiceStudio,
+  type PronunciationQuota,
+  type SyllableToken,
+} from "./shadowing/ShadowingVoiceStudio";
+import {
+  Play, Pause, RotateCcw, RotateCw, Timer, Repeat, BookOpen, Loader2, PlusCircle, Check, BrainCircuit, BookMarked, Notebook, Save, Captions, CaptionsOff, Volume2, X, MoveLeft, Lightbulb, AlertTriangle, AlertCircle, Trash2, Clock, Video as VideoIcon, Crown, Globe, Star, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -38,13 +43,6 @@ interface ShadowingQuota {
   tier: string;
 }
 
-interface PronunciationQuota {
-  usedToday: number;
-  limitToday: number;
-  remaining: number;
-  tier: string;
-}
-
 interface Segment {
   id: string;
   start_time: number;
@@ -52,20 +50,6 @@ interface Segment {
   transcript: string;
   order_index: number;
 }
-
-interface SyllableToken {
-  text: string;
-  status: "correct" | "wrong" | "neutral";
-  ipa?: string;
-}
-
-const getScoreBadgeClass = (score: number) => {
-  // Càng cao càng xanh, giảm dần sang vàng (warning) rồi đỏ (alert)
-  if (score >= 80) return "bg-emerald-600 text-white hover:bg-emerald-600 border-transparent shadow-sm";
-  if (score >= 65) return "bg-amber-500 text-white hover:bg-amber-500 border-transparent shadow-sm";
-  if (score >= 50) return "bg-orange-500 text-white hover:bg-orange-500 border-transparent shadow-sm";
-  return "bg-rose-600 text-white hover:bg-rose-600 border-transparent shadow-sm";
-};
 
 const TIER_DISPLAY_STYLES: Record<string, {
   pillClass: string;
@@ -147,12 +131,33 @@ export function ShadowingView() {
 
   // Recording State
   const [isRecording, setIsRecording] = useState(false);
+  const [activeStream, setActiveStream] = useState<MediaStream | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const recordedAudioUrlRef = useRef<string | null>(null);
 
   // AI Feedback State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [feedback, setFeedback] = useState<{ accuracy: number; feedback: SyllableToken[] } | null>(null);
+  const [feedbackKey, setFeedbackKey] = useState(0);
+
+  const stopMicrophoneStream = () => {
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach((track) => track.stop());
+      activeStreamRef.current = null;
+    }
+    setActiveStream(null);
+  };
+
+  const clearRecordedAudio = () => {
+    if (recordedAudioUrlRef.current) {
+      URL.revokeObjectURL(recordedAudioUrlRef.current);
+      recordedAudioUrlRef.current = null;
+    }
+    setRecordedAudioUrl(null);
+  };
 
   // Right Column Tabs State
   const [activeTab, setActiveTab] = useState<"transcript" | "gemini" | "notebook">("transcript");
@@ -164,8 +169,33 @@ export function ShadowingView() {
 
   // Notebook State
   const [noteContent, setNoteContent] = useState("");
+  const noteContentRef = useRef("");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const noteSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [addedVocabMap, setAddedVocabMap] = useState<Record<number, boolean>>({});
+  const addedVocabTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  const clearAddedVocabTimers = () => {
+    Object.values(addedVocabTimersRef.current).forEach((timer) => clearTimeout(timer));
+    addedVocabTimersRef.current = {};
+    setAddedVocabMap({});
+  };
+
+  useEffect(() => {
+    return () => {
+      if (noteSaveTimeoutRef.current) clearTimeout(noteSaveTimeoutRef.current);
+      Object.values(addedVocabTimersRef.current).forEach((timer) => clearTimeout(timer));
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      }
+      stopMicrophoneStream();
+      if (recordedAudioUrlRef.current) {
+        URL.revokeObjectURL(recordedAudioUrlRef.current);
+        recordedAudioUrlRef.current = null;
+      }
+    };
+  }, []);
 
   // Subtitle & Dictionary State
   const [showSubtitles, setShowSubtitles] = useState(true);
@@ -262,7 +292,7 @@ export function ShadowingView() {
             setActiveSegmentIndex(currentIndex);
           }
         }
-      }, 200);
+      }, 120);
     }
     return () => clearInterval(interval);
   }, [isPlaying, segments, activeSegmentIndex, autoPause, loopSegment]);
@@ -401,9 +431,17 @@ export function ShadowingView() {
   };
 
   const handleStartPractice = async (videoId: string) => {
+    if (noteSaveTimeoutRef.current) {
+      clearTimeout(noteSaveTimeoutRef.current);
+      noteSaveTimeoutRef.current = null;
+    }
+    clearAddedVocabTimers();
+    clearRecordedAudio();
+    setCurrentTime(0);
     setCurrentView("practice");
     setFeedback(null);
     setAiSummary(null);
+    noteContentRef.current = "";
     setNoteContent("");
     setActiveTab("transcript");
     setAiError(null);
@@ -464,7 +502,9 @@ export function ShadowingView() {
       const res = await fetch(`/api/shadowing/notes/${videoId}`, { credentials: 'include' });
       const data = await res.json();
       if (data.status === 'success') {
-        setNoteContent(data.data.content);
+        const loaded = data.data.content || "";
+        noteContentRef.current = loaded;
+        setNoteContent(loaded);
       }
     } catch (e) {
       console.error(e);
@@ -472,9 +512,11 @@ export function ShadowingView() {
   };
 
   const handleNoteChange = (text: string) => {
+    noteContentRef.current = text;
     setNoteContent(text);
     if (noteSaveTimeoutRef.current) clearTimeout(noteSaveTimeoutRef.current);
     noteSaveTimeoutRef.current = setTimeout(() => {
+      noteSaveTimeoutRef.current = null;
       saveNotebook(videoIdForSaveRef.current, text);
     }, 1500);
   };
@@ -502,6 +544,20 @@ export function ShadowingView() {
   };
 
   const handleBackToLibrary = () => {
+    if (noteSaveTimeoutRef.current) {
+      clearTimeout(noteSaveTimeoutRef.current);
+      noteSaveTimeoutRef.current = null;
+      saveNotebook(currentVideo?.id || videoIdForSaveRef.current, noteContentRef.current);
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+    }
+    stopMicrophoneStream();
+    clearRecordedAudio();
+    setIsRecording(false);
+    setIsAnalyzing(false);
+    clearAddedVocabTimers();
     setCurrentView("library");
     setCurrentVideo(null);
     setSegments([]);
@@ -548,9 +604,67 @@ export function ShadowingView() {
   const handleSaveSegmentToNotebook = () => {
     if (!contextMenu || !segments[contextMenu.segmentIndex]) return;
     const line = segments[contextMenu.segmentIndex].transcript;
-    const newContent = noteContent ? `${noteContent}\n${line}` : line;
+    const current = noteContentRef.current;
+    const newContent = current ? `${current}\n${line}` : line;
     handleNoteChange(newContent);
     setContextMenu(null);
+  };
+
+  const markVocabCheckTemporary = (index: number) => {
+    if (addedVocabTimersRef.current[index]) {
+      clearTimeout(addedVocabTimersRef.current[index]);
+    }
+    setAddedVocabMap((prev) => ({ ...prev, [index]: true }));
+    addedVocabTimersRef.current[index] = setTimeout(() => {
+      setAddedVocabMap((prev) => ({ ...prev, [index]: false }));
+      delete addedVocabTimersRef.current[index];
+    }, 2000);
+  };
+
+  const formatVocabNoteEntry = (vocab: {
+    word: string;
+    ipa?: string;
+    partOfSpeech?: string;
+    definition?: string;
+    exampleSentence?: string;
+  }) => {
+    const meta = [vocab.ipa, vocab.partOfSpeech].filter(Boolean).join(" - ");
+    const header = meta ? `${vocab.word} (${meta})` : vocab.word;
+    const body = vocab.definition ? `${header}: ${vocab.definition}` : header;
+    return vocab.exampleSentence ? `${body}\n  "${vocab.exampleSentence}"` : body;
+  };
+
+  const handleAddVocabToNotebook = (
+    vocab: {
+      word: string;
+      ipa?: string;
+      partOfSpeech?: string;
+      definition?: string;
+      exampleSentence?: string;
+    },
+    index: number
+  ) => {
+    const entry = formatVocabNoteEntry(vocab);
+    const current = noteContentRef.current;
+
+    if (current.includes(entry)) {
+      markVocabCheckTemporary(index);
+      toast.info(`Từ "${vocab.word}" đã có trong Sổ tay.`);
+      return;
+    }
+
+    const trimmedEnd = current.trimEnd();
+    const nextContent = trimmedEnd ? `${trimmedEnd}\n\n${entry}` : entry;
+    noteContentRef.current = nextContent;
+    setNoteContent(nextContent);
+
+    if (noteSaveTimeoutRef.current) {
+      clearTimeout(noteSaveTimeoutRef.current);
+      noteSaveTimeoutRef.current = null;
+    }
+    saveNotebook(currentVideo?.id || videoIdForSaveRef.current, nextContent);
+    markVocabCheckTemporary(index);
+    toast.success(`Đã thêm "${vocab.word}" vào Sổ tay.`);
   };
 
   // ─── Dictionary Functions ────────────────────────────────────────────────────
@@ -641,7 +755,13 @@ export function ShadowingView() {
     }
 
     try {
+      stopMicrophoneStream();
+      clearRecordedAudio();
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      activeStreamRef.current = stream;
+      setActiveStream(stream);
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -654,8 +774,12 @@ export function ShadowingView() {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const objectUrl = URL.createObjectURL(audioBlob);
+        recordedAudioUrlRef.current = objectUrl;
+        setRecordedAudioUrl(objectUrl);
+
+        stopMicrophoneStream();
         await sendAudioToAI(audioBlob);
-        stream.getTracks().forEach(track => track.stop()); // Turn off mic
       };
 
       mediaRecorder.start();
@@ -665,6 +789,7 @@ export function ShadowingView() {
       if (playerRef.current) playerRef.current.pauseVideo();
     } catch (err) {
       console.error("Microphone access denied", err);
+      stopMicrophoneStream();
       toast.error("Vui lòng cấp quyền Microphone để luyện nói.");
     }
   };
@@ -694,6 +819,7 @@ export function ShadowingView() {
       const data = await res.json();
       if (res.ok && data.status === 'success') {
         setFeedback(data.data);
+        setFeedbackKey((prev) => prev + 1);
         if (data.data?.quota) {
           setPronunciationQuota(data.data.quota);
         } else {
@@ -854,100 +980,18 @@ export function ShadowingView() {
             </Card>
 
             {/* Voice Analysis Station */}
-            <Card className="shrink-0">
-              <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-lg flex items-center gap-2">
-                      <Mic className="h-5 w-5 text-primary" />
-                      Voice Analysis
-                    </h3>
-                    <p className="text-sm text-muted-foreground">Shadow the speaker and record your voice.</p>
-                    {pronunciationQuota && (
-                      <div className="pt-1 flex items-center gap-2">
-                        <Badge
-                          variant={isPronunciationExhausted ? "destructive" : "secondary"}
-                          className="text-xs font-medium"
-                        >
-                          {pronunciationQuota.limitToday === -1
-                            ? `Không giới hạn lượt hôm nay (Gói ${pronunciationQuota.tier})`
-                            : `Còn ${pronunciationQuota.remaining}/${pronunciationQuota.limitToday} lượt hôm nay`}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    size="lg"
-                    variant={isRecording ? "destructive" : "default"}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={isRecording ? "animate-pulse shadow-lg shadow-destructive/20" : "shadow-lg shadow-primary/20"}
-                    disabled={isAnalyzing || (!isRecording && isPronunciationExhausted)}
-                  >
-                    {isRecording ? <MicOff className="h-5 w-5 mr-2" /> : <Mic className="h-5 w-5 mr-2" />}
-                    {isRecording ? "Stop & Analyze" : "Start Shadowing"}
-                  </Button>
-                </div>
-
-                {isPronunciationExhausted && pronunciationQuota && !isRecording && (
-                  <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 flex items-center gap-2.5 text-xs sm:text-sm">
-                    <Crown className="h-4 w-4 shrink-0 text-amber-500" />
-                    <span>
-                      Bạn đã sử dụng hết {pronunciationQuota.limitToday}/{pronunciationQuota.limitToday} lượt chấm phát âm AI hôm nay của gói {pronunciationQuota.tier}. Hãy nâng cấp gói để tăng giới hạn luyện tập!
-                    </span>
-                  </div>
-                )}
-
-                {isRecording && (
-                  <div className="mt-4 text-sm text-red-600 flex items-center gap-2 bg-red-50 p-3 rounded-md">
-                    <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
-                    Recording your pronunciation...
-                  </div>
-                )}
-                {isAnalyzing && (
-                  <div className="mt-4 text-sm text-blue-600 flex items-center gap-2 bg-blue-50 p-3 rounded-md">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    AI is analyzing your voice...
-                  </div>
-                )}
-
-                {/* AI Pronunciation Feedback */}
-                {feedback && (
-                  <div className="mt-6 border-t pt-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-medium text-sm text-muted-foreground">Feedback Result</span>
-                      <Badge className={`text-xs font-semibold px-2.5 py-0.5 transition-colors ${getScoreBadgeClass(feedback.accuracy)}`}>
-                        Score: {feedback.accuracy}%
-                      </Badge>
-                    </div>
-                    <TooltipProvider delayDuration={100}>
-                      <div className="p-4 rounded-lg bg-muted/30 border leading-8 text-lg font-medium shadow-inner">
-                        {feedback.feedback.map((token, ti) =>
-                          token.status === "wrong" ? (
-                            <Tooltip key={ti}>
-                              <TooltipTrigger asChild>
-                                <span className="text-destructive underline decoration-solid decoration-2 underline-offset-4 decoration-destructive cursor-help mx-1">
-                                  {token.text}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="flex items-center gap-2 max-w-xs" side="top">
-                                <div>
-                                  <p className="text-xs text-muted-foreground">Correct IPA</p>
-                                  <p className="font-mono font-bold text-base">{token.ipa}</p>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span key={ti} className="text-emerald-600 dark:text-emerald-400 font-medium mx-1">
-                              {token.text}
-                            </span>
-                          )
-                        )}
-                      </div>
-                    </TooltipProvider>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <ShadowingVoiceStudio
+              isRecording={isRecording}
+              isAnalyzing={isAnalyzing}
+              isExhausted={isPronunciationExhausted}
+              pronunciationQuota={pronunciationQuota}
+              mediaStream={activeStream}
+              feedback={feedback}
+              feedbackKey={feedbackKey}
+              recordedAudioUrl={recordedAudioUrl}
+              onStartRecording={startRecording}
+              onStopRecording={stopRecording}
+            />
           </div>
 
           {/* RIGHT COLUMN (40%): Data Zone */}
@@ -956,152 +1000,223 @@ export function ShadowingView() {
             <div className="flex items-center border-b bg-muted/10 shrink-0">
               <button
                 onClick={() => setActiveTab("transcript")}
-                className={`flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors border-b-2 ${activeTab === "transcript" ? "border-primary text-primary bg-background" : "border-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                className={`relative flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === "transcript" ? "text-primary bg-background" : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                   }`}
               >
                 <BookOpen className="h-4 w-4" /> Transcript
+                {activeTab === "transcript" && (
+                  <motion.span
+                    layoutId="shadowing-active-tab-bar"
+                    className="absolute bottom-0 inset-x-0 h-0.5 bg-primary"
+                    transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                  />
+                )}
               </button>
               <button
                 onClick={() => setActiveTab("gemini")}
-                className={`flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors border-b-2 ${activeTab === "gemini" ? "border-primary text-primary bg-background" : "border-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                className={`relative flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === "gemini" ? "text-primary bg-background" : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                   }`}
               >
-                <Sparkles className="h-4 w-4" /> Vocab AI
+                <BrainCircuit className="h-4 w-4" /> Vocab AI
+                {activeTab === "gemini" && (
+                  <motion.span
+                    layoutId="shadowing-active-tab-bar"
+                    className="absolute bottom-0 inset-x-0 h-0.5 bg-primary"
+                    transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                  />
+                )}
               </button>
               <button
                 onClick={() => setActiveTab("notebook")}
-                className={`flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors border-b-2 ${activeTab === "notebook" ? "border-primary text-primary bg-background" : "border-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                className={`relative flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === "notebook" ? "text-primary bg-background" : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                   }`}
               >
                 <Notebook className="h-4 w-4" /> Notebook
+                {activeTab === "notebook" && (
+                  <motion.span
+                    layoutId="shadowing-active-tab-bar"
+                    className="absolute bottom-0 inset-x-0 h-0.5 bg-primary"
+                    transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                  />
+                )}
               </button>
             </div>
 
             {/* Tabs Content */}
             <div className="flex-1 overflow-y-auto p-4 bg-muted/5 relative">
-
-              {/* Transcript Tab */}
-              {activeTab === "transcript" && (
-                <div className="space-y-3">
-                  {segments.map((subtitle, index) => {
-                    const isActive = index === activeSegmentIndex;
-                    return (
-                      <div
-                        key={subtitle.id}
-                        onClick={() => {
-                          setActiveSegmentIndex(index);
-                          if (playerRef.current) playerRef.current.seekTo(subtitle.start_time, true);
-                        }}
-                        onContextMenu={(e) => handleContextMenu(e, index)}
-                        className={`p-3 rounded-lg border transition-all duration-300 cursor-pointer ${isActive
-                          ? 'bg-primary/10 border-primary/50 text-primary font-medium shadow-sm'
-                          : 'bg-background border-border text-muted-foreground hover:bg-muted/50'
-                          }`}
-                      >
-                        <p className="text-sm leading-relaxed">{subtitle.transcript}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Gemini Vocab Tab */}
-              {activeTab === "gemini" && (
-                <div className="space-y-4">
-                  {isLoadingAi ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                      <Loader2 className="h-8 w-8 animate-spin mb-4 text-primary" />
-                      <p className="text-sm">Gemini AI is analyzing the video...</p>
-                      <p className="text-xs opacity-70 mt-1">Extracting context-aware vocabulary</p>
-                    </div>
-                  ) : !aiSummary ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                      <Sparkles className="h-8 w-8 mb-4 opacity-50" />
-                      {aiError ? (
-                        <>
-                          <p className="text-sm text-destructive font-medium mb-2">Phân tích thất bại</p>
-                          <p className="text-xs text-muted-foreground mb-4 max-w-[200px]">{aiError}</p>
-                        </>
-                      ) : (
-                        <p className="text-sm mb-4">Chưa có phân tích AI cho video này.</p>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => currentVideo && fetchAiSummary(currentVideo.id)}
-                        disabled={isLoadingAi}
-                      >
-                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                        {aiError ? 'Thử lại' : 'Phân tích ngay'}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="animate-in fade-in duration-500">
-                      {aiSummary.summaryEn && (
-                        <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20 mb-3 text-sm leading-relaxed text-foreground/90">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1.5">
-                            English Summary
-                          </p>
-                          <p className="italic">"{aiSummary.summaryEn}"</p>
+              <AnimatePresence mode="wait">
+                {activeTab === "transcript" && (
+                  <motion.div
+                    key="tab-transcript"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="space-y-3"
+                  >
+                    {segments.map((subtitle, index) => {
+                      const isActive = index === activeSegmentIndex;
+                      const segDuration = Math.max(0.1, subtitle.end_time - subtitle.start_time);
+                      const sweepPct = isActive
+                        ? Math.min(100, Math.max(0, ((currentTime - subtitle.start_time) / segDuration) * 100))
+                        : 0;
+                      return (
+                        <div
+                          key={subtitle.id}
+                          onClick={() => {
+                            setActiveSegmentIndex(index);
+                            setCurrentTime(subtitle.start_time);
+                            if (playerRef.current) playerRef.current.seekTo(subtitle.start_time, true);
+                          }}
+                          onContextMenu={(e) => handleContextMenu(e, index)}
+                          className={`relative overflow-hidden p-3 rounded-lg border transition-[border-color,background-color,box-shadow,color] duration-150 cursor-pointer ${isActive
+                            ? 'bg-primary/5 border-primary/50 text-primary font-medium shadow-sm'
+                            : 'bg-background border-border text-muted-foreground hover:bg-muted/50'
+                            }`}
+                        >
+                          {isActive && (
+                            <>
+                              <div
+                                className="absolute inset-y-0 left-0 bg-primary/12 pointer-events-none transition-[width] duration-100 ease-linear"
+                                style={{ width: `${sweepPct}%` }}
+                              />
+                              <div
+                                className="absolute bottom-0 left-0 h-0.5 bg-primary pointer-events-none transition-[width] duration-100 ease-linear"
+                                style={{ width: `${sweepPct}%` }}
+                              />
+                            </>
+                          )}
+                          <p className="relative z-10 text-sm leading-relaxed">{subtitle.transcript}</p>
                         </div>
-                      )}
-                      <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 mb-6 text-sm leading-relaxed text-foreground/90">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-1.5">
-                          Tóm tắt tiếng Việt
-                        </p>
-                        <p className="italic">"{aiSummary.summary}"</p>
-                      </div>
-                      <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-primary" /> Top {aiSummary.vocabulary?.length || 10} Context Words
-                      </h4>
-                      <div className="space-y-3">
-                        {aiSummary.vocabulary?.map((v: any, i: number) => (
-                          <div key={i} className="bg-background border rounded-lg p-3 hover:shadow-sm transition-shadow">
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <span className="font-bold text-base text-primary mr-2">{v.word}</span>
-                                <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{v.ipa}</span>
-                                <span className="text-xs italic text-muted-foreground ml-2">({v.partOfSpeech})</span>
-                              </div>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full shrink-0" title="Add to Notebook">
-                                <PlusCircle className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            <p className="text-sm font-medium mb-1">{v.definition}</p>
-                            <p className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2">"{v.exampleSentence}"</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                      );
+                    })}
+                  </motion.div>
+                )}
 
-              {/* Notebook Tab */}
-              {activeTab === "notebook" && (
-                <div className="h-full flex flex-col">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">My Notes</p>
-                    {isSavingNote ? (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Saving...
-                      </span>
+                {activeTab === "gemini" && (
+                  <motion.div
+                    key="tab-gemini"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="space-y-4"
+                  >
+                    {isLoadingAi ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                        <Loader2 className="h-8 w-8 animate-spin mb-4 text-primary" />
+                        <p className="text-sm">Gemini AI is analyzing the video...</p>
+                        <p className="text-xs opacity-70 mt-1">Extracting context-aware vocabulary</p>
+                      </div>
+                    ) : !aiSummary ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                        <BrainCircuit className="h-8 w-8 mb-4 opacity-50" />
+                        {aiError ? (
+                          <>
+                            <p className="text-sm text-destructive font-medium mb-2">Phân tích thất bại</p>
+                            <p className="text-xs text-muted-foreground mb-4 max-w-[200px]">{aiError}</p>
+                          </>
+                        ) : (
+                          <p className="text-sm mb-4">Chưa có phân tích AI cho video này.</p>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => currentVideo && fetchAiSummary(currentVideo.id)}
+                          disabled={isLoadingAi}
+                        >
+                          <BrainCircuit className="h-3.5 w-3.5 mr-1.5" />
+                          {aiError ? 'Thử lại' : 'Phân tích ngay'}
+                        </Button>
+                      </div>
                     ) : (
-                      <span className="text-xs text-green-600 flex items-center gap-1">
-                        <Save className="h-3 w-3" /> Saved
-                      </span>
+                      <div className="animate-in fade-in duration-500">
+                        {aiSummary.summaryEn && (
+                          <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20 mb-3 text-sm leading-relaxed text-foreground/90">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1.5">
+                              English Summary
+                            </p>
+                            <p className="italic">"{aiSummary.summaryEn}"</p>
+                          </div>
+                        )}
+                        <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 mb-6 text-sm leading-relaxed text-foreground/90">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-1.5">
+                            Tóm tắt tiếng Việt
+                          </p>
+                          <p className="italic">"{aiSummary.summary}"</p>
+                        </div>
+                        <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                          <BookMarked className="h-4 w-4 text-primary" /> Top {aiSummary.vocabulary?.length || 10} Context Words
+                        </h4>
+                        <div className="space-y-3">
+                          {aiSummary.vocabulary?.map((v: any, i: number) => {
+                            const isAdded = Boolean(addedVocabMap[i]);
+                            return (
+                              <div key={i} className="bg-background border rounded-lg p-3 hover:shadow-sm transition-shadow">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <span className="font-bold text-base text-primary mr-2">{v.word}</span>
+                                    <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{v.ipa}</span>
+                                    <span className="text-xs italic text-muted-foreground ml-2">({v.partOfSpeech})</span>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleAddVocabToNotebook(v, i)}
+                                    className={`h-7 w-7 rounded-full shrink-0 transition-colors ${
+                                      isAdded
+                                        ? "text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/15 hover:text-emerald-600 dark:text-emerald-400"
+                                        : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                    }`}
+                                    title={isAdded ? "Đã thêm vào Sổ tay" : "Thêm vào Sổ tay"}
+                                    aria-label={isAdded ? "Đã thêm vào Sổ tay" : `Thêm ${v.word} vào Sổ tay`}
+                                  >
+                                    {isAdded ? <Check className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+                                  </Button>
+                                </div>
+                                <p className="text-sm font-medium mb-1">{v.definition}</p>
+                                <p className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2">"{v.exampleSentence}"</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
-                  </div>
-                  <textarea
-                    className="flex-1 w-full bg-background border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none shadow-inner"
-                    placeholder="Type your notes here... (Auto-saves while you type)"
-                    value={noteContent}
-                    onChange={(e) => handleNoteChange(e.target.value)}
-                    spellCheck={false}
-                  />
-                </div>
-              )}
+                  </motion.div>
+                )}
 
+                {activeTab === "notebook" && (
+                  <motion.div
+                    key="tab-notebook"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="h-full flex flex-col"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">My Notes</p>
+                      {isSavingNote ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                        </span>
+                      ) : (
+                        <span className="text-xs text-green-600 flex items-center gap-1">
+                          <Save className="h-3 w-3" /> Saved
+                        </span>
+                      )}
+                    </div>
+                    <textarea
+                      className="flex-1 w-full bg-background border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none shadow-inner"
+                      placeholder="Type your notes here... (Auto-saves while you type)"
+                      value={noteContent}
+                      onChange={(e) => handleNoteChange(e.target.value)}
+                      spellCheck={false}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -1214,7 +1329,7 @@ export function ShadowingView() {
                 {/* AI Contextual Explanation */}
                 {dictAiExplanation ? (
                   <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
-                    <p className="text-xs font-semibold text-primary flex items-center gap-1 mb-1"><Sparkles className="h-3 w-3" /> Gemini giải nghĩa theo ngữ cảnh</p>
+                    <p className="text-xs font-semibold text-primary flex items-center gap-1 mb-1"><BrainCircuit className="h-3 w-3" /> Gemini giải nghĩa theo ngữ cảnh</p>
                     <p className="text-sm">{dictAiExplanation}</p>
                   </div>
                 ) : (
@@ -1223,7 +1338,7 @@ export function ShadowingView() {
                     disabled={dictAiLoading}
                     className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold transition-colors border border-primary/20 disabled:opacity-60"
                   >
-                    {dictAiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    {dictAiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BrainCircuit className="h-3.5 w-3.5" />}
                     {dictAiLoading ? 'Đang hỏi AI...' : 'Hỏi AI giải nghĩa theo ngữ cảnh'}
                   </button>
                 )}
