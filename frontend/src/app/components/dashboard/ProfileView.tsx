@@ -9,14 +9,15 @@ import { Badge } from "../ui/badge";
 import {
   Loader2, Mail, Calendar, User, XCircle, Clock, Upload, GraduationCap, Flame,
   CircleDollarSign, Gem, Trophy, Info, Crown, Medal, Copy, Check, ShieldCheck,
-  BarChart2, ArrowRight, Lock, Swords, Star, Zap, Sparkles, Store
+  BarChart2, ArrowRight, Lock, Swords, Star, Zap, Award
 } from "lucide-react";
 import { getNameGradientClass, getVipAvatarFrameClass } from "../../utils/vipStyling";
-import { arenaService, formatRankName, type UserArenaProfile, type RankTierDetail } from "../../services/arena-service";
+import { arenaService, type UserArenaProfile, type RankTierDetail } from "../../services/arena-service";
 import {
   AnimatedProgressBar,
   ArenaRankBadge3D,
   CountUpNumber,
+  formatEnglishRankName,
   getRankAccentColor,
   renderAchievementIcon,
 } from "./profile/ProfileMotionWidgets";
@@ -285,65 +286,44 @@ export function ProfileView() {
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 to-transparent pointer-events-none" />
       </div>
 
-      {/* ── Avatar, Identity & 3D Rank Header ── */}
-      <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-5 px-4 sm:px-6 -mt-12 md:-mt-16 relative z-10">
-        <div className="flex flex-col md:flex-row items-center md:items-end gap-5 text-center md:text-left">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className={`w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden flex items-center justify-center text-4xl md:text-5xl font-bold shrink-0 relative border-4 border-background ${vipFrameClass || "shadow-lg"}`}
-            style={{
-              boxShadow: vipFrameClass ? undefined : "0 4px 14px rgba(0,0,0,0.08)",
-              backgroundColor: isDark ? "#1f2937" : "#e5e7eb",
-              color: isDark ? "#f3f4f6" : "#374151",
-            }}
-          >
-            {userData?.avatar_url ? (
-              <img src={userData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              userData?.full_name?.charAt(0).toUpperCase() || "U"
-            )}
-          </motion.div>
+      {/* ── Avatar & Header Info ── */}
+      <div className="flex flex-col md:flex-row items-center md:items-end gap-5 px-4 sm:px-6 -mt-12 md:-mt-16 relative z-10 text-center md:text-left">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className={`w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden flex items-center justify-center text-4xl md:text-5xl font-bold shrink-0 relative border-4 border-background ${vipFrameClass || "shadow-lg"}`}
+          style={{
+            boxShadow: vipFrameClass ? undefined : "0 4px 14px rgba(0,0,0,0.08)",
+            backgroundColor: isDark ? "#1f2937" : "#e5e7eb",
+            color: isDark ? "#f3f4f6" : "#374151",
+          }}
+        >
+          {userData?.avatar_url ? (
+            <img src={userData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            userData?.full_name?.charAt(0).toUpperCase() || "U"
+          )}
+        </motion.div>
 
-          <div className="pb-1">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
-              <h1 className={`text-2xl sm:text-3xl font-bold drop-shadow-sm ${getNameGradientClass(userData?.tier)}`}>
-                {userData?.full_name || "Guest"}
-              </h1>
-              {tierBadge && (() => {
-                const TierIcon = tierBadge.Icon;
-                return (
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${tierBadge.className}`}>
-                    <TierIcon className="h-3.5 w-3.5" />
-                    {tierBadge.label}
-                  </span>
-                );
-              })()}
-            </div>
-            <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground text-sm sm:text-base font-medium mt-1">
-              <span>{`ID: ${userData?.id || "Chưa rõ ID"}`}</span>
-              {userData?.id && <CopyButton textToCopy={userData.id} />}
-            </div>
+        <div className="pb-1">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+            <h1 className={`text-2xl sm:text-3xl font-bold drop-shadow-sm ${getNameGradientClass(userData?.tier)}`}>
+              {userData?.full_name || "Guest"}
+            </h1>
+            {tierBadge && (() => {
+              const TierIcon = tierBadge.Icon;
+              return (
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${tierBadge.className}`}>
+                  <TierIcon className="h-3.5 w-3.5" />
+                  {tierBadge.label}
+                </span>
+              );
+            })()}
           </div>
-        </div>
-
-        {/* 3D Arena Rank Quick Showcase */}
-        <div className="flex items-center gap-3.5 bg-card/90 backdrop-blur-sm border rounded-2xl px-4 py-2.5 shadow-sm">
-          <ArenaRankBadge3D
-            rank={arenaRank}
-            accentColor={rankAccentColor}
-            size="sm"
-            onClick={() => navigateAppTab("arena")}
-          />
-          <div className="text-left">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Hạng Arena</p>
-            <p className="text-sm font-bold leading-tight" style={{ color: rankAccentColor }}>
-              {formatRankName(arenaRank)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
-              <CountUpNumber value={Number(arenaProfile?.arena?.rankPoint ?? userData?.rank_point ?? 0)} /> RP
-            </p>
+          <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground text-sm sm:text-base font-medium mt-1">
+            <span>{`ID: ${userData?.id || "Chưa rõ ID"}`}</span>
+            {userData?.id && <CopyButton textToCopy={userData.id} />}
           </div>
         </div>
       </div>
@@ -417,23 +397,11 @@ export function ProfileView() {
             {/* Card 1: Thông tin cá nhân */}
             <Card>
               <CardContent className="pt-6 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-                  <div className="flex items-center gap-2">
-                    <Info className="h-5 w-5 text-violet-500" />
-                    <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-violet-500">
-                      Giới thiệu
-                    </h2>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateAppTab("store")}
-                    className="gap-1.5 rounded-lg text-xs"
-                  >
-                    <Store className="h-3.5 w-3.5" />
-                    Đổi Avatar & Ảnh bìa
-                  </Button>
+                <div className="flex items-center gap-2 border-b pb-3">
+                  <Info className="h-5 w-5 text-violet-500" />
+                  <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-700 to-violet-500">
+                    Giới thiệu
+                  </h2>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 text-sm">
@@ -588,11 +556,11 @@ export function ProfileView() {
                         )}
                       </div>
                       <h3 className="text-xl font-bold" style={{ color: rankAccentColor }}>
-                        {formatRankName(arenaRank)}
+                        {formatEnglishRankName(arenaRank)}
                       </h3>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>
-                          Cao nhất: <strong className="text-foreground">{formatRankName(highestRank)}</strong>
+                          Cao nhất: <strong className="text-foreground">{formatEnglishRankName(highestRank)}</strong>
                         </span>
                         <span>
                           Tổng trận:{" "}
@@ -718,7 +686,7 @@ export function ProfileView() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-amber-500" />
+                      <Award className="h-5 w-5 text-amber-500" />
                       <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-500">
                         Huy hiệu & Thành tựu
                       </h2>

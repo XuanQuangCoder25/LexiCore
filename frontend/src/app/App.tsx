@@ -34,7 +34,8 @@ import { ChatDialog } from "./components/global/ChatDialog";
 import { SocialProvider, useSocial } from "./features/social/SocialContext";
 import { getChatSocket } from "./features/social/chat-socket";
 import { Badge } from "./components/ui/badge";
-import { AlertTriangle, CircleDollarSign, Clock, Flame, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CircleDollarSign, Clock, Flame, Gem, ShieldCheck } from "lucide-react";
+import { AnimatedBalanceNumber } from "./components/dashboard/store/StoreEffects";
 import { MaintenancePage } from "./components/global/MaintenancePage";
 import { tokenStore } from "./services/tokenStore";
 import {
@@ -80,6 +81,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [coins, setCoins] = useState(0);
+  const [diamonds, setDiamonds] = useState(0);
   const [userStreak, setUserStreak] = useState(0);
   const [userRole, setUserRole] = useState<string | null>(() => localStorage.getItem("lexicore_user_role"));
   const [authResolved, setAuthResolved] = useState(false);
@@ -198,6 +200,7 @@ function AppContent() {
       .then((data) => {
         if (!data) return;
         if (data?.coin_balance !== undefined) setCoins(data.coin_balance);
+        if (data?.diamond_balance !== undefined) setDiamonds(Number(data.diamond_balance || 0));
         if (data?.current_streak !== undefined) setUserStreak(Number(data.current_streak || 0));
         if (data?.role) {
           const normalizedRole = data.role.toLowerCase();
@@ -238,6 +241,9 @@ function AppContent() {
     const handleWalletChange = (e: any) => {
       if (e.detail?.coinBalance !== undefined) {
         setCoins(Number(e.detail.coinBalance));
+      }
+      if (e.detail?.diamondBalance !== undefined) {
+        setDiamonds(Number(e.detail.diamondBalance));
       }
     };
     const handleOpenFriendlyInvite = () => {
@@ -377,9 +383,28 @@ function AppContent() {
             </div>
             <div className="flex items-center gap-2">
               {/* Coins Balance */}
-              <div className="flex items-center gap-1.5 bg-muted rounded-lg px-3 py-1.5">
-                <CircleDollarSign className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-bold">{coins.toLocaleString()}</span>
+              <div
+                className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/35 rounded-lg px-3 py-1"
+                title="Số dư LexiCoin"
+              >
+                <CircleDollarSign className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <AnimatedBalanceNumber
+                  value={coins}
+                  duration={300}
+                  className="text-sm font-bold text-emerald-700 dark:text-emerald-300"
+                />
+              </div>
+              {/* Diamond Balance */}
+              <div
+                className="flex items-center gap-1.5 bg-fuchsia-500/10 border border-fuchsia-500/35 rounded-lg px-3 py-1"
+                title="Số dư Kim cương"
+              >
+                <Gem className="h-4 w-4 text-fuchsia-500 dark:text-fuchsia-400" />
+                <AnimatedBalanceNumber
+                  value={diamonds}
+                  duration={300}
+                  className="text-sm font-bold text-fuchsia-700 dark:text-fuchsia-300"
+                />
               </div>
               {/* Friends Button */}
               <FriendsButton onClick={() => setFriendsOpen(true)} />

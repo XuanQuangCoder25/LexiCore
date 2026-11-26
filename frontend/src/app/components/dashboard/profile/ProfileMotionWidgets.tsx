@@ -1,7 +1,30 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { formatRankName, getRankBadgeUrl } from "../../../services/arena-service";
+import { getRankBadgeUrl } from "../../../services/arena-service";
 import { Award, BookImage, BookOpen, Crown, Flame, Medal, Mic, PenTool, Swords, Target, Trophy, Users } from "lucide-react";
+
+const ENGLISH_RANK_NAMES: Record<string, string> = {
+  BRONZE: "Bronze",
+  SILVER: "Silver",
+  GOLD: "Gold",
+  PLATINUM_1: "Platinum I",
+  PLATINUM_2: "Platinum II",
+  SAPPHIRE_1: "Sapphire I",
+  SAPPHIRE_2: "Sapphire II",
+  EMERALD_1: "Emerald I",
+  EMERALD_2: "Emerald II",
+  DIAMOND_1: "Diamond I",
+  DIAMOND_2: "Diamond II",
+  MASTER_1: "Master I",
+  MASTER_2: "Master II",
+  MASTER_3: "Master III",
+};
+
+export function formatEnglishRankName(rank?: string): string {
+  if (!rank) return "Bronze";
+  const key = rank.toUpperCase().trim();
+  return ENGLISH_RANK_NAMES[key] || rank;
+}
 
 const RANK_COLOR_MAP: Record<string, string> = {
   BRONZE: "#cd7f32",
@@ -109,7 +132,7 @@ export function ArenaRankBadge3D({
 }) {
   const resolvedRank = rank || "BRONZE";
   const color = getRankAccentColor(resolvedRank, accentColor);
-  const rankLabel = formatRankName(resolvedRank);
+  const rankLabel = formatEnglishRankName(resolvedRank);
 
   const dims =
     size === "lg"
