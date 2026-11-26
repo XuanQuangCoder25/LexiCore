@@ -1,4 +1,4 @@
-﻿/**
+/**
  * httpClient.ts
  *
  * Axios instance dung chung toan app theo Memory Token Pattern:
@@ -12,6 +12,7 @@
  */
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { tokenStore } from "./tokenStore";
+import { emitMaintenanceFrom503 } from "./maintenance";
 
 const REFRESH_URL = "/api/auth/refresh-token";
 const LOGIN_PAGE  = "/login";
@@ -46,10 +47,21 @@ httpClient.interceptors.request.use((config) => {
     return config;
 });
 
-// --- Response interceptor: tu dong refresh khi nhan 401 ---
+// --- Response interceptor: tự động xử lý 503 bảo trì & refresh khi nhận 401 ---
 httpClient.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {
+        if (error.response?.status === 503) {
+            const payload = error.response.data as Record<string, any> | undefined;
+            if (payload?.maintenance) {
+                emitMaintenanceFrom503(payload);
+                const friendlyMsg = "Hệ thống đang tạm bảo trì nâng cấp, vui lòng chờ trong giây lát.";
+                payload.message = friendlyMsg;
+                error.message = friendlyMsg;
+                return Promise.reject(error);
+            }
+        }
+
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
         if (

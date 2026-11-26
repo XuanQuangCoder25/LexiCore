@@ -256,6 +256,12 @@ export function ArenaView({ initialPendingMatch, onClearPendingMatch, initialTab
         <ArenaGameplay
           matchData={activeMatchData}
           onExitMatch={handleExitMatch}
+          onMatchCancelled={() => {
+            setActiveScreen('lobby');
+            setActiveMatchData(null);
+            setGameOverData(null);
+            setIsMatchmakingOpen(false);
+          }}
           onGameOver={handleGameOver}
           onFinishMatch={() => {
             console.log('[Arena] Hết giờ thi đấu');

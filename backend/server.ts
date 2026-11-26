@@ -32,6 +32,7 @@ import communityRoute from './modules/community/community.route';
 import { initSocialSocket } from './modules/social/social-socket';
 import { initArenaSocket } from './modules/arena/arena-socket';
 import { checkMaintenance, getMaintenanceStatus } from './middlewares/checkMaintenance';
+import { registerSocketServer } from './utils/socketRegistry';
 import { createServer } from 'http';
 import { Server as SocketIO } from 'socket.io';
 
@@ -85,6 +86,8 @@ const io = new SocketIO(httpServer, {
         credentials: true
     }
 });
+
+registerSocketServer(io);
 
 app.use(cors(corsOptions));
 app.use(cookieParser());
@@ -168,6 +171,9 @@ const startServer = async () => {
 
         // Khởi tạo Socket.IO namespace /chat (Kết bạn & Nhắn tin realtime)
         initSocialSocket(io);
+
+        // Đồng bộ lại hẹn giờ bảo trì (nếu vừa restart khi đang đếm ngược)
+        void getMaintenanceStatus();
 
         // Khởi tạo Background Task nhắc nhở học tập (quét DB mỗi phút)
         initNotificationCron();

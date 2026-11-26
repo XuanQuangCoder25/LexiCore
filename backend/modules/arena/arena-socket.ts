@@ -27,6 +27,8 @@ import {
     getTierLimit,
     getVNDateKey,
 } from '../../utils/tierLimits';
+import { getMaintenanceStatus } from '../../middlewares/checkMaintenance';
+import { registerMaintenanceAbortHandler } from '../../utils/socketRegistry';
 
 export interface SubmitAnswerPayload {
     roomId: string;
@@ -225,6 +227,7 @@ async function createArenaRoom(
     // Gắn mapping người chơi -> roomId để kiểm tra trạng thái đang trong trận
     await redis.set(`arena:player:${p1Id}`, roomId, 'EX', 600);
     await redis.set(`arena:player:${p2Id}`, roomId, 'EX', 600);
+    activeArenaRoomIds.add(roomId);
 
     // Cho cả 2 socket vào socket room chung của ván đấu
     io.in(`user:${p1Id}`).socketsJoin(`arena:room:${roomId}`);
@@ -268,9 +271,127 @@ async function createArenaRoom(
 
 // ─── Gameplay Real-time Handlers ──────────────────────────────────────
 
-// Quản lý bộ đếm thời gian cho các ván đấu đang diễn ra
+// Quản lý bộ đếm thời gian và phòng đấu đang hoạt động
 const matchTimers = new Map<string, NodeJS.Timeout>();
 const readyTimers = new Map<string, NodeJS.Timeout>();
+const activeArenaRoomIds = new Set<string>();
+
+async function scanRedisKeys(pattern: string): Promise<string[]> {
+    const keys: string[] = [];
+    let cursor = '0';
+    do {
+        const [nextCursor, batch] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+        keys.push(...batch);
+    } while (cursor !== '0');
+    return keys;
+}
+
+/**
+ * Kiểm tra trạng thái bảo trì trước khi cho phép vào hàng đợi hoặc mời đấu giao hữu.
+ */
+async function getArenaMaintenanceBlockMessage(): Promise<string | null> {
+    const status = await getMaintenanceStatus();
+    if (status.phase === 'SCHEDULED') {
+        return 'Hệ thống chuẩn bị bảo trì nâng cấp sau ít phút, tạm ngừng ghép trận mới để đảm bảo quyền lợi của bạn.';
+    }
+    if (status.phase === 'ACTIVE') {
+        return 'Hệ thống đang tạm bảo trì nâng cấp, Đấu trường tạm ngưng hoạt động.';
+    }
+    return null;
+}
+
+/**
+ * Hủy hoàn toàn 1 phòng đấu do bảo trì hệ thống (Match Void):
+ * không lưu lịch sử arena_matches, không cộng/trừ RP/LP, giữ nguyên Win Streak & lượt ngày.
+ */
+async function voidRoomForMaintenance(io: SocketIOServer, roomId: string): Promise<void> {
+    const rTimer = readyTimers.get(roomId);
+    if (rTimer) {
+        clearTimeout(rTimer);
+        readyTimers.delete(roomId);
+    }
+    const mTimer = matchTimers.get(roomId);
+    if (mTimer) {
+        clearTimeout(mTimer);
+        matchTimers.delete(roomId);
+    }
+    activeArenaRoomIds.delete(roomId);
+
+    const roomKey = `arena:room:${roomId}`;
+    const room = await redis.hgetall(roomKey);
+    if (!room || !room['roomId']) return;
+    if (room['status'] === 'FINISHED' || room['status'] === 'CANCELLED') return;
+
+    await redis.hset(roomKey, 'status', 'CANCELLED');
+
+    const p1Id = room['player1Id'];
+    const p2Id = room['player2Id'];
+    if (p1Id) await redis.del(`arena:player:${p1Id}`);
+    if (p2Id) await redis.del(`arena:player:${p2Id}`);
+    await redis.expire(roomKey, 60);
+
+    const cancelPayload = {
+        roomId,
+        reason: 'MAINTENANCE',
+        message: 'Hệ thống bắt đầu bảo trì nâng cấp. Trận đấu được hủy an toàn (không tính kết quả, giữ nguyên điểm Rank và chuỗi thắng).',
+    };
+
+    io.to(`arena:room:${roomId}`).emit('arena:match_cancelled', cancelPayload);
+    if (p1Id) io.to(`user:${p1Id}`).emit('arena:match_cancelled', cancelPayload);
+    if (p2Id) io.to(`user:${p2Id}`).emit('arena:match_cancelled', cancelPayload);
+    console.log(`[Arena Maintenance] Đã hủy an toàn phòng ${roomId} (Match Void).`);
+}
+
+/**
+ * Hủy toàn bộ phòng đấu đang mở, làm sạch hàng đợi & lời mời giao hữu khi bảo trì chính thức bắt đầu.
+ */
+export async function abortAllArenaMatchesForMaintenance(io: SocketIOServer): Promise<void> {
+    try {
+        // 1. Hủy hàng đợi tìm trận Rank & Normal
+        const [rankUsers, normalUsers] = await Promise.all([
+            redis.lrange('arena:queue', 0, -1),
+            redis.lrange('arena:queue:normal', 0, -1),
+        ]);
+        await redis.del('arena:queue', 'arena:queue:normal');
+
+        const queuedIds = new Set<string>([...rankUsers, ...normalUsers]);
+        for (const uid of queuedIds) {
+            await redis.del(`arena:in_queue:${uid}`, `arena:in_queue_normal:${uid}`);
+            io.to(`user:${uid}`).emit('arena:match_cancelled', {
+                reason: 'MAINTENANCE',
+                message: 'Hệ thống bắt đầu bảo trì nâng cấp, tạm dừng tìm trận.',
+            });
+        }
+
+        // 2. Hủy lời mời giao hữu đang chờ
+        const inviteKeys = await scanRedisKeys('arena:friendly_invite:*');
+        for (const invKey of inviteKeys) {
+            const inv = await redis.hgetall(invKey);
+            await redis.del(invKey);
+            if (inv['fromUserId'] && inv['toUserId']) {
+                await redis.del(`arena:friendly_pair:${inv['fromUserId']}:${inv['toUserId']}`);
+                io.to(`user:${inv['fromUserId']}`).emit('arena:friendly_cancelled', { inviteId: inv['inviteId'] });
+                io.to(`user:${inv['toUserId']}`).emit('arena:friendly_cancelled', {
+                    inviteId: inv['inviteId'],
+                    message: 'Hệ thống bắt đầu bảo trì nâng cấp, lời mời thách đấu đã được hủy.',
+                });
+            }
+        }
+
+        // 3. Hủy an toàn mọi phòng đấu đang chờ Ready / Countdown / Playing (Match Void)
+        const roomKeys = await scanRedisKeys('arena:room:*');
+        const allRoomIds = new Set<string>(activeArenaRoomIds);
+        for (const key of roomKeys) {
+            allRoomIds.add(key.replace('arena:room:', ''));
+        }
+        for (const roomId of allRoomIds) {
+            await voidRoomForMaintenance(io, roomId);
+        }
+    } catch (err) {
+        console.error('[Arena Maintenance] Lỗi khi hủy các phòng đấu:', err);
+    }
+}
 
 // Hủy phòng đấu khi người chơi không sẵn sàng, bấm hủy hoặc ngắt kết nối ở bước MATCHED
 async function cancelUnreadyMatch(
@@ -278,6 +399,7 @@ async function cancelUnreadyMatch(
     roomId: string,
     cancelledByUserId?: string
 ): Promise<void> {
+    activeArenaRoomIds.delete(roomId);
     const readyTimer = readyTimers.get(roomId);
     if (readyTimer) {
         clearTimeout(readyTimer);
@@ -657,8 +779,9 @@ export async function finishMatch(
 
     const roomKey = `arena:room:${roomId}`;
     const room = await redis.hgetall(roomKey);
-    if (!room || room['status'] === 'FINISHED') return;
+    if (!room || room['status'] === 'FINISHED' || room['status'] === 'CANCELLED') return;
 
+    activeArenaRoomIds.delete(roomId);
     await redis.hset(roomKey, 'status', 'FINISHED');
 
     const player1Id = room['player1Id'] || '';
@@ -1102,6 +1225,8 @@ async function tryMatchmaking(io: SocketIOServer, queueType: 'RANK' | 'NORMAL' =
 
 // Khởi tạo Socket.IO cho Arena và gắn Middleware xác thực
 export function initArenaSocket(io: SocketIOServer): void {
+    registerMaintenanceAbortHandler(() => abortAllArenaMatchesForMaintenance(io));
+
     // ─── Middleware xác thực Socket.IO (Handshake Auth) ────────
     io.use((socket, next) => {
         try {
@@ -1140,6 +1265,13 @@ export function initArenaSocket(io: SocketIOServer): void {
         // 1. Event: Tìm trận đấu (hỗ trợ chế độ RANK và NORMAL)
         const handleFindMatch = async (payload?: { matchType?: 'RANK' | 'NORMAL' }) => {
             try {
+                const blockMsg = await getArenaMaintenanceBlockMessage();
+                if (blockMsg) {
+                    socket.emit('arena:queue_rejected', { message: blockMsg });
+                    socket.emit('arena:match_error', { message: blockMsg });
+                    return;
+                }
+
                 const userId = user.id;
                 const matchType = payload?.matchType === 'NORMAL' ? 'NORMAL' : 'RANK';
                 const queueKey = matchType === 'NORMAL' ? 'arena:queue:normal' : 'arena:queue';
@@ -1262,6 +1394,12 @@ export function initArenaSocket(io: SocketIOServer): void {
         // A. Gửi lời mời đấu giao hữu (hoặc lời mời đấu lại từ màn Kết quả)
         socket.on('arena:friendly_invite', async ({ targetUserId, isRematch }: { targetUserId?: string; isRematch?: boolean }) => {
             try {
+                const blockMsg = await getArenaMaintenanceBlockMessage();
+                if (blockMsg) {
+                    socket.emit('arena:friendly_error', { message: blockMsg });
+                    return;
+                }
+
                 const fromUserId = user.id;
                 const trimmedTargetId = (targetUserId || '').trim();
 
@@ -1453,6 +1591,12 @@ export function initArenaSocket(io: SocketIOServer): void {
         socket.on('arena:friendly_accept', async ({ inviteId }: { inviteId: string }) => {
             try {
                 if (!inviteId) return;
+                const blockMsg = await getArenaMaintenanceBlockMessage();
+                if (blockMsg) {
+                    socket.emit('arena:friendly_error', { message: blockMsg });
+                    return;
+                }
+
                 const inviteKey = `arena:friendly_invite:${inviteId}`;
                 const invite = await redis.hgetall(inviteKey);
                 if (!invite || !invite['fromUserId'] || !invite['toUserId']) {
@@ -1532,7 +1676,12 @@ export function initArenaSocket(io: SocketIOServer): void {
                 if (roomId) {
                     const room = await redis.hgetall(`arena:room:${roomId}`);
                     if (room && room['roomId'] && (room['status'] === 'PLAYING' || room['status'] === 'COUNTDOWN')) {
-                        await finishMatch(io, roomId, 'SURRENDER', userId);
+                        const status = await getMaintenanceStatus();
+                        if (status.active) {
+                            await voidRoomForMaintenance(io, roomId);
+                        } else {
+                            await finishMatch(io, roomId, 'SURRENDER', userId);
+                        }
                     } else if (room && (room['status'] === 'MATCHED' || room['status'] === 'WAITING_READY')) {
                         await cancelUnreadyMatch(io, roomId, userId);
                     }
@@ -1571,16 +1720,21 @@ export function initArenaSocket(io: SocketIOServer): void {
                         // Tắt tab khi đang ở màn hình chờ Ready -> Hủy phòng, thông báo đối thủ, giải phóng cả 2!
                         await cancelUnreadyMatch(io, activeRoomId, user.id);
                     } else if (room['status'] === 'PLAYING' || room['status'] === 'COUNTDOWN') {
-                        const opponentId = user.id === room['player1Id'] ? room['player2Id'] : room['player1Id'];
-                        if (opponentId) {
-                            io.to(`user:${opponentId}`).emit('arena:opponent_disconnected', {
-                                opponentId: user.id,
-                                message: 'Đối thủ đã ngắt kết nối.',
-                            });
+                        const status = await getMaintenanceStatus();
+                        if (status.active) {
+                            await voidRoomForMaintenance(io, activeRoomId);
+                        } else {
+                            const opponentId = user.id === room['player1Id'] ? room['player2Id'] : room['player1Id'];
+                            if (opponentId) {
+                                io.to(`user:${opponentId}`).emit('arena:opponent_disconnected', {
+                                    opponentId: user.id,
+                                    message: 'Đối thủ đã ngắt kết nối.',
+                                });
+                            }
+                            // Xử lý kết thúc ván đấu coi như người ngắt kết nối đầu hàng
+                            console.log(`[Arena Gameplay] Người chơi ${user.id} ngắt kết nối giữa ván đấu ${activeRoomId}. Xử thua.`);
+                            await finishMatch(io, activeRoomId, 'SURRENDER', user.id);
                         }
-                        // Xử lý kết thúc ván đấu coi như người ngắt kết nối đầu hàng
-                        console.log(`[Arena Gameplay] Người chơi ${user.id} ngắt kết nối giữa ván đấu ${activeRoomId}. Xử thua.`);
-                        await finishMatch(io, activeRoomId, 'SURRENDER', user.id);
                     }
                 }
             } catch (err) {

@@ -2,9 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import axios from 'axios';
 import { tokenStore } from '../services/tokenStore';
+import { MaintenancePage } from './global/MaintenancePage';
 
 const ProtectedRoute = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [maintenanceState, setMaintenanceState] = useState<{
+    title?: string;
+    message?: string;
+    estimatedEnd?: string | null;
+  } | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -17,7 +23,11 @@ const ProtectedRoute = () => {
           });
           setIsAuthenticated(true);
           return;
-        } catch {
+        } catch (err: any) {
+          if (err?.response?.status === 503 && err?.response?.data?.maintenance) {
+            setMaintenanceState(err.response.data);
+            return;
+          }
           // Token trong memory đã hết hạn, thử refresh
         }
       }
@@ -35,7 +45,11 @@ const ProtectedRoute = () => {
           tokenStore.setToken(newToken);
         }
         setIsAuthenticated(true);
-} catch {
+      } catch (err: any) {
+        if (err?.response?.status === 503 && err?.response?.data?.maintenance) {
+          setMaintenanceState(err.response.data);
+          return;
+        }
         // refreshToken cũng hết hạn → yêu cầu đăng nhập lại
         tokenStore.clear();
         setIsAuthenticated(false);
@@ -44,6 +58,16 @@ const ProtectedRoute = () => {
 
     checkAuth();
   }, []);
+
+  if (maintenanceState) {
+    return (
+      <MaintenancePage
+        title={maintenanceState.title}
+        message={maintenanceState.message}
+        estimatedEnd={maintenanceState.estimatedEnd}
+      />
+    );
+  }
 
   if (isAuthenticated === null) {
     return (
@@ -57,4 +81,3 @@ const ProtectedRoute = () => {
 };
 
 export default ProtectedRoute;
-

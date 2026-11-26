@@ -32,9 +32,18 @@ import { MatchedPayload } from "./services/arena-socket.service";
 import { ChatButton } from "./components/global/ChatButton";
 import { ChatDialog } from "./components/global/ChatDialog";
 import { SocialProvider, useSocial } from "./features/social/SocialContext";
+import { getChatSocket } from "./features/social/chat-socket";
 import { Badge } from "./components/ui/badge";
-import { CircleDollarSign, Flame, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CircleDollarSign, Clock, Flame, ShieldCheck } from "lucide-react";
 import { MaintenancePage } from "./components/global/MaintenancePage";
+import { tokenStore } from "./services/tokenStore";
+import {
+  MaintenanceState,
+  SYSTEM_MAINTENANCE_EVENT,
+  formatMaintenanceCountdown,
+  installMaintenanceFetchInterceptor,
+  normalizeMaintenanceState,
+} from "./services/maintenance";
 
 const TAB_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -72,7 +81,8 @@ function AppContent() {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [coins, setCoins] = useState(0);
   const [userStreak, setUserStreak] = useState(0);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(() => localStorage.getItem("lexicore_user_role"));
+  const [authResolved, setAuthResolved] = useState(false);
   const [creatorStatus, setCreatorStatus] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("Guest");
   const [userId, setUserId] = useState<string | undefined>(undefined);
@@ -84,35 +94,85 @@ function AppContent() {
   const [isFriendlyModalOpen, setIsFriendlyModalOpen] = useState<boolean>(false);
   const [targetFriendForInvite, setTargetFriendForInvite] = useState<{ id: string; fullName: string; avatarUrl?: string | null } | null>(null);
   const [friendlyRestoreTick, setFriendlyRestoreTick] = useState<number>(0);
-  const [maintenance, setMaintenance] = useState<{
-    active: boolean;
-    title?: string;
-    message?: string;
-    estimatedEnd?: string | null;
-  }>({ active: false });
+  const [maintenance, setMaintenance] = useState<MaintenanceState>({
+    active: false,
+    scheduled: false,
+    phase: "NONE",
+  });
+  const [countdownNowMs, setCountdownNowMs] = useState<number>(() => Date.now());
 
-  // Kiểm tra tình trạng bảo trì hệ thống
+  // Kiểm tra tình trạng bảo trì hệ thống + bắt 503 toàn cục + lắng nghe Socket real-time
   useEffect(() => {
+    installMaintenanceFetchInterceptor();
+
     const checkSystemStatus = () => {
       fetch("/api/system/status")
         .then((res) => res.json())
         .then((data) => {
           if (data && data.success) {
-            setMaintenance({
-              active: Boolean(data.active),
-              title: data.title,
-              message: data.message,
-              estimatedEnd: data.estimatedEnd,
-            });
+            setMaintenance(normalizeMaintenanceState(data));
           }
         })
         .catch(() => {});
     };
 
+    const handleMaintenanceEvent = (e: Event) => {
+      const detail = (e as CustomEvent<MaintenanceState>).detail;
+      if (detail) {
+        setMaintenance(detail);
+      }
+    };
+
+    window.addEventListener(SYSTEM_MAINTENANCE_EVENT, handleMaintenanceEvent);
     checkSystemStatus();
     const interval = setInterval(checkSystemStatus, 45000);
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener(SYSTEM_MAINTENANCE_EVENT, handleMaintenanceEvent);
+      clearInterval(interval);
+    };
   }, []);
+
+  // Lắng nghe sự kiện Socket real-time từ namespace /chat (luôn mở toàn app, kể cả trên MaintenancePage)
+  useEffect(() => {
+    const socket = getChatSocket(userId);
+    if (!socket.connected) {
+      socket.connect();
+    }
+    const handleSocketMaintenance = (payload: any) => {
+      if (!payload) return;
+      setMaintenance(normalizeMaintenanceState(payload));
+    };
+    socket.on("system:maintenance_updated", handleSocketMaintenance);
+    return () => {
+      socket.off("system:maintenance_updated", handleSocketMaintenance);
+    };
+  }, [userId]);
+
+  // Đếm ngược từng giây khi ở chế độ chuẩn bị bảo trì (SCHEDULED) & đồng bộ chuyển trạng thái đúng giờ
+  useEffect(() => {
+    if (maintenance.phase !== "SCHEDULED" || !maintenance.startsAt) return;
+    setCountdownNowMs(Date.now());
+    const startsAtMs = new Date(maintenance.startsAt).getTime();
+    let syncedAtBoundary = false;
+
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setCountdownNowMs(now);
+      if (now >= startsAtMs && !syncedAtBoundary) {
+        syncedAtBoundary = true;
+        fetch("/api/system/status")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data && data.success) {
+              setMaintenance(normalizeMaintenanceState(data));
+            }
+          })
+          .catch(() => {});
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [maintenance.phase, maintenance.startsAt]);
 
   // Sync tab khi location state hoặc search params thay đổi
   useEffect(() => {
@@ -126,7 +186,11 @@ function AppContent() {
   const { isChatOpen, setIsChatOpen, openChatWithFriend } = useSocial();
 
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
+    const token = tokenStore.getToken();
+    fetch("/api/auth/me", {
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
       .then((res) => {
         if (!res.ok) return null;
         return res.json();
@@ -150,7 +214,8 @@ function AppContent() {
           if (data.tier) localStorage.setItem("lexicore_user_tier", data.tier);
         }
       })
-      .catch(() => { });
+      .catch(() => { })
+      .finally(() => setAuthResolved(true));
   }, []);
 
   // Lắng nghe sự kiện chuyển hướng tab toàn cục (ví dụ từ Chat chuyển sang Community)
@@ -270,14 +335,23 @@ function AppContent() {
     }
   };
 
-  if (maintenance.active && userRole !== "admin") {
-    return (
-      <MaintenancePage
-        title={maintenance.title}
-        message={maintenance.message}
-        estimatedEnd={maintenance.estimatedEnd}
-      />
-    );
+  if (maintenance.active) {
+    if (!authResolved && userRole !== "admin") {
+      return (
+        <div className="min-h-screen bg-[#050b14] flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
+    if (userRole !== "admin") {
+      return (
+        <MaintenancePage
+          title={maintenance.title}
+          message={maintenance.message}
+          estimatedEnd={maintenance.estimatedEnd}
+        />
+      );
+    }
   }
 
   return (
@@ -335,6 +409,24 @@ function AppContent() {
               </Badge>
             </div>
           </header>
+
+          {/* Banner đếm ngược chuẩn bị bảo trì (Phase SCHEDULED) */}
+          {maintenance.phase === "SCHEDULED" && maintenance.startsAt && (
+            <div className="bg-amber-500/15 border-b border-amber-500/30 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 text-xs sm:text-sm text-amber-800 dark:text-amber-200">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span className="font-medium truncate sm:whitespace-normal">
+                  {userRole === "admin"
+                    ? "Đang đếm ngược chuẩn bị bảo trì hệ thống — Tìm trận Arena mới đã tạm khóa."
+                    : "Hệ thống chuẩn bị bảo trì nâng cấp. Vui lòng hoàn tất bài học hoặc trận đấu đang dở (tìm trận Arena mới đã tạm khóa)."}
+                </span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 font-mono font-bold text-amber-900 dark:text-amber-100 shrink-0">
+                <Clock className="h-3.5 w-3.5" />
+                <span>{formatMaintenanceCountdown(maintenance.startsAt, countdownNowMs)}</span>
+              </div>
+            </div>
+          )}
 
           {/* Main Content */}
           <main className="flex-1 overflow-auto p-6">

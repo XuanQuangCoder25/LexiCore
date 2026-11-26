@@ -2,7 +2,13 @@ import { pool } from '../../config/mysql';
 import { v4 as uuidv4 } from 'uuid';
 import { RowDataPacket } from 'mysql2';
 import { AppError } from '../../errors/AppError';
-import { invalidateMaintenanceCache } from '../../middlewares/checkMaintenance';
+import {
+    invalidateMaintenanceCache,
+    clearMaintenanceActivationTimer,
+    scheduleMaintenanceActivation,
+    broadcastCurrentMaintenanceStatus,
+} from '../../middlewares/checkMaintenance';
+import { triggerMaintenanceMatchAbort } from '../../utils/socketRegistry';
 import { sendDirectCustomEmail } from '../email/email.service';
 
 // ============================================================
@@ -403,9 +409,10 @@ export async function adminStartMaintenance(data: {
     message: string;
     estimatedEnd?: string | null;
     sendEmail?: boolean;
+    delayMinutes?: number;
     createdBy?: string;
 }) {
-    const { title, message, estimatedEnd, sendEmail, createdBy } = data;
+    const { title, message, estimatedEnd, sendEmail, delayMinutes = 3, createdBy } = data;
 
     if (!title || title.trim() === '') {
         throw new AppError('Tiêu đề thông báo bảo trì không được để trống', 400);
@@ -414,24 +421,40 @@ export async function adminStartMaintenance(data: {
         throw new AppError('Nội dung bảo trì không được để trống', 400);
     }
 
+    const safeDelay = Number.isFinite(delayMinutes)
+        ? Math.max(0, Math.min(60, Math.round(delayMinutes)))
+        : 3;
+
+    clearMaintenanceActivationTimer();
+
     // Tắt các chế độ bảo trì đang hoạt động trước đó
     await pool.execute(
         `UPDATE system_announcements SET is_maintenance_active = FALSE WHERE type = 'MAINTENANCE'`
     );
 
     const id = uuidv4();
+    const startsAtDate = new Date(Date.now() + safeDelay * 60 * 1000);
     const estDate = estimatedEnd ? new Date(estimatedEnd) : null;
 
     await pool.execute(
         `INSERT INTO system_announcements (
             id, type, title, message, is_maintenance_active,
             estimated_end, starts_at, is_active, created_by
-         ) VALUES (?, 'MAINTENANCE', ?, ?, TRUE, ?, NOW(), TRUE, ?)`,
-        [id, title.trim(), message.trim(), estDate, createdBy || null]
+         ) VALUES (?, 'MAINTENANCE', ?, ?, TRUE, ?, ?, TRUE, ?)`,
+        [id, title.trim(), message.trim(), estDate, startsAtDate, createdBy || null]
     );
 
-    // Xóa cache để middleware checkMaintenance có hiệu lực ngay lập tức
     invalidateMaintenanceCache();
+
+    if (safeDelay === 0) {
+        // Bảo trì khẩn cấp ngay lập tức: hủy an toàn trận Arena đang chạy + phát broadcast khóa app ngay
+        await triggerMaintenanceMatchAbort();
+    } else {
+        // Bảo trì có đếm ngược: hẹn giờ kích hoạt ACTIVE đúng thời điểm startsAtDate
+        scheduleMaintenanceActivation(startsAtDate.getTime());
+    }
+
+    await broadcastCurrentMaintenanceStatus();
 
     // Nếu admin chọn gửi email thông báo diện rộng
     if (sendEmail) {
@@ -448,10 +471,19 @@ export async function adminStartMaintenance(data: {
         });
     }
 
-    return { id, message: 'Đã kích hoạt chế độ bảo trì hệ thống thành công!' };
+    return {
+        id,
+        startsAt: startsAtDate.toISOString(),
+        phase: safeDelay === 0 ? 'ACTIVE' : 'SCHEDULED',
+        message: safeDelay === 0
+            ? 'Đã kích hoạt bảo trì khẩn cấp ngay lập tức!'
+            : `Đã bật chế độ chuẩn bị bảo trì (bắt đầu sau ${safeDelay} phút)!`,
+    };
 }
 
 export async function adminEndMaintenance(announcementId?: string) {
+    clearMaintenanceActivationTimer();
+
     if (announcementId) {
         await pool.execute(
             `UPDATE system_announcements SET is_maintenance_active = FALSE WHERE id = ?`,
@@ -463,7 +495,7 @@ export async function adminEndMaintenance(announcementId?: string) {
         );
     }
 
-    invalidateMaintenanceCache();
+    await broadcastCurrentMaintenanceStatus();
     return { message: 'Đã tắt chế độ bảo trì, hệ thống hoạt động trở lại bình thường!' };
 }
 

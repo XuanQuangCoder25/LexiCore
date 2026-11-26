@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, ShieldAlert } from "lucide-react";
 import { authService } from "../../services/auth-service";
 import { tokenStore } from "../../services/tokenStore";
 import { disconnectChatSocket } from "../social/chat-socket";
+import { MaintenanceState, normalizeMaintenanceState } from "../../services/maintenance";
 import styles from "./AuthCommon.module.css";
 
 export function LoginPage() {
@@ -14,6 +15,21 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [maintenanceNotice, setMaintenanceNotice] = useState<MaintenanceState | null>(null);
+
+  useEffect(() => {
+    fetch("/api/system/status")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success) {
+          const normalized = normalizeMaintenanceState(data);
+          if (normalized.active || normalized.scheduled) {
+            setMaintenanceNotice(normalized);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -50,7 +66,7 @@ export function LoginPage() {
     }
   };
 
-const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSubmit();
     }
@@ -79,6 +95,37 @@ const handleKeyDown = (e: React.KeyboardEvent) => {
           Đăng nhập để tiếp tục lộ trình học từ vựng cùng LexiCore.
         </p>
       </div>
+
+      {/* Maintenance Notice Banner */}
+      {maintenanceNotice && (maintenanceNotice.active || maintenanceNotice.scheduled) && (
+        <div
+          className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900 flex items-start gap-2.5 leading-relaxed"
+          role="status"
+        >
+          <ShieldAlert className="h-[17px] w-[17px] shrink-0 text-amber-600 mt-0.5" />
+          <div>
+            {maintenanceNotice.active ? (
+              <>
+                <span className="font-semibold">Hệ thống đang tạm bảo trì. </span>
+                <span>Chỉ tài khoản Quản trị viên mới có thể truy cập lúc này.</span>
+                {maintenanceNotice.estimatedEnd && (
+                  <span className="block text-xs text-amber-700 mt-0.5">
+                    Dự kiến hoàn tất: {new Date(maintenanceNotice.estimatedEnd).toLocaleString("vi-VN")}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="font-semibold">Hệ thống sắp bảo trì nâng cấp</span>
+                {maintenanceNotice.startsAt && (
+                  <span> lúc {new Date(maintenanceNotice.startsAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</span>
+                )}
+                <span>.</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Error Message */}
       {error && (

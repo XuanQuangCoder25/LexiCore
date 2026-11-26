@@ -15,6 +15,7 @@ import {
   GameOverPayload,
   arenaSocketService,
 } from '../../../services/arena-socket.service';
+import { toast } from 'sonner';
 import { getRankBadgeUrl, formatTopicName } from '../../../services/arena-service';
 import { getNameGradientClass, getVipAvatarFrameClass } from '../../../utils/vipStyling';
 
@@ -30,6 +31,7 @@ interface QuestionItem {
 export interface ArenaGameplayProps {
   matchData: MatchedPayload | null;
   onExitMatch: () => void;
+  onMatchCancelled?: () => void;
   onFinishMatch?: () => void;
   onGameOver?: (gameOverData: GameOverPayload) => void;
 }
@@ -37,6 +39,7 @@ export interface ArenaGameplayProps {
 export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
   matchData,
   onExitMatch,
+  onMatchCancelled,
   onFinishMatch,
   onGameOver,
 }) => {
@@ -282,12 +285,22 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       }, 2200);
     };
 
+    const handleMatchCancelled = (payload?: { roomId?: string; reason?: string; message?: string }) => {
+      if (matchData?.roomId && payload?.roomId && payload.roomId !== matchData.roomId) return;
+      toast.info(
+        payload?.message ||
+          'Trận đấu đã được hủy an toàn (không tính kết quả, giữ nguyên điểm Rank).'
+      );
+      onMatchCancelled?.();
+    };
+
     socket.on('arena:opponent_progress', handleOpponentProgress);
     socket.on('arena:opponent_finished', handleOpponentFinished);
     socket.on('arena:waiting_opponent', handleWaitingOpponent);
     socket.on('arena:opponent_surrendered', handleOpponentSurrendered);
     socket.on('arena:opponent_disconnected', handleOpponentDisconnected);
     socket.on('arena:game_over', handleGameOver);
+    socket.on('arena:match_cancelled', handleMatchCancelled);
 
     return () => {
       socket.off('arena:opponent_progress', handleOpponentProgress);
@@ -296,8 +309,9 @@ export const ArenaGameplay: React.FC<ArenaGameplayProps> = ({
       socket.off('arena:opponent_surrendered', handleOpponentSurrendered);
       socket.off('arena:opponent_disconnected', handleOpponentDisconnected);
       socket.off('arena:game_over', handleGameOver);
+      socket.off('arena:match_cancelled', handleMatchCancelled);
     };
-  }, [onGameOver]);
+  }, [onGameOver, onMatchCancelled, matchData?.roomId]);
 
   // Chỉ kích hoạt giả lập điểm nếu đang ở chế độ Solo Bot Dev Test
   useEffect(() => {

@@ -87,8 +87,14 @@ interface SystemAnnouncement {
   title: string;
   message: string;
   is_maintenance_active: boolean;
+  starts_at: string | null;
   estimated_end: string | null;
   created_at: string;
+}
+
+function toLocalDateTimeInput(date: Date): string {
+  const tzOffsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 16);
 }
 
 interface EmailBlastLog {
@@ -150,7 +156,8 @@ export function AdminMarketingView() {
   const [maintenanceForm, setMaintenanceForm] = useState({
     title: "Hệ thống đang tạm bảo trì nâng cấp",
     message: "Chúng tôi đang tiến hành bảo trì máy chủ để nâng cao trải nghiệm học tập. Dự kiến sẽ hoàn tất trong thời gian sớm nhất.",
-    estimated_end: new Date(Date.now() + 2 * 3600000).toISOString().slice(0, 16),
+    estimated_end: toLocalDateTimeInput(new Date(Date.now() + 2 * 3600000)),
+    delay_minutes: 3,
     send_email: false,
   });
   const [emailBlastForm, setEmailBlastForm] = useState({
@@ -391,6 +398,9 @@ export function AdminMarketingView() {
   // ============================================================
 
   const activeMaintenance = announcements.find((a) => a.is_maintenance_active);
+  const isMaintenanceCountdown = Boolean(
+    activeMaintenance?.starts_at && new Date(activeMaintenance.starts_at).getTime() > Date.now()
+  );
 
   const handleStartMaintenance = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -795,21 +805,31 @@ export function AdminMarketingView() {
 
               {activeMaintenance ? (
                 <Button variant="destructive" onClick={handleEndMaintenance} className="gap-2 shrink-0">
-                  <Power className="h-4 w-4" /> Tắt bảo trì ngay
+                  <Power className="h-4 w-4" /> {isMaintenanceCountdown ? "Hủy lịch bảo trì" : "Tắt bảo trì ngay"}
                 </Button>
               ) : (
                 <Button
                   onClick={() => setOpenMaintenanceDialog(true)}
                   className="gap-2 bg-rose-600 hover:bg-rose-700 text-white shrink-0"
                 >
-                  <AlertTriangle className="h-4 w-4" /> Kích hoạt bảo trì khẩn cấp
+                  <AlertTriangle className="h-4 w-4" /> Kích hoạt bảo trì hệ thống
                 </Button>
               )}
             </div>
 
             {activeMaintenance && (
-              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 space-y-1 text-xs">
-                <p className="font-bold text-sm">Hệ thống đang trong chế độ bảo trì!</p>
+              <div
+                className={`p-4 rounded-xl border space-y-1 text-xs ${
+                  isMaintenanceCountdown
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                <p className="font-bold text-sm">
+                  {isMaintenanceCountdown
+                    ? `Đang đếm ngược chuẩn bị bảo trì (bắt đầu lúc ${new Date(activeMaintenance.starts_at!).toLocaleTimeString("vi-VN")})`
+                    : "Hệ thống đang trong chế độ bảo trì chính thức!"}
+                </p>
                 <p>Tiêu đề: {activeMaintenance.title}</p>
                 <p>Nội dung: {activeMaintenance.message}</p>
                 {activeMaintenance.estimated_end && (
@@ -1226,6 +1246,68 @@ export function AdminMarketingView() {
                 onChange={(e) => setMaintenanceForm({ ...maintenanceForm, message: e.target.value })}
                 required
               />
+            </div>
+
+            <div>
+              <label className="font-semibold block mb-1.5">Chế độ kích hoạt</label>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMaintenanceForm((prev) => ({
+                      ...prev,
+                      delay_minutes: prev.delay_minutes === 0 ? 3 : prev.delay_minutes,
+                    }))
+                  }
+                  className={`px-3 py-2 rounded-lg border text-left transition ${
+                    maintenanceForm.delay_minutes > 0
+                      ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold"
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="text-xs font-bold">Có báo trước (Khuyến nghị)</div>
+                  <div className="text-[11px] opacity-80">Đếm ngược &amp; khóa tìm trận mới</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMaintenanceForm((prev) => ({ ...prev, delay_minutes: 0 }))}
+                  className={`px-3 py-2 rounded-lg border text-left transition ${
+                    maintenanceForm.delay_minutes === 0
+                      ? "border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold"
+                      : "border-border hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="text-xs font-bold">Khẩn cấp ngay lập tức</div>
+                  <div className="text-[11px] opacity-80">Khóa app ngay &amp; hủy trận dở an toàn</div>
+                </button>
+              </div>
+
+              {maintenanceForm.delay_minutes > 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground shrink-0">Thời gian đếm ngược:</span>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[1, 3, 5, 10].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMaintenanceForm((prev) => ({ ...prev, delay_minutes: m }))}
+                        className={`px-2.5 py-1 rounded-md text-xs border transition ${
+                          maintenanceForm.delay_minutes === m
+                            ? "bg-amber-500 text-white border-amber-500 font-semibold"
+                            : "bg-background hover:bg-muted"
+                        }`}
+                      >
+                        {m} phút
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                {maintenanceForm.delay_minutes > 0
+                  ? `Học viên nhận thanh đếm ngược ${maintenanceForm.delay_minutes} phút để hoàn tất bài học / trận Arena đang dở. Khi hết giờ mới khóa màn hình.`
+                  : "Chuyển toàn bộ học viên sang màn hình bảo trì ngay; các trận Arena đang diễn ra sẽ được hủy an toàn (không tính thua/hòa, giữ nguyên Rank & Streak)."}
+              </p>
             </div>
 
             <div>

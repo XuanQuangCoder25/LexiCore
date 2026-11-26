@@ -117,12 +117,13 @@ export const getSystemAnnouncements = async (req: Request, res: Response, next: 
 export const startMaintenance = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).user?.id as string;
-        const { title, message, estimated_end, send_email } = req.body;
+        const { title, message, estimated_end, send_email, delay_minutes } = req.body;
         const result = await adminStartMaintenance({
             title,
             message,
             estimatedEnd: estimated_end || null,
             sendEmail: Boolean(send_email),
+            delayMinutes: delay_minutes !== undefined ? Number(delay_minutes) : 3,
             createdBy: userId,
         });
         res.json({ success: true, ...result });
