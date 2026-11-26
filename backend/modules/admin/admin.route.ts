@@ -32,6 +32,10 @@ import {
     endMaintenance,
     sendEmailBlast,
     getEmailBlastLogs,
+    listPaymentAnnouncementsAdmin,
+    createPaymentAnnouncement,
+    togglePaymentAnnouncement,
+    deletePaymentAnnouncement,
 } from './marketing.controller';
 
 const router = Router();
@@ -84,5 +88,11 @@ router.patch('/maintenance/end', endMaintenance);
 // -- Email Blast ---------------------------------------------------
 router.get('/email-blast/logs', getEmailBlastLogs);
 router.post('/email-blast', sendEmailBlast);
+
+// -- Payment Announcements (Tab Thông tin gói) ---------------------
+router.get('/payment-announcements', listPaymentAnnouncementsAdmin);
+router.post('/payment-announcements', createPaymentAnnouncement);
+router.patch('/payment-announcements/:id/toggle', togglePaymentAnnouncement);
+router.delete('/payment-announcements/:id', deletePaymentAnnouncement);
 
 export default router;

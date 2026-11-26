@@ -19,6 +19,8 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Megaphone,
+  Tag,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -109,8 +111,28 @@ interface EmailBlastLog {
   created_at: string;
 }
 
+type PaymentAnnouncementType = "INFO" | "SALE" | "NEW_FEATURE" | "POLICY";
+
+interface PaymentAnnouncement {
+  id: string;
+  title: string;
+  content: string;
+  type: PaymentAnnouncementType;
+  is_active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+}
+
+const PAYMENT_ANN_TYPE_META: Record<PaymentAnnouncementType, { label: string; badgeClass: string }> = {
+  NEW_FEATURE: { label: "Tính năng mới", badgeClass: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-indigo-500/30" },
+  SALE: { label: "Ưu đãi / Sale", badgeClass: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30" },
+  INFO: { label: "Sự kiện / Tin tức", badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30" },
+  POLICY: { label: "Chính sách", badgeClass: "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30" },
+};
+
 export function AdminMarketingView() {
-  const [activeTab, setActiveTab] = useState<"rewards" | "subscriptions" | "sales" | "maintenance">("rewards");
+  const [activeTab, setActiveTab] = useState<"rewards" | "subscriptions" | "sales" | "maintenance" | "announcements">("rewards");
 
   // Tab 1: Reward Campaigns
   const [rewards, setRewards] = useState<RewardCampaign[]>([]);
@@ -171,6 +193,38 @@ export function AdminMarketingView() {
     action_url: "https://lexicore.site",
   });
   const [sendingBlast, setSendingBlast] = useState(false);
+
+  // Tab 5: Thông báo Tab Thông tin Hội viên (payment_announcements)
+  const [paymentAnnouncements, setPaymentAnnouncements] = useState<PaymentAnnouncement[]>([]);
+  const [loadingPayAnnouncements, setLoadingPayAnnouncements] = useState(false);
+  const [openPayAnnDialog, setOpenPayAnnDialog] = useState(false);
+  const [payAnnForm, setPayAnnForm] = useState({
+    type: "INFO" as PaymentAnnouncementType,
+    title: "",
+    content: "",
+    starts_at: "",
+    ends_at: "",
+  });
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    destructive?: boolean;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
+  const executeConfirmDialog = async () => {
+    if (!confirmDialog || confirmBusy) return;
+    setConfirmBusy(true);
+    try {
+      await confirmDialog.onConfirm();
+      setConfirmDialog(null);
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
 
   // ============================================================
   // Fetch Handlers
@@ -233,12 +287,26 @@ export function AdminMarketingView() {
     }
   }, []);
 
+  const fetchPaymentAnnouncements = useCallback(async () => {
+    setLoadingPayAnnouncements(true);
+    try {
+      const res = await fetch("/api/admin/payment-announcements", { credentials: "include" });
+      const json = await res.json();
+      if (json.success) setPaymentAnnouncements(json.data || []);
+    } catch {
+      toast.error("Không thể tải danh sách thông báo hội viên");
+    } finally {
+      setLoadingPayAnnouncements(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === "rewards") fetchRewards();
     if (activeTab === "subscriptions") fetchSubs();
     if (activeTab === "sales") fetchPackages();
     if (activeTab === "maintenance") fetchMaintenanceAndLogs();
-  }, [activeTab, fetchRewards, fetchSubs, fetchPackages, fetchMaintenanceAndLogs]);
+    if (activeTab === "announcements") fetchPaymentAnnouncements();
+  }, [activeTab, fetchRewards, fetchSubs, fetchPackages, fetchMaintenanceAndLogs, fetchPaymentAnnouncements]);
 
   // ============================================================
   // Action Handlers: Reward Campaigns
@@ -279,21 +347,28 @@ export function AdminMarketingView() {
     }
   };
 
-  const handleDeleteReward = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa chiến dịch quà tặng này?")) return;
-    try {
-      const res = await fetch(`/api/admin/campaigns/reward/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast.success(json.message);
-        fetchRewards();
-      }
-    } catch {
-      toast.error("Không thể xóa chiến dịch quà tặng");
-    }
+  const handleDeleteReward = (id: string) => {
+    setConfirmDialog({
+      title: "Xóa chiến dịch quà tặng?",
+      description: "Chiến dịch quà tặng này sẽ bị xóa vĩnh viễn và không thể khôi phục.",
+      confirmLabel: "Xóa chiến dịch",
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/campaigns/reward/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          const json = await res.json();
+          if (json.success) {
+            toast.success(json.message);
+            fetchRewards();
+          }
+        } catch {
+          toast.error("Không thể xóa chiến dịch quà tặng");
+        }
+      },
+    });
   };
 
   // ============================================================
@@ -335,21 +410,28 @@ export function AdminMarketingView() {
     }
   };
 
-  const handleDeleteSub = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa gói sự kiện này?")) return;
-    try {
-      const res = await fetch(`/api/admin/campaigns/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast.success(json.message);
-        fetchSubs();
-      }
-    } catch {
-      toast.error("Không thể xóa gói sự kiện");
-    }
+  const handleDeleteSub = (id: string) => {
+    setConfirmDialog({
+      title: "Xóa gói hội viên sự kiện?",
+      description: "Gói sự kiện này sẽ bị xóa khỏi hệ thống và ngừng hiển thị với học viên.",
+      confirmLabel: "Xóa gói sự kiện",
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/campaigns/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          const json = await res.json();
+          if (json.success) {
+            toast.success(json.message);
+            fetchSubs();
+          }
+        } catch {
+          toast.error("Không thể xóa gói sự kiện");
+        }
+      },
+    });
   };
 
   // ============================================================
@@ -421,58 +503,143 @@ export function AdminMarketingView() {
     }
   };
 
-  const handleEndMaintenance = async () => {
-    if (!confirm("Xác nhận tắt chế độ bảo trì và mở lại hệ thống cho toàn bộ học viên?")) return;
-    try {
-      const res = await fetch("/api/admin/maintenance/end", {
-        method: "PATCH",
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message);
-      toast.success(json.message || "Đã tắt chế độ bảo trì!");
-      fetchMaintenanceAndLogs();
-    } catch (err: any) {
-      toast.error(err.message || "Không thể tắt bảo trì");
-    }
+  const handleEndMaintenance = () => {
+    setConfirmDialog({
+      title: isMaintenanceCountdown ? "Hủy lịch bảo trì sắp tới?" : "Tắt chế độ bảo trì hệ thống?",
+      description: isMaintenanceCountdown
+        ? "Lịch đếm ngược bảo trì sẽ được hủy và hệ thống tiếp tục hoạt động bình thường (bao gồm ghép trận Arena)."
+        : "Hệ thống sẽ kết thúc bảo trì và mở lại quyền truy cập cho toàn bộ học viên ngay lập tức.",
+      confirmLabel: isMaintenanceCountdown ? "Xác nhận hủy lịch" : "Tắt bảo trì ngay",
+      destructive: !isMaintenanceCountdown,
+      onConfirm: async () => {
+        try {
+          const res = await fetch("/api/admin/maintenance/end", {
+            method: "PATCH",
+            credentials: "include",
+          });
+          const json = await res.json();
+          if (!json.success) throw new Error(json.message);
+          toast.success(json.message || "Đã tắt chế độ bảo trì!");
+          fetchMaintenanceAndLogs();
+        } catch (err: any) {
+          toast.error(err.message || "Không thể tắt bảo trì");
+        }
+      },
+    });
   };
 
-  const handleSendEmailBlast = async (e: React.FormEvent) => {
+  const handleSendEmailBlast = (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailBlastForm.subject || !emailBlastForm.heading || !emailBlastForm.message) {
       toast.error("Vui lòng điền đầy đủ chủ đề, tiêu đề và nội dung email!");
       return;
     }
 
-    if (!confirm(`Xác nhận gửi email diện rộng đến nhóm [${emailBlastForm.target_audience}]?`)) return;
+    setConfirmDialog({
+      title: "Xác nhận gửi email diện rộng?",
+      description: `Hệ thống sẽ gửi email "${emailBlastForm.subject}" đến nhóm đối tượng [${emailBlastForm.target_audience}].`,
+      confirmLabel: "Gửi email ngay",
+      destructive: false,
+      onConfirm: async () => {
+        setSendingBlast(true);
+        try {
+          const res = await fetch("/api/admin/email-blast", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(emailBlastForm),
+          });
+          const json = await res.json();
+          if (!json.success) throw new Error(json.message);
+          toast.success(json.message || "Đã bắt đầu gửi email diện rộng!");
+          setEmailBlastForm({
+            target_audience: "ALL",
+            subject: "",
+            heading: "",
+            message: "",
+            badge_text: "Thông báo",
+            badge_type: "info",
+            action_text: "Truy cập LexiCore",
+            action_url: "https://lexicore.site",
+          });
+          fetchMaintenanceAndLogs();
+        } catch (err: any) {
+          toast.error(err.message || "Không thể gửi email");
+        } finally {
+          setSendingBlast(false);
+        }
+      },
+    });
+  };
 
-    setSendingBlast(true);
+  // ============================================================
+  // Action Handlers: Payment Announcements (Tab Thông tin Hội viên)
+  // ============================================================
+
+  const handleCreatePayAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      const res = await fetch("/api/admin/email-blast", {
+      const res = await fetch("/api/admin/payment-announcements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(emailBlastForm),
+        body: JSON.stringify({
+          type: payAnnForm.type,
+          title: payAnnForm.title,
+          content: payAnnForm.content,
+          starts_at: payAnnForm.starts_at || null,
+          ends_at: payAnnForm.ends_at || null,
+        }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
-      toast.success(json.message || "Đã bắt đầu gửi email diện rộng!");
-      setEmailBlastForm({
-        target_audience: "ALL",
-        subject: "",
-        heading: "",
-        message: "",
-        badge_text: "Thông báo",
-        badge_type: "info",
-        action_text: "Truy cập LexiCore",
-        action_url: "https://lexicore.site",
-      });
-      fetchMaintenanceAndLogs();
+      toast.success(json.message || "Đã đăng thông báo mới!");
+      setOpenPayAnnDialog(false);
+      setPayAnnForm({ type: "INFO", title: "", content: "", starts_at: "", ends_at: "" });
+      fetchPaymentAnnouncements();
     } catch (err: any) {
-      toast.error(err.message || "Không thể gửi email");
-    } finally {
-      setSendingBlast(false);
+      toast.error(err.message || "Không thể tạo thông báo");
     }
+  };
+
+  const handleTogglePayAnnouncement = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/payment-announcements/${id}/toggle`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.message);
+        fetchPaymentAnnouncements();
+      }
+    } catch {
+      toast.error("Không thể cập nhật trạng thái thông báo");
+    }
+  };
+
+  const handleDeletePayAnnouncement = (id: string) => {
+    setConfirmDialog({
+      title: "Xóa thông báo này?",
+      description: "Thông báo sẽ bị xóa vĩnh viễn khỏi Tab Thông tin của người dùng.",
+      confirmLabel: "Xóa thông báo",
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/payment-announcements/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          const json = await res.json();
+          if (json.success) {
+            toast.success(json.message);
+            fetchPaymentAnnouncements();
+          }
+        } catch {
+          toast.error("Không thể xóa thông báo");
+        }
+      },
+    });
   };
 
   return (
@@ -527,6 +694,16 @@ export function AdminMarketingView() {
         >
           <ShieldAlert className="h-4 w-4 text-sky-500" />
           <span>Bảo trì & Gửi Email</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("announcements")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+            activeTab === "announcements" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Megaphone className="h-4 w-4 text-indigo-500" />
+          <span>Thông báo Gói</span>
         </button>
       </div>
 
@@ -988,6 +1165,78 @@ export function AdminMarketingView() {
       )}
 
       {/* ============================================================ */}
+      {/* TAB 5: PAYMENT ANNOUNCEMENTS (Tab Thông tin SubscriptionModal)*/}
+      {/* ============================================================ */}
+      {activeTab === "announcements" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold">Thông báo hiển thị trên Tab &quot;Thông tin và chính sách&quot;</h2>
+              <p className="text-xs text-muted-foreground">
+                Đăng tin sự kiện, ưu đãi Sale, tính năng mới hoặc chính sách gói hội viên. Chỉ các thông báo đang bật mới hiện phía trên Bảng giá.
+              </p>
+            </div>
+            <Button onClick={() => setOpenPayAnnDialog(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0">
+              <Plus className="h-4 w-4" /> Tạo thông báo mới
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {loadingPayAnnouncements ? (
+              <div className="col-span-full py-12 text-center text-sm text-muted-foreground">Đang tải dữ liệu...</div>
+            ) : paymentAnnouncements.length === 0 ? (
+              <div className="col-span-full py-12 text-center text-sm text-muted-foreground border rounded-2xl border-dashed">
+                Chưa có thông báo nào. Bấm &quot;Tạo thông báo mới&quot; để đăng tin cho học viên.
+              </div>
+            ) : (
+              paymentAnnouncements.map((ann) => {
+                const meta = PAYMENT_ANN_TYPE_META[ann.type] || PAYMENT_ANN_TYPE_META.INFO;
+                return (
+                  <div key={ann.id} className={`p-5 rounded-2xl border bg-card shadow-sm flex flex-col justify-between gap-3 ${!ann.is_active ? "opacity-60" : ""}`}>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className={`text-[11px] font-semibold ${meta.badgeClass}`}>
+                          {meta.label}
+                        </Badge>
+                        <span className="text-[11px] text-muted-foreground">
+                          {new Date(ann.created_at).toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-base text-foreground">{ann.title}</h3>
+                      <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{ann.content}</p>
+                      {(ann.starts_at || ann.ends_at) && (
+                        <div className="text-[11px] text-muted-foreground pt-1 flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            {ann.starts_at ? `Từ ${new Date(ann.starts_at).toLocaleString("vi-VN")}` : "Hiển thị ngay"}
+                            {ann.ends_at ? ` - Đến ${new Date(ann.ends_at).toLocaleString("vi-VN")}` : ""}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t text-xs">
+                      <span className={`font-semibold ${ann.is_active ? "text-emerald-600" : "text-muted-foreground"}`}>
+                        {ann.is_active ? "Đang hiển thị" : "Đang ẩn"}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleTogglePayAnnouncement(ann.id)}>
+                          <Power className="h-3.5 w-3.5 mr-1" /> {ann.is_active ? "Ẩn" : "Bật"}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-rose-500 hover:bg-rose-500/10" onClick={() => handleDeletePayAnnouncement(ann.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
       {/* DIALOGS                                                       */}
       {/* ============================================================ */}
 
@@ -1337,6 +1586,110 @@ export function AdminMarketingView() {
               <Button type="submit" variant="destructive">Xác nhận kích hoạt bảo trì</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog tạo Thông báo Tab Thông tin Hội viên */}
+      <Dialog open={openPayAnnDialog} onOpenChange={setOpenPayAnnDialog}>
+        <DialogContent className="max-w-lg w-[92vw]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-indigo-500" /> Tạo thông báo Tab Thông tin Gói
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreatePayAnnouncement} className="space-y-3 text-xs sm:text-sm">
+            <div>
+              <label className="font-semibold block mb-1">Loại thông báo</label>
+              <select
+                className="w-full h-10 px-3 rounded-lg border bg-background text-foreground text-xs"
+                value={payAnnForm.type}
+                onChange={(e) => setPayAnnForm({ ...payAnnForm, type: e.target.value as PaymentAnnouncementType })}
+              >
+                <option value="INFO">Sự kiện / Tin tức (INFO)</option>
+                <option value="NEW_FEATURE">Tính năng mới (NEW_FEATURE)</option>
+                <option value="SALE">Ưu đãi / Giảm giá (SALE)</option>
+                <option value="POLICY">Cập nhật chính sách (POLICY)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="font-semibold block mb-1">Tiêu đề</label>
+              <Input
+                placeholder="Ví dụ: Mừng Ngày Nhà giáo Việt Nam 20/11"
+                value={payAnnForm.title}
+                onChange={(e) => setPayAnnForm({ ...payAnnForm, title: e.target.value })}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="font-semibold block mb-1">Nội dung chi tiết</label>
+              <Textarea
+                rows={4}
+                placeholder="Ví dụ: Nhân ngày Nhà giáo Việt Nam, LexiCore hân hạnh tặng học viên gói Starter dùng thử miễn phí..."
+                value={payAnnForm.content}
+                onChange={(e) => setPayAnnForm({ ...payAnnForm, content: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold block mb-1">Bắt đầu (Bỏ trống = Ngay)</label>
+                <Input
+                  type="datetime-local"
+                  value={payAnnForm.starts_at}
+                  onChange={(e) => setPayAnnForm({ ...payAnnForm, starts_at: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="font-semibold block mb-1">Kết thúc (Bỏ trống = Vô hạn)</label>
+                <Input
+                  type="datetime-local"
+                  value={payAnnForm.ends_at}
+                  onChange={(e) => setPayAnnForm({ ...payAnnForm, ends_at: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setOpenPayAnnDialog(false)}>Hủy</Button>
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">Đăng thông báo</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog xác nhận thao tác dùng chung (thay thế window.confirm) */}
+      <Dialog open={Boolean(confirmDialog)} onOpenChange={(open) => { if (!open && !confirmBusy) setConfirmDialog(null); }}>
+        <DialogContent className="max-w-md w-[92vw]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className={`h-5 w-5 shrink-0 ${confirmDialog?.destructive ? "text-rose-500" : "text-amber-500"}`} />
+              <span>{confirmDialog?.title}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+            {confirmDialog?.description}
+          </p>
+          <DialogFooter className="pt-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={confirmBusy}
+              onClick={() => setConfirmDialog(null)}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              variant={confirmDialog?.destructive ? "destructive" : "default"}
+              disabled={confirmBusy}
+              onClick={executeConfirmDialog}
+            >
+              {confirmBusy ? "Đang xử lý..." : (confirmDialog?.confirmLabel || "Xác nhận")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

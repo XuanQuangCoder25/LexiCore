@@ -658,3 +658,105 @@ export async function adminSendEmailBlast(data: {
         message: `Đã bắt đầu gửi email diện rộng đến ${totalRecipients} người dùng. Tiến độ sẽ được cập nhật trong bảng lịch sử.`,
     };
 }
+
+// ============================================================
+// 5. Thông báo Tab Thông tin Hội viên (payment_announcements)
+// ============================================================
+
+export type PaymentAnnouncementType = 'INFO' | 'SALE' | 'NEW_FEATURE' | 'POLICY';
+
+export interface AdminPaymentAnnouncement {
+    id: string;
+    title: string;
+    content: string;
+    type: PaymentAnnouncementType;
+    is_active: boolean;
+    starts_at: string | null;
+    ends_at: string | null;
+    created_at: string;
+}
+
+const VALID_ANNOUNCEMENT_TYPES: PaymentAnnouncementType[] = ['INFO', 'SALE', 'NEW_FEATURE', 'POLICY'];
+
+export async function adminGetPaymentAnnouncements(): Promise<AdminPaymentAnnouncement[]> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT id, title, content, type, is_active, starts_at, ends_at, created_at
+         FROM payment_announcements
+         ORDER BY created_at DESC
+         LIMIT 30`
+    );
+    return rows.map((r) => ({
+        id: r.id as string,
+        title: r.title as string,
+        content: r.content as string,
+        type: r.type as PaymentAnnouncementType,
+        is_active: Boolean(r.is_active),
+        starts_at: r.starts_at ? new Date(r.starts_at).toISOString() : null,
+        ends_at: r.ends_at ? new Date(r.ends_at).toISOString() : null,
+        created_at: new Date(r.created_at).toISOString(),
+    }));
+}
+
+export async function adminCreatePaymentAnnouncement(data: {
+    title: string;
+    content: string;
+    type: string;
+    startsAt?: string | null;
+    endsAt?: string | null;
+    createdBy?: string;
+}) {
+    const { title, content, type, startsAt, endsAt, createdBy } = data;
+    if (!title || title.trim() === '') {
+        throw new AppError('Tiêu đề thông báo không được để trống', 400);
+    }
+    if (!content || content.trim() === '') {
+        throw new AppError('Nội dung thông báo không được để trống', 400);
+    }
+
+    const normalizedType = (type || 'INFO').toUpperCase() as PaymentAnnouncementType;
+    if (!VALID_ANNOUNCEMENT_TYPES.includes(normalizedType)) {
+        throw new AppError('Loại thông báo không hợp lệ (INFO, SALE, NEW_FEATURE, POLICY)', 400);
+    }
+
+    const startDate = startsAt ? new Date(startsAt) : null;
+    const endDate = endsAt ? new Date(endsAt) : null;
+    if (startDate && endDate && endDate <= startDate) {
+        throw new AppError('Thời gian kết thúc phải sau thời gian bắt đầu', 400);
+    }
+
+    const id = uuidv4();
+    await pool.execute(
+        `INSERT INTO payment_announcements (
+            id, title, content, type, is_active, starts_at, ends_at, created_by
+         ) VALUES (?, ?, ?, ?, TRUE, ?, ?, ?)`,
+        [id, title.trim(), content.trim(), normalizedType, startDate, endDate, createdBy || null]
+    );
+
+    return { id, message: 'Đã đăng thông báo mới lên Tab Thông tin Hội viên!' };
+}
+
+export async function adminTogglePaymentAnnouncement(id: string) {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT is_active FROM payment_announcements WHERE id = ? LIMIT 1`,
+        [id]
+    );
+    if (rows.length === 0) throw new AppError('Thông báo không tồn tại', 404);
+    const nextState = !Boolean(rows[0].is_active);
+    await pool.execute(
+        `UPDATE payment_announcements SET is_active = ? WHERE id = ?`,
+        [nextState ? 1 : 0, id]
+    );
+    return {
+        is_active: nextState,
+        message: nextState ? 'Đã bật hiển thị thông báo' : 'Đã ẩn thông báo',
+    };
+}
+
+export async function adminDeletePaymentAnnouncement(id: string) {
+    const [result] = await pool.execute(
+        `DELETE FROM payment_announcements WHERE id = ?`,
+        [id]
+    ) as any;
+    if (result.affectedRows === 0) throw new AppError('Thông báo không tồn tại', 404);
+    return { message: 'Đã xóa thông báo thành công' };
+}

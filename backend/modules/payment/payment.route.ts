@@ -19,6 +19,7 @@ import {
     getInvoice,
     listActiveRewardCampaigns,
     claimReward,
+    listPaymentAnnouncements,
 } from './payment.controller';
 
 const router = Router();
@@ -26,6 +27,9 @@ const router = Router();
 // --- Public ------------------------------------------------------------------
 // Lấy danh sách gói (hỗ trợ optionalAuth để tự động ẩn gói trial nếu user đã từng dùng)
 router.get('/packages', optionalAuth, listPackages);
+
+// Lấy các thông báo động hiển thị trong Tab Thông tin của SubscriptionModal
+router.get('/announcements', listPaymentAnnouncements);
 
 // Lấy các chiến dịch quà tặng đang diễn ra (public)
 router.get('/reward-campaigns/active', listActiveRewardCampaigns);

@@ -12,10 +12,11 @@ import {
   Zap,
   Star,
   FileText,
-  Sparkles,
   Gift,
   Loader2,
   CircleChevronUp,
+  Megaphone,
+  Tag,
 } from "lucide-react";
 import {
   CreditPackage,
@@ -48,12 +49,88 @@ export interface SubscriptionModalProps {
 }
 export type PremiumModalProps = SubscriptionModalProps;
 
+type PaymentAnnouncementType = "INFO" | "SALE" | "NEW_FEATURE" | "POLICY";
+
+interface PaymentAnnouncementItem {
+  id: string;
+  title: string;
+  content: string;
+  type: PaymentAnnouncementType;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+}
+
+const ANNOUNCEMENT_META: Record<
+  PaymentAnnouncementType,
+  {
+    label: string;
+    cardClass: string;
+    badgeClass: string;
+    icon: typeof Megaphone;
+  }
+> = {
+  NEW_FEATURE: {
+    label: "Tính năng mới",
+    cardClass: "border-indigo-500/30 bg-indigo-500/[0.04]",
+    badgeClass: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-indigo-500/30",
+    icon: Zap,
+  },
+  SALE: {
+    label: "Ưu đãi / Sale",
+    cardClass: "border-rose-500/30 bg-rose-500/[0.04]",
+    badgeClass: "bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30",
+    icon: Tag,
+  },
+  INFO: {
+    label: "Sự kiện / Tin tức",
+    cardClass: "border-emerald-500/30 bg-emerald-500/[0.04]",
+    badgeClass: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
+    icon: Megaphone,
+  },
+  POLICY: {
+    label: "Chính sách",
+    cardClass: "border-border bg-muted/40",
+    badgeClass: "bg-muted text-muted-foreground border-border",
+    icon: FileText,
+  },
+};
+
 // ============================================================
 // Tab Thông tin và chính sách content
 // ============================================================
-function InfoTabContent() {
+function InfoTabContent({ announcements = [] }: { announcements?: PaymentAnnouncementItem[] }) {
   return (
     <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(85vh-160px)] text-foreground">
+      {/* 0. Thông báo & Cập nhật mới từ Admin (chỉ hiện khi có tin active) */}
+      {announcements.length > 0 && (
+        <Section title="Thông báo & Cập nhật mới">
+          <div className="space-y-3">
+            {announcements.map((item) => {
+              const meta = ANNOUNCEMENT_META[item.type] || ANNOUNCEMENT_META.INFO;
+              const IconComp = meta.icon;
+              return (
+                <div key={item.id} className={`rounded-xl border p-3.5 space-y-1.5 ${meta.cardClass}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${meta.badgeClass}`}>
+                      <IconComp className="h-3 w-3 shrink-0" />
+                      {meta.label}
+                    </span>
+                    {item.ends_at && (
+                      <span className="text-[11px] text-muted-foreground">
+                        Đến {new Date(item.ends_at).toLocaleDateString("vi-VN")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold text-foreground">{item.title}</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{item.content}</p>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
       {/* 1. Bảng giá niêm yết chuẩn */}
       <Section title="Bảng giá niêm yết các gói Hội viên">
         <div className="overflow-x-auto">
@@ -285,6 +362,7 @@ export function SubscriptionModal({
 }: SubscriptionModalProps) {
   const [activeTab, setActiveTab] = useState<"subscription" | "info">(initialTab);
   const [packages, setPackages] = useState<GroupedPackages>(MOCK_DATA);
+  const [announcements, setAnnouncements] = useState<PaymentAnnouncementItem[]>([]);
   const [selectedSubId, setSelectedSubId] = useState<string>("sub-elite");
   const [subLoadingId, setSubLoadingId] = useState<string | null>(null);
 
@@ -323,6 +401,15 @@ export function SubscriptionModal({
               setSelectedSubId(availableSubs[0].id);
             }
           }
+        }
+      })
+      .catch(() => { });
+
+    fetch("/api/payment/announcements", { credentials: "include" })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setAnnouncements(json.data);
         }
       })
       .catch(() => { });
@@ -476,15 +563,13 @@ export function SubscriptionModal({
                     ? "bg-muted text-muted-foreground border border-border cursor-not-allowed hover:bg-muted"
                     : subAction?.type === "UPGRADE"
                       ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
-                      : selectedSub.campaign_id
-                        ? "bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:from-amber-600 hover:via-rose-600 hover:to-purple-700 text-white shadow-amber-500/25"
-                        : selectedSub.is_trial
-                          ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
-                          : selectedSub.tier === "ELITE"
-                            ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
-                            : selectedSub.tier === "PRO"
-                              ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
-                              : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25";
+                      : selectedSub.tier === "ELITE"
+                        ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/25"
+                        : selectedSub.tier === "PRO"
+                          ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25"
+                          : selectedSub.is_trial && !selectedSub.campaign_id
+                            ? "bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white shadow-blue-400/25"
+                            : "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-emerald-500/25";
 
                   return (
                     <Button
@@ -505,15 +590,15 @@ export function SubscriptionModal({
                         </>
                       ) : (
                         <>
-                          {selectedSub.campaign_id && <Sparkles className="h-4 w-4 mr-1.5" />}
+                          {selectedSub.campaign_id && <Gift className="h-4 w-4 mr-1.5" />}
                           {!selectedSub.campaign_id && selectedSub.is_trial && <Gift className="h-4 w-4 mr-1.5" />}
-                          {!selectedSub.is_trial && selectedSub.tier === "ELITE" && (
+                          {!selectedSub.campaign_id && !selectedSub.is_trial && selectedSub.tier === "ELITE" && (
                             <Crown className="h-4 w-4 mr-1.5" />
                           )}
-                          {!selectedSub.is_trial && selectedSub.tier === "PRO" && (
+                          {!selectedSub.campaign_id && !selectedSub.is_trial && selectedSub.tier === "PRO" && (
                             <Zap className="h-4 w-4 mr-1.5" />
                           )}
-                          {!selectedSub.is_trial && selectedSub.tier === "STARTER" && (
+                          {!selectedSub.campaign_id && !selectedSub.is_trial && selectedSub.tier === "STARTER" && (
                             <Star className="h-4 w-4 mr-1.5" />
                           )}
                           {subAction?.buttonText || (
@@ -533,7 +618,7 @@ export function SubscriptionModal({
           )}
 
           {/* Tab: Thông tin và chính sách */}
-          {activeTab === "info" && <InfoTabContent />}
+          {activeTab === "info" && <InfoTabContent announcements={announcements} />}
         </div>
       </DialogContent>
     </Dialog>

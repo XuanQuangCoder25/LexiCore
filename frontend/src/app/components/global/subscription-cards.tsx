@@ -583,19 +583,13 @@ export function SubscriptionFlipCard({
       });
     }, 180);
   };
-  const isTrial = pkg.is_trial || pkg.tier === "TRIAL";
+  const isCampaign = Boolean(pkg.campaign_id);
+  const isTrial = !isCampaign && (Boolean(pkg.is_trial) || pkg.tier === "TRIAL");
   const isElite = pkg.tier === "ELITE";
   const isPro = pkg.tier === "PRO" && !isTrial;
   const hasSale = useSaleActive(pkg.sale_percent, pkg.sale_ends_at);
   const finalPrice = hasSale ? Math.round(pkg.price_vnd * (1 - pkg.sale_percent / 100)) : pkg.price_vnd;
-  const baseFeatures = TIER_FEATURES_MAP[isTrial ? "TRIAL" : (pkg.tier ?? "")] ?? [];
-  const bonusParts: string[] = [];
-  if (pkg.coin_amount > 0) bonusParts.push(`${pkg.coin_amount.toLocaleString("vi-VN")} Coin`);
-  if (pkg.diamond_amount > 0) bonusParts.push(`${pkg.diamond_amount} Diamond`);
-  const bonusSuffix = pkg.duration_days === 30 || pkg.duration_days === 365 ? "/tháng" : "";
-  const features = bonusParts.length > 0
-    ? [...baseFeatures, { icon: CircleDollarSign, label: `Tặng ${bonusParts.join(" + ")}${bonusSuffix}` }]
-    : baseFeatures;
+  const features = TIER_FEATURES_MAP[isTrial ? "TRIAL" : (pkg.tier ?? "")] ?? [];
 
   const tierColor = isElite ? "text-amber-500" : isPro ? "text-blue-500" : isTrial ? "text-blue-400" : "text-emerald-500";
   const tierBg = isElite
@@ -606,6 +600,16 @@ export function SubscriptionFlipCard({
         ? "bg-blue-400/15 group-hover/card:bg-blue-400/25"
         : "bg-emerald-500/15 group-hover/card:bg-emerald-500/25";
   const tierCheckBg = isElite ? "bg-amber-500" : isPro ? "bg-blue-500" : isTrial ? "bg-blue-400" : "bg-emerald-500";
+  const campaignBadgeClass = isElite
+    ? "bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400"
+    : isPro
+      ? "bg-blue-500/10 border-blue-500/25 text-blue-600 dark:text-blue-400"
+      : "bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400";
+  const campaignGiftIconClass = isElite
+    ? "text-amber-500"
+    : isPro
+      ? "text-blue-500"
+      : "text-emerald-500";
 
   const tierBorderActive = isElite
     ? "border-amber-500 shadow-[0_0_25px_rgba(245,158,11,0.45)] bg-gradient-to-b from-amber-500/[0.06] via-card to-card"
@@ -691,7 +695,7 @@ export function SubscriptionFlipCard({
                 </div>
                 {/* Dòng 2: giá chính */}
                 <div className="flex items-baseline gap-1.5">
-                  {isTrial ? (
+                  {isTrial || isCampaign ? (
                     <>
                       <span className="text-2xl font-extrabold tracking-tight">Miễn phí</span>
                       <span className="text-xs text-muted-foreground font-medium">/{pkg.duration_days ?? 3} ngày</span>
@@ -706,9 +710,9 @@ export function SubscriptionFlipCard({
               </div>
 
               {/* Badge thông tin bổ sung: Chiến dịch sự kiện hoặc Đặc quyền tài khoản */}
-              {pkg.campaign_id ? (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 border border-amber-500/35 text-amber-600 dark:text-amber-400 text-[11px] font-bold tracking-wide mt-2 w-fit shadow-xs">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              {isCampaign ? (
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold tracking-wide mt-2 w-fit ${campaignBadgeClass}`}>
+                  <Gift className={`w-3.5 h-3.5 shrink-0 ${campaignGiftIconClass}`} />
                   <span className="truncate max-w-[190px]">{pkg.name}</span>
                 </div>
               ) : isTrial ? (

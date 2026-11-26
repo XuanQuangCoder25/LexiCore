@@ -892,3 +892,44 @@ export const getInvoiceData = async (userId: string, orderId: string) => {
         },
     };
 };
+
+// ============================================================
+// Payment Announcements (Tab Thông tin trong SubscriptionModal)
+// ============================================================
+
+export type PaymentAnnouncementType = 'INFO' | 'SALE' | 'NEW_FEATURE' | 'POLICY';
+
+export interface PaymentAnnouncementDTO {
+    id: string;
+    title: string;
+    content: string;
+    type: PaymentAnnouncementType;
+    starts_at: string | null;
+    ends_at: string | null;
+    created_at: string;
+}
+
+export const getActivePaymentAnnouncements = async (): Promise<PaymentAnnouncementDTO[]> => {
+    try {
+        const [rows] = await pool.execute<any[]>(
+            `SELECT id, title, content, type, starts_at, ends_at, created_at
+             FROM payment_announcements
+             WHERE is_active = TRUE
+               AND (starts_at IS NULL OR starts_at <= NOW())
+               AND (ends_at IS NULL OR ends_at >= NOW())
+             ORDER BY FIELD(type, 'NEW_FEATURE', 'SALE', 'INFO', 'POLICY'), created_at DESC
+             LIMIT 20`
+        );
+        return (rows || []).map((r) => ({
+            id: r.id,
+            title: r.title,
+            content: r.content,
+            type: r.type as PaymentAnnouncementType,
+            starts_at: r.starts_at ? new Date(r.starts_at).toISOString() : null,
+            ends_at: r.ends_at ? new Date(r.ends_at).toISOString() : null,
+            created_at: new Date(r.created_at).toISOString(),
+        }));
+    } catch {
+        return [];
+    }
+};

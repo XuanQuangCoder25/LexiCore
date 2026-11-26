@@ -11,6 +11,10 @@ import {
     adminEndMaintenance,
     adminSendEmailBlast,
     adminGetEmailBlastLogs,
+    adminGetPaymentAnnouncements,
+    adminCreatePaymentAnnouncement,
+    adminTogglePaymentAnnouncement,
+    adminDeletePaymentAnnouncement,
 } from './marketing.service';
 
 // --- Sale % ---
@@ -181,6 +185,55 @@ export const sendEmailBlast = async (req: Request, res: Response, next: NextFunc
 
         // Trả về 202 Accepted vì email blast chạy ngầm trong tiến trình nền
         res.status(202).json({ success: true, ...result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// --- Payment Announcements (Tab Thông tin SubscriptionModal) ---
+
+export const listPaymentAnnouncementsAdmin = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await adminGetPaymentAnnouncements();
+        res.json({ success: true, data });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const createPaymentAnnouncement = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).user?.id as string;
+        const { title, content, type, starts_at, ends_at } = req.body;
+        const result = await adminCreatePaymentAnnouncement({
+            title,
+            content,
+            type,
+            startsAt: starts_at || null,
+            endsAt: ends_at || null,
+            createdBy: userId,
+        });
+        res.status(201).json({ success: true, ...result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const togglePaymentAnnouncement = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id = req.params.id as string;
+        const result = await adminTogglePaymentAnnouncement(id);
+        res.json({ success: true, ...result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const deletePaymentAnnouncement = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id = req.params.id as string;
+        const result = await adminDeletePaymentAnnouncement(id);
+        res.json({ success: true, ...result });
     } catch (err) {
         next(err);
     }

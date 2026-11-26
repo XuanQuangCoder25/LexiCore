@@ -18,6 +18,7 @@ import {
     claimRewardCampaign,
     getActiveRewardCampaigns,
     getInvoiceData,
+    getActivePaymentAnnouncements,
 } from './payment.service';
 import { getPackageById } from './payment.repository';
 
@@ -28,6 +29,14 @@ export const listPackages = async (req: Request, res: Response, next: NextFuncti
     try {
         const userId = (req as any).user?.id as string | undefined;
         const data = await getPackages(userId);
+        res.json({ success: true, data });
+    } catch (err) { next(err); }
+};
+
+// GET /api/payment/announcements
+export const listPaymentAnnouncements = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await getActivePaymentAnnouncements();
         res.json({ success: true, data });
     } catch (err) { next(err); }
 };
