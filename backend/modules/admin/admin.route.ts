@@ -26,6 +26,7 @@ import {
     listRewardCampaigns,
     createRewardCampaign,
     toggleRewardCampaign,
+    notifyRewardCampaign,
     deleteRewardCampaign,
     getSystemAnnouncements,
     startMaintenance,
@@ -77,6 +78,7 @@ router.patch('/packages/:id/sale', setPackageSale);
 // -- Reward Campaigns Management -----------------------------------
 router.get('/campaigns/reward', listRewardCampaigns);
 router.post('/campaigns/reward', createRewardCampaign);
+router.post('/campaigns/reward/:id/notify', notifyRewardCampaign);
 router.patch('/campaigns/reward/:id/toggle', toggleRewardCampaign);
 router.delete('/campaigns/reward/:id', deleteRewardCampaign);
 

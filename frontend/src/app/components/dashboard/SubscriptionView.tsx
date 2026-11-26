@@ -755,6 +755,7 @@ export function SubscriptionView() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPackageId, setModalPackageId] = useState<string | undefined>(undefined);
   const [modalTab, setModalTab] = useState<"subscription" | "info">("subscription");
+  const [modalInfoSection, setModalInfoSection] = useState<"comparison" | null>(null);
 
   // State cho QRModal (Thanh toán đơn hàng SePay VietQR / Ví LexiCore)
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -1105,6 +1106,7 @@ export function SubscriptionView() {
                   onClick={() => {
                     setModalPackageId(selectedSubId);
                     setModalTab("info");
+                    setModalInfoSection("comparison");
                     setModalOpen(true);
                   }}
                 >
@@ -1118,6 +1120,7 @@ export function SubscriptionView() {
                   onClick={() => {
                     setModalPackageId(selectedSubId);
                     setModalTab("subscription");
+                    setModalInfoSection(null);
                     setModalOpen(true);
                   }}
                 >
@@ -1143,6 +1146,7 @@ export function SubscriptionView() {
                   onOpenComparison={() => {
                     setModalPackageId(pkg.id);
                     setModalTab("info");
+                    setModalInfoSection("comparison");
                     setModalOpen(true);
                   }}
                   widthClass="w-full"
@@ -1304,6 +1308,7 @@ export function SubscriptionView() {
         onClose={handleCloseModal}
         initialPackageId={modalPackageId}
         initialTab={modalTab}
+        initialInfoSection={modalInfoSection}
         hasUsedTrial={membership.hasUsedTrial}
         membership={membership}
         onBuyPackage={(pkg) => handleOpenQRModal(pkg, true)}

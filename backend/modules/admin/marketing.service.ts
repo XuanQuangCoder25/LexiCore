@@ -8,7 +8,7 @@ import {
     scheduleMaintenanceActivation,
     broadcastCurrentMaintenanceStatus,
 } from '../../middlewares/checkMaintenance';
-import { triggerMaintenanceMatchAbort } from '../../utils/socketRegistry';
+import { broadcastSystemEvent, triggerMaintenanceMatchAbort } from '../../utils/socketRegistry';
 import { sendDirectCustomEmail } from '../email/email.service';
 
 // ============================================================
@@ -101,7 +101,7 @@ export async function pushNotificationToAllActiveUsers(params: {
         const batchSize = 200;
         for (let i = 0; i < users.length; i += batchSize) {
             const batch = users.slice(i, i + batchSize);
-            const placeholders = batch.map(() => `(?, ?, ?, ?, FALSE, NOW())`).join(', ');
+            const placeholders = batch.map(() => `(?, ?, ?, ?, ?, FALSE, NOW())`).join(', ');
             const values: any[] = [];
             for (const u of batch) {
                 values.push(uuidv4(), u.id, params.type, params.title, params.body);
@@ -112,6 +112,9 @@ export async function pushNotificationToAllActiveUsers(params: {
                 values
             );
         }
+
+        // Báo cho client đang online làm mới chuông thông báo ngay lập tức
+        broadcastSystemEvent('notifications:refresh', { type: params.type });
     } catch (err) {
         console.error('[Notification Push Error] Không thể đẩy thông báo:', err);
     }
@@ -340,13 +343,48 @@ export async function adminCreateRewardCampaign(data: {
     if (diamondAmount > 0) rewardDetails.push(`${diamondAmount.toLocaleString('vi-VN')} Diamond`);
     if (itemId) rewardDetails.push('Vật phẩm độc quyền');
 
-    pushNotificationToAllActiveUsers({
+    await pushNotificationToAllActiveUsers({
         type: 'reward',
-        title: `Quà tặng sự kiện: ${name}`,
-        body: `Nhân dịp sự kiện "${name}", LexiCore gửi tặng bạn: ${rewardDetails.join(' + ')}. Nhấn để nhận quà ngay!`,
-    }).catch(() => {});
+        title: `Quà tặng sự kiện: ${name.trim()}`,
+        body: `Nhân dịp sự kiện "${name.trim()}", LexiCore gửi tặng bạn: ${rewardDetails.join(' + ')}. Nhấn để nhận quà ngay!`,
+    });
 
-    return { id, message: 'Tạo chiến dịch quà tặng thành công!' };
+    return { id, message: 'Tạo chiến dịch quà tặng và gửi thông báo thành công!' };
+}
+
+export async function adminNotifyRewardCampaign(id: string) {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT rc.id, rc.name, rc.coin_amount, rc.diamond_amount, rc.item_id, rc.is_active, rc.starts_at, rc.ends_at
+         FROM reward_campaigns rc
+         WHERE rc.id = ? LIMIT 1`,
+        [id]
+    );
+    if (rows.length === 0) throw new AppError('Chiến dịch quà tặng không tồn tại', 404);
+
+    const rc = rows[0]!;
+    if (!rc.is_active) {
+        throw new AppError('Chiến dịch đang tạm dừng, hãy kích hoạt lại trước khi gửi thông báo', 400);
+    }
+
+    const now = new Date();
+    if (new Date(rc.ends_at) < now) {
+        throw new AppError('Chiến dịch đã kết thúc, không thể gửi thông báo', 400);
+    }
+
+    const coinAmount = Number(rc.coin_amount || 0);
+    const diamondAmount = Number(rc.diamond_amount || 0);
+    const rewardDetails: string[] = [];
+    if (coinAmount > 0) rewardDetails.push(`${coinAmount.toLocaleString('vi-VN')} Coin`);
+    if (diamondAmount > 0) rewardDetails.push(`${diamondAmount.toLocaleString('vi-VN')} Diamond`);
+    if (rc.item_id) rewardDetails.push('Vật phẩm độc quyền');
+
+    await pushNotificationToAllActiveUsers({
+        type: 'reward',
+        title: `Quà tặng sự kiện: ${rc.name}`,
+        body: `Nhân dịp sự kiện "${rc.name}", LexiCore gửi tặng bạn: ${rewardDetails.join(' + ')}. Nhấn để nhận quà ngay!`,
+    });
+
+    return { message: `Đã gửi thông báo sự kiện "${rc.name}" tới toàn bộ học viên!` };
 }
 
 export async function adminToggleRewardCampaign(id: string) {

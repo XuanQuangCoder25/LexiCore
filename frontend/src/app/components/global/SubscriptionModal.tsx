@@ -17,7 +17,6 @@ import {
   CircleChevronUp,
   Megaphone,
   Tag,
-  Clock,
 } from "lucide-react";
 import {
   CreditPackage,
@@ -38,6 +37,7 @@ export interface SubscriptionModalProps {
   onClose: () => void;
   initialPackageId?: string;
   initialTab?: "subscription" | "info";
+  initialInfoSection?: "comparison" | null;
   hasUsedTrial?: boolean;
   onBuyPackage?: (pkg: CreditPackage) => void;
   onSuccess?: () => void;
@@ -100,7 +100,13 @@ const ANNOUNCEMENT_META: Record<
 // ============================================================
 // Tab Thông tin và chính sách content
 // ============================================================
-function InfoTabContent({ announcements = [] }: { announcements?: PaymentAnnouncementItem[] }) {
+function InfoTabContent({
+  announcements = [],
+  comparisonRef,
+}: {
+  announcements?: PaymentAnnouncementItem[];
+  comparisonRef?: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
     <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(85vh-160px)] text-foreground">
       {/* 0. Thông báo & Cập nhật mới từ Admin (chỉ hiện khi có tin active) */}
@@ -110,6 +116,8 @@ function InfoTabContent({ announcements = [] }: { announcements?: PaymentAnnounc
             {announcements.map((item) => {
               const meta = ANNOUNCEMENT_META[item.type] || ANNOUNCEMENT_META.INFO;
               const IconComp = meta.icon;
+              const startDateLabel = new Date(item.starts_at || item.created_at).toLocaleDateString("vi-VN");
+              const endDateLabel = item.ends_at ? new Date(item.ends_at).toLocaleDateString("vi-VN") : null;
               return (
                 <div key={item.id} className={`rounded-xl border p-3.5 space-y-1.5 ${meta.cardClass}`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -117,17 +125,8 @@ function InfoTabContent({ announcements = [] }: { announcements?: PaymentAnnounc
                       <IconComp className="h-3 w-3 shrink-0" />
                       {meta.label}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <Clock className="h-3 w-3 shrink-0" />
-                      {item.ends_at
-                        ? `Từ ${new Date(item.starts_at || item.created_at).toLocaleDateString("vi-VN")} – Đến ${new Date(item.ends_at).toLocaleDateString("vi-VN")}`
-                        : `Từ ${new Date(item.starts_at || item.created_at).toLocaleString("vi-VN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          })}`}
+                    <span className="text-[11px] text-muted-foreground">
+                      {endDateLabel ? `${startDateLabel} – ${endDateLabel}` : startDateLabel}
                     </span>
                   </div>
                   <p className="text-sm font-bold text-foreground">{item.title}</p>
@@ -200,7 +199,8 @@ function InfoTabContent({ announcements = [] }: { announcements?: PaymentAnnounc
       </Section>
 
       {/* 2. Bảng so sánh đặc quyền chi tiết theo hạng gói */}
-      <Section title="Bảng so sánh đặc quyền theo Hạng gói">
+      <div ref={comparisonRef} className="scroll-mt-4">
+        <Section title="Bảng so sánh đặc quyền theo Hạng gói">
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse text-left">
             <thead>
@@ -276,6 +276,7 @@ function InfoTabContent({ announcements = [] }: { announcements?: PaymentAnnounc
           Gói Dùng thử Pro (3 ngày) được hưởng toàn bộ đặc quyền của hạng Pro. Các hạn mức theo ngày tự động làm mới lúc 00:00 (giờ Việt Nam UTC+7).
         </p>
       </Section>
+      </div>
 
       {/* 3. Quy tắc nâng cấp và gia hạn */}
       <Section title="Quy tắc Gia hạn và Nâng cấp gói">
@@ -363,18 +364,21 @@ export function SubscriptionModal({
   onClose,
   initialPackageId,
   initialTab = "subscription",
+  initialInfoSection = null,
   hasUsedTrial = false,
   onBuyPackage,
   onSuccess,
   membership,
 }: SubscriptionModalProps) {
   const [activeTab, setActiveTab] = useState<"subscription" | "info">(initialTab);
+  const [focusComparison, setFocusComparison] = useState<boolean>(initialInfoSection === "comparison");
   const [packages, setPackages] = useState<GroupedPackages>(MOCK_DATA);
   const [announcements, setAnnouncements] = useState<PaymentAnnouncementItem[]>([]);
   const [selectedSubId, setSelectedSubId] = useState<string>("sub-elite");
   const [subLoadingId, setSubLoadingId] = useState<string | null>(null);
 
   const subScrollRef = useRef<HTMLDivElement>(null);
+  const comparisonRef = useRef<HTMLDivElement>(null);
 
   // Lọc bỏ gói trial chào mừng mặc định nếu user đã từng dùng trial HOẶC đang có gói trả phí
   const displaySubscriptions = useMemo(() => {
@@ -426,11 +430,21 @@ export function SubscriptionModal({
   useEffect(() => {
     if (open) {
       setActiveTab(initialTab);
+      setFocusComparison(initialTab === "info" && initialInfoSection === "comparison");
       if (initialPackageId) {
         setSelectedSubId(initialPackageId);
       }
     }
-  }, [open, initialTab, initialPackageId]);
+  }, [open, initialTab, initialInfoSection, initialPackageId]);
+
+  useEffect(() => {
+    if (!open || activeTab !== "info" || !focusComparison) return;
+    const timer = window.setTimeout(() => {
+      comparisonRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setFocusComparison(false);
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [open, activeTab, focusComparison, announcements.length]);
 
   // Xu ly khi bam mua goi trong modal
   const handleBuyClick = async (pkg: CreditPackage) => {
@@ -548,7 +562,10 @@ export function SubscriptionModal({
                       selected={selectedSubId === pkg.id}
                       onSelect={() => setSelectedSubId(pkg.id)}
                       onBuy={handleBuyClick}
-                      onOpenComparison={() => setActiveTab("info")}
+                      onOpenComparison={() => {
+                        setFocusComparison(true);
+                        setActiveTab("info");
+                      }}
                     />
                   ))}
                 </div>
@@ -626,7 +643,7 @@ export function SubscriptionModal({
           )}
 
           {/* Tab: Thông tin và chính sách */}
-          {activeTab === "info" && <InfoTabContent announcements={announcements} />}
+          {activeTab === "info" && <InfoTabContent announcements={announcements} comparisonRef={comparisonRef} />}
         </div>
       </DialogContent>
     </Dialog>

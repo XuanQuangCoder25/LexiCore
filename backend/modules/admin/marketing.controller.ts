@@ -5,6 +5,7 @@ import {
     adminListRewardCampaigns,
     adminCreateRewardCampaign,
     adminToggleRewardCampaign,
+    adminNotifyRewardCampaign,
     adminDeleteRewardCampaign,
     adminGetSystemAnnouncements,
     adminStartMaintenance,
@@ -92,6 +93,16 @@ export const toggleRewardCampaign = async (req: Request, res: Response, next: Ne
     try {
         const id = req.params.id as string;
         const result = await adminToggleRewardCampaign(id);
+        res.json({ success: true, ...result });
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const notifyRewardCampaign = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const id = req.params.id as string;
+        const result = await adminNotifyRewardCampaign(id);
         res.json({ success: true, ...result });
     } catch (err) {
         next(err);

@@ -1,12 +1,4 @@
-import axios from 'axios';
-
-const api = axios.create({
-  baseURL: '/api/notifications',
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+import httpClient from './httpClient';
 
 export interface UserNotificationSettings {
   user_id: string;
@@ -40,33 +32,33 @@ export interface InAppNotification {
 
 export const notificationService = {
   getSettings: async (): Promise<UserNotificationSettings> => {
-    const res = await api.get('/settings');
+    const res = await httpClient.get('/api/notifications/settings');
     return res.data?.data;
   },
 
   updateSettings: async (
     data: Partial<Omit<UserNotificationSettings, 'user_id'>>
   ): Promise<UserNotificationSettings> => {
-    const res = await api.put('/settings', data);
+    const res = await httpClient.put('/api/notifications/settings', data);
     return res.data?.data;
   },
 
   getNotifications: async (
     limit: number = 20
   ): Promise<{ notifications: InAppNotification[]; unreadCount: number }> => {
-    const res = await api.get('/', { params: { limit } });
+    const res = await httpClient.get('/api/notifications', { params: { limit } });
     return res.data?.data || { notifications: [], unreadCount: 0 };
   },
 
   markAsRead: async (id: string): Promise<void> => {
-    await api.patch(`/${id}/read`);
+    await httpClient.patch(`/api/notifications/${id}/read`);
   },
 
   markAllAsRead: async (): Promise<void> => {
-    await api.patch('/read-all');
+    await httpClient.patch('/api/notifications/read-all');
   },
 
   deleteNotification: async (id: string): Promise<void> => {
-    await api.delete(`/${id}`);
+    await httpClient.delete(`/api/notifications/${id}`);
   },
 };

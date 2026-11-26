@@ -19,6 +19,7 @@ import {
   Tag,
 } from "lucide-react";
 import { notificationService, InAppNotification } from "../../services/notification-service";
+import { getChatSocket } from "../../features/social/chat-socket";
 import { toast } from "sonner";
 import { RewardClaimModal } from "./RewardClaimModal";
 
@@ -48,6 +49,7 @@ export function NotificationPopover() {
   const [isOpen, setIsOpen] = useState(false);
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
+  const [activeCampaignName, setActiveCampaignName] = useState<string | null>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
   const isInitialLoadRef = useRef(true);
   const isUnauthorizedRef = useRef(false);
@@ -88,11 +90,21 @@ export function NotificationPopover() {
     }
   }, []);
 
-  // Lần đầu mount & Polling định kỳ mỗi 10 giây để cập nhật tức thì
+  // Lần đầu mount, lắng nghe Socket /chat real-time & Polling dự phòng mỗi 15 giây
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchNotifications, 15000);
+
+    const chatSocket = getChatSocket();
+    const handleRefreshEvent = () => {
+      fetchNotifications();
+    };
+    chatSocket.on("notifications:refresh", handleRefreshEvent);
+
+    return () => {
+      clearInterval(interval);
+      chatSocket.off("notifications:refresh", handleRefreshEvent);
+    };
   }, [fetchNotifications]);
 
   // Khi mở Popover thì refresh lại dữ liệu
@@ -286,8 +298,8 @@ export function NotificationPopover() {
                         {n.body}
                       </p>
 
-                      {/* Nút hành động theo loại thông báo */}
-                      {n.type === "reward" && (
+                      {/* Nút hành động theo loại thông báo (chỉ hiện nút nhận cho thông báo mời nhận quà, không hiện cho biên lai đã nhận) */}
+                      {n.type === "reward" && !n.title.toLowerCase().includes("thành công") && (
                         <Button
                           size="sm"
                           className="h-6 px-2.5 mt-2 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md shadow-sm"
@@ -295,6 +307,9 @@ export function NotificationPopover() {
                             e.stopPropagation();
                             handleMarkRead(n.id, isRead);
                             setIsOpen(false);
+                            const extractedName = n.title.replace(/^Quà tặng sự kiện:\s*/i, "").trim();
+                            setActiveCampaignId(null);
+                            setActiveCampaignName(extractedName || null);
                             setClaimModalOpen(true);
                           }}
                         >
@@ -348,7 +363,12 @@ export function NotificationPopover() {
     <RewardClaimModal
       open={claimModalOpen}
       campaignId={activeCampaignId}
-      onClose={() => setClaimModalOpen(false)}
+      campaignName={activeCampaignName}
+      onClose={() => {
+        setClaimModalOpen(false);
+        setActiveCampaignId(null);
+        setActiveCampaignName(null);
+      }}
       onSuccess={fetchNotifications}
     />
     </>

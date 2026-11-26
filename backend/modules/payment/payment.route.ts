@@ -31,8 +31,8 @@ router.get('/packages', optionalAuth, listPackages);
 // Lấy các thông báo động hiển thị trong Tab Thông tin của SubscriptionModal
 router.get('/announcements', listPaymentAnnouncements);
 
-// Lấy các chiến dịch quà tặng đang diễn ra (public)
-router.get('/reward-campaigns/active', listActiveRewardCampaigns);
+// Lấy các chiến dịch quà tặng đang diễn ra (hỗ trợ optionalAuth để gắn trạng thái đã nhận)
+router.get('/reward-campaigns/active', optionalAuth, listActiveRewardCampaigns);
 
 // SePay webhook nhận callback biến động số dư từ ngân hàng (server-to-server)
 router.post('/sepay/webhook', sepayWebhook);

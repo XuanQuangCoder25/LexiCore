@@ -21,6 +21,7 @@ import {
     getActivePaymentAnnouncements,
 } from './payment.service';
 import { getPackageById } from './payment.repository';
+import { getUserClaimedRewardCampaignIds } from './campaign.repository';
 
 // --- Packages -----------------------------------------------------------------
 
@@ -259,9 +260,17 @@ export const cancelOrder = async (req: Request, res: Response, next: NextFunctio
 
 // --- Reward Campaigns (Coin / Diamond / Item) ---------------------------------
 // GET /api/payment/reward-campaigns/active
-export const listActiveRewardCampaigns = async (_req: Request, res: Response, next: NextFunction) => {
+export const listActiveRewardCampaigns = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const data = await getActiveRewardCampaigns();
+        const userId = req.user?.id;
+        const campaigns = await getActiveRewardCampaigns();
+        const claimedSet = userId
+            ? new Set(await getUserClaimedRewardCampaignIds(userId))
+            : new Set<string>();
+        const data = campaigns.map((c) => ({
+            ...c,
+            claimed: claimedSet.has(c.id),
+        }));
         res.json({ success: true, data });
     } catch (err) { next(err); }
 };

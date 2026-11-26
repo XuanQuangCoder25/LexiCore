@@ -22,6 +22,7 @@ import {
   Megaphone,
   Tag,
   Pencil,
+  BellRing,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -146,8 +147,8 @@ export function AdminMarketingView() {
     diamond_amount: 5,
     item_id: "",
     fallback_coin: 50,
-    starts_at: new Date().toISOString().slice(0, 16),
-    ends_at: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16),
+    starts_at: toLocalDateTimeInput(new Date()),
+    ends_at: toLocalDateTimeInput(new Date(Date.now() + 7 * 86400000)),
   });
 
   // Tab 2: Subscription Campaigns
@@ -158,8 +159,8 @@ export function AdminMarketingView() {
     name: "",
     tier: "PRO" as "STARTER" | "PRO" | "ELITE",
     duration_days: 7,
-    starts_at: new Date().toISOString().slice(0, 16),
-    ends_at: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16),
+    starts_at: toLocalDateTimeInput(new Date()),
+    ends_at: toLocalDateTimeInput(new Date(Date.now() + 7 * 86400000)),
   });
 
   // Tab 3: Sales
@@ -368,6 +369,28 @@ export function AdminMarketingView() {
           }
         } catch {
           toast.error("Không thể xóa chiến dịch quà tặng");
+        }
+      },
+    });
+  };
+
+  const handleNotifyReward = (reward: RewardCampaign) => {
+    setConfirmDialog({
+      title: "Gửi thông báo chuông nhận quà?",
+      description: `Hệ thống sẽ đẩy thông báo sự kiện "${reward.name}" vào chuông của toàn bộ học viên đang hoạt động (bao gồm cả Production nếu đang dùng chung cơ sở dữ liệu).`,
+      confirmLabel: "Gửi thông báo ngay",
+      destructive: false,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/campaigns/reward/${reward.id}/notify`, {
+            method: "POST",
+            credentials: "include",
+          });
+          const json = await res.json();
+          if (!json.success) throw new Error(json.message);
+          toast.success(json.message || "Đã gửi thông báo sự kiện tới học viên!");
+        } catch (err: any) {
+          toast.error(err.message || "Không thể gửi thông báo chiến dịch");
         }
       },
     });
@@ -818,6 +841,17 @@ export function AdminMarketingView() {
                         <td className="p-3 sm:p-4 text-center font-bold">{r.total_claims}</td>
                         <td className="p-3 sm:p-4 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {r.is_active && r.status !== "EXPIRED" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700"
+                                onClick={() => handleNotifyReward(r)}
+                                title="Gửi thông báo chuông cho học viên"
+                              >
+                                <BellRing className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"

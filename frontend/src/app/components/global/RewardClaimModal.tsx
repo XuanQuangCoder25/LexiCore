@@ -10,10 +10,12 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { toast } from "sonner";
 import { Gift, Coins, Gem, Sparkles, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import httpClient from "../../services/httpClient";
 
 interface RewardClaimModalProps {
   open: boolean;
   campaignId: string | null;
+  campaignName?: string | null;
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -27,11 +29,13 @@ interface ActiveReward {
   item_name?: string | null;
   fallback_coin: number;
   ends_at: string;
+  claimed?: boolean;
 }
 
 export function RewardClaimModal({
   open,
   campaignId,
+  campaignName,
   onClose,
   onSuccess,
 }: RewardClaimModalProps) {
@@ -46,7 +50,7 @@ export function RewardClaimModal({
     fallbackCoin: number;
   } | null>(null);
 
-  // Fetch thông tin chi tiết sự kiện khi mở modal
+  // Fetch thông tin chi tiết sự kiện khi mở modal (dùng httpClient để đính Bearer token & kiểm tra đã claim)
   useEffect(() => {
     if (!open) {
       setClaimedResult(null);
@@ -54,14 +58,20 @@ export function RewardClaimModal({
     }
 
     setLoading(true);
-    fetch("/api/payment/reward-campaigns/active")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success && Array.isArray(json.data)) {
-          // Tìm theo campaignId nếu có, hoặc lấy campaign active đầu tiên
-          const found = campaignId
-            ? json.data.find((c: any) => c.id === campaignId)
-            : json.data[0];
+    httpClient
+      .get("/api/payment/reward-campaigns/active")
+      .then((res) => {
+        const json = res.data;
+        if (json?.success && Array.isArray(json.data)) {
+          const list = json.data as ActiveReward[];
+          const normalizedTarget = campaignName?.trim().toLowerCase();
+          const found =
+            (campaignId ? list.find((c) => c.id === campaignId) : undefined) ||
+            (normalizedTarget
+              ? list.find((c) => c.name.trim().toLowerCase() === normalizedTarget)
+              : undefined) ||
+            list.find((c) => !c.claimed) ||
+            list[0];
           setReward(found || null);
         }
       })
@@ -71,19 +81,16 @@ export function RewardClaimModal({
       .finally(() => {
         setLoading(false);
       });
-  }, [open, campaignId]);
+  }, [open, campaignId, campaignName]);
 
   const handleClaim = async () => {
     if (!reward) return;
     setClaiming(true);
     try {
-      const res = await fetch("/api/payment/reward-campaign/claim", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ campaignId: reward.id }),
+      const res = await httpClient.post("/api/payment/reward-campaign/claim", {
+        campaignId: reward.id,
       });
-      const json = await res.json();
+      const json = res.data;
       if (!json.success) throw new Error(json.message);
 
       // Cập nhật số dư ví trên toàn bộ ứng dụng
@@ -224,28 +231,32 @@ export function RewardClaimModal({
             </div>
 
             <p className="text-[11px] text-muted-foreground text-center">
-              Nhấn nhận quà ngay để cộng tài nguyên vào tài khoản mà không làm gián đoạn bài học của bạn!
+              {reward.claimed
+                ? "Bạn đã nhận phần quà từ sự kiện này rồi. Cảm ơn bạn đã đồng hành cùng LexiCore!"
+                : "Nhấn nhận quà ngay để cộng tài nguyên vào tài khoản mà không làm gián đoạn bài học của bạn!"}
             </p>
 
             <DialogFooter className="pt-2 gap-2 sm:gap-0">
               <Button variant="outline" onClick={onClose} disabled={claiming}>
-                Để sau
+                {reward.claimed ? "Đóng" : "Để sau"}
               </Button>
-              <Button
-                onClick={handleClaim}
-                disabled={claiming}
-                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {claiming ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Đang nhận...
-                  </>
-                ) : (
-                  <>
-                    <Gift className="h-4 w-4" /> Nhận quà ngay
-                  </>
-                )}
-              </Button>
+              {!reward.claimed && (
+                <Button
+                  onClick={handleClaim}
+                  disabled={claiming}
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {claiming ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Đang nhận...
+                    </>
+                  ) : (
+                    <>
+                      <Gift className="h-4 w-4" /> Nhận quà ngay
+                    </>
+                  )}
+                </Button>
+              )}
             </DialogFooter>
           </div>
         )}
